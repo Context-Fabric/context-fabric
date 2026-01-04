@@ -1,3 +1,5 @@
+<img src="assets/fabric_tan_mark_light.svg" alt="Context Fabric" width="80">
+
 # Context-Fabric
 
 A graph-based corpus engine for annotated text with efficient traversal and search.
