@@ -7,7 +7,7 @@ including forward/backward/bidirectional edge traversal and frequency analysis.
 import pytest
 from unittest.mock import MagicMock
 
-from core.edgefeature import EdgeFeature, EdgeFeatures
+from cfabric.core.edgefeature import EdgeFeature, EdgeFeatures
 
 
 class TestEdgeFeatures:

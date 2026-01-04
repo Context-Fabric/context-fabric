@@ -5,8 +5,8 @@
 import types
 import re
 
-from core.search.relations import add_K_Relations, add_F_Relations, add_V_Relations
-from core.search.syntax import reTp, kRe, deContext
+from cfabric.core.search.relations import add_K_Relations, add_F_Relations, add_V_Relations
+from cfabric.core.search.syntax import reTp, kRe, deContext
 
 # SEMANTIC ANALYSIS OF SEARCH TEMPLATE ###
 

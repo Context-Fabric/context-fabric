@@ -2,9 +2,9 @@
 # Search (top-level)
 """
 
-from core.helpers import console, wrapMessages
-from core.search.searchexe import SearchExe
-from core.timestamp import SILENT_D, AUTO, silentConvert
+from cfabric.core.helpers import console, wrapMessages
+from cfabric.core.search.searchexe import SearchExe
+from cfabric.core.timestamp import SILENT_D, AUTO, silentConvert
 
 
 class Search:

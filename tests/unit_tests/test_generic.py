@@ -6,7 +6,7 @@ converting between dict and AttrDict structures.
 
 import pytest
 
-from core.generic import AttrDict, deepdict, deepAttrDict, isIterable
+from cfabric.core.generic import AttrDict, deepdict, deepAttrDict, isIterable
 
 
 class TestAttrDict:

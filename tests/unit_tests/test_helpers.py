@@ -1,6 +1,6 @@
 """Unit tests for core.helpers module.
 
-This module tests utility functions used throughout the Context Fabric codebase.
+This module tests utility functions used throughout the Context-Fabric codebase.
 Tests cover escaping functions, type checking, string manipulation, set operations,
 and data conversion utilities.
 """
@@ -8,7 +8,7 @@ and data conversion utilities.
 import pytest
 from datetime import datetime, timezone
 
-from core.helpers import (
+from cfabric.core.helpers import (
     utcnow,
     versionSort,
     var,

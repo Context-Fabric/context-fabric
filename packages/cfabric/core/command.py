@@ -1,7 +1,7 @@
 import sys
 from textwrap import dedent
 
-from core.helpers import console
+from cfabric.core.helpers import console
 
 
 # (good, tasks, params, flags, defaults) = readArgs("tf-addnlp", HELP, TASKS, PARAMS, FLAGS)

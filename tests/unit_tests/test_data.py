@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import tempfile
 import os
 
-from core.data import Data, DATA_TYPES
+from cfabric.core.data import Data, DATA_TYPES
 
 
 class TestDataInit:

@@ -2,14 +2,14 @@
 # Search execution management
 """
 
-from core.search.relations import basicRelations
-from core.search.syntax import syntax
-from core.search.semantics import semantics
-from core.search.graph import connectedness, displayPlan
-from core.search.spin import spinAtoms, spinEdges
-from core.search.stitch import setStrategy, stitch
-from core.parameters import SEARCH_FAIL_FACTOR, YARN_RATIO, TRY_LIMIT_FROM, TRY_LIMIT_TO
-from core.timestamp import DEEP
+from cfabric.core.search.relations import basicRelations
+from cfabric.core.search.syntax import syntax
+from cfabric.core.search.semantics import semantics
+from cfabric.core.search.graph import connectedness, displayPlan
+from cfabric.core.search.spin import spinAtoms, spinEdges
+from cfabric.core.search.stitch import setStrategy, stitch
+from cfabric.core.parameters import SEARCH_FAIL_FACTOR, YARN_RATIO, TRY_LIMIT_FROM, TRY_LIMIT_TO
+from cfabric.core.timestamp import DEEP
 
 
 PROGRESS = 100

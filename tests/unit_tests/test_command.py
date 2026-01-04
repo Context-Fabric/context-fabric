@@ -12,10 +12,10 @@ class TestReadArgsHelp:
 
     def test_no_args_shows_help(self):
         """No arguments should show help and return early."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd"]):
-            with patch("core.command.console") as mock_console:
+            with patch("cfabric.core.command.console") as mock_console:
                 result = readArgs(
                     "test-cmd",
                     "Test description",
@@ -30,10 +30,10 @@ class TestReadArgsHelp:
 
     def test_help_flag_shows_help(self):
         """--help flag should show help."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "--help"]):
-            with patch("core.command.console") as mock_console:
+            with patch("cfabric.core.command.console") as mock_console:
                 result = readArgs(
                     "test-cmd",
                     "Test description",
@@ -47,10 +47,10 @@ class TestReadArgsHelp:
 
     def test_h_flag_shows_help(self):
         """-h flag should show help."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "-h"]):
-            with patch("core.command.console") as mock_console:
+            with patch("cfabric.core.command.console") as mock_console:
                 result = readArgs(
                     "test-cmd",
                     "Test description",
@@ -67,10 +67,10 @@ class TestReadArgsTasks:
 
     def test_single_task(self):
         """Should parse single task."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "task1"]):
-            with patch("core.command.console"):
+            with patch("cfabric.core.command.console"):
                 (good, tasks, params, flags) = readArgs(
                     "test-cmd",
                     "Test description",
@@ -84,10 +84,10 @@ class TestReadArgsTasks:
 
     def test_multiple_tasks(self):
         """Should parse multiple tasks."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "task1", "task2"]):
-            with patch("core.command.console"):
+            with patch("cfabric.core.command.console"):
                 (good, tasks, params, flags) = readArgs(
                     "test-cmd",
                     "Test description",
@@ -101,10 +101,10 @@ class TestReadArgsTasks:
 
     def test_all_task_expands(self):
         """'all' task should expand to all tasks."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "all"]):
-            with patch("core.command.console"):
+            with patch("cfabric.core.command.console"):
                 (good, tasks, params, flags) = readArgs(
                     "test-cmd",
                     "Test description",
@@ -118,10 +118,10 @@ class TestReadArgsTasks:
 
     def test_all_excludes_notinall(self):
         """'all' should exclude tasks in notInAll set."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "all"]):
-            with patch("core.command.console"):
+            with patch("cfabric.core.command.console"):
                 (good, tasks, params, flags) = readArgs(
                     "test-cmd",
                     "Test description",
@@ -142,10 +142,10 @@ class TestReadArgsParams:
 
     def test_param_with_value(self):
         """Should parse param=value."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "task1", "myParam=myValue"]):
-            with patch("core.command.console"):
+            with patch("cfabric.core.command.console"):
                 (good, tasks, params, flags) = readArgs(
                     "test-cmd",
                     "Test description",
@@ -159,10 +159,10 @@ class TestReadArgsParams:
 
     def test_param_empty_value_uses_default(self):
         """param= without value should use default."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "task1", "myParam="]):
-            with patch("core.command.console"):
+            with patch("cfabric.core.command.console"):
                 (good, tasks, params, flags) = readArgs(
                     "test-cmd",
                     "Test description",
@@ -175,10 +175,10 @@ class TestReadArgsParams:
 
     def test_unspecified_param_uses_default(self):
         """Unspecified params should get default values."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "task1"]):
-            with patch("core.command.console"):
+            with patch("cfabric.core.command.console"):
                 (good, tasks, params, flags) = readArgs(
                     "test-cmd",
                     "Test description",
@@ -196,10 +196,10 @@ class TestReadArgsFlags:
 
     def test_binary_flag_plus(self):
         """Should parse +flag as True for binary flags."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "task1", "+myflag"]):
-            with patch("core.command.console"):
+            with patch("cfabric.core.command.console"):
                 (good, tasks, params, flags) = readArgs(
                     "test-cmd",
                     "Test description",
@@ -213,10 +213,10 @@ class TestReadArgsFlags:
 
     def test_binary_flag_minus(self):
         """Should parse -flag as False for binary flags."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "task1", "-myflag"]):
-            with patch("core.command.console"):
+            with patch("cfabric.core.command.console"):
                 (good, tasks, params, flags) = readArgs(
                     "test-cmd",
                     "Test description",
@@ -230,10 +230,10 @@ class TestReadArgsFlags:
 
     def test_ternary_flag_minus(self):
         """Should parse -flag as -1 for ternary flags."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "task1", "-myflag"]):
-            with patch("core.command.console"):
+            with patch("cfabric.core.command.console"):
                 (good, tasks, params, flags) = readArgs(
                     "test-cmd",
                     "Test description",
@@ -246,10 +246,10 @@ class TestReadArgsFlags:
 
     def test_ternary_flag_plus(self):
         """Should parse +flag as 0 for ternary flags."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "task1", "+myflag"]):
-            with patch("core.command.console"):
+            with patch("cfabric.core.command.console"):
                 (good, tasks, params, flags) = readArgs(
                     "test-cmd",
                     "Test description",
@@ -262,10 +262,10 @@ class TestReadArgsFlags:
 
     def test_ternary_flag_plusplus(self):
         """Should parse ++flag as 1 for ternary flags."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "task1", "++myflag"]):
-            with patch("core.command.console"):
+            with patch("cfabric.core.command.console"):
                 (good, tasks, params, flags) = readArgs(
                     "test-cmd",
                     "Test description",
@@ -278,10 +278,10 @@ class TestReadArgsFlags:
 
     def test_unspecified_flag_uses_default(self):
         """Unspecified flags should get default values."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "task1"]):
-            with patch("core.command.console"):
+            with patch("cfabric.core.command.console"):
                 (good, tasks, params, flags) = readArgs(
                     "test-cmd",
                     "Test description",
@@ -299,10 +299,10 @@ class TestReadArgsErrors:
 
     def test_illegal_argument(self):
         """Illegal arguments should return (False, {}, {}, {})."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "unknown_arg"]):
-            with patch("core.command.console") as mock_console:
+            with patch("cfabric.core.command.console") as mock_console:
                 result = readArgs(
                     "test-cmd",
                     "Test description",
@@ -317,10 +317,10 @@ class TestReadArgsErrors:
 
     def test_illegal_param(self):
         """Unknown param should be illegal."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "task1", "unknown=value"]):
-            with patch("core.command.console"):
+            with patch("cfabric.core.command.console"):
                 result = readArgs(
                     "test-cmd",
                     "Test description",
@@ -337,10 +337,10 @@ class TestReadArgsCombined:
 
     def test_tasks_params_flags_combined(self):
         """Should handle tasks, params, and flags together."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "task1", "task2", "param1=val1", "+flag1"]):
-            with patch("core.command.console"):
+            with patch("cfabric.core.command.console"):
                 (good, tasks, params, flags) = readArgs(
                     "test-cmd",
                     "Test description",
@@ -356,10 +356,10 @@ class TestReadArgsCombined:
 
     def test_order_independence(self):
         """Argument order should not matter."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "+flag1", "param1=val1", "task1"]):
-            with patch("core.command.console"):
+            with patch("cfabric.core.command.console"):
                 (good, tasks, params, flags) = readArgs(
                     "test-cmd",
                     "Test description",
@@ -379,10 +379,10 @@ class TestReadArgsHelpText:
 
     def test_help_includes_command(self):
         """Help text should include command name."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "--help"]):
-            with patch("core.command.console") as mock_console:
+            with patch("cfabric.core.command.console") as mock_console:
                 readArgs(
                     "my-command",
                     "My description",
@@ -397,10 +397,10 @@ class TestReadArgsHelpText:
 
     def test_help_includes_description(self):
         """Help text should include description."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "--help"]):
-            with patch("core.command.console") as mock_console:
+            with patch("cfabric.core.command.console") as mock_console:
                 readArgs(
                     "cmd",
                     "This is my description",
@@ -414,10 +414,10 @@ class TestReadArgsHelpText:
 
     def test_help_includes_task_names(self):
         """Help text should list task names."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "--help"]):
-            with patch("core.command.console") as mock_console:
+            with patch("cfabric.core.command.console") as mock_console:
                 readArgs(
                     "cmd",
                     "Description",
@@ -431,10 +431,10 @@ class TestReadArgsHelpText:
 
     def test_help_includes_all_option(self):
         """Help text should include 'all' task option."""
-        from core.command import readArgs
+        from cfabric.core.command import readArgs
 
         with patch("sys.argv", ["cmd", "--help"]):
-            with patch("core.command.console") as mock_console:
+            with patch("cfabric.core.command.console") as mock_console:
                 readArgs(
                     "cmd",
                     "Description",

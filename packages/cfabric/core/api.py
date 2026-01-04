@@ -7,17 +7,17 @@ It provides methods to navigate nodes and edges and lookup features.
 import collections
 from textwrap import wrap, dedent
 
-from core.helpers import flattenToSet, console, fitemize, deepSize
-from core.files import unexpanduser as ux
-from core.nodes import Nodes
-from core.locality import Locality
-from core.nodefeature import NodeFeatures
-from core.edgefeature import EdgeFeatures
-from core.computed import Computeds
-from core.text import Text
-from core.parameters import OTYPE, OSLOTS
-from core.search.search import Search
-from core.timestamp import SILENT_D, DEEP, silentConvert
+from cfabric.core.helpers import flattenToSet, console, fitemize, deepSize
+from cfabric.core.files import unexpanduser as ux
+from cfabric.core.nodes import Nodes
+from cfabric.core.locality import Locality
+from cfabric.core.nodefeature import NodeFeatures
+from cfabric.core.edgefeature import EdgeFeatures
+from cfabric.core.computed import Computeds
+from cfabric.core.text import Text
+from cfabric.core.parameters import OTYPE, OSLOTS
+from cfabric.core.search.search import Search
+from cfabric.core.timestamp import SILENT_D, DEEP, silentConvert
 
 
 API_REFS = dict(

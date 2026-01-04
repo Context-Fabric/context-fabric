@@ -42,7 +42,7 @@ class TestFabricCoreExplore:
 
     def test_explore_returns_categories(self, mini_corpus_path):
         """explore() should return dict with feature categories."""
-        from core.fabric import FabricCore
+        from cfabric.core.fabric import FabricCore
 
         TF = FabricCore(locations=mini_corpus_path, silent="deep")
         result = TF.explore(silent="deep", show=True)
@@ -53,7 +53,7 @@ class TestFabricCoreExplore:
 
     def test_explore_lists_features(self, mini_corpus_path):
         """explore() should list available features."""
-        from core.fabric import FabricCore
+        from cfabric.core.fabric import FabricCore
 
         TF = FabricCore(locations=mini_corpus_path, silent="deep")
         result = TF.explore(silent="deep", show=True)
@@ -72,7 +72,7 @@ class TestFabricCoreLoadSpecific:
 
     def test_load_specific_features(self, mini_corpus_path):
         """load() should load only specified features."""
-        from core.fabric import FabricCore
+        from cfabric.core.fabric import FabricCore
 
         TF = FabricCore(locations=mini_corpus_path, silent="deep")
         api = TF.load("word", silent="deep")
@@ -82,7 +82,7 @@ class TestFabricCoreLoadSpecific:
 
     def test_load_with_add(self, mini_corpus_path):
         """load(add=True) should add features to existing API."""
-        from core.fabric import FabricCore
+        from cfabric.core.fabric import FabricCore
 
         TF = FabricCore(locations=mini_corpus_path, silent="deep")
         api = TF.load("word", silent="deep")
@@ -101,7 +101,7 @@ class TestFabricCoreErrors:
 
     def test_load_nonexistent_path(self, tmp_path):
         """Loading from non-existent path should handle gracefully."""
-        from core.fabric import FabricCore
+        from cfabric.core.fabric import FabricCore
 
         nonexistent = str(tmp_path / "nonexistent")
         TF = FabricCore(locations=nonexistent, silent="deep")
@@ -113,7 +113,7 @@ class TestFabricCoreErrors:
 
     def test_load_empty_directory(self, tmp_path):
         """Loading from empty directory should handle gracefully."""
-        from core.fabric import FabricCore
+        from cfabric.core.fabric import FabricCore
 
         empty_dir = tmp_path / "empty"
         empty_dir.mkdir()

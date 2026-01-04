@@ -1,5 +1,5 @@
 """
-Parameters for Context Fabric.
+Parameters for Context-Fabric.
 
 Fixed values for the whole program.
 Based on Text-Fabric parameters.

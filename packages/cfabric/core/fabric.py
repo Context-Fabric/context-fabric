@@ -18,9 +18,9 @@ import collections
 from itertools import chain
 from typing import Dict, Union, Set
 
-from core.parameters import BANNER, VERSION, OTYPE, OSLOTS, OTEXT
-from core.data import Data, MEM_MSG
-from core.helpers import (
+from cfabric.core.parameters import BANNER, VERSION, OTYPE, OSLOTS, OTEXT
+from cfabric.core.data import Data, MEM_MSG
+from cfabric.core.helpers import (
     itemize,
     fitemize,
     collectFormats,
@@ -28,7 +28,7 @@ from core.helpers import (
     console,
     makeExamples,
 )
-from core.files import (
+from cfabric.core.files import (
     expanduser as ex,
     LOCATIONS,
     setDir,
@@ -38,8 +38,8 @@ from core.files import (
     splitExt,
     scanDir,
 )
-from core.timestamp import Timestamp, SILENT_D, silentConvert
-from core.prepare import (
+from cfabric.core.timestamp import Timestamp, SILENT_D, silentConvert
+from cfabric.core.prepare import (
     levels,
     order,
     rank,
@@ -50,12 +50,12 @@ from core.prepare import (
     sections,
     structure,
 )
-from core.computed import Computed
-from core.nodefeature import NodeFeature
-from core.edgefeature import EdgeFeature
-from core.otypefeature import OtypeFeature
-from core.oslotsfeature import OslotsFeature
-from core.api import (
+from cfabric.core.computed import Computed
+from cfabric.core.nodefeature import NodeFeature
+from cfabric.core.edgefeature import EdgeFeature
+from cfabric.core.otypefeature import OtypeFeature
+from cfabric.core.oslotsfeature import OslotsFeature
+from cfabric.core.api import (
     Api,
     addNodes,
     addOtype,

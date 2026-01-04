@@ -7,7 +7,7 @@ including value retrieval, node selection, and frequency analysis.
 import pytest
 from unittest.mock import MagicMock
 
-from core.nodefeature import NodeFeature, NodeFeatures
+from cfabric.core.nodefeature import NodeFeature, NodeFeatures
 
 
 class TestNodeFeatures:

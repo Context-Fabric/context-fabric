@@ -1,6 +1,6 @@
 # Testing
 
-This document describes how to run tests for Context Fabric.
+This document describes how to run tests for Context-Fabric.
 
 ## Prerequisites
 

@@ -6,7 +6,7 @@ import types
 from random import randrange
 from inspect import signature
 
-from core.search.syntax import (
+from cfabric.core.search.syntax import (
     reTp,
     cleanParent,
     QWHERE,
@@ -16,7 +16,7 @@ from core.search.syntax import (
     QOR,
     QEND,
 )
-from core.helpers import project
+from cfabric.core.helpers import project
 
 # SPINNING ###
 

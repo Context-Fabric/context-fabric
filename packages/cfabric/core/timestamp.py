@@ -8,7 +8,7 @@ with a time indication.
 import sys
 import time
 
-from core.files import unexpanduser as ux
+from cfabric.core.files import unexpanduser as ux
 
 
 VERBOSE = "verbose"

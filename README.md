@@ -1,12 +1,12 @@
-# Context Fabric
+# Context-Fabric
 
 A graph-based corpus engine for annotated text with efficient traversal and search.
 
 ## Overview
 
-Context Fabric provides a powerful data model for working with annotated text corpora as graphs. It enables efficient navigation, feature lookup, and pattern-based search across large textual datasets.
+Context-Fabric provides a powerful data model for working with annotated text corpora as graphs. It enables efficient navigation, feature lookup, and pattern-based search across large textual datasets.
 
-Based on [Text-Fabric](https://github.com/annotation/text-fabric) by Dirk Roorda.
+Forked from Dirk Roorda's [Text-Fabric](https://github.com/annotation/text-fabric).
 
 ## Installation
 
@@ -17,7 +17,7 @@ pip install context-fabric-core
 ## Quick Start
 
 ```python
-from core import FabricCore
+from cfabric.core import FabricCore
 
 # Load a dataset
 TF = FabricCore(locations='path/to/data')

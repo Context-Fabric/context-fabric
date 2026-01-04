@@ -13,7 +13,7 @@ class TestOtypeFeatureInit:
 
     def test_basic_creation(self):
         """OtypeFeature should initialize with API, metadata, and data."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         metaData = {"description": "node type"}
@@ -30,7 +30,7 @@ class TestOtypeFeatureInit:
 
     def test_data_attribute(self):
         """OtypeFeature should store type data for non-slot nodes."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         metaData = {}
@@ -43,7 +43,7 @@ class TestOtypeFeatureInit:
 
     def test_all_attribute_initially_none(self):
         """OtypeFeature.all should initially be None."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         data = (["phrase"], 3, 4, "word")
@@ -58,7 +58,7 @@ class TestOtypeV:
 
     def test_v_node_zero(self):
         """v(0) should return None."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         data = (["phrase"], 3, 4, "word")
@@ -69,7 +69,7 @@ class TestOtypeV:
 
     def test_v_slot_node(self):
         """v() should return slotType for slot nodes."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         # maxSlot = 3, so nodes 1, 2, 3 are slots
@@ -83,7 +83,7 @@ class TestOtypeV:
 
     def test_v_non_slot_node(self):
         """v() should return type from data for non-slot nodes."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         # maxSlot = 3, node 4 is "phrase", node 5 is "sentence"
@@ -96,7 +96,7 @@ class TestOtypeV:
 
     def test_v_out_of_range_node(self):
         """v() should return None for out-of-range nodes."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         data = (["phrase"], 3, 4, "word")
@@ -108,7 +108,7 @@ class TestOtypeV:
 
     def test_v_boundary_node(self):
         """v() should handle boundary between slots and non-slots."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         data = (["phrase"], 3, 4, "word")
@@ -126,7 +126,7 @@ class TestOtypeS:
 
     def test_s_slot_type(self):
         """s() should return slot nodes for slot type."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         # Mock C.rank.data for sorting
@@ -143,7 +143,7 @@ class TestOtypeS:
 
     def test_s_non_slot_type(self):
         """s() should return non-slot nodes for non-slot type."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         mock_api.C.rank.data = [0, 1, 2, 3, 4]
@@ -158,7 +158,7 @@ class TestOtypeS:
 
     def test_s_unknown_type(self):
         """s() should return empty tuple for unknown type."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         data = (["phrase"], 3, 4, "word")
@@ -172,7 +172,7 @@ class TestOtypeS:
 
     def test_s_returns_canonical_order(self):
         """s() should return nodes in canonical order."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         # Ranks: node 4 has rank 10, node 5 has rank 5, node 6 has rank 15
@@ -193,7 +193,7 @@ class TestOtypeSInterval:
 
     def test_sinterval_valid_type(self):
         """sInterval() should return interval for valid type."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         data = (["phrase", "phrase"], 3, 5, "word")
@@ -207,7 +207,7 @@ class TestOtypeSInterval:
 
     def test_sinterval_slot_type(self):
         """sInterval() should return slot interval for slot type."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         data = (["phrase"], 3, 4, "word")
@@ -221,7 +221,7 @@ class TestOtypeSInterval:
 
     def test_sinterval_unknown_type(self):
         """sInterval() should return empty tuple for unknown type."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         data = (["phrase"], 3, 4, "word")
@@ -239,7 +239,7 @@ class TestOtypeItems:
 
     def test_items_yields_all_nodes(self):
         """items() should yield (node, type) for all nodes."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         # 3 slots (word), 2 non-slots (phrase, sentence)
@@ -260,7 +260,7 @@ class TestOtypeItems:
 
     def test_items_empty_corpus(self):
         """items() should yield nothing for empty corpus."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         # No slots, no non-slots
@@ -274,7 +274,7 @@ class TestOtypeItems:
 
     def test_items_slots_only(self):
         """items() should handle corpus with only slots."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         # 3 slots, no non-slots
@@ -289,7 +289,7 @@ class TestOtypeItems:
 
     def test_items_is_generator(self):
         """items() should return a generator."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         data = (["phrase"], 3, 4, "word")
@@ -307,7 +307,7 @@ class TestOtypeMetadata:
 
     def test_meta_attribute(self):
         """meta attribute should contain feature metadata."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         metaData = {
@@ -326,7 +326,7 @@ class TestOtypeMetadata:
 
     def test_max_slot_attribute(self):
         """maxSlot should report correct value."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         data = (["phrase"], 100, 150, "word")
@@ -337,7 +337,7 @@ class TestOtypeMetadata:
 
     def test_max_node_attribute(self):
         """maxNode should report correct value."""
-        from core.otypefeature import OtypeFeature
+        from cfabric.core.otypefeature import OtypeFeature
 
         mock_api = MagicMock()
         data = (["phrase"], 100, 150, "word")

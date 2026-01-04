@@ -9,7 +9,7 @@ import os
 import json
 import yaml
 
-from core.files import (
+from cfabric.core.files import (
     fileOpen,
     normpath,
     abspath,

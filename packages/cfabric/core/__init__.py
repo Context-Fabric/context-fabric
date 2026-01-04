@@ -1,5 +1,5 @@
 """
-Core API of Context Fabric.
+Core API of Context-Fabric.
 
 This API deals with the basic CF data model: a graph of nodes and edges,
 annotated by features.
@@ -18,8 +18,8 @@ plus some additional methods.
 Based on Text-Fabric by Dirk Roorda.
 """
 
-from core.fabric import FabricCore
-from core.parameters import VERSION, NAME, BANNER
+from cfabric.core.fabric import FabricCore
+from cfabric.core.parameters import VERSION, NAME, BANNER
 
 __version__ = VERSION
 __all__ = ["FabricCore", "VERSION", "NAME", "BANNER"]

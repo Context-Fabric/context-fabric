@@ -355,7 +355,7 @@ features to furnish a decent representation.
     in the file once!)
 """
 
-from core.parameters import OTEXT
+from cfabric.core.parameters import OTEXT
 
 DEFAULT_FORMAT = "text-orig-full"
 DEFAULT_FORMAT_TYPE = "{}-default"

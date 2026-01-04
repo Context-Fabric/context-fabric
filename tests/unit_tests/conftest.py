@@ -1,4 +1,4 @@
-"""Shared fixtures for Context Fabric unit tests."""
+"""Shared fixtures for Context-Fabric unit tests."""
 
 import pytest
 from pathlib import Path

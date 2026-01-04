@@ -12,7 +12,7 @@ class TestSearchInit:
 
     def test_search_creation(self):
         """Search should initialize with an API object."""
-        from core.search.search import Search
+        from cfabric.core.search.search import Search
 
         mock_api = MagicMock()
         s = Search(mock_api)
@@ -21,8 +21,8 @@ class TestSearchInit:
 
     def test_search_perf_params_initialized(self):
         """Search should initialize performance parameters from defaults."""
-        from core.search.search import Search
-        from core.search.searchexe import SearchExe
+        from cfabric.core.search.search import Search
+        from cfabric.core.search.searchexe import SearchExe
 
         mock_api = MagicMock()
         s = Search(mock_api)
@@ -33,8 +33,8 @@ class TestSearchInit:
 
     def test_search_silent_mode(self):
         """Search should accept silent parameter."""
-        from core.search.search import Search
-        from core.timestamp import SILENT_D
+        from cfabric.core.search.search import Search
+        from cfabric.core.timestamp import SILENT_D
 
         mock_api = MagicMock()
         s = Search(mock_api, silent=SILENT_D)
@@ -46,7 +46,7 @@ class TestTweakPerformance:
 
     def test_invalid_parameter_name(self):
         """Should report error for invalid parameter name."""
-        from core.search.search import Search
+        from cfabric.core.search.search import Search
 
         mock_api = MagicMock()
         mock_api.TF = MagicMock()
@@ -62,8 +62,8 @@ class TestTweakPerformance:
 
     def test_reset_to_default(self):
         """Passing None should reset parameter to default."""
-        from core.search.search import Search
-        from core.search.searchexe import SearchExe
+        from cfabric.core.search.search import Search
+        from cfabric.core.search.searchexe import SearchExe
 
         mock_api = MagicMock()
         mock_api.TF = MagicMock()
@@ -87,7 +87,7 @@ class TestSearchMethod:
 
     def test_search_stores_exe(self):
         """search() should store the SearchExe in self.exe when here=True."""
-        from core.search.search import Search
+        from cfabric.core.search.search import Search
 
         mock_api = MagicMock()
         mock_api.TF = MagicMock()
@@ -95,7 +95,7 @@ class TestSearchMethod:
         s = Search(mock_api)
 
         # Patch SearchExe to avoid full initialization
-        with patch("core.search.search.SearchExe") as MockSearchExe:
+        with patch("cfabric.core.search.search.SearchExe") as MockSearchExe:
             mock_exe = MagicMock()
             mock_exe.search.return_value = []
             MockSearchExe.return_value = mock_exe
@@ -106,14 +106,14 @@ class TestSearchMethod:
 
     def test_search_does_not_store_exe_when_here_false(self):
         """search() should not store exe when here=False."""
-        from core.search.search import Search
+        from cfabric.core.search.search import Search
 
         mock_api = MagicMock()
         mock_api.TF = MagicMock()
 
         s = Search(mock_api)
 
-        with patch("core.search.search.SearchExe") as MockSearchExe:
+        with patch("cfabric.core.search.search.SearchExe") as MockSearchExe:
             mock_exe = MagicMock()
             mock_exe.search.return_value = []
             MockSearchExe.return_value = mock_exe
@@ -128,14 +128,14 @@ class TestStudyMethod:
 
     def test_study_stores_exe(self):
         """study() should store the SearchExe in self.exe when here=True."""
-        from core.search.search import Search
+        from cfabric.core.search.search import Search
 
         mock_api = MagicMock()
         mock_api.TF = MagicMock()
 
         s = Search(mock_api)
 
-        with patch("core.search.search.SearchExe") as MockSearchExe:
+        with patch("cfabric.core.search.search.SearchExe") as MockSearchExe:
             mock_exe = MagicMock()
             mock_exe.study.return_value = None
             MockSearchExe.return_value = mock_exe
@@ -150,7 +150,7 @@ class TestFetchMethod:
 
     def test_fetch_without_study_reports_error(self):
         """fetch() should report error if no previous study()."""
-        from core.search.search import Search
+        from cfabric.core.search.search import Search
 
         mock_api = MagicMock()
         mock_api.TF = MagicMock()
@@ -165,7 +165,7 @@ class TestFetchMethod:
 
     def test_fetch_with_exe_calls_fetch(self):
         """fetch() should call exe.fetch() when exe exists."""
-        from core.search.search import Search
+        from cfabric.core.search.search import Search
 
         mock_api = MagicMock()
         mock_api.TF = MagicMock()
@@ -185,7 +185,7 @@ class TestCountMethod:
 
     def test_count_without_study_reports_error(self):
         """count() should report error if no previous study()."""
-        from core.search.search import Search
+        from cfabric.core.search.search import Search
 
         mock_api = MagicMock()
         mock_api.TF = MagicMock()
@@ -200,7 +200,7 @@ class TestCountMethod:
 
     def test_count_with_exe_calls_count(self):
         """count() should call exe.count() when exe exists."""
-        from core.search.search import Search
+        from cfabric.core.search.search import Search
 
         mock_api = MagicMock()
         mock_api.TF = MagicMock()
@@ -219,7 +219,7 @@ class TestShowPlanMethod:
 
     def test_showplan_without_study_reports_error(self):
         """showPlan() should report error if no previous study()."""
-        from core.search.search import Search
+        from cfabric.core.search.search import Search
 
         mock_api = MagicMock()
         mock_api.TF = MagicMock()
@@ -234,7 +234,7 @@ class TestShowPlanMethod:
 
     def test_showplan_with_exe_calls_showplan(self):
         """showPlan() should call exe.showPlan() when exe exists."""
-        from core.search.search import Search
+        from cfabric.core.search.search import Search
 
         mock_api = MagicMock()
         mock_api.TF = MagicMock()
@@ -253,19 +253,19 @@ class TestRelationsLegend:
 
     def test_relations_legend_creates_exe_if_none(self):
         """relationsLegend() should create an exe if none exists."""
-        from core.search.search import Search
+        from cfabric.core.search.search import Search
 
         mock_api = MagicMock()
 
         s = Search(mock_api)
         s.exe = None
 
-        with patch("core.search.search.SearchExe") as MockSearchExe:
+        with patch("cfabric.core.search.search.SearchExe") as MockSearchExe:
             mock_exe = MagicMock()
             mock_exe.relationLegend = "Legend text"
             MockSearchExe.return_value = mock_exe
 
-            with patch("core.search.search.console") as mock_console:
+            with patch("cfabric.core.search.search.console") as mock_console:
                 s.relationsLegend()
                 mock_console.assert_called_once_with("Legend text")
 
@@ -275,7 +275,7 @@ class TestGleanMethod:
 
     def test_glean_empty_tuple(self):
         """glean() should return empty string for empty tuple."""
-        from core.search.search import Search
+        from cfabric.core.search.search import Search
 
         mock_api = MagicMock()
         s = Search(mock_api)
@@ -286,7 +286,7 @@ class TestGleanMethod:
 
     def test_glean_with_nodes(self):
         """glean() should format tuple of nodes."""
-        from core.search.search import Search
+        from cfabric.core.search.search import Search
 
         # Set up mock API with required attributes
         mock_api = MagicMock()

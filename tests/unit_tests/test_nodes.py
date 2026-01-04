@@ -13,7 +13,7 @@ class TestNodesInit:
 
     def test_nodes_creation(self):
         """Nodes should initialize with an API object."""
-        from core.nodes import Nodes
+        from cfabric.core.nodes import Nodes
 
         # Create mock API with required C (computed) attributes
         mock_api = MagicMock()
@@ -30,7 +30,7 @@ class TestNodesInit:
 
     def test_otype_rank_created(self):
         """Nodes should create otypeRank dictionary."""
-        from core.nodes import Nodes
+        from cfabric.core.nodes import Nodes
 
         mock_api = MagicMock()
         mock_api.C.rank.data = [0, 1, 2, 3, 4]
@@ -49,7 +49,7 @@ class TestNodesInit:
 
     def test_sort_key_function(self):
         """Nodes should have sortKey function."""
-        from core.nodes import Nodes
+        from cfabric.core.nodes import Nodes
 
         mock_api = MagicMock()
         mock_api.C.rank.data = [10, 20, 30]  # ranks for nodes 1, 2, 3
@@ -64,7 +64,7 @@ class TestNodesInit:
 
     def test_sort_key_tuple_function(self):
         """Nodes should have sortKeyTuple function for tuple sorting."""
-        from core.nodes import Nodes
+        from cfabric.core.nodes import Nodes
 
         mock_api = MagicMock()
         mock_api.C.rank.data = [10, 20, 30]
@@ -82,7 +82,7 @@ class TestSortNodes:
 
     def test_sort_empty_set(self):
         """sortNodes should handle empty input."""
-        from core.nodes import Nodes
+        from cfabric.core.nodes import Nodes
 
         mock_api = MagicMock()
         mock_api.C.rank.data = [0, 1, 2]
@@ -96,7 +96,7 @@ class TestSortNodes:
 
     def test_sort_single_node(self):
         """sortNodes should handle single node."""
-        from core.nodes import Nodes
+        from cfabric.core.nodes import Nodes
 
         mock_api = MagicMock()
         mock_api.C.rank.data = [0, 1, 2]
@@ -110,7 +110,7 @@ class TestSortNodes:
 
     def test_sort_multiple_nodes(self):
         """sortNodes should sort nodes by canonical order."""
-        from core.nodes import Nodes
+        from cfabric.core.nodes import Nodes
 
         mock_api = MagicMock()
         # Ranks: node 1 has rank 30, node 2 has rank 10, node 3 has rank 20
@@ -127,7 +127,7 @@ class TestSortNodes:
 
     def test_sort_preserves_all_nodes(self):
         """sortNodes should preserve all input nodes."""
-        from core.nodes import Nodes
+        from cfabric.core.nodes import Nodes
 
         mock_api = MagicMock()
         mock_api.C.rank.data = [0, 1, 2, 3, 4]
@@ -143,7 +143,7 @@ class TestSortNodes:
 
     def test_sort_accepts_set(self):
         """sortNodes should accept a set as input."""
-        from core.nodes import Nodes
+        from cfabric.core.nodes import Nodes
 
         mock_api = MagicMock()
         mock_api.C.rank.data = [0, 1, 2]
@@ -161,7 +161,7 @@ class TestWalk:
 
     def test_walk_all_nodes(self):
         """walk() without args should yield all nodes in order."""
-        from core.nodes import Nodes
+        from cfabric.core.nodes import Nodes
 
         mock_api = MagicMock()
         mock_api.C.rank.data = [0, 1, 2]
@@ -176,7 +176,7 @@ class TestWalk:
 
     def test_walk_subset_of_nodes(self):
         """walk(nodes) should yield given nodes in canonical order."""
-        from core.nodes import Nodes
+        from cfabric.core.nodes import Nodes
 
         mock_api = MagicMock()
         # Ranks: node 1=30, node 2=10, node 3=20
@@ -193,7 +193,7 @@ class TestWalk:
 
     def test_walk_with_events_slots(self):
         """walk(events=True) should yield (node, None) for slots."""
-        from core.nodes import Nodes
+        from cfabric.core.nodes import Nodes
 
         mock_api = MagicMock()
         mock_api.C.rank.data = [0, 1, 2]
@@ -222,7 +222,7 @@ class TestSortKeyChunk:
 
     def test_sort_key_chunk_exists(self):
         """Nodes should have sortKeyChunk function."""
-        from core.nodes import Nodes
+        from cfabric.core.nodes import Nodes
 
         mock_api = MagicMock()
         mock_api.C.rank.data = [0, 1, 2]
@@ -237,7 +237,7 @@ class TestSortKeyChunk:
 
     def test_sort_key_chunk_length_exists(self):
         """Nodes should have sortKeyChunkLength function."""
-        from core.nodes import Nodes
+        from cfabric.core.nodes import Nodes
 
         mock_api = MagicMock()
         mock_api.C.rank.data = [0, 1, 2]
@@ -256,7 +256,7 @@ class TestOtypeRank:
 
     def test_otype_rank_empty_levels(self):
         """otypeRank should be empty if no levels defined."""
-        from core.nodes import Nodes
+        from cfabric.core.nodes import Nodes
 
         mock_api = MagicMock()
         mock_api.C.rank.data = []
@@ -268,7 +268,7 @@ class TestOtypeRank:
 
     def test_otype_rank_single_type(self):
         """otypeRank should handle single type."""
-        from core.nodes import Nodes
+        from cfabric.core.nodes import Nodes
 
         mock_api = MagicMock()
         mock_api.C.rank.data = [0, 1, 2]
@@ -280,7 +280,7 @@ class TestOtypeRank:
 
     def test_otype_rank_multiple_types(self):
         """otypeRank should rank types from slot to most encompassing."""
-        from core.nodes import Nodes
+        from cfabric.core.nodes import Nodes
 
         mock_api = MagicMock()
         mock_api.C.rank.data = [0, 1, 2, 3, 4, 5]

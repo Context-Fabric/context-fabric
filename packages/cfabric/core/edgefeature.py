@@ -23,7 +23,7 @@ dictionary: `tf.core.edgefeature.EdgeFeature.items`
 
 import collections
 
-from core.helpers import makeInverse, makeInverseVal
+from cfabric.core.helpers import makeInverse, makeInverseVal
 
 
 class EdgeFeatures:

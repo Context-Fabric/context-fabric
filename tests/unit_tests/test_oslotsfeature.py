@@ -13,7 +13,7 @@ class TestOslotsFeatureInit:
 
     def test_basic_creation(self):
         """OslotsFeature should initialize with API, metadata, and data."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         metaData = {"description": "slot containment"}
@@ -30,7 +30,7 @@ class TestOslotsFeatureInit:
 
     def test_data_attribute(self):
         """OslotsFeature should store slot data for non-slot nodes."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         metaData = {}
@@ -48,7 +48,7 @@ class TestOslotsS:
 
     def test_s_node_zero(self):
         """s(0) should return empty tuple."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         data = ([(1, 2)], 3, 4)
@@ -59,7 +59,7 @@ class TestOslotsS:
 
     def test_s_slot_node(self):
         """s() for slot node should return tuple containing just that node."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         # maxSlot = 3, so nodes 1, 2, 3 are slots
@@ -73,7 +73,7 @@ class TestOslotsS:
 
     def test_s_non_slot_node(self):
         """s() for non-slot node should return its contained slots."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         # maxSlot = 3, node 4 contains (1, 2), node 5 contains (1, 2, 3)
@@ -86,7 +86,7 @@ class TestOslotsS:
 
     def test_s_out_of_range_node(self):
         """s() should return empty tuple for out-of-range nodes."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         data = ([(1, 2)], 3, 4)
@@ -97,7 +97,7 @@ class TestOslotsS:
 
     def test_s_boundary_node(self):
         """s() should handle boundary between slots and non-slots."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         data = ([(1, 2, 3)], 3, 4)
@@ -111,7 +111,7 @@ class TestOslotsS:
 
     def test_s_large_slot_set(self):
         """s() should handle nodes with many slots."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         # Node 11 contains slots 1-10
@@ -129,7 +129,7 @@ class TestOslotsItems:
 
     def test_items_yields_non_slot_nodes(self):
         """items() should yield (node, slots) for non-slot nodes only."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         # 3 slots, 2 non-slots (4, 5)
@@ -147,7 +147,7 @@ class TestOslotsItems:
 
     def test_items_empty_non_slots(self):
         """items() should yield nothing if no non-slot nodes."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         # 3 slots, no non-slots
@@ -161,7 +161,7 @@ class TestOslotsItems:
 
     def test_items_is_generator(self):
         """items() should return a generator."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         data = ([(1, 2)], 3, 4)
@@ -175,7 +175,7 @@ class TestOslotsItems:
 
     def test_items_single_non_slot(self):
         """items() should handle single non-slot node."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         data = ([(1, 2, 3)], 3, 4)
@@ -188,7 +188,7 @@ class TestOslotsItems:
 
     def test_items_multiple_non_slots(self):
         """items() should yield all non-slot nodes in order."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         # 5 slots, 3 non-slots (6, 7, 8)
@@ -209,7 +209,7 @@ class TestOslotsMetadata:
 
     def test_meta_attribute(self):
         """meta attribute should contain feature metadata."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         metaData = {
@@ -226,7 +226,7 @@ class TestOslotsMetadata:
 
     def test_max_slot_attribute(self):
         """maxSlot should report correct value."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         data = ([(1,)], 100, 150)
@@ -237,7 +237,7 @@ class TestOslotsMetadata:
 
     def test_max_node_attribute(self):
         """maxNode should report correct value."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         data = ([(1,)], 100, 150)
@@ -252,7 +252,7 @@ class TestOslotsEdgeCases:
 
     def test_empty_slot_data(self):
         """Should handle empty slot data tuple."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         # Node with no slots (shouldn't happen but testing)
@@ -264,7 +264,7 @@ class TestOslotsEdgeCases:
 
     def test_single_slot_per_node(self):
         """Should handle nodes containing single slot."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         data = ([(1,), (2,), (3,)], 3, 6)
@@ -277,7 +277,7 @@ class TestOslotsEdgeCases:
 
     def test_overlapping_slot_sets(self):
         """Should handle overlapping slot sets between nodes."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         # Node 4 and 5 both contain slots 1, 2
@@ -290,7 +290,7 @@ class TestOslotsEdgeCases:
 
     def test_negative_node(self):
         """Negative nodes are treated as slot nodes (n < maxSlot + 1)."""
-        from core.oslotsfeature import OslotsFeature
+        from cfabric.core.oslotsfeature import OslotsFeature
 
         mock_api = MagicMock()
         data = ([(1, 2)], 3, 4)

@@ -8,10 +8,10 @@ import re
 from itertools import chain
 import array
 
-from core.parameters import OTYPE, OSLOTS, OMAP
-from core.helpers import makeIndex
-from core.timestamp import DEEP
-from core.search.syntax import reTp
+from cfabric.core.parameters import OTYPE, OSLOTS, OMAP
+from cfabric.core.helpers import makeIndex
+from cfabric.core.timestamp import DEEP
+from cfabric.core.search.syntax import reTp
 
 # LOW-LEVEL NODE RELATIONS SEMANTICS ###
 

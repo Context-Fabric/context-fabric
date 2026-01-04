@@ -7,7 +7,7 @@ including pattern matching for atoms, features, relations, and quantifiers.
 import pytest
 import re
 
-from core.search.syntax import (
+from cfabric.core.search.syntax import (
     QWHERE,
     QHAVE,
     QWITHOUT,
@@ -299,7 +299,7 @@ class TestEscapeSequences:
 
     def test_escapes_defined(self):
         """ESCAPES should contain common escape sequences."""
-        from core.search.syntax import ESCAPES
+        from cfabric.core.search.syntax import ESCAPES
 
         assert "\\t" in ESCAPES
         assert "\\n" in ESCAPES
@@ -307,7 +307,7 @@ class TestEscapeSequences:
 
     def test_val_escapes_defined(self):
         """VAL_ESCAPES should contain value-specific escapes."""
-        from core.search.syntax import VAL_ESCAPES
+        from cfabric.core.search.syntax import VAL_ESCAPES
 
         assert "\\|" in VAL_ESCAPES
         assert "\\=" in VAL_ESCAPES

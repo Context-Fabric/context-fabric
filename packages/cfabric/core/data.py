@@ -6,7 +6,7 @@ import pickle
 import gzip
 import collections
 import time
-from core.parameters import (
+from cfabric.core.parameters import (
     PACK_VERSION,
     PICKLE_PROTOCOL,
     GZIP_LEVEL,
@@ -14,7 +14,7 @@ from core.parameters import (
     OSLOTS,
     OTEXT,
 )
-from core.helpers import (
+from cfabric.core.helpers import (
     setFromSpec,
     valueFromTf,
     tfFromValue,
@@ -24,7 +24,7 @@ from core.helpers import (
     console,
     utcnow,
 )
-from core.files import (
+from cfabric.core.files import (
     fileOpen,
     unexpanduser as ux,
     fileExists,
@@ -34,7 +34,7 @@ from core.files import (
     splitPath,
     mTime,
 )
-from core.timestamp import SILENT_D, silentConvert
+from cfabric.core.timestamp import SILENT_D, silentConvert
 
 ERROR_CUTOFF = 20
 

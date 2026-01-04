@@ -4,7 +4,7 @@ import yaml
 
 from shutil import rmtree, copytree, copy
 
-from core.parameters import (
+from cfabric.core.parameters import (
     ON_IPAD,
     GH,
     GL,
@@ -18,7 +18,7 @@ from core.parameters import (
     ORG,
     REPO,
 )
-from core.generic import deepAttrDict
+from cfabric.core.generic import deepAttrDict
 
 
 def str_presenter(dumper, data):

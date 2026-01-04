@@ -5,8 +5,8 @@
 import types
 from itertools import chain
 from inspect import signature
-from core.search.spin import estimateSpreads
-from core.search.graph import multiEdges
+from cfabric.core.search.spin import estimateSpreads
+from cfabric.core.search.graph import multiEdges
 
 # STITCHING: STRATEGIES ###
 

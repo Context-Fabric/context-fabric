@@ -9,7 +9,7 @@ import time
 from io import StringIO
 import sys
 
-from core.timestamp import (
+from cfabric.core.timestamp import (
     Timestamp,
     silentConvert,
     VERBOSE,

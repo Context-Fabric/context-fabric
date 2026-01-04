@@ -15,7 +15,7 @@ import collections
 import functools
 import array
 
-from core.helpers import itemize
+from cfabric.core.helpers import itemize
 
 
 def levels(info, error, otype, oslots, otext):

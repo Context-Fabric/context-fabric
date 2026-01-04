@@ -8,8 +8,8 @@ from subprocess import run as run_cmd, CalledProcessError
 from datetime import datetime as dt, timezone
 
 
-from core.parameters import OMAP
-from core.files import readYaml, unexpanduser as ux
+from cfabric.core.parameters import OMAP
+from cfabric.core.files import readYaml, unexpanduser as ux
 
 
 NBSP = "\u00a0"  # non-breaking space
