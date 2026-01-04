@@ -191,7 +191,9 @@ def order(info, error, otype, oslots, levels):
             return (
                 (-1 if na < nb else 1 if na > nb else 0)
                 if oa == ob
-                else -1 if oa > ob else 1
+                else -1
+                if oa > ob
+                else 1
             )
         if sa > sb:
             return -1

@@ -23,9 +23,9 @@ def semantics(searchExe):
 
     if not searchExe.good:
         searchExe.showOuterTemplate(_msgCache)
-        for (i, line) in enumerate(searchExe.searchLines):
+        for i, line in enumerate(searchExe.searchLines):
             error(f"{i + offset:>2} {line}", tm=False, cache=_msgCache)
-        for (ln, eline) in searchExe.badSemantics:
+        for ln, eline in searchExe.badSemantics:
             txt = eline if ln is None else f"line {ln + offset}: {eline}"
             error(txt, tm=False, cache=_msgCache)
         return
@@ -34,9 +34,9 @@ def semantics(searchExe):
         _validation(searchExe)
     if not searchExe.good:
         searchExe.showOuterTemplate(_msgCache)
-        for (i, line) in enumerate(searchExe.searchLines):
+        for i, line in enumerate(searchExe.searchLines):
             error(f"{i + offset:>2} {line}", tm=False, cache=_msgCache)
-        for (ln, eline) in searchExe.badSemantics:
+        for ln, eline in searchExe.badSemantics:
             txt = eline if ln is None else f"line {ln + offset}: {eline}"
             error(txt, tm=False, cache=_msgCache)
 
@@ -185,7 +185,7 @@ def _grammar(searchExe):
             f = qnames.get(fName, None)
             t = qnames.get(tName, None)
             namesGood = True
-            for (q, n) in ((f, fName), (t, tName)):
+            for q, n in ((f, fName), (t, tName)):
                 if q is None:
                     searchExe.badSemantics.append(
                         (i, f'Relation with undefined name: "{n}"')
@@ -199,7 +199,7 @@ def _grammar(searchExe):
         prevKind = kind
 
     # resolve names when used in atoms
-    for (q, qdata) in enumerate(qnodes):
+    for q, qdata in enumerate(qnodes):
         otype = qdata[0]
         referQ = qnames.get(otype, None)
         if referQ is not None:
@@ -283,7 +283,7 @@ def _validation(searchExe):
     good = True
     otypesGood = True
     sets = searchExe.sets
-    for (q, qdata) in enumerate(qnodes):
+    for q, qdata in enumerate(qnodes):
         otype = qdata[0]
         if otype == ".":
             continue
@@ -320,7 +320,7 @@ def _validation(searchExe):
     wrongTypes = {}
     hasValues = {}
 
-    for (q, qdata) in enumerate(qnodes):
+    for q, qdata in enumerate(qnodes):
         features = qdata[1]
         for fName in sorted(features):
             _validateFeature(
@@ -336,7 +336,7 @@ def _validation(searchExe):
     # relations may have a variable number k in them (k-nearness, etc.)
     # make an entry in the relation map for each value of k
     addRels = {}
-    for (e, (f, op, t)) in enumerate(searchExe.qedgesRaw):
+    for e, (f, op, t) in enumerate(searchExe.qedgesRaw):
         if (
             type(op) is tuple
             or (op[0] == "-" and op[-1] == ">")
@@ -363,7 +363,7 @@ def _validation(searchExe):
     fMatchRe = re.compile(fPatMatch)
 
     addRels = {}
-    for (e, (f, op, t)) in enumerate(searchExe.qedgesRaw):
+    for e, (f, op, t) in enumerate(searchExe.qedgesRaw):
         if type(op) is tuple:
             continue
         match = fMatchRe.findall(op)
@@ -400,7 +400,7 @@ def _validation(searchExe):
     # edge relations may have a value spec in them
     # make an entry in the relation map for each value spec
     addRels = {}
-    for (e, (f, op, t)) in enumerate(searchExe.qedgesRaw):
+    for e, (f, op, t) in enumerate(searchExe.qedgesRaw):
         if type(op) is not tuple:
             continue
         (opName, opFeatures) = op
@@ -420,7 +420,7 @@ def _validation(searchExe):
         add_V_Relations(searchExe, addRels)
 
     # now look up each particalur relation in the relation map
-    for (e, (f, op, t)) in enumerate(searchExe.qedgesRaw):
+    for e, (f, op, t) in enumerate(searchExe.qedgesRaw):
         theOp = op[0] if type(op) is tuple else op
         rela = relationFromName.get(theOp, None)
         if rela is None:
@@ -435,58 +435,62 @@ def _validation(searchExe):
 
     # report error found above
     if len(missingFeatures):
-        for (fName, qs) in sorted(missingFeatures.items()):
+        for fName, qs in sorted(missingFeatures.items()):
             searchExe.badSemantics.append(
                 (
                     None,
                     'Missing feature "{}" in line(s) {}'.format(
-                        fName, ", ".join(str(nodeLine[q] + offset) for q in qs),
+                        fName,
+                        ", ".join(str(nodeLine[q] + offset) for q in qs),
                     ),
                 )
             )
         good = False
 
     if len(hasValues):
-        for (fName, wrongs) in sorted(hasValues.items()):
+        for fName, wrongs in sorted(hasValues.items()):
             searchExe.badSemantics.append(
                 (None, f'Feature "{fName}" cannot have values:')
             )
-            for (val, qs) in sorted(wrongs.items()):
+            for val, qs in sorted(wrongs.items()):
                 searchExe.badSemantics.append(
                     (
                         None,
                         '    "{}" superfluous: line(s) {}'.format(
-                            val, ", ".join(str(nodeLine[q] + offset) for q in qs),
+                            val,
+                            ", ".join(str(nodeLine[q] + offset) for q in qs),
                         ),
                     )
                 )
         good = False
 
     if len(wrongValues):
-        for (fName, wrongs) in sorted(wrongValues.items()):
+        for fName, wrongs in sorted(wrongValues.items()):
             searchExe.badSemantics.append(
                 (None, f'Feature "{fName}" has wrong values:')
             )
-            for (val, qs) in sorted(wrongs.items()):
+            for val, qs in sorted(wrongs.items()):
                 searchExe.badSemantics.append(
                     (
                         None,
                         '    "{}" is not a number: line(s) {}'.format(
-                            val, ", ".join(str(nodeLine[q] + offset) for q in qs),
+                            val,
+                            ", ".join(str(nodeLine[q] + offset) for q in qs),
                         ),
                     )
                 )
         good = False
 
     if len(wrongTypes):
-        for (fName, wrongs) in sorted(wrongTypes.items()):
+        for fName, wrongs in sorted(wrongTypes.items()):
             searchExe.badSemantics.append((None, f'Feature "{fName}" has wrong type:'))
-            for (val, qs) in sorted(wrongs.items()):
+            for val, qs in sorted(wrongs.items()):
                 searchExe.badSemantics.append(
                     (
                         None,
                         '    "{}" is the wrong type: line(s) {}'.format(
-                            val, ", ".join(str(nodeLine[q] + offset) for q in qs),
+                            val,
+                            ", ".join(str(nodeLine[q] + offset) for q in qs),
                         ),
                     )
                 )
@@ -497,12 +501,12 @@ def _validation(searchExe):
     # determine which node and edge features are not yet loaded,
     # and load them
     eFeatsUsed = set()
-    for (f, rela, t) in qedges:
+    for f, rela, t in qedges:
         efName = edgeMap.get(rela, (None,))[0]
         if efName is not None:
             eFeatsUsed.add(efName)
     nFeatsUsed = set()
-    for (n, qdata) in enumerate(qnodes):
+    for n, qdata in enumerate(qnodes):
         features = qdata[1]
         for nfName in features:
             nFeatsUsed.add(nfName)

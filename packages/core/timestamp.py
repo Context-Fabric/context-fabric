@@ -129,11 +129,11 @@ class Timestamp:
     def cache(self, _asString=False):
         if _asString:
             lines = []
-            for (error, nl, msgRep) in self.log:
+            for error, nl, msgRep in self.log:
                 lines.append("{}{}".format(msgRep, "\n" if nl else ""))
             result = "".join(lines)
         else:
-            for (error, nl, msgRep) in self.log:
+            for error, nl, msgRep in self.log:
                 channel = sys.stderr if error else sys.stdout
                 channel.write("{}{}".format(msgRep, "\n" if nl else ""))
             sys.stderr.flush()

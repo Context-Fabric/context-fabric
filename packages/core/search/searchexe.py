@@ -142,7 +142,7 @@ class SearchExe:
             failLimit = limit if limit else SEARCH_FAIL_FACTOR * F.otype.maxNode
 
             def limitedResults():
-                for (i, result) in enumerate(self.results()):
+                for i, result in enumerate(self.results()):
                     if i < failLimit:
                         yield result
                     else:
@@ -196,7 +196,7 @@ class SearchExe:
 
         j = 0
         good = True
-        for (i, r) in enumerate(self.results(remap=False)):
+        for i, r in enumerate(self.results(remap=False)):
             if i >= failLimit:
                 if not limit:
                     good = False
@@ -225,7 +225,7 @@ class SearchExe:
         outerTemplate = self.outerTemplate
         quKind = self.quKind
         if offset and outerTemplate is not None:
-            for (i, line) in enumerate(outerTemplate.split("\n")):
+            for i, line in enumerate(outerTemplate.split("\n")):
                 error(f"{i:>2} {line}", tm=False, cache=_msgCache)
             error(f"line {offset:>2}: Error under {quKind}:", tm=False, cache=_msgCache)
 

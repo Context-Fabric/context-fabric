@@ -313,7 +313,7 @@ class Api:
                 else None
             )
         if pretty:
-            for (fName, fInfo) in sorted(info.items()):
+            for fName, fInfo in sorted(info.items()):
                 if fInfo is None:
                     kind = "NOT LOADED"
                     kind = f" {kind:<10}"
@@ -434,16 +434,16 @@ class Api:
                     console(f'WARNING: API member "{member}" not documented')
 
         grouped = {}
-        for (member, (head, sub, ref)) in API_REFS.items():
+        for member, (head, sub, ref) in API_REFS.items():
             grouped.setdefault(ref, {}).setdefault((head, sub), []).append(member)
 
         # grouped
         # node-features=>(Features, node)=>[F, ...]
 
         docs = []
-        for (ref, groups) in sorted(grouped.items()):
+        for ref, groups in sorted(grouped.items()):
             chunks = []
-            for ((head, sub), members) in sorted(groups.items()):
+            for (head, sub), members in sorted(groups.items()):
                 chunks.append(" ".join(sorted(members, key=lambda x: (len(x), x))))
             docs.append((head, ref, tuple(chunks)))
         return docs
@@ -529,7 +529,7 @@ class Api:
                 sData = deepSize(data)
                 sizes[ft] = (nData, sData)
 
-            console(f'\r{"":>40}', newline=False)
+            console(f"\r{'':>40}", newline=False)
             self.sizes = sizes
 
         material = ""
@@ -537,7 +537,7 @@ class Api:
         nFeatures = len(sizes)
         totals = collections.Counter()
 
-        for (ft, (nData, sData)) in sorted(
+        for ft, (nData, sData) in sorted(
             sizes.items(),
             key=(lambda x: (-x[1][1], x[0])) if bySize else lambda x: x[0],
         ):
@@ -545,7 +545,7 @@ class Api:
             totals["nData"] += nData
             totals["sData"] += sData
 
-        material += f'TOTAL | {totals["nData"]:,} | {totals["sData"]:,}'
+        material += f"TOTAL | {totals['nData']:,} | {totals['sData']:,}"
         header = dedent(
             f"""
             # {nFeatures} features

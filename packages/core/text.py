@@ -417,9 +417,7 @@ class Text:
             self.hdTop,
             self.hdUp,
             self.hdDown,
-        ) = (
-            structure.data if structure else (None, None, None, None, None, None)
-        )
+        ) = structure.data if structure else (None, None, None, None, None, None)
         self.headings = (
             ()
             if structure is None
@@ -681,7 +679,7 @@ class Text:
         info(
             f"These {len(headings)} structural elements have been configured", tm=False
         )
-        for (tp, ft) in headings:
+        for tp, ft in headings:
             info(f"\tnode type {tp:<10} with heading feature {ft}", tm=False)
         info("You can get them as a tuple with T.headings.", tm=False)
         info(
@@ -710,11 +708,11 @@ There are {len(hdFromNd)} structural elements in the dataset.
                 f"WARNING: {nMultiple} structure headings with hdMult occurrences (total {tMultiple})",
                 tm=False,
             )
-            for (sKey, nodes) in sorted(hdMult.items())[0:10]:
+            for sKey, nodes in sorted(hdMult.items())[0:10]:
                 sKeyRep = "-".join(":".join(str(p) for p in part) for part in sKey)
                 nNodes = len(nodes)
                 error(f"\t{sKeyRep} has {nNodes} occurrences", tm=False)
-                error(f'\t\t{", ".join(str(n) for n in nodes[0:5])}', tm=False)
+                error(f"\t\t{', '.join(str(n) for n in nodes[0:5])}", tm=False)
                 if nNodes > 5:
                     error(f"\t\tand {nNodes - 5} more", tm=False)
             if nMultiple > 10:
@@ -1070,7 +1068,7 @@ There are {len(hdFromNd)} structural elements in the dataset.
             descendRep = (
                 "implicit" if descend is None else "True" if descend else "False"
             )
-            funcRep = f'{"" if func else "no "}custom format implementation'
+            funcRep = f"{'' if func else 'no '}custom format implementation"
             error(
                 f"""
 EXPLANATION: T.text() called with parameters:
@@ -1155,7 +1153,7 @@ EXPLANATION: T.text() called with parameters:
                 if explain:
                     plural = ""
             if explain:
-                nodeRep = f'{len(xnodes)} {downType or nType}{plural} {", ".join(str(x) for x in xnodes)}'
+                nodeRep = f"{len(xnodes)} {downType or nType}{plural} {', '.join(str(x) for x in xnodes)}"
                 error(f"\t\tEXPANSION: {nodeRep}", tm=False)
 
             if func:
@@ -1203,7 +1201,7 @@ EXPLANATION: T.text() called with parameters:
         self._tformats = {}
         self._xformats = {}
         self._xdTypes = {}
-        for (fmt, (otpl, rtpl, feats)) in sorted(cformats.items()):
+        for fmt, (otpl, rtpl, feats) in sorted(cformats.items()):
             defaultType = self.splitDefaultFormat(fmt)
             if defaultType:
                 self.defaultFormats[defaultType] = fmt

@@ -880,7 +880,6 @@ def basicRelations(searchExe, api):
 
             return func
         else:
-
             if isSlotT:
 
                 def xx(n):
@@ -1101,7 +1100,7 @@ def basicRelations(searchExe, api):
                 if f not in Sindex:
                     Sindex[f] = makeIndex(Fs(f).data)
                 indFR = {}
-                for (v, ns) in Sindex[f].items():
+                for v, ns in Sindex[f].items():
                     vR = rRe.sub("", v)
                     for n in ns:
                         indFR.setdefault(vR, set()).add(n)
@@ -1110,7 +1109,7 @@ def basicRelations(searchExe, api):
                 if g not in Sindex:
                     Sindex[g] = makeIndex(Fs(g).data)
                 indGR = {}
-                for (v, ns) in Sindex[g].items():
+                for v, ns in Sindex[g].items():
                     vR = rRe.sub("", v)
                     for n in ns:
                         indGR.setdefault(vR, set()).add(n)
@@ -1613,7 +1612,7 @@ def basicRelations(searchExe, api):
     lr = len(relations)
 
     relationsAll = []
-    for (r, rc) in relations:
+    for r, rc in relations:
         relationsAll.extend([r, rc])
 
     searchExe.relations = [
@@ -1629,7 +1628,7 @@ def basicRelations(searchExe, api):
         ((r["acro"], i) for (i, r) in enumerate(searchExe.relations))
     )
     searchExe.relationLegend = "\n".join(
-        f'{r["acro"]:>23} {r["desc"]}'
+        f"{r['acro']:>23} {r['desc']}"
         for r in searchExe.relations
         if r["desc"] is not None
     )
@@ -1648,7 +1647,7 @@ One of the above relations on nodes and / or slots will suit you better.
 def add_K_Relations(searchExe, varRels):
     relations = searchExe.relations
     tasks = collections.defaultdict(set)
-    for (acro, ks) in varRels.items():
+    for acro, ks in varRels.items():
         j = searchExe.relationFromName[acro]
         ji = searchExe.converse[j]
         if ji < j:
@@ -1657,7 +1656,7 @@ def add_K_Relations(searchExe, varRels):
         acroi = relations[ji]["acro"]
         tasks[(j, acro, ji, acroi)] |= ks
 
-    for ((j, acro, ji, acroi), ks) in tasks.items():
+    for (j, acro, ji, acroi), ks in tasks.items():
         for k in ks:
             newAcro = acro.replace("k", str(k))
             newAcroi = acroi.replace("k", str(k))
@@ -1691,7 +1690,7 @@ def add_K_Relations(searchExe, varRels):
 def add_F_Relations(searchExe, varRels):
     relations = searchExe.relations
     tasks = collections.defaultdict(set)
-    for (acro, feats) in varRels.items():
+    for acro, feats in varRels.items():
         j = searchExe.relationFromName[acro]
         ji = searchExe.converse[j]
         if ji < j:
@@ -1700,7 +1699,7 @@ def add_F_Relations(searchExe, varRels):
         acroi = relations[ji]["acro"]
         tasks[(j, acro, ji, acroi)] |= feats
 
-    for ((j, acro, ji, acroi), feats) in tasks.items():
+    for (j, acro, ji, acroi), feats in tasks.items():
         for featInfo in feats:
             if len(featInfo) == 2:
                 ((f, fF), (t, gF)) = featInfo
@@ -1762,8 +1761,8 @@ def add_F_Relations(searchExe, varRels):
 def add_V_Relations(searchExe, varRels):
     relations = searchExe.relations
     tasks = collections.defaultdict(set)
-    for (acro, vals) in sorted(varRels.items()):
-        for (eName, val) in vals:
+    for acro, vals in sorted(varRels.items()):
+        for eName, val in vals:
             (b, mid, e) = (acro[0], acro[1:-1], acro[-1])
             norm = b == "-" and e == ">"
             conv = b == "<" and e == "-"
@@ -1781,7 +1780,7 @@ def add_V_Relations(searchExe, varRels):
             else:
                 tasks[(eName, js, acro, js, acro)].add(val)
 
-    for ((eName, j, acro, ji, acroi), vals) in sorted(tasks.items()):
+    for (eName, j, acro, ji, acroi), vals in sorted(tasks.items()):
         for val in vals:
             r = relations[j]
             ri = relations[ji]

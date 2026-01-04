@@ -41,6 +41,10 @@ embedded = api.L.d(node)
 - **T** (Text) - Retrieve text representations
 - **S** (Search) - Search using templates
 
+## Testing
+
+See [TESTING.md](TESTING.md) for how to run tests.
+
 ## Authors
 
 - Cody Kingham

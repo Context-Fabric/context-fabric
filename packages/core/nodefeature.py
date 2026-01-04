@@ -16,7 +16,6 @@ But you can still iterate over the data of a feature as if it were a
 dictionary: `tf.core.nodefeature.NodeFeature.items`
 """
 
-
 import collections
 
 

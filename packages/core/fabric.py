@@ -389,7 +389,7 @@ class FabricCore:
                     cformats = self.cformats
                     tFormats = {}
                     tFeats = set()
-                    for (fmt, (otpl, tpl, featData)) in cformats.items():
+                    for fmt, (otpl, tpl, featData) in cformats.items():
                         feats = set(chain.from_iterable(x[0] for x in featData))
                         tFormats[fmt] = tuple(sorted(feats))
                         tFeats |= feats
@@ -485,7 +485,7 @@ class FabricCore:
         configs = set()
         computeds = set()
 
-        for (fName, fObj) in self.features.items():
+        for fName, fObj in self.features.items():
             fObj.load(silent=silent, metaOnly=True)
             dest = None
             if fObj.method:
@@ -555,7 +555,7 @@ class FabricCore:
         tf.clean
         """
 
-        for (fName, fObj) in self.features.items():
+        for fName, fObj in self.features.items():
             fObj.cleanDataBin()
 
     def save(
@@ -737,7 +737,7 @@ class FabricCore:
                         unmappedByType.setdefault(
                             otypeData.get(n, "_UNKNOWN_"), []
                         ).append(n)
-                    for (nType, nodes) in sorted(
+                    for nType, nodes in sorted(
                         unmappedByType.items(),
                         key=lambda x: (-len(x[1]), x[0]),
                     ):
@@ -747,7 +747,7 @@ class FabricCore:
             if good:
                 info(f"OK: {OSLOTS} is valid")
 
-        for (fName, data, isEdge, isConfig) in todo:
+        for fName, data, isEdge, isConfig in todo:
             edgeValues = False
             fMeta = {}
             fMeta.update(metaData.get("", {}))
@@ -778,7 +778,7 @@ class FabricCore:
             f""" to {self.writeDir}"""
         )
         if len(failed):
-            for (tag, nf) in sorted(failed.items()):
+            for tag, nf in sorted(failed.items()):
                 error(f"Failed to export {nf} {tag} features")
             good = False
 
@@ -823,7 +823,7 @@ class FabricCore:
                 for fileF in files:
                     (fName, ext) = splitExt(fileF)
                     tfFiles.setdefault(fName, []).append(f"{dirF}/{fileF}")
-        for (fName, featurePaths) in sorted(tfFiles.items()):
+        for fName, featurePaths in sorted(tfFiles.items()):
             chosenFPath = featurePaths[-1]
             for featurePath in sorted(set(featurePaths[0:-1])):
                 if featurePath != chosenFPath:
@@ -864,7 +864,7 @@ class FabricCore:
             self.warpDir = self.features[OTYPE].dirName
             self.precomputeList = []
             self.dep1Feats = []
-            for (dep2, fName, method, dependencies) in PRECOMPUTE:
+            for dep2, fName, method, dependencies in PRECOMPUTE:
                 thisGood = True
                 if dep2 and OTEXT not in self.features:
                     continue
@@ -919,8 +919,8 @@ class FabricCore:
         isSilent = tmObj.isSilent
         good = True
 
-        for (fName, dep2) in self.precomputeList:
-            ok = getattr(self, f'{fName.strip("_")}OK', False)
+        for fName, dep2 in self.precomputeList:
+            ok = getattr(self, f"{fName.strip('_')}OK", False)
             if dep2 == 2 and not ok:
                 continue
             if not self.features[fName].load(silent=isSilent()):

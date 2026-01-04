@@ -2,7 +2,6 @@
 # Local navigation between nodes.
 """
 
-
 SET_TYPES = {set, frozenset}
 
 
@@ -43,7 +42,7 @@ class Locality:
 
         *   `L.d(verseNode)` will contain `sentenceNode`,
         *   `L.d(sentenceNode)` will contain `verseNode`.
-      """
+    """
 
     def __init__(self, api):
         self.api = api
@@ -192,7 +191,8 @@ class Locality:
         if otype is None:
             return tuple(
                 sorted(
-                    levDown[n - maxSlot - 1] + Eoslots.s(n), key=lambda m: Crank[m - 1],
+                    levDown[n - maxSlot - 1] + Eoslots.s(n),
+                    key=lambda m: Crank[m - 1],
                 )
             )
         elif otype == slotType:

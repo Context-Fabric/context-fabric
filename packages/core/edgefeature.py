@@ -249,28 +249,28 @@ class EdgeFeature:
         if nodeTypesFrom is None and nodeTypesTo is None:
             if self.doValues:
                 fql = collections.Counter()
-                for (n, vals) in self.data.items():
+                for n, vals in self.data.items():
                     for val in vals.values():
                         fql[val] += 1
                 return tuple(sorted(fql.items(), key=lambda x: (-x[1], x[0])))
             else:
                 fql = 0
-                for (n, ms) in self.data.items():
+                for n, ms in self.data.items():
                     fql += len(ms)
                 return fql
         else:
             fOtype = self.api.F.otype.v
             if self.doValues:
                 fql = collections.Counter()
-                for (n, vals) in self.data.items():
+                for n, vals in self.data.items():
                     if nodeTypesFrom is None or fOtype(n) in nodeTypesFrom:
-                        for (m, val) in vals.items():
+                        for m, val in vals.items():
                             if nodeTypesTo is None or fOtype(m) in nodeTypesTo:
                                 fql[val] += 1
                 return tuple(sorted(fql.items(), key=lambda x: (-x[1], x[0])))
             else:
                 fql = 0
-                for (n, ms) in self.data.items():
+                for n, ms in self.data.items():
                     if nodeTypesFrom is None or fOtype(n) in nodeTypesFrom:
                         for m in ms:
                             if nodeTypesTo is None or fOtype(m) in nodeTypesTo:

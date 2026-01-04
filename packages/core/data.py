@@ -1,11 +1,19 @@
 import array
 import gc
 import pickle
+
 # from pickletools import optimize
 import gzip
 import collections
 import time
-from core.parameters import PACK_VERSION, PICKLE_PROTOCOL, GZIP_LEVEL, OTYPE, OSLOTS, OTEXT
+from core.parameters import (
+    PACK_VERSION,
+    PICKLE_PROTOCOL,
+    GZIP_LEVEL,
+    OTYPE,
+    OSLOTS,
+    OTEXT,
+)
 from core.helpers import (
     setFromSpec,
     valueFromTf,
@@ -344,7 +352,11 @@ class Data:
                 value = (
                     int(valTf)
                     if isNum and valTf != ""
-                    else None if isNum else "" if valTf == "" else valueFromTf(valTf)
+                    else None
+                    if isNum
+                    else ""
+                    if valTf == ""
+                    else valueFromTf(valTf)
                 )
             if isEdge:
                 for n in nodes:
@@ -352,9 +364,9 @@ class Data:
                         if not edgeValues:
                             data.setdefault(n, set()).add(m)
                         else:
-                            data.setdefault(n, {})[
-                                m
-                            ] = value  # even if the value is None
+                            data.setdefault(n, {})[m] = (
+                                value  # even if the value is None
+                            )
             else:
                 for n in nodes:
                     if value is not None:

@@ -22,8 +22,7 @@ class OslotsFeature:
         self.maxNode = data[2]
 
     def items(self):
-        """A generator that yields the non-slot nodes with their slots.
-        """
+        """A generator that yields the non-slot nodes with their slots."""
 
         maxSlot = self.maxSlot
         data = self.data

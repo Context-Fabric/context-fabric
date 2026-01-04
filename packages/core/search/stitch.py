@@ -37,7 +37,9 @@ def setStrategy(searchExe, strategy, keep=False):
 
     func = globals().get(f"_{strategy}", None)
     if not func:
-        error(f'Strategy is defined, but not implemented: "{strategy}"', cache=_msgCache)
+        error(
+            f'Strategy is defined, but not implemented: "{strategy}"', cache=_msgCache
+        )
         searchExe.good = False
     searchExe.strategy = types.MethodType(func, searchExe)
     searchExe.strategyName = strategy
@@ -48,7 +50,7 @@ def _spread_1_first(searchExe):
     qnodes = searchExe.qnodes
 
     s1Edges = []
-    for (e, (f, rela, t)) in enumerate(qedges):
+    for e, (f, rela, t) in enumerate(qedges):
         if searchExe.spreads[e] <= 1:
             s1Edges.append((e, 1))
         if searchExe.spreadsC[e] <= 1:
@@ -67,7 +69,7 @@ def _spread_1_first(searchExe):
         cedgesOrder = []
         while 1:
             added = False
-            for (e, dir) in s1Edges:
+            for e, dir in s1Edges:
                 (f, rela, t) = qedges[e]
                 if dir == -1:
                     (t, f) = (f, t)
@@ -124,7 +126,7 @@ def _spread_1_first(searchExe):
 
     while 1:
         added = False
-        for (e, dir) in remainingEdgesO:
+        for e, dir in remainingEdgesO:
             if e in doneEdges:
                 continue
             (f, rela, t) = qedges[e]
@@ -134,7 +136,7 @@ def _spread_1_first(searchExe):
                 newEdges.append((e, dir))
                 doneEdges.add(e)
                 added = True
-        for (e, dir) in remainingEdgesO:
+        for e, dir in remainingEdgesO:
             if e in doneEdges:
                 continue
             (f, rela, t) = qedges[e]
@@ -155,7 +157,6 @@ def _spread_1_first(searchExe):
 
 
 def _small_choice_first(searchExe):
-
     # This strategy does not try to make a big subgraph of
     # edges with spread 1.
     # The problem is that before the edges work,
@@ -196,7 +197,7 @@ def _small_choice_first(searchExe):
 
     while 1:
         added = False
-        for (e, dir) in remainingEdgesO:
+        for e, dir in remainingEdgesO:
             if e in doneEdges:
                 continue
             (f, rela, t) = qedges[e]
@@ -206,7 +207,7 @@ def _small_choice_first(searchExe):
                 newEdges.append((e, dir))
                 doneEdges.add(e)
                 added = True
-        for (e, dir) in remainingEdgesO:
+        for e, dir in remainingEdgesO:
             if e in doneEdges:
                 continue
             (f, rela, t) = qedges[e]
@@ -227,7 +228,6 @@ def _small_choice_first(searchExe):
 
 
 def _small_choice_multi(searchExe):
-
     # This strategy is like small_choice_first
     # but it tries to combine multi-edges as much as possible.
 
@@ -251,13 +251,13 @@ def _small_choice_multi(searchExe):
     isMulti = {}
     inMulti = {}
 
-    for (i, me) in enumerate(medges):
+    for i, me in enumerate(medges):
         curE = firstMulti + i
         fs = []
         relas = []
         ts = set()  # should end up as a singleton
         minSpread = None
-        for (e, dir) in me:
+        for e, dir in me:
             isMulti.setdefault(curE, []).append((e, dir))
             inMulti[e] = curE
             (a, ru, b) = qedges[e]
@@ -292,7 +292,7 @@ def _small_choice_multi(searchExe):
 
     while 1:
         added = False
-        for (e, dir) in remainingEdgesO:
+        for e, dir in remainingEdgesO:
             if e in doneEdges:
                 continue
             (f, rela, t) = qedges[e]
@@ -318,7 +318,7 @@ def _small_choice_multi(searchExe):
                             removedEdges.add(ex)
                         doneEdges.add(ex)
                     added = True
-        for (e, dir) in remainingEdgesO:
+        for e, dir in remainingEdgesO:
             if e in doneEdges:
                 continue
             (f, rela, t) = qedges[e]
@@ -357,7 +357,6 @@ def _small_choice_multi(searchExe):
 
 
 def _by_yarn_size(searchExe):
-
     # This strategy is like small choice first,
     # but we measure the choices differently,
     # namely by yarn size and spread.
@@ -401,7 +400,7 @@ def _by_yarn_size(searchExe):
 
     while 1:
         added = False
-        for (e, dir) in remainingEdgesO:
+        for e, dir in remainingEdgesO:
             if e in doneEdges:
                 continue
             (f, rela, t) = qedges[e]
@@ -411,7 +410,7 @@ def _by_yarn_size(searchExe):
                 newEdges.append((e, dir))
                 doneEdges.add(e)
                 added = True
-        for (e, dir) in remainingEdgesO:
+        for e, dir in remainingEdgesO:
             if e in doneEdges:
                 continue
             (f, rela, t) = qedges[e]
@@ -432,7 +431,6 @@ def _by_yarn_size(searchExe):
 
 
 def _big_choice_first(searchExe):
-
     # For comparison: the opposite of _small_choice_first.
     # Just to see what the performance difference is.
 
@@ -456,7 +454,7 @@ def _big_choice_first(searchExe):
 
     while 1:
         added = False
-        for (e, dir) in remainingEdgesO:
+        for e, dir in remainingEdgesO:
             if e in doneEdges:
                 continue
             (f, rela, t) = qedges[e]
@@ -466,7 +464,7 @@ def _big_choice_first(searchExe):
                 newEdges.append((e, dir))
                 doneEdges.add(e)
                 added = True
-        for (e, dir) in remainingEdgesO:
+        for e, dir in remainingEdgesO:
             if e in doneEdges:
                 continue
             (f, rela, t) = qedges[e]
@@ -525,7 +523,7 @@ def _stitchPlan(searchExe, strategy=None):
 
     newCedges = set()
     newCedgesOrder = []
-    for (e, dir) in newEdges:
+    for e, dir in newEdges:
         if e not in newCedges:
             newCedgesOrder.append((e, dir))
             newCedges.add(e)
@@ -639,11 +637,9 @@ def _stitchResults(searchExe):
 
     edgesCompiled = []
     qPermuted = []  # row of nodes in the order as will be created during stitching
-    qPermutedPos = (
-        {}
-    )  # mapping from original q node number to index in the permuted order
+    qPermutedPos = {}  # mapping from original q node number to index in the permuted order
 
-    for (i, (e, dir)) in enumerate(planEdges):
+    for i, (e, dir) in enumerate(planEdges):
         isMulti = e >= firstMulti
         (f, rela, t) = qedges[e]
         if dir == -1:
@@ -717,7 +713,7 @@ def _stitchResults(searchExe):
             if sM is not None:
                 if isMulti:
                     satisfied = True
-                    for (i, x) in enumerate(f):
+                    for i, x in enumerate(f):
                         if not r[i](stitch[x], sM):
                             satisfied = False
                             break
@@ -741,7 +737,7 @@ def _stitchResults(searchExe):
             if isMulti:
                 for m in yarnT:
                     satisfied = True
-                    for (i, x) in enumerate(f):
+                    for i, x in enumerate(f):
                         if not r[i](stitch[x], m):
                             satisfied = False
                             break
@@ -820,7 +816,7 @@ def _stitchResults(searchExe):
 
                 if isMulti:
                     satisfied = True
-                    for (i, x) in enumerate(f):
+                    for i, x in enumerate(f):
                         if not r[i](stitch[x], sM):
                             satisfied = False
                             break
@@ -844,7 +840,7 @@ def _stitchResults(searchExe):
             if isMulti:
                 for m in yarnT:
                     satisfied = True
-                    for (i, x) in enumerate(f):
+                    for i, x in enumerate(f):
                         if not r[i](stitch[x], m):
                             satisfied = False
                             break

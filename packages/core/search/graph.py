@@ -39,7 +39,7 @@ def connectedness(searchExe):
     _msgCache = searchExe._msgCache
 
     componentIndex = dict(((q, {q}) for q in range(len(qnodes))))
-    for (f, rela, t) in qedges:
+    for f, rela, t in qedges:
         if f != t:
             componentIndex[f] |= componentIndex[t]
             componentIndex[t] = componentIndex[f]
@@ -51,7 +51,7 @@ def connectedness(searchExe):
         for q in c:
             componentIndex[q] = c
     componentEdges = {}
-    for (e, (f, rela, t)) in enumerate(qedges):
+    for e, (f, rela, t) in enumerate(qedges):
         c = componentIndex[f]
         componentEdges.setdefault(c, []).append(e)
     searchExe.components = []
@@ -84,7 +84,7 @@ def multiEdges(searchExe):
     medgesIndex = {}
     # will be a dict keyed by edge destination, then by upper / lower bound
     # and then the values are directed edges
-    for (e, (f, rela, t)) in enumerate(qedges):
+    for e, (f, rela, t) in enumerate(qedges):
         relInfo = relations[rela]
         acro = relInfo.get("name", relInfo["acro"])
         if acro in HALFBOUNDED:
@@ -145,7 +145,7 @@ def displayPlan(searchExe, details=False):
             displayNode(searchExe, q)
         if len(es) != 0:
             info("Performance parameters:", tm=False, cache=_msgCache)
-            for (k, v) in searchExe.perfParams.items():
+            for k, v in searchExe.perfParams.items():
                 info(f"\t{k:<20} = {v:>7}", tm=False, cache=_msgCache)
             info(
                 "Instantiations are computed along the following relations:",
@@ -169,7 +169,7 @@ def displayPlan(searchExe, details=False):
     resultNode = {}
     for q in qs:
         resultNode[nodeLine[q]] = q
-    for (i, line) in enumerate(searchExe.searchLines):
+    for i, line in enumerate(searchExe.searchLines):
         rNode = resultNode.get(i, "")
         prefix = "" if rNode == "" else "R"
         info(f"{i + offset:>2} {prefix:<1}{rNode:<2} {line}", tm=False, cache=_msgCache)
@@ -185,11 +185,17 @@ def displayNode(searchExe, q, pos2=False):
     space = " " * 31
     nodeInfo = (
         "node {} {:>2}-{:<13} {:>6}   choices".format(
-            space, q, qnodes[q][0], len(yarns[q]),
+            space,
+            q,
+            qnodes[q][0],
+            len(yarns[q]),
         )
         if pos2
         else "node {:>2}-{:<13} {} {:>6}   choices".format(
-            q, qnodes[q][0], space, len(yarns[q]),
+            q,
+            qnodes[q][0],
+            space,
+            len(yarns[q]),
         )
     )
     info(nodeInfo, tm=False, cache=_msgCache)

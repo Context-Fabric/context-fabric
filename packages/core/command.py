@@ -51,7 +51,7 @@ def readArgs(
     taskArgs = set()
     helpTasks = []
 
-    for (task, helpStr) in possibleTasks.items():
+    for task, helpStr in possibleTasks.items():
         helpTasks.append(f"\t{task}:\n\t\t{helpStr}\n")
         taskArgs.add(task)
 
@@ -62,7 +62,7 @@ def readArgs(
     paramArgsDef = {}
     helpParams = []
 
-    for (param, (helpStr, default)) in possibleParams.items():
+    for param, (helpStr, default) in possibleParams.items():
         helpParams.append(f"\t{param}={default}:\n\t\t{helpStr}\n")
         paramArgsDef[param] = default
 
@@ -70,7 +70,7 @@ def readArgs(
     flagArgs = {}
     helpFlags = []
 
-    for (flag, (helpStr, default, nValues)) in possibleFlags.items():
+    for flag, (helpStr, default, nValues) in possibleFlags.items():
         helpFlags.append(f"\t{flag}={default}:\n\t\t{helpStr}\n")
         valueCoding = (
             (("-", False, "no"), ("+", True, "yes"))
@@ -81,15 +81,13 @@ def readArgs(
         )
 
         if valueCoding is not None:
-            for (sigil, value, rep) in valueCoding:
+            for sigil, value, rep in valueCoding:
                 helpFlags.append(f"\t\t{sigil}{flag}: {rep} {flag}")
                 flagArgsDef[flag] = default
                 flagArgs[f"{sigil}{flag}"] = value
 
-    helpText = (
-        f"{command} [tasks/params/flags] [--help]\n\n{descr}\n\n"
-        + dedent(
-            """
+    helpText = f"{command} [tasks/params/flags] [--help]\n\n{descr}\n\n" + dedent(
+        """
         --help: show this text and exit
 
         tasks:
@@ -101,11 +99,9 @@ def readArgs(
         flags:
         «flags»
         """
-        )
-        .replace("«tasks»", "".join(helpTasks))
-        .replace("«params»", "".join(helpParams))
-        .replace("«flags»", "".join(helpFlags))
-    )
+    ).replace("«tasks»", "".join(helpTasks)).replace(
+        "«params»", "".join(helpParams)
+    ).replace("«flags»", "".join(helpFlags))
 
     possibleArgs = set(taskArgs) | set(flagArgs)
 
@@ -143,11 +139,11 @@ def readArgs(
             (p, val) = parts
             params[p] = val or paramArgsDef[p]
 
-    for (f, default) in flagArgsDef.items():
+    for f, default in flagArgsDef.items():
         if f not in flags:
             flags[f] = default
 
-    for (p, default) in paramArgsDef.items():
+    for p, default in paramArgsDef.items():
         if p not in params:
             params[p] = default
 

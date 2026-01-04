@@ -139,7 +139,7 @@ class Search:
 
         wasSilent = isSilent()
         setSilent(silent)
-        for (k, v) in kwargs.items():
+        for k, v in kwargs.items():
             if k not in defaults:
                 error(f'No such performance parameter: "{k}"', tm=False)
                 continue
@@ -153,7 +153,7 @@ class Search:
                 continue
             self.perfParams[k] = v
         info("Performance parameters, current values:", tm=False)
-        for (k, v) in sorted(self.perfParams.items()):
+        for k, v in sorted(self.perfParams.items()):
             info(f"\t{k:<20} = {v:>7}", tm=False)
         SearchExe.setPerfParams(self.perfParams)
         setSilent(wasSilent)
@@ -523,7 +523,7 @@ class Search:
         if lR == 0:
             return ""
         fields = []
-        for (i, n) in enumerate(tup):
+        for i, n in enumerate(tup):
             otype = fOtype(n)
             words = [n] if otype == slotType else eoslots[n - maxSlot - 1]
             if otype == T.sectionTypes[2]:

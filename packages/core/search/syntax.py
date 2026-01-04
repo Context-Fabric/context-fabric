@@ -85,15 +85,14 @@ def syntax(searchExe):
 
     if not searchExe.good:
         searchExe.showOuterTemplate(_msgCache)
-        for (i, line) in enumerate(searchExe.searchLines):
+        for i, line in enumerate(searchExe.searchLines):
             error(f"{i + offset:>2} {line}", tm=False, cache=_msgCache)
-        for (ln, eline) in searchExe.badSyntax:
+        for ln, eline in searchExe.badSyntax:
             txt = eline if ln is None else f"line {ln + offset}: {eline}"
             error(txt, tm=False, cache=_msgCache)
 
 
 def _tokenize(searchExe):
-
     tokens = []
 
     def lastAtomToken():
@@ -139,7 +138,7 @@ def _tokenize(searchExe):
     curQu = []
     curQuTemplates = None
 
-    for (i, line) in enumerate(searchLines):
+    for i, line in enumerate(searchLines):
         if whiteRe.match(line):
             continue
         opFeatures = {}
@@ -450,7 +449,7 @@ def _tokenize(searchExe):
             allGood = False
 
     if curQu:
-        for (curQuLine, curQuKind, curQuIndent) in curQu:
+        for curQuLine, curQuKind, curQuIndent in curQu:
             searchExe.badSyntax.append(
                 (curQuLine, f'Quantifier: Unterminated "{curQuKind}"')
             )
@@ -665,13 +664,13 @@ def _makeLimit(n, isLower):
 
 
 def _esc(x):
-    for (i, c) in enumerate(ESCAPES):
+    for i, c in enumerate(ESCAPES):
         x = x.replace(c, chr(i))
     return x
 
 
 def _unesc(x, inRe=False):
-    for (i, c) in enumerate(ESCAPES):
+    for i, c in enumerate(ESCAPES):
         if inRe and c in VAL_ESCAPES:
             x = x.replace(chr(i), f"\\{c[1]}")
         else:

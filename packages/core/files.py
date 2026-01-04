@@ -141,7 +141,9 @@ def getLocation(targetDir=None):
     destDir = (
         curDir
         if targetDir is None
-        else targetDir if targetDir.startswith("/") else f"{curDir}/{targetDir}"
+        else targetDir
+        if targetDir.startswith("/")
+        else f"{curDir}/{targetDir}"
     )
     destDir = unexpanduser(destDir)
 
@@ -215,7 +217,9 @@ def backendRep(be, kind, default=None):
     be = (
         GH
         if be in {None, "", GH, f"{GH}.com"}
-        else GL if be in {GL, f"{GL}.com"} else be
+        else GL
+        if be in {GL, f"{GL}.com"}
+        else be
     )
     beTail = ".".join(be.split(".")[1:])
 
@@ -256,7 +260,9 @@ def backendRep(be, kind, default=None):
         return (
             URL_GH_UPLOAD
             if be == GH
-            else URL_GL_UPLOAD if be == GL else f"https://api.{be}"
+            else URL_GL_UPLOAD
+            if be == GL
+            else f"https://api.{be}"
         )
 
     if kind == "urlnb":
@@ -590,7 +596,11 @@ def dirExists(path):
     return (
         False
         if path is None
-        else True if path == "" else os.path.isdir(path) if path else True
+        else True
+        if path == ""
+        else os.path.isdir(path)
+        if path
+        else True
     )
 
 

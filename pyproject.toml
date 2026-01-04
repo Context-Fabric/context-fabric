@@ -40,6 +40,7 @@ dev = [
     "pytest>=7.0",
     "pytest-cov",
     "ruff",
+    "tox",
 ]
 
 [project.urls]
@@ -56,3 +57,13 @@ where = ["packages"]
 [tool.ruff]
 line-length = 88
 target-version = "py313"
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"

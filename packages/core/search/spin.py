@@ -40,7 +40,7 @@ def _spinAtom(searchExe, q):
     )
     for n in nodeSet:
         good = True
-        for (ft, val) in featureList:
+        for ft, val in featureList:
             fval = Fs(ft).v(n)
             if val is None:
                 if fval is not None:
@@ -195,7 +195,7 @@ def _doQuantifier(searchExe, yarn, atom, quantifier):
         # compute the atom+alternative for all alternatives and union them
         resultYarn = set()
         nAlts = len(quTemplates)
-        for (i, alt) in enumerate(quTemplates):
+        for i, alt in enumerate(quTemplates):
             queryAlt = "\n".join((cleanAtom, alt))
             exe = SearchExe(
                 searchExe.api,
@@ -255,11 +255,11 @@ def estimateSpreads(searchExe, both=False):
     spreadsC = {}
     spreads = {}
 
-    for (e, (f, rela, t)) in enumerate(qedges):
+    for e, (f, rela, t) in enumerate(qedges):
         tasks = [(f, rela, t, 1)]
         if both:
             tasks.append((t, converse[rela], f, -1))
-        for (tf, trela, tt, dir) in tasks:
+        for tf, trela, tt, dir in tasks:
             s = relations[trela]["spin"]
             yarnF = yarns[tf]
             yarnT = yarns[tt]
@@ -316,7 +316,7 @@ def _chooseEdge(searchExe):
     yarns = searchExe.yarns
     spreads = searchExe.spreads
     yarnSize = {}
-    for (e, (f, rela, t)) in enumerate(qedges):
+    for e, (f, rela, t) in enumerate(qedges):
         if searchExe.uptodate[e]:
             continue
         yarnFl = len(yarns[f])
@@ -396,7 +396,7 @@ def _spinEdge(searchExe, e):
     affectedT = len(newYarnT) != len(yarns[t])
 
     uptodate[e] = True
-    for (oe, (of, orela, ot)) in enumerate(qedges):
+    for oe, (of, orela, ot) in enumerate(qedges):
         if oe == e:
             continue
         if (affectedF and f in {of, ot}) or (affectedT and t in {of, ot}):
