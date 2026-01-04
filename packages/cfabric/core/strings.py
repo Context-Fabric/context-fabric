@@ -89,6 +89,37 @@ class StringPool:
         """
         return len(self.indices)
 
+    def items(self):
+        """
+        Iterate over (node, value) pairs efficiently using numpy.
+
+        Only yields nodes that have values (skips MISSING entries).
+
+        Yields
+        ------
+        tuple
+            (node, string_value) pairs
+        """
+        # Use numpy to find all nodes with values (vectorized, fast)
+        mask = self.indices != MISSING_STR_INDEX
+        valid_indices = np.where(mask)[0]
+
+        for idx in valid_indices:
+            node = idx + 1  # Convert 0-indexed to 1-indexed
+            string_idx = self.indices[idx]
+            yield (node, self.strings[string_idx])
+
+    def to_dict(self) -> dict:
+        """
+        Convert to dict efficiently.
+
+        Returns
+        -------
+        dict
+            Mapping from node to string value
+        """
+        return dict(self.items())
+
     @classmethod
     def from_dict(cls, data: dict, max_node: int) -> 'StringPool':
         """
@@ -224,6 +255,36 @@ class IntFeatureArray:
             Length of values array
         """
         return len(self.values)
+
+    def items(self):
+        """
+        Iterate over (node, value) pairs efficiently using numpy.
+
+        Only yields nodes that have values (skips MISSING entries).
+
+        Yields
+        ------
+        tuple
+            (node, int_value) pairs
+        """
+        # Use numpy to find all nodes with values (vectorized, fast)
+        mask = self.values != self.MISSING
+        valid_indices = np.where(mask)[0]
+
+        for idx in valid_indices:
+            node = idx + 1  # Convert 0-indexed to 1-indexed
+            yield (node, int(self.values[idx]))
+
+    def to_dict(self) -> dict:
+        """
+        Convert to dict efficiently.
+
+        Returns
+        -------
+        dict
+            Mapping from node to int value
+        """
+        return dict(self.items())
 
     @classmethod
     def from_dict(cls, data: dict, max_node: int) -> 'IntFeatureArray':

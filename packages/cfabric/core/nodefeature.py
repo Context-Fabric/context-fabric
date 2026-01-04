@@ -45,6 +45,7 @@ class NodeFeature:
 
         self._data = data
         self._is_mmap = isinstance(data, (StringPool, IntFeatureArray))
+        self._cached_data = None  # Cache for materialized dict
 
     @property
     def data(self):
@@ -63,20 +64,20 @@ class NodeFeature:
         return self._data
 
     def _materialize(self):
-        """Convert mmap storage to dict.
+        """Convert mmap storage to dict (cached).
 
         Returns
         -------
         dict
             Dictionary mapping nodes to their values.
         """
-        result = {}
-        max_node = len(self._data)
-        for n in range(1, max_node + 1):
-            val = self.v(n)
-            if val is not None:
-                result[n] = val
-        return result
+        if self._cached_data is not None:
+            return self._cached_data
+
+        # Use efficient items() from StringPool/IntFeatureArray
+        # which uses numpy vectorized operations to find non-missing values
+        self._cached_data = dict(self._data.items())
+        return self._cached_data
 
     def items(self):
         """A generator that yields the items of the feature, seen as a mapping.
@@ -91,25 +92,8 @@ class NodeFeature:
            data = dict(F.fff.items())
 
         """
-        if not self._is_mmap:
-            return self._data.items()
-
-        # Mmap iteration - return a generator
-        return self._items_generator()
-
-    def _items_generator(self):
-        """Generator for iterating over mmap data items.
-
-        Yields
-        ------
-        tuple
-            (node, value) pairs for nodes that have values.
-        """
-        max_node = len(self._data)
-        for n in range(1, max_node + 1):
-            val = self.v(n)
-            if val is not None:
-                yield (n, val)
+        # Both dict and mmap backends (StringPool/IntFeatureArray) have items()
+        return self._data.items()
 
     def v(self, n):
         """Get the value of a feature for a node.
