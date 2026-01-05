@@ -43,8 +43,8 @@ class TestSilentConvert:
         assert silentConvert(DEEP) == DEEP
 
     def test_invalid_string(self):
-        """Invalid strings should be converted to boolean."""
-        assert silentConvert("invalid") is True  # not not "invalid"
+        """Invalid strings should return default silent level."""
+        assert silentConvert("invalid") == SILENT_D
 
 
 class TestTimestampInit:

@@ -37,7 +37,11 @@ The value is `"terse"`
 """
 
 
-def silentConvert(arg: str | bool | None) -> str | bool:
+def silentConvert(arg: str | bool | None) -> str:
+    """Convert silent parameter to canonical string form.
+
+    Accepts str, bool, or None and always returns a valid silent level string.
+    """
     if arg is None:
         return SILENT_D
     if arg is False:
@@ -46,7 +50,8 @@ def silentConvert(arg: str | bool | None) -> str | bool:
         return DEEP
     if type(arg) is str and arg in {VERBOSE, AUTO, TERSE, DEEP}:
         return arg
-    return not not arg
+    # Invalid value - default to SILENT_D
+    return SILENT_D
 
 
 class Timestamp:

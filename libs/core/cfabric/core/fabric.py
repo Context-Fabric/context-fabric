@@ -268,8 +268,8 @@ class Fabric:
         self.locationRep = "\n\t".join(
             "\n\t".join(f"{lc}/{f}" for f in self.modules) for lc in self.locations
         )
-        self.featuresRequested = []
-        self.features = {}
+        self.featuresRequested: list[str] = []
+        self.features: dict[str, Data] = {}
         """Dictionary of all features that TF has found, whether loaded or not.
 
         Under each feature name is all info about that feature.
@@ -530,10 +530,10 @@ class Fabric:
 
         wasSilent = isSilent()
         setSilent(silent)
-        nodes = set()
-        edges = set()
-        configs = set()
-        computeds = set()
+        nodes: set[str] = set()
+        edges: set[str] = set()
+        configs: set[str] = set()
+        computeds: set[str] = set()
 
         for fName, fObj in self.features.items():
             fObj.load(silent=silent, metaOnly=True)
@@ -566,6 +566,7 @@ class Fabric:
                     self.featureSets.items(), key=lambda x: x[0]
                 )
             )
+        return None
 
     def loadAll(self, silent: str = SILENT_D) -> Api | bool:
         """Load all loadable features.
