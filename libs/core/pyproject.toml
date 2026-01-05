@@ -41,7 +41,6 @@ dev = [
     "pytest>=7.0",
     "pytest-cov",
     "ruff",
-    "mypy>=1.8",
 ]
 mcp = []  # Placeholder for future MCP server
 docs = [
@@ -65,16 +64,3 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
-
-[tool.mypy]
-python_version = "3.13"
-warn_return_any = false
-warn_unused_ignores = true
-warn_redundant_casts = true
-strict_equality = true
-check_untyped_defs = false
-show_error_codes = true
-
-[[tool.mypy.overrides]]
-module = ["yaml", "yaml.*", "huggingface_hub", "huggingface_hub.*"]
-ignore_missing_imports = true

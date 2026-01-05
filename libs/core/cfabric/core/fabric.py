@@ -12,7 +12,6 @@ This module defines `Fabric`, which provides:
 import collections
 from itertools import chain
 from collections.abc import Iterable
-from typing import TYPE_CHECKING
 
 import numpy as np
 from pathlib import Path
