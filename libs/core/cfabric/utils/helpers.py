@@ -67,8 +67,11 @@ def versionSort(x: str) -> tuple[tuple[int, str, str], ...]:
 
     for p in x.split("."):
         match = NUM_ALFA_RE.match(p)
-        (num, alfa, rest) = match.group(1, 2, 3)
-        parts.append((int(num) if num else 0, alfa, rest))
+        if match:
+            (num, alfa, rest) = match.group(1, 2, 3)
+            parts.append((int(num) if num else 0, alfa, rest))
+        else:
+            parts.append((0, p, ""))
 
     return tuple(parts)
 
@@ -329,40 +332,40 @@ def setFromSpec(spec: str) -> set[int]:
 
 
 def rangesFromSet(nodeSet: set[int]) -> Generator[tuple[int, int], None, None]:
-    # ranges = []
-    curstart: int | None = None
-    curend: int | None = None
+    curstart: int = -1
+    curend: int = -1
+    started = False
     for n in sorted(nodeSet):
-        if curstart is None:
+        if not started:
             curstart = n
             curend = n
+            started = True
         elif n == curend + 1:
             curend = n
         else:
             yield (curstart, curend)
-            # ranges.append((curstart, curend))
             curstart = n
             curend = n
-    if curstart is not None:
+    if started:
         yield (curstart, curend)
-        # ranges.append((curstart, curend))
-    # return ranges
 
 
 def rangesFromList(nodeList: list[int]) -> Generator[tuple[int, int], None, None]:  # the list must be sorted
-    curstart: int | None = None
-    curend: int | None = None
+    curstart: int = -1
+    curend: int = -1
+    started = False
     for n in nodeList:
-        if curstart is None:
+        if not started:
             curstart = n
             curend = n
+            started = True
         elif n == curend + 1:
             curend = n
         else:
             yield (curstart, curend)
             curstart = n
             curend = n
-    if curstart is not None:
+    if started:
         yield (curstart, curend)
 
 
