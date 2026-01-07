@@ -22,8 +22,6 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Dict, Any
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -74,41 +72,19 @@ class ParallelResult:
     load_time: float
 
 
-def get_memory_mb(use_uss: bool = False) -> float:
-    """Get current process memory usage in MB.
-
-    Args:
-        use_uss: If True, use USS (Unique Set Size) which excludes shared pages.
-                 Better for mmap'd files. Falls back to RSS if unavailable.
-    """
+def get_memory_mb() -> float:
+    """Get current process memory usage in MB (RSS)."""
     proc = psutil.Process(os.getpid())
-    if use_uss:
-        try:
-            return proc.memory_full_info().uss / 1024 / 1024
-        except (AttributeError, psutil.AccessDenied):
-            pass
     return proc.memory_info().rss / 1024 / 1024
 
 
-def get_total_memory_mb(pids: List[int], use_uss: bool = False) -> float:
-    """Get total memory usage across multiple processes in MB.
-
-    Args:
-        pids: List of process IDs to measure
-        use_uss: If True, use USS (Unique Set Size) which excludes shared pages.
-                 Better for mmap'd files as it won't double-count shared pages.
-    """
+def get_total_memory_mb(pids: list[int]) -> float:
+    """Get total memory usage across multiple processes in MB (RSS)."""
     total = 0.0
     for pid in pids:
         try:
             proc = psutil.Process(pid)
-            if use_uss:
-                try:
-                    total += proc.memory_full_info().uss / 1024 / 1024
-                except (AttributeError, psutil.AccessDenied):
-                    total += proc.memory_info().rss / 1024 / 1024
-            else:
-                total += proc.memory_info().rss / 1024 / 1024
+            total += proc.memory_info().rss / 1024 / 1024
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
     return total
@@ -142,6 +118,24 @@ def get_corpus_name(source: str) -> str:
     return Path(source).parent.name.upper()
 
 
+def _measure_tf_cache_load(source: str, result_queue):
+    """Subprocess worker to measure TF cache load memory cleanly."""
+    from tf.fabric import Fabric as TFFabric
+
+    start = time.perf_counter()
+    tf = TFFabric(locations=source, silent='deep')
+    api = tf.loadAll(silent='deep')
+    load_time = time.perf_counter() - start
+
+    # Measure total RSS (not delta) - consistent with parallel measurements
+    gc.collect()
+    total_rss = get_memory_mb()
+    result_queue.put((total_rss, load_time))
+
+    # Keep process alive briefly for external memory measurement
+    time.sleep(2)
+
+
 def benchmark_text_fabric(source: str) -> BenchmarkResult:
     """Benchmark Text-Fabric loading."""
     from tf.fabric import Fabric as TFFabric
@@ -149,18 +143,12 @@ def benchmark_text_fabric(source: str) -> BenchmarkResult:
     result = BenchmarkResult("Text-Fabric")
     tf_cache = Path(source) / '.tf'
 
-    # Measure compile (first load)
-    gc.collect()
-    result.memory_before = get_memory_mb()
+    # Compile first (don't measure memory here - includes temp objects)
     print("  Compiling (first load)...")
-
     start = time.perf_counter()
     tf = TFFabric(locations=source, silent='deep')
     api = tf.loadAll(silent='deep')
     result.compile_time = time.perf_counter() - start
-
-    result.memory_after = get_memory_mb()
-    result.cache_size = get_dir_size_mb(tf_cache)
 
     # Collect corpus stats
     stats = CorpusStats(
@@ -174,21 +162,57 @@ def benchmark_text_fabric(source: str) -> BenchmarkResult:
     result.corpus_stats = stats
     print(f"    Nodes: {stats.max_node:,} | Features: {stats.node_features} node, {stats.edge_features} edge")
 
+    result.cache_size = get_dir_size_mb(tf_cache)
+
     # Cleanup
     del tf, api
     gc.collect()
 
-    # Measure reload (from cache)
-    print("  Loading from cache...")
-    start = time.perf_counter()
-    tf2 = TFFabric(locations=source, silent='deep')
-    api2 = tf2.loadAll(silent='deep')
-    result.load_time = time.perf_counter() - start
+    # Measure cache load memory in subprocess for clean measurement
+    # Uses total RSS (not delta) - consistent with parallel measurements
+    print("  Loading from cache (subprocess)...")
+    ctx = mp.get_context('spawn')
+    result_queue = ctx.Queue()
+    p = ctx.Process(target=_measure_tf_cache_load, args=(source, result_queue))
+    p.start()
 
-    del tf2, api2
-    gc.collect()
+    try:
+        total_rss, load_time = result_queue.get(timeout=120)
+        result.memory_before = 0  # Using total RSS, not delta
+        result.memory_after = total_rss
+        result.load_time = load_time
+    except Exception:
+        # Fallback: measure in current process
+        tf2 = TFFabric(locations=source, silent='deep')
+        api2 = tf2.loadAll(silent='deep')
+        gc.collect()
+        result.memory_before = 0
+        result.memory_after = get_memory_mb()
+        del tf2, api2
+
+    p.join(timeout=10)
+    if p.is_alive():
+        p.terminate()
 
     return result
+
+
+def _measure_cf_cache_load(source: str, result_queue):
+    """Subprocess worker to measure CF cache load memory cleanly."""
+    from cfabric.core.fabric import Fabric as CFFabric
+
+    start = time.perf_counter()
+    tf = CFFabric(locations=source, silent='deep')
+    api = tf.load('')
+    load_time = time.perf_counter() - start
+
+    # Measure total RSS (not delta) - consistent with parallel measurements
+    gc.collect()
+    total_rss = get_memory_mb()
+    result_queue.put((total_rss, load_time))
+
+    # Keep process alive briefly for external memory measurement
+    time.sleep(2)
 
 
 def benchmark_context_fabric(source: str) -> BenchmarkResult:
@@ -202,17 +226,13 @@ def benchmark_context_fabric(source: str) -> BenchmarkResult:
     if cf_cache.exists():
         shutil.rmtree(cf_cache)
 
-    # Measure compile (first load)
-    gc.collect()
-    result.memory_before = get_memory_mb()
+    # Compile first (don't measure memory here - includes temp objects)
     print("  Compiling (first load)...")
-
     start = time.perf_counter()
     tf = CFFabric(locations=source, silent='deep')
     api = tf.load('')
     result.compile_time = time.perf_counter() - start
 
-    result.memory_after = get_memory_mb()
     result.cache_size = get_dir_size_mb(cf_cache)
 
     # Collect corpus stats
@@ -231,15 +251,31 @@ def benchmark_context_fabric(source: str) -> BenchmarkResult:
     del tf, api
     gc.collect()
 
-    # Measure reload (from cache)
-    print("  Loading from cache...")
-    start = time.perf_counter()
-    tf2 = CFFabric(locations=source, silent='deep')
-    api2 = tf2.load('')
-    result.load_time = time.perf_counter() - start
+    # Measure cache load memory in subprocess for clean measurement
+    # Uses total RSS (not delta) - consistent with parallel measurements
+    print("  Loading from cache (subprocess)...")
+    ctx = mp.get_context('spawn')
+    result_queue = ctx.Queue()
+    p = ctx.Process(target=_measure_cf_cache_load, args=(source, result_queue))
+    p.start()
 
-    del tf2, api2
-    gc.collect()
+    try:
+        total_rss, load_time = result_queue.get(timeout=120)
+        result.memory_before = 0  # Using total RSS, not delta
+        result.memory_after = total_rss
+        result.load_time = load_time
+    except Exception:
+        # Fallback: measure in current process
+        tf2 = CFFabric(locations=source, silent='deep')
+        api2 = tf2.load('')
+        gc.collect()
+        result.memory_before = 0
+        result.memory_after = get_memory_mb()
+        del tf2, api2
+
+    p.join(timeout=10)
+    if p.is_alive():
+        p.terminate()
 
     return result
 
@@ -276,8 +312,7 @@ def _tf_worker(source: str, ready_event, start_event, result_queue):
             if val:
                 count += 1
 
-    # Report memory using USS (unique set size, excludes shared mmap pages)
-    mem = get_memory_mb(use_uss=True)
+    mem = get_memory_mb()
     result_queue.put((os.getpid(), mem, count))
 
     # Wait a bit for memory measurement
@@ -315,109 +350,156 @@ def _cf_worker(source: str, ready_event, start_event, result_queue):
             if val:
                 count += 1
 
-    # Report memory using USS (unique set size, excludes shared mmap pages)
-    mem = get_memory_mb(use_uss=True)
+    mem = get_memory_mb()
     result_queue.put((os.getpid(), mem, count))
 
     # Wait a bit for memory measurement
     time.sleep(2)
 
 
+def _run_tf_fork_scenario(source: str, num_workers: int, result_queue):
+    """Run TF fork scenario in a clean subprocess."""
+    from tf.fabric import Fabric as TFFabric
+
+    # Load corpus
+    tf = TFFabric(locations=source, silent='deep')
+    api = tf.loadAll(silent='deep')
+
+    # Measure main process RSS
+    gc.collect()
+    main_rss = get_memory_mb()
+
+    # Fork workers
+    ctx = mp.get_context('fork')
+    worker_queue = ctx.Queue()
+
+    def worker(api_ref, q):
+        # Access some features to trigger COW
+        for fname in ['g_word_utf8', 'lex_utf8', 'g_cons_utf8']:
+            if hasattr(api_ref.F, fname):
+                feat = getattr(api_ref.F, fname)
+                for n in range(1, min(10000, api_ref.F.otype.maxSlot + 1)):
+                    feat.v(n)
+        q.put(os.getpid())
+        time.sleep(2)
+
+    processes = []
+    for _ in range(num_workers):
+        p = ctx.Process(target=worker, args=(api, worker_queue))
+        p.start()
+        processes.append(p)
+
+    # Wait for workers to be ready
+    for _ in range(num_workers):
+        try:
+            worker_queue.get(timeout=60)
+        except:
+            pass
+
+    # Measure worker RSS
+    pids = [p.pid for p in processes]
+    workers_rss = get_total_memory_mb(pids)
+
+    for p in processes:
+        p.join(timeout=5)
+        if p.is_alive():
+            p.terminate()
+
+    result_queue.put((main_rss, workers_rss))
+
+
+def _run_cf_fork_scenario(source: str, num_workers: int, result_queue):
+    """Run CF fork scenario in a clean subprocess."""
+    from cfabric.core.fabric import Fabric as CFFabric
+
+    # Load corpus
+    tf = CFFabric(locations=source, silent='deep')
+    api = tf.load('')
+
+    # Measure main process RSS
+    gc.collect()
+    main_rss = get_memory_mb()
+
+    # Fork workers
+    ctx = mp.get_context('fork')
+    worker_queue = ctx.Queue()
+
+    def worker(api_ref, q):
+        # Access some features to trigger COW
+        for fname in ['g_word_utf8', 'lex_utf8', 'g_cons_utf8']:
+            if hasattr(api_ref.F, fname):
+                feat = getattr(api_ref.F, fname)
+                for n in range(1, min(10000, api_ref.F.otype.maxSlot + 1)):
+                    feat.v(n)
+        q.put(os.getpid())
+        time.sleep(2)
+
+    processes = []
+    for _ in range(num_workers):
+        p = ctx.Process(target=worker, args=(api, worker_queue))
+        p.start()
+        processes.append(p)
+
+    # Wait for workers to be ready
+    for _ in range(num_workers):
+        try:
+            worker_queue.get(timeout=60)
+        except:
+            pass
+
+    # Measure worker RSS
+    pids = [p.pid for p in processes]
+    workers_rss = get_total_memory_mb(pids)
+
+    for p in processes:
+        p.join(timeout=5)
+        if p.is_alive():
+            p.terminate()
+
+    result_queue.put((main_rss, workers_rss))
+
+
 def benchmark_api_scenario(source: str, num_workers: int = 4) -> tuple:
     """Benchmark API scenario: pre-load then fork workers.
 
-    This simulates a typical API deployment where:
-    1. Main process loads corpus at startup
-    2. Workers are forked (sharing memory via copy-on-write)
-    3. Workers handle requests using the pre-loaded data
-
-    Reports TOTAL deployment memory (main process + workers).
+    Each implementation runs in a clean subprocess to avoid memory pollution.
     """
     print(f"\n  Simulating API scenario (pre-load + fork)...")
 
     results = {}
 
-    for name, loader in [("Text-Fabric", "tf"), ("Context-Fabric", "cf")]:
-        print(f"  [{name}] Pre-loading corpus...")
+    for name, runner in [("Text-Fabric", _run_tf_fork_scenario),
+                         ("Context-Fabric", _run_cf_fork_scenario)]:
+        print(f"  [{name}] Running in clean subprocess...")
 
-        gc.collect()
-        mem_before = get_memory_mb(use_uss=True)
-
-        # Pre-load in main process
-        if loader == "tf":
-            from tf.fabric import Fabric as TFFabric
-            tf = TFFabric(locations=source, silent='deep')
-            api = tf.loadAll(silent='deep')
-        else:
-            from cfabric.core.fabric import Fabric as CFFabric
-            tf = CFFabric(locations=source, silent='deep')
-            api = tf.load('')
-
-        # Measure memory after pre-load (main process)
-        main_process_mem = get_memory_mb(use_uss=True) - mem_before
-        print(f"    Main process memory: {main_process_mem:.0f} MB")
-
-        # Fork workers (using fork context for COW sharing)
-        print(f"    Forking {num_workers} workers...")
-        ctx = mp.get_context('fork')
+        ctx = mp.get_context('spawn')
         result_queue = ctx.Queue()
+        p = ctx.Process(target=runner, args=(source, num_workers, result_queue))
+        p.start()
 
-        def api_worker(api_ref, queue):
-            """Simulate API request handling."""
-            import os
-            # Access string features (simulating API requests)
-            count = 0
-            for fname in ['g_word_utf8', 'lex_utf8', 'g_cons_utf8']:
-                if hasattr(api_ref.F, fname):
-                    feat = getattr(api_ref.F, fname)
-                    for n in range(1, min(10000, api_ref.F.otype.maxSlot + 1)):
-                        if feat.v(n):
-                            count += 1
+        try:
+            main_rss, workers_rss = result_queue.get(timeout=300)
+            total_rss = main_rss + workers_rss
+            per_worker = total_rss / num_workers if num_workers > 0 else 0
 
-            mem = get_memory_mb(use_uss=True)
-            queue.put((os.getpid(), mem, count))
-            time.sleep(1)
+            print(f"    Main process RSS: {main_rss:.0f} MB")
+            print(f"    Workers RSS: {workers_rss:.0f} MB")
+            print(f"    Total RSS: {total_rss:.0f} MB ({per_worker:.0f} MB/worker)")
 
-        processes = []
-        for i in range(num_workers):
-            p = ctx.Process(target=api_worker, args=(api, result_queue))
-            p.start()
-            processes.append(p)
+            results[name] = ParallelResult(
+                name=name,
+                num_workers=num_workers,
+                total_memory_mb=total_rss,
+                per_worker_memory_mb=per_worker,
+                load_time=0
+            )
+        except Exception as e:
+            print(f"    Error: {e}")
+            results[name] = None
 
-        # Collect results
-        worker_results = []
-        for _ in range(num_workers):
-            try:
-                worker_results.append(result_queue.get(timeout=60))
-            except:
-                pass
-
-        # Measure total worker memory (USS)
-        pids = [p.pid for p in processes]
-        workers_mem = get_total_memory_mb(pids, use_uss=True)
-
-        for p in processes:
-            p.join(timeout=5)
-            if p.is_alive():
-                p.terminate()
-
-        # Total deployment memory = main process + all workers
-        total_mem = main_process_mem + workers_mem
-        per_worker = total_mem / num_workers if num_workers > 0 else 0
-        print(f"    Workers memory (USS): {workers_mem:.0f} MB")
-        print(f"    Total deployment: {total_mem:.0f} MB ({per_worker:.0f} MB/worker)")
-
-        results[name] = ParallelResult(
-            name=name,
-            num_workers=num_workers,
-            total_memory_mb=total_mem,
-            per_worker_memory_mb=per_worker,
-            load_time=0  # Pre-loaded
-        )
-
-        # Cleanup
-        del tf, api
-        gc.collect()
+        p.join(timeout=10)
+        if p.is_alive():
+            p.terminate()
 
     return results.get("Text-Fabric"), results.get("Context-Fabric")
 
@@ -461,9 +543,9 @@ def benchmark_parallel(source: str, num_workers: int = 4) -> tuple:
             except:
                 pass
 
-        # Measure total memory across all workers using USS (excludes shared mmap pages)
+        # Measure total memory across all workers
         pids = [p.pid for p in processes]
-        total_mem = get_total_memory_mb(pids, use_uss=True)
+        total_mem = get_total_memory_mb(pids)
 
         # Wait for processes to finish
         for p in processes:

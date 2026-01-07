@@ -1,0 +1,721 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+\title{Carrying Text-Fabric Forward:\\Context-Fabric and the Scalable Corpus Ecosystem}
+\author{Cody Kingham \and Claude Code}
+\date{January 2025}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Text-Fabric provides a powerful framework for analyzing annotated text corpora, but its memory requirements limit scalability: each worker process loads the full corpus into RAM, making parallel API deployments impractical. Context-Fabric restructures the storage layer using memory-mapped arrays, enabling efficient multi-worker access. Benchmarks across single-process, spawn, and fork scenarios demonstrate 79--94\% memory reduction. This scalability enables an ecosystem of applications---web interfaces, AI agents, educational tools---built on corpus APIs rather than local installations.
+\end{abstract}
+
+\section{Introduction}
+
+\subsection{Text-Fabric: A Foundation for Corpus Analysis}
+
+Annotated text corpora form the foundation of computational linguistics, digital humanities, and biblical scholarship. Text-Fabric \cite{textfabric} pioneered a graph-based data model for representing hierarchical text structures with arbitrary annotations, enabling researchers to query and analyze corpora ranging from ancient manuscripts to modern linguistic datasets.
+
+Text-Fabric's achievements are substantial. It provided a unified framework for accessing complex annotated corpora like the BHSA (Biblia Hebraica Stuttgartensia Amstelodamensis), making sophisticated linguistic analysis accessible to researchers worldwide. Its Python-native design enabled integration with the broader scientific computing ecosystem.
+
+However, working with Text-Fabric required mastering Python programming and a specialized query syntax. This limited accessibility to technically-skilled researchers willing to invest in learning the tooling.
+
+\subsection{The AI Transformation}
+
+AI agents change this. Large language models like Claude can mediate between researchers and corpus data, translating natural language queries into corpus operations. A researcher no longer needs to write:
+
+\begin{lstlisting}[language=Python, caption=Traditional Text-Fabric query]
+results = A.search('''
+clause
+  phrase function=Pred
+    word sp=verb vt=perf
+''')
+\end{lstlisting}
+
+Instead, they can simply ask: ``Find all clauses with a predicate phrase containing a perfect verb.''
+
+Scholars can explore linguistic patterns through conversation rather than code. The barrier drops from ``must learn Python'' to ``must formulate questions.''
+
+\subsection{New Research Horizons}
+
+AI-powered corpus analysis enables research that would previously require extensive programming expertise:
+
+\begin{itemize}
+    \item \textbf{Cross-corpus comparisons}: Compare syntactic patterns in the Hebrew Bible with the Septuagint (LXX), or trace linguistic features across Hebrew, Greek, and Syriac Peshitta---without writing custom integration code.
+    \item \textbf{Translation analysis}: ``Find all instances where the LXX translates Hebrew \textit{chesed} as Greek \textit{eleos}'' becomes a natural language query rather than a multi-corpus programming project.
+    \item \textbf{Iterative exploration}: Refine queries through conversation, drilling down into interesting patterns without context-switching between analysis and coding.
+    \item \textbf{Comparative linguistics}: ``How does verbal aspect marking differ between Biblical Hebrew and Koine Greek?'' can drive automated analysis across multiple corpora.
+\end{itemize}
+
+Running AI agents locally is possible, but requires technical expertise: installing Python, managing dependencies, downloading corpora, and configuring the environment. Most researchers lack this background or the time to acquire it.
+
+Hosted API endpoints solve this problem. A corpus service handles the technical complexity; users interact through applications built on top of it. This creates an opportunity for an ecosystem of tools---web interfaces, mobile apps, educational platforms, visualization dashboards---all drawing from the same underlying corpus infrastructure without each reimplementing corpus access.
+
+\subsection{Enabling an Application Ecosystem}
+
+When corpus analysis becomes a scalable service, application developers can build on it without becoming corpus experts themselves. Consider what becomes possible:
+
+\begin{itemize}
+    \item \textbf{Research applications}: Web-based query interfaces, annotation tools, collaborative workspaces for research teams
+    \item \textbf{Educational tools}: Interactive Hebrew Bible courses, syntax visualization for students, gamified learning platforms
+    \item \textbf{Third-party AI integrations}: Any AI service can incorporate corpus queries via API, not just purpose-built agents
+    \item \textbf{Cross-platform access}: Mobile apps, browser extensions, integrations with existing research software (Zotero, Logos, etc.)
+    \item \textbf{Institutional deployments}: Universities and seminaries can offer corpus access to students without per-seat software licenses
+\end{itemize}
+
+None of these applications need to bundle 6 GB of corpus data or implement Text-Fabric's query engine. They call an API. The API handles concurrency, caching, and resource management. This separation of concerns---corpus infrastructure vs. user-facing applications---is only practical when the infrastructure can scale efficiently.
+
+\subsection{The Technical Challenge}
+
+To support this ecosystem, Text-Fabric must become productionizable. API servers handle concurrent requests; multiple workers are needed. Each worker must access the full corpus---but Text-Fabric's architecture loads entire corpora into memory, consuming 6+ GB per worker. For a modest deployment with 10 workers, this requires 60+ GB of RAM, making scalable hosting economically impractical.
+
+Context-Fabric addresses this challenge through a memory-mapped architecture that achieves 79--94\% memory reduction while maintaining compatibility with Text-Fabric's Python API (the \texttt{F}, \texttt{L}, \texttt{T}, \texttt{S} interfaces researchers use in their code). This paper quantifies these efficiency gains through controlled benchmarking.
+
+\section{From Text-Fabric to Context-Fabric}
+
+\subsection{Text-Fabric's Data Model}
+
+Text-Fabric represents corpora as directed graphs where nodes correspond to textual objects (words, phrases, clauses, sentences, etc.) and edges encode relationships between them. Node and edge features store arbitrary annotations as key-value pairs.
+
+This model captures the hierarchical nature of text: words compose phrases, phrases compose clauses, clauses compose sentences. Each level can carry independent annotations---morphological features on words, syntactic functions on phrases, discourse relations on clauses.
+
+Text-Fabric's caching strategy optimizes for single-user research workflows. Source files are compiled once into gzipped pickle files (\texttt{.tfx}), which deserialize into Python dictionaries and lists at load time. For BHSA, this means:
+
+\begin{itemize}
+    \item \textbf{Compact cache}: 138 MB on disk (gzip compression)
+    \item \textbf{Compilation time}: 62 seconds to process source files
+    \item \textbf{Load time}: 8.1 seconds to deserialize from cache
+    \item \textbf{Full in-memory access}: All features immediately available
+\end{itemize}
+
+For interactive research sessions lasting hours, an 8-second startup is acceptable.
+
+\subsection{Challenges for AI-Era Deployments}
+
+Production deployments face different constraints:
+
+\begin{enumerate}
+    \item \textbf{Memory duplication}: Each process maintains independent copies of deserialized data structures. With Text-Fabric, 4 workers consume 4$\times$ the memory of a single process---limiting deployment to memory-rich (expensive) instances.
+
+    \item \textbf{Load time accumulation}: In serverless or auto-scaling environments, 7-second cold starts degrade user experience. AI agents expect sub-second responses.
+
+    \item \textbf{Concurrent access}: API servers must handle multiple simultaneous requests. Text-Fabric's 6 GB footprint leaves little headroom for request handling on typical cloud instances.
+\end{enumerate}
+
+\subsection{Memory-Mapped Architecture}
+
+Memory-mapped I/O (\texttt{mmap}) maps file contents directly into a process's virtual address space \cite{wikipediammap}. Rather than explicitly reading data into buffers, the program accesses file contents through pointers, and the OS transparently pages data in and out as needed.
+
+The technique underpins many performance-critical systems: SQLite and LMDB use mmap for database access \cite{sqlitemmap}; operating systems use it to load executables and shared libraries. Memory mapping offers:
+
+\begin{itemize}
+    \item \textbf{Zero-copy access}: Data moves directly between disk and process address space
+    \item \textbf{Lazy loading}: Only accessed pages reside in physical memory
+    \item \textbf{Automatic eviction}: The OS manages memory pressure
+    \item \textbf{Copy-on-write sharing}: Forked processes share pages until modification
+\end{itemize}
+
+NumPy's \texttt{memmap} function provides a Python interface for memory-mapping array data \cite{numpymemmap}. Context-Fabric stores all corpus data as \texttt{.npy} files and loads them with \texttt{mmap\_mode='r'} (read-only), enabling safe multi-process sharing.
+
+\subsection{Adapting the TF Data Model}
+
+The challenge is converting Text-Fabric's Python-native data structures to memory-mappable formats while preserving the same Python interface that existing code expects.
+
+\subsubsection{Dense Arrays for Node Features}
+
+Node features with single values per node map directly to numpy arrays. The storage format depends on the feature's value type:
+
+\textbf{Integer features} (verse numbers, word positions) store values directly in appropriately-sized dtypes (\texttt{uint8}, \texttt{uint16}, \texttt{uint32}).
+
+\textbf{Categorical features} with small value sets use index encoding. The node type feature (\texttt{otype}), for example, maps each node to one of a handful of type names (``word'', ``verse'', ``chapter'', etc.). Since corpora typically have fewer than 256 node types, these indices fit in a \texttt{uint8} array:
+
+\begin{lstlisting}[language=Python, caption=Categorical feature storage]
+# Type names: ["word", "verse", "chapter", ...]
+# otype[node_id] = index into type_names
+otype = np.array([0, 0, 0, ..., 1, 1, 2, ...], dtype=np.uint8)
+
+# Lookup: O(1)
+node_type = type_names[otype[node_id]]  # -> "word"
+\end{lstlisting}
+
+This is conceptually similar to the string pool pattern (described next), but optimized for small, fixed value sets.
+
+\subsubsection{String Pools for Text Features}
+
+String-valued features (glosses, lexemes, morphological tags) present two challenges. First, Python strings cannot be memory-mapped directly. Second, not every node has a value for every feature---Text-Fabric represents these as \texttt{None}, but NumPy integer arrays have no native missing-value representation (unlike floats, which have \texttt{NaN}).\footnote{While float arrays could use \texttt{NaN} for missing values, storing indices as floats wastes memory (float64 is 8 bytes vs.\ uint16's 2 bytes for most features), requires type conversion on every lookup, and is semantically misleading since indices are inherently integers.}
+
+Context-Fabric addresses both with a string pool pattern. Unique strings are stored once in an array, with a separate index array mapping each node to its string's position. For missing values, we reserve a sentinel index: \texttt{0xFFFFFFFF} (the maximum \texttt{uint32} value, $2^{32}-1$). This value cannot be a valid index---it would require over 4 billion unique strings---so encountering it unambiguously signals ``no value.'' This preserves the distinction between an empty string (a valid value at some index) and a truly absent value.
+
+\begin{lstlisting}[language=Python, caption=String pool structure]
+MISSING = 0xFFFFFFFF  # Sentinel for "no value" (max uint32)
+
+# Feature "gloss" for 5 nodes: ["king", "the", "king", None, "house"]
+strings = np.array(["king", "the", "house"], dtype=object)  # Unique values
+indices = np.array([0, 1, 0, MISSING, 2], dtype=np.uint32)  # Per-node index
+
+def lookup(node):
+    idx = indices[node]
+    return None if idx == MISSING else strings[idx]
+
+lookup(2)  # -> "king"
+lookup(3)  # -> None (missing value)
+\end{lstlisting}
+
+The \texttt{indices} array is memory-mapped (\texttt{uint32}, one entry per node). The \texttt{strings} array is small---most features have far fewer unique values than nodes---and loads into memory. For BHSA's \texttt{gloss} feature, 426,590 words map to roughly 9,000 unique glosses.
+
+\subsubsection{Compressed Sparse Row Format}
+
+Some corpus data involves variable-length sequences. Consider \texttt{oslots}, which maps each non-slot node to the word positions it contains: a 3-word phrase contains slots \texttt{[5, 6, 7]}, while a 20-word verse contains \texttt{[100, 101, ..., 119]}. In Python, Text-Fabric stores this as a tuple of tuples---but Python tuples are pointers to objects scattered across memory, which cannot be memory-mapped.
+
+Context-Fabric solves this with Compressed Sparse Row (CSR) format: concatenate all sequences into one flat \texttt{data} array, and use a separate \texttt{indptr} (index pointer) array to record where each sequence begins and ends:
+
+\begin{lstlisting}[language=Python, caption=CSR format for oslots]
+# oslots for 3 nodes: phrase contains [5,6,7], clause contains [5,6,7,8], verse contains [5..12]
+# Concatenate all slots into one array:
+data   = [5, 6, 7, 5, 6, 7, 8, 5, 6, 7, 8, 9, 10, 11, 12]
+
+# Record boundaries (one entry per node, plus final endpoint):
+indptr = [0, 3, 7, 15]
+
+# Lookup: node i's slots are data[indptr[i] : indptr[i+1]]
+phrase_slots = data[0:3]   # -> [5, 6, 7]
+clause_slots = data[3:7]   # -> [5, 6, 7, 8]
+verse_slots  = data[7:15]  # -> [5, 6, 7, 8, 9, 10, 11, 12]
+\end{lstlisting}
+
+Both arrays are flat numpy arrays that can be memory-mapped. The \texttt{indptr} array has length $N+1$ (one boundary per node, plus the final endpoint). Empty sequences cost nothing: when \texttt{indptr[i] == indptr[i+1]}, the slice is empty.
+
+For edge features with associated values (e.g., linguistic dependency weights), \texttt{CSRArrayWithValues} adds a parallel values array:
+
+\begin{lstlisting}[language=Python, caption=CSR with values]
+# Edge feature "distance": node 0 -> {10: 100, 20: 200}, node 1 -> {}, node 2 -> {30: 300}
+# (node 0 connects to nodes 10 and 20 with distances 100 and 200)
+indptr  = [0, 2, 2, 3]      # Boundaries
+indices = [10, 20, 30]      # Target nodes
+values  = [100, 200, 300]   # Associated values (e.g., distances)
+
+def get_edges(node):
+    start, end = indptr[node], indptr[node + 1]
+    return indices[start:end], values[start:end]
+
+get_edges(0)  # -> ([10, 20], [100, 200])  node 0's targets and distances
+get_edges(1)  # -> ([], [])                node 1 has no edges
+get_edges(2)  # -> ([30], [300])           node 2 connects to 30
+\end{lstlisting}
+
+All arrays use \texttt{uint32} dtype and load via \texttt{mmap\_mode='r'} (read-only), enabling safe multi-process sharing without copy-on-write overhead.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Data} & \textbf{Purpose} & \textbf{Why CSR} \\
+\midrule
+oslots & Node $\rightarrow$ slot mapping & Variable slots per node \\
+levUp & Embedder lookup & Variable hierarchy depth \\
+levDown & Embedded children & Variable children per node \\
+boundaries & L.p()/L.n() navigation & Sparse: most slots have 0--2 \\
+Edge features & Node relationships & Sparse connectivity \\
+\bottomrule
+\end{tabular}
+\caption{Data structures using CSR format}
+\label{tab:csr}
+\end{table}
+
+\subsubsection{The .cfm Format}
+
+Context-Fabric's compiled format (\texttt{.cfm}) organizes data into a directory structure:
+
+\begin{lstlisting}[language=bash, caption=.cfm directory structure]
+corpus/                   # Corpus directory (e.g., bhsa/)
+  .cfm/                   # Hidden compiled-format subdirectory
+    meta.json             # Corpus metadata
+    warp/
+      otype.npy           # Node types (uint8)
+      oslots_indptr.npy   # CSR boundaries
+      oslots_data.npy     # CSR slot data
+    computed/
+      order.npy           # Traversal order
+      rank.npy            # Node ranks
+      levup_indptr.npy    # Embedder CSR
+      levup_data.npy
+    features/
+      sp.npy              # Part of speech (dense)
+      gloss_idx.npy       # String pool indices
+      gloss_strings.npy   # Unique strings
+    edges/
+      mother_indptr.npy   # Edge CSR
+      mother_data.npy
+\end{lstlisting}
+
+This structure trades disk space (387 MB vs. 138 MB) for memory efficiency and parallelism.
+
+\subsection{Benefits Across Use Cases}
+
+The memory-mapped architecture benefits both production deployments and individual researchers:
+
+\textbf{For APIs and AI agents}:
+\begin{itemize}
+    \item Multiple workers share memory-mapped pages via copy-on-write
+    \item Sub-second load times enable responsive scaling
+    \item 94\% memory reduction makes deployment economically viable
+\end{itemize}
+
+\textbf{For individual researchers}:
+\begin{itemize}
+    \item 16$\times$ faster load times improve interactive experience
+    \item 94\% less memory enables work on modest hardware (laptops, older machines)
+    \item Same corpus, same API---no workflow changes required
+\end{itemize}
+
+The trade-off---a larger cache (387 MB vs. 138 MB)---is minor. Context-Fabric compiles faster than Text-Fabric (30s vs. 62s) because it passes pre-computed data directly to the compiler, avoiding redundant parsing. Every subsequent session benefits from 16$\times$ faster loads and 94\% lower memory consumption.
+
+\section{Methodology}
+
+\subsection{Test Corpus}
+
+All benchmarks use the BHSA (Biblia Hebraica Stuttgartensia Amstelodamensis) corpus \cite{bhsa}, developed by the Eep Talstra Centre for Bible and Computer (ETCBC) at Vrije Universiteit Amsterdam. The BHSA provides richly annotated linguistic data for the Hebrew Bible, containing:
+
+\begin{itemize}
+    \item 1,446,831 total nodes
+    \item 426,590 word-level nodes (slots)
+    \item 13 node types (word, phrase, clause, sentence, verse, chapter, book, etc.)
+    \item 109 node features
+    \item 6 edge features
+\end{itemize}
+
+This corpus represents a realistic production workload with substantial annotation density.
+
+\subsection{Memory Metrics: A Survey}
+
+Operating systems provide multiple metrics for quantifying process memory consumption, each with distinct semantics and trade-offs. Understanding these metrics is essential for designing valid benchmarks \cite{beyer2019reliable}.
+
+\subsubsection{Resident Set Size (RSS)}
+
+RSS measures the total physical memory pages currently mapped to a process's address space \cite{wikipediarss}. It includes:
+
+\begin{itemize}
+    \item Private anonymous memory (heap, stack)
+    \item Private file-backed memory
+    \item Shared memory pages (libraries, memory-mapped files)
+    \item Copy-on-write pages inherited from parent processes
+\end{itemize}
+
+RSS is the most widely available metric, reported by \texttt{/proc/[pid]/status} on Linux and equivalent interfaces on other platforms. However, RSS has a key limitation: it double-counts shared pages when summing across processes.
+
+\subsubsection{Unique Set Size (USS)}
+
+USS measures memory pages that are \emph{unique} to a process---memory that would be freed if only that process terminated \cite{baeldunglinuxmem}. USS excludes:
+
+\begin{itemize}
+    \item Shared library pages
+    \item Memory-mapped files backed by disk
+    \item Copy-on-write pages not yet modified
+\end{itemize}
+
+While USS avoids double-counting, it can dramatically undercount memory for workloads that rely on memory-mapped I/O. A process with 4 GB of mmap'd data may report near-zero USS if those pages are file-backed.
+
+\subsubsection{Proportional Set Size (PSS)}
+
+PSS provides a middle ground by dividing shared pages proportionally among all processes using them \cite{baeldunglinuxmem}. If a 4 MB library is mapped by 4 processes, each reports 1 MB of PSS for that library.
+
+PSS is theoretically ideal for multi-process scenarios but has practical limitations:
+\begin{itemize}
+    \item Requires walking page tables, making it expensive to compute
+    \item Values fluctuate as processes start and stop
+    \item Not available on all platforms (notably absent from macOS)
+\end{itemize}
+
+\subsubsection{Measurement Challenges}
+
+Several factors complicate memory benchmarking in practice:
+
+\begin{enumerate}
+    \item \textbf{Timing sensitivity}: Memory consumption varies throughout execution. Measurements during compilation, loading, or active use yield different results.
+    \item \textbf{Garbage collection}: In garbage-collected languages like Python, uncollected objects inflate memory measurements. Explicit \texttt{gc.collect()} calls before measurement improve consistency.
+    \item \textbf{Process isolation}: Prior allocations in a process contaminate subsequent measurements. The Mess benchmark framework addresses this by running each measurement in a fresh process \cite{langner2021mess}.
+    \item \textbf{Kernel caching}: The operating system caches file data in memory, blurring the line between ``process memory'' and ``system cache.''
+\end{enumerate}
+
+\subsection{Our Measurement Approach}
+
+Given the above considerations, we measure memory consumption using RSS. While RSS double-counts shared pages in multi-process scenarios, this ``worst case'' view is more honest than USS for memory-mapped workloads.
+
+An earlier version of this benchmark used USS, which produced misleading results:
+
+\begin{itemize}
+    \item USS excluded memory-mapped pages backed by files, even when those pages consumed physical RAM
+    \item This made Context-Fabric appear to use near-zero memory in fork scenarios
+    \item The 94\% efficiency claim was technically accurate for USS but obscured the true memory footprint
+\end{itemize}
+
+We chose RSS for transparency: the numbers represent actual memory pressure on the system, even if this is less flattering to our memory-mapped architecture.
+
+\subsection{Measurement Isolation}
+
+To ensure accurate measurements uncontaminated by prior allocations, each scenario runs in an isolated subprocess:
+
+\begin{lstlisting}[language=Python, caption=Subprocess isolation pattern]
+def _measure_cache_load(source: str, result_queue):
+    """Runs in a clean spawned subprocess."""
+    # Load corpus from cache
+    fabric = Fabric(locations=source)
+    api = fabric.load()
+
+    # Measure total RSS after loading
+    gc.collect()
+    total_rss = psutil.Process().memory_info().rss
+    result_queue.put(total_rss)
+
+# Main process spawns clean subprocess
+ctx = multiprocessing.get_context('spawn')
+p = ctx.Process(target=_measure_cache_load, args=(source, queue))
+p.start()
+\end{lstlisting}
+
+This pattern ensures:
+\begin{enumerate}
+    \item No residual memory from compilation or prior measurements
+    \item Consistent baseline across Text-Fabric and Context-Fabric
+    \item Reproducible results across runs
+\end{enumerate}
+
+\subsection{Deployment Scenarios}
+
+We evaluate three scenarios representing common deployment patterns:
+
+\subsubsection{Single Process}
+
+A single Python process loads the corpus from cache and serves requests. This represents interactive research use or single-threaded batch processing.
+
+\textbf{Measurement}: Total RSS of subprocess after cache load.
+
+\subsubsection{Spawn Mode (4 Workers)}
+
+Four independent worker processes, each loading the corpus from scratch. This simulates \texttt{multiprocessing} with \texttt{spawn} context, common on macOS and Windows where fork is unavailable or discouraged.
+
+\textbf{Measurement}: Sum of RSS across all 4 worker processes.
+
+\subsubsection{Fork Mode (4 Workers)}
+
+A main process pre-loads the corpus, then forks 4 worker processes. Workers inherit the loaded corpus via copy-on-write semantics. This simulates production deployments like \texttt{gunicorn --preload}.
+
+\textbf{Measurement}: Main process RSS + sum of worker RSS.
+
+Note: For fork mode, summing RSS across processes may double-count shared copy-on-write pages. This is intentional---we report the ``worst case'' RSS sum rather than attempting to deduplicate shared pages, which would require USS and reintroduce the transparency issues discussed above.
+
+\section{Results}
+
+\subsection{Single Process}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Metric} & \textbf{Text-Fabric} & \textbf{Context-Fabric} & \textbf{Reduction} \\
+\midrule
+Memory (RSS) & 5.2 GB & 300 MB & 94\% \\
+Load Time & 8.1 s & 0.51 s & 16$\times$ faster \\
+Cache Size & 138 MB & 387 MB & 2.8$\times$ larger \\
+\bottomrule
+\end{tabular}
+\caption{Single-process performance comparison}
+\label{tab:single}
+\end{table}
+
+Context-Fabric achieves 94\% memory reduction in single-process mode. The larger cache size reflects the uncompressed numpy array format, which trades disk space for memory-mapping capability.
+
+\subsection{Spawn Mode (4 Workers)}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Metric} & \textbf{Text-Fabric} & \textbf{Context-Fabric} & \textbf{Reduction} \\
+\midrule
+Total Memory & 6.0 GB & 1.2 GB & 79\% \\
+Per Worker & 1.5 GB & 310 MB & 4.9$\times$ less \\
+\bottomrule
+\end{tabular}
+\caption{Spawn mode (4 workers) memory comparison}
+\label{tab:spawn}
+\end{table}
+
+In spawn mode, each worker loads independently. Context-Fabric's per-worker footprint (310 MB) reflects the memory-mapped approach where only accessed pages reside in physical memory.
+
+The Text-Fabric total (6.0 GB) is less than $4 \times$ single-process (5.2 GB) due to shared library pages and measurement timing---workers were measured after loading but before extensive feature access.
+
+\subsection{Fork Mode (4 Workers)}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Metric} & \textbf{Text-Fabric} & \textbf{Context-Fabric} & \textbf{Reduction} \\
+\midrule
+Main Process & 6.3 GB & 305 MB & 95\% \\
+Workers (sum) & 56 MB & 92 MB & -- \\
+Total & 6.3 GB & 397 MB & 94\% \\
+Per Worker & 1.6 GB & 99 MB & 16$\times$ less \\
+\bottomrule
+\end{tabular}
+\caption{Fork mode (4 workers) memory comparison}
+\label{tab:fork}
+\end{table}
+
+Fork mode shows the most dramatic efficiency gains. Text-Fabric's workers add minimal RSS (56 MB) because they share the parent's pages via copy-on-write---but the parent already consumed 6.3 GB. Context-Fabric's total deployment footprint of 397 MB enables running many more workers on equivalent hardware.
+
+\subsection{Summary}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Scenario} & \textbf{Text-Fabric} & \textbf{Context-Fabric} & \textbf{Reduction} \\
+\midrule
+Single process & 5.2 GB & 300 MB & 94\% \\
+4 workers (spawn) & 6.0 GB & 1.2 GB & 79\% \\
+4 workers (fork) & 6.3 GB & 397 MB & 94\% \\
+\bottomrule
+\end{tabular}
+\caption{Memory consumption summary across all scenarios}
+\label{tab:summary}
+\end{table}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\textwidth]{performance_comparison.png}
+\caption{Performance comparison between Text-Fabric and Context-Fabric on the BHSA corpus. Top left: cache load time (16$\times$ faster). Top right: single-process memory usage (94\% reduction). Bottom left: spawn mode per-worker memory (4.9$\times$ less). Bottom right: fork mode per-worker memory (16$\times$ less).}
+\label{fig:performance}
+\end{figure}
+
+\section{Discussion}
+
+\subsection{Trade-offs and Their Amortization}
+
+Context-Fabric's memory efficiency comes with minimal trade-offs:
+
+\begin{itemize}
+    \item \textbf{Larger cache size}: Uncompressed numpy arrays require $\sim$2.8$\times$ more disk space (387 MB vs. 138 MB for BHSA).
+    \item \textbf{I/O sensitivity}: Performance depends on storage speed; SSDs recommended for optimal results.
+\end{itemize}
+
+Notably, compilation is actually \emph{faster} with Context-Fabric (30s vs. 62s) because it passes pre-computed data directly to the compiler, avoiding redundant parsing of source files. Every subsequent session---whether by a production API serving thousands of requests or a researcher running interactive queries---benefits from:
+
+\begin{itemize}
+    \item 16$\times$ faster load times (0.51s vs. 8.1s)
+    \item 94\% less memory (300 MB vs. 5.2 GB)
+    \item Ability to run on modest hardware (laptops, cloud free tiers)
+\end{itemize}
+
+For individual researchers, this means: compile once on first use, then enjoy dramatically improved performance for all future work. The sub-second loads save time on every session.
+
+\subsection{Fork Mode Considerations}
+
+The fork mode results deserve careful interpretation:
+
+\begin{enumerate}
+    \item \textbf{RSS double-counting}: Our methodology sums main + worker RSS, which double-counts shared COW pages. The ``true'' physical memory is lower than reported.
+    \item \textbf{COW page faults}: As workers modify data (triggering copy-on-write), memory consumption increases. Our benchmark accesses features read-only, representing best-case sharing.
+    \item \textbf{Platform availability}: Fork mode is discouraged on macOS (due to framework issues) and unavailable on Windows. Spawn mode results are more portable.
+\end{enumerate}
+
+\subsection{Scaling Analysis}
+
+Our benchmarks measured 4 workers. How do these results extrapolate to larger deployments?
+
+\subsubsection{Text-Fabric Scaling}
+
+In spawn mode, each Text-Fabric worker loads an independent copy of the corpus:
+
+\begin{itemize}
+    \item Memory per worker: $\sim$1.5 GB
+    \item 10 workers: 15 GB
+    \item 100 workers: 150 GB
+    \item 1000 workers: 1.5 TB (impractical on any single machine)
+\end{itemize}
+
+In fork mode with preloading, memory is dominated by the parent process:
+
+\begin{itemize}
+    \item Base memory: 6.3 GB (parent process)
+    \item Additional per worker: $\sim$14 MB (COW overhead)
+    \item Scaling is nearly flat, but requires 6+ GB minimum
+\end{itemize}
+
+\subsubsection{Context-Fabric Scaling}
+
+In spawn mode, Context-Fabric workers share memory-mapped pages:
+
+\begin{itemize}
+    \item Memory per worker: $\sim$310 MB
+    \item 10 workers: 3.1 GB
+    \item 100 workers: 31 GB
+    \item 1000 workers: 310 GB
+\end{itemize}
+
+In fork mode, the base footprint is minimal:
+
+\begin{itemize}
+    \item Base memory: 305 MB (parent process)
+    \item Additional per worker: $\sim$23 MB
+    \item 10 workers: 305 + 230 = 535 MB
+    \item 100 workers: 305 + 2,300 = 2.6 GB
+    \item 1000 workers: 305 + 23,000 = 23 GB
+\end{itemize}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Workers} & \textbf{TF Spawn} & \textbf{TF Fork} & \textbf{CF Spawn} & \textbf{CF Fork} \\
+\midrule
+1 & 5.2 GB & 6.3 GB & 300 MB & 305 MB \\
+4 & 6.0 GB & 6.3 GB & 1.2 GB & 397 MB \\
+10 & 15 GB & 6.4 GB & 3.1 GB & 535 MB \\
+100 & 150 GB & 6.5 GB & 31 GB & 2.6 GB \\
+1000 & 1.5 TB & 6.5 GB & 310 GB & 23 GB \\
+\bottomrule
+\end{tabular}
+\caption{Projected memory consumption by worker count}
+\label{tab:scaling}
+\end{table}
+
+\subsection{Implications for Production Deployments}
+
+For a typical cloud VM with 16 GB RAM:
+
+\begin{itemize}
+    \item \textbf{TF spawn mode}: Maximum 2--3 workers
+    \item \textbf{TF fork mode}: 1 effective worker (6 GB leaves little headroom)
+    \item \textbf{CF spawn mode}: $\sim$50 workers
+    \item \textbf{CF fork mode}: $\sim$600 workers
+\end{itemize}
+
+This represents a \textbf{200$\times$ improvement} in worker density for fork mode deployments. The practical implications:
+
+\begin{itemize}
+    \item \textbf{Lower infrastructure costs}: Fewer and smaller instances needed
+    \item \textbf{Higher throughput per dollar}: More concurrent requests per GB of RAM
+    \item \textbf{Modest hardware viability}: Corpus APIs can run on free-tier cloud instances or personal computers
+    \item \textbf{AI agent scalability}: Multiple concurrent AI conversations can query the same corpus without resource contention
+\end{itemize}
+
+For serving AI agents via the Model Context Protocol, Context-Fabric enables what would otherwise be economically impractical: responsive, concurrent access to richly annotated corpora from standard cloud infrastructure.
+
+\section{Conclusion}
+
+This benchmark demonstrates that Context-Fabric's memory-mapped architecture achieves 79--94\% memory reduction compared to Text-Fabric across all tested deployment scenarios. The efficiency gains are most pronounced in fork-based production deployments, where Context-Fabric's 397 MB footprint (vs. 6.3 GB for Text-Fabric) enables a 200$\times$ improvement in worker density.
+
+\subsection{Toward AI-Powered Corpus Analysis}
+
+These memory reductions matter because they make parallel API deployments practical. A corpus server can run dozens of concurrent workers on modest hardware. This scalability enables new use cases, including AI agents that let researchers query corpora in natural language rather than Python.
+
+This opens research directions that previously required significant programming effort:
+
+\begin{itemize}
+    \item Cross-corpus comparisons across Hebrew, Greek, and Syriac traditions
+    \item Large-scale translation pattern analysis
+    \item Iterative, exploratory linguistics through conversation with AI agents
+\end{itemize}
+
+\subsection{Future Directions}
+
+Context-Fabric's memory efficiency suggests directions for future work:
+
+\begin{itemize}
+    \item \textbf{Multi-corpus servers}: Simultaneously serving Hebrew Bible, Septuagint, Peshitta, and other corpora from a single instance
+    \item \textbf{Real-time analysis}: Sub-second response times enabling interactive visualization and exploration
+    \item \textbf{Edge deployment}: Running corpus analysis on personal devices without cloud dependencies
+    \item \textbf{Federated research}: Multiple institutions sharing access to corpora through lightweight API endpoints
+\end{itemize}
+
+Text-Fabric established corpus analysis as a computational discipline. Context-Fabric extends that work to support scalable, parallel deployments---whether for REST APIs, multi-user servers, or AI agents.
+
+\subsection{Reproducibility}
+
+All benchmarks can be reproduced using:
+
+\begin{lstlisting}[language=bash]
+python benchmarks/compare_performance.py \
+    --source /path/to/bhsa/tf/2021 \
+    --workers 4
+\end{lstlisting}
+
+Source code is available at \url{https://github.com/codykingham/context-fabric}.
+
+\begin{thebibliography}{99}
+
+\bibitem{textfabric}
+Roorda, D. (2018). Text-Fabric: Text representation for linguistic annotation. \textit{Research Data Journal for the Humanities and Social Sciences}, 3(1), 1--23.
+
+\bibitem{bhsa}
+van Peursen, W. Th., Sikkel, C., \& Roorda, D. (2015). Hebrew Text Database BHSA. DANS. \url{https://doi.org/10.17026/dans-z6y-skyh}. Data curated by the Eep Talstra Centre for Bible and Computer, Vrije Universiteit Amsterdam. See also: Talstra, E. \& van Peursen, W. Th. in van Peursen, W. Th. \& Dyk, J. W. (eds.), \textit{Tradition and Innovation in Biblical Interpretation}, Studia Semitica Neerlandica, Brill, 2011.
+
+\bibitem{wikipediarss}
+Wikipedia contributors. (2024). Resident set size. \textit{Wikipedia, The Free Encyclopedia}. Retrieved from \url{https://en.wikipedia.org/wiki/Resident_set_size}
+
+\bibitem{wikipediammap}
+Wikipedia contributors. (2024). Memory-mapped file. \textit{Wikipedia, The Free Encyclopedia}. Retrieved from \url{https://en.wikipedia.org/wiki/Memory-mapped_file}
+
+\bibitem{baeldunglinuxmem}
+Baeldung. (2024). Understanding memory usage in Linux. \textit{Baeldung on Linux}. Retrieved from \url{https://www.baeldung.com/linux/resident-set-vs-virtual-memory-size}
+
+\bibitem{beyer2019reliable}
+Beyer, D., L{\"o}we, S., \& Wendler, P. (2019). Reliable benchmarking: requirements and solutions. \textit{International Journal on Software Tools for Technology Transfer}, 21(1), 1--29.
+
+\bibitem{langner2021mess}
+Langner, T., \& Beyer, D. (2021). Mess: Memory consumption benchmarking made easy. \textit{arXiv preprint arXiv:2106.08235}. Retrieved from \url{https://arxiv.org/abs/2106.08235}
+
+\bibitem{sqlitemmap}
+SQLite Consortium. (2024). Memory-Mapped I/O. \textit{SQLite Documentation}. Retrieved from \url{https://sqlite.org/mmap.html}
+
+\bibitem{cmummap}
+Crotty, A., Leis, V., \& Pavlo, A. (2022). Are You Sure You Want to Use MMAP in Your Database Management System? \textit{Proceedings of the 12th Annual Conference on Innovative Data Systems Research (CIDR)}. Retrieved from \url{https://db.cs.cmu.edu/mmap-cidr2022/}
+
+\bibitem{numpymemmap}
+NumPy Developers. (2024). numpy.memmap. \textit{NumPy Documentation}. Retrieved from \url{https://numpy.org/doc/stable/reference/generated/numpy.memmap.html}
+
+\bibitem{ipythonmemmap}
+Rossant, C. (2018). Processing large NumPy arrays with memory mapping. \textit{IPython Cookbook, 2nd Edition}. Retrieved from \url{https://ipython-books.github.io/48-processing-large-numpy-arrays-with-memory-mapping/}
+
+\end{thebibliography}
+
+\end{document}

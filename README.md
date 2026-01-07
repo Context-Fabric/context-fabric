@@ -35,11 +35,11 @@ Text-Fabric loads entire corpora into memory—effective for single-user researc
 
 | Scenario | Text-Fabric | Context-Fabric | Improvement |
 |----------|-------------|----------------|-------------|
-| Single process | 6.1 GB | 1.6 GB | 74% less |
-| 4 workers (spawn) | 9.8 GB | 3.3 GB | 66% less |
-| 4 workers (fork) | 5.8 GB | 440 MB | **92% less** |
+| Single process | 5.2 GB | 300 MB | 94% less |
+| 4 workers (spawn) | 6.0 GB | 1.2 GB | 79% less |
+| 4 workers (fork) | 6.3 GB | 397 MB | **94% less** |
 
-*Benchmarks on BHSA Hebrew Bible corpus (1.4M nodes, 109 features)*
+*Benchmarks on BHSA Hebrew Bible corpus (1.4M nodes). Memory measured as total RSS after loading from cache.*
 
 Multiple workers share the same memory-mapped data instead of each loading a copy. This architecture unlocks production use cases that were previously impractical.
 
@@ -124,12 +124,12 @@ Context-Fabric optimizes for the common case: **compilation happens once, loadin
 
 | Metric | Text-Fabric | Context-Fabric |
 |--------|-------------|----------------|
-| Load time | 7.0s | 2.4s (2.9x faster) |
-| Memory | 6.1 GB | 1.6 GB (74% less) |
-| Compile time | 7s | 91s |
-| Cache size | 138 MB | 859 MB |
+| Load time | 8.1s | 0.5s (16x faster) |
+| Memory | 5.2 GB | 300 MB (94% less) |
+| Compile time | 62s | 30s (2x faster) |
+| Cache size | 138 MB | 387 MB |
 
-The tradeoff—longer initial compilation and larger cache—pays off immediately in faster loads and dramatically in parallel deployments.
+The larger cache size pays off immediately in faster loads and dramatically in parallel deployments.
 
 <p align="center">
   <img src="benchmarks/results/performance_comparison.png" alt="Performance Comparison" width="700">
