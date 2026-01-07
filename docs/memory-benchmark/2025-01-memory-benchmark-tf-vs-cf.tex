@@ -553,43 +553,32 @@ The fork mode results deserve careful interpretation:
 
 Our benchmarks measured 4 workers. How do these results extrapolate to larger deployments?
 
-\subsubsection{Text-Fabric Scaling}
+\subsubsection{Worker Scaling}
 
-In spawn mode, each Text-Fabric worker loads an independent copy of the corpus:
+\textbf{Text-Fabric} in spawn mode loads independent copies ($\sim$1.9 GB/worker), reaching 190 GB at 100 workers. Fork mode is nearly flat at $\sim$6.3 GB total (COW sharing), but requires that 6 GB minimum regardless of worker count.
 
+\textbf{Context-Fabric} in spawn mode uses $\sim$315 MB/worker (32 GB at 100 workers). Fork mode starts at 305 MB with $\sim$23 MB per additional worker (2.6 GB at 100 workers).
+
+\subsubsection{Multi-Corpus Scaling}
+
+A more compelling scenario for memory-mapped architectures is serving \emph{multiple corpora simultaneously}---for instance, an API that provides access to Hebrew, Greek, Syriac, and Coptic texts, or different versions of the same corpus.
+
+With Text-Fabric, each corpus must be loaded entirely into RAM:
 \begin{itemize}
-    \item Memory per worker: $\sim$1.9 GB
-    \item 10 workers: 19 GB
-    \item 100 workers: 190 GB
-    \item 1000 workers: 1.9 TB (impractical on any single machine)
+    \item 1 corpus: 6.3 GB
+    \item 2 corpora: 12.6 GB
+    \item 3 corpora: 18.9 GB (exceeds 16 GB VM)
 \end{itemize}
 
-In fork mode with preloading, memory is dominated by the parent process:
-
+With Context-Fabric, corpora share the memory-mapping infrastructure and only actively-accessed pages consume RAM:
 \begin{itemize}
-    \item Base memory: 6.3 GB (parent process)
-    \item Additional per worker: $\sim$14 MB (COW overhead)
-    \item Scaling is nearly flat, but requires 6+ GB minimum
+    \item 1 corpus: 305 MB
+    \item 2 corpora: $\sim$610 MB
+    \item 10 corpora: $\sim$3 GB
+    \item 50 corpora: $\sim$15 GB
 \end{itemize}
 
-\subsubsection{Context-Fabric Scaling}
-
-In spawn mode, Context-Fabric workers share memory-mapped pages:
-
-\begin{itemize}
-    \item Memory per worker: $\sim$315 MB
-    \item 10 workers: 3.2 GB
-    \item 100 workers: 32 GB
-\end{itemize}
-
-In fork mode, the base footprint is minimal:
-
-\begin{itemize}
-    \item Base memory: 305 MB (parent process)
-    \item Additional per worker: $\sim$23 MB
-    \item 10 workers: 305 + 230 = 535 MB
-    \item 100 workers: 305 + 2,300 = 2.6 GB
-\end{itemize}
+This represents a \textbf{20$\times$ improvement} in corpus density. A single 16 GB server running Context-Fabric can serve dozens of corpora that would require dedicated machines under Text-Fabric.
 
 \begin{table}[h]
 \centering
