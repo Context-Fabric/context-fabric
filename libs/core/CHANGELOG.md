@@ -7,11 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.0] - 2026-01-07 ([ck])
 
+### Added
+- `Compiler.compile()` now accepts optional `precomputed` parameter for passing already-loaded data
+- `Compiler._compile_from_precomputed()` for optimized compilation when all features are pre-loaded
+- `Fabric._gather_precomputed_data()` to collect loaded data for compilation (only used when ALL features are loaded)
+
 ### Changed
-- Compilation is now 2x faster: `Fabric.compile()` passes pre-computed data (otype, oslots, levels, order, rank, levUp, levDown, boundary, node features, edge features) to the Compiler, avoiding redundant .tf file parsing and precomputation
-- `Compiler.compile()` now accepts optional `precomputed` parameter
-- Added `Compiler._compile_from_precomputed()` for optimized path
-- Added `Fabric._gather_precomputed_data()` to collect loaded data for compilation
+- When ALL features are loaded via `loadAll()` before calling `compile()`, pre-computed data is passed to the Compiler to avoid redundant .tf file parsing. Falls back to disk-based compilation when only a subset of features is loaded.
 
 ## [0.3.1] - 2026-01-06 ([ck])
 

@@ -120,16 +120,16 @@ clause
 
 ## Performance
 
-Context-Fabric optimizes for the common case: **compilation happens once, loading happens every session**.
+Context-Fabric trades **one-time compilation cost** for **dramatic runtime efficiency**. Compile once, benefit forever.
 
 | Metric | Text-Fabric | Context-Fabric |
 |--------|-------------|----------------|
-| Load time | 8.1s | 0.5s (16x faster) |
-| Memory | 5.2 GB | 300 MB (94% less) |
-| Compile time | 62s | 30s (2x faster) |
-| Cache size | 138 MB | 387 MB |
+| Load time | 7.9s | 0.7s (11x faster) |
+| Memory | 6.3 GB | 305 MB (95% less) |
+| Compile time | 8s | 91s (one-time cost) |
+| Cache size | 138 MB | 859 MB |
 
-The larger cache size pays off immediately in faster loads and dramatically in parallel deployments.
+The larger cache enables memory-mapped access—no deserialization, instant loads, shared memory across workers.
 
 <p align="center">
   <img src="benchmarks/results/performance_comparison.png" alt="Performance Comparison" width="700">

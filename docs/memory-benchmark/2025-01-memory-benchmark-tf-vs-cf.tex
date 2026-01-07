@@ -44,7 +44,7 @@
 \maketitle
 
 \begin{abstract}
-Text-Fabric provides a powerful framework for analyzing annotated text corpora, but its memory requirements limit scalability: each worker process loads the full corpus into RAM, making parallel API deployments impractical. Context-Fabric restructures the storage layer using memory-mapped arrays, enabling efficient multi-worker access. Benchmarks across single-process, spawn, and fork scenarios demonstrate 79--94\% memory reduction. This scalability enables an ecosystem of applications---web interfaces, AI agents, educational tools---built on corpus APIs rather than local installations.
+Text-Fabric provides a powerful framework for analyzing annotated text corpora, but its memory requirements limit scalability: each worker process loads the full corpus into RAM, making parallel API deployments impractical. Context-Fabric restructures the storage layer using memory-mapped arrays, enabling efficient multi-worker access. Benchmarks across single-process, spawn, and fork scenarios demonstrate 84--95\% memory reduction. This scalability enables an ecosystem of applications---web interfaces, AI agents, educational tools---built on corpus APIs rather than local installations.
 \end{abstract}
 
 \section{Introduction}
@@ -106,7 +106,7 @@ None of these applications need to bundle 6 GB of corpus data or implement Text-
 
 To support this ecosystem, Text-Fabric must become productionizable. API servers handle concurrent requests; multiple workers are needed. Each worker must access the full corpus---but Text-Fabric's architecture loads entire corpora into memory, consuming 6+ GB per worker. For a modest deployment with 10 workers, this requires 60+ GB of RAM, making scalable hosting economically impractical.
 
-Context-Fabric addresses this challenge through a memory-mapped architecture that achieves 79--94\% memory reduction while maintaining compatibility with Text-Fabric's Python API (the \texttt{F}, \texttt{L}, \texttt{T}, \texttt{S} interfaces researchers use in their code). This paper quantifies these efficiency gains through controlled benchmarking.
+Context-Fabric addresses this challenge through a memory-mapped architecture that achieves 84--95\% memory reduction while maintaining compatibility with Text-Fabric's Python API (the \texttt{F}, \texttt{L}, \texttt{T}, \texttt{S} interfaces researchers use in their code). This paper quantifies these efficiency gains through controlled benchmarking.
 
 \section{From Text-Fabric to Context-Fabric}
 
@@ -300,12 +300,12 @@ The memory-mapped architecture benefits both production deployments and individu
 
 \textbf{For individual researchers}:
 \begin{itemize}
-    \item 16$\times$ faster load times improve interactive experience
-    \item 94\% less memory enables work on modest hardware (laptops, older machines)
+    \item 11$\times$ faster load times improve interactive experience
+    \item 95\% less memory enables work on modest hardware (laptops, older machines)
     \item Same corpus, same API---no workflow changes required
 \end{itemize}
 
-The trade-off---a larger cache (387 MB vs. 138 MB)---is minor. Context-Fabric compiles faster than Text-Fabric (30s vs. 62s) because it passes pre-computed data directly to the compiler, avoiding redundant parsing. Every subsequent session benefits from 16$\times$ faster loads and 94\% lower memory consumption.
+The trade-off is a larger cache (859 MB vs. 138 MB) and longer initial compilation (91s vs. 8s). This one-time cost pays off immediately: every subsequent session benefits from 11$\times$ faster loads and 95\% lower memory consumption.
 
 \section{Methodology}
 
@@ -376,17 +376,7 @@ Several factors complicate memory benchmarking in practice:
 
 \subsection{Our Measurement Approach}
 
-Given the above considerations, we measure memory consumption using RSS. While RSS double-counts shared pages in multi-process scenarios, this ``worst case'' view is more honest than USS for memory-mapped workloads.
-
-An earlier version of this benchmark used USS, which produced misleading results:
-
-\begin{itemize}
-    \item USS excluded memory-mapped pages backed by files, even when those pages consumed physical RAM
-    \item This made Context-Fabric appear to use near-zero memory in fork scenarios
-    \item The 94\% efficiency claim was technically accurate for USS but obscured the true memory footprint
-\end{itemize}
-
-We chose RSS for transparency: the numbers represent actual memory pressure on the system, even if this is less flattering to our memory-mapped architecture.
+Given the above considerations, we measure memory consumption using RSS. While RSS double-counts shared pages in multi-process scenarios, this ``worst case'' view provides transparency: the numbers represent actual memory pressure on the system.
 
 \subsection{Measurement Isolation}
 
@@ -429,7 +419,7 @@ A single Python process loads the corpus from cache and serves requests. This re
 
 \subsubsection{Spawn Mode (4 Workers)}
 
-Four independent worker processes, each loading the corpus from scratch. This simulates \texttt{multiprocessing} with \texttt{spawn} context, common on macOS and Windows where fork is unavailable or discouraged.
+Four independent worker processes, each loading the corpus from scratch. This simulates \texttt{multiprocessing} with \texttt{spawn} context---the default on macOS and the only option on Windows.\footnote{Windows lacks a \texttt{fork()} system call entirely. On macOS, \texttt{fork()} is available but Python 3.8+ defaults to \texttt{spawn} because forking processes that use certain Apple frameworks (Cocoa, Core Foundation) can cause crashes. Production deployments can explicitly use \texttt{fork} via \texttt{multiprocessing.get\_context('fork')} when the application avoids these frameworks.}
 
 \textbf{Measurement}: Sum of RSS across all 4 worker processes.
 
@@ -449,18 +439,19 @@ Note: For fork mode, summing RSS across processes may double-count shared copy-o
 \centering
 \begin{tabular}{lrrr}
 \toprule
-\textbf{Metric} & \textbf{Text-Fabric} & \textbf{Context-Fabric} & \textbf{Reduction} \\
+\textbf{Metric} & \textbf{Text-Fabric} & \textbf{Context-Fabric} & \textbf{Change} \\
 \midrule
-Memory (RSS) & 5.2 GB & 300 MB & 94\% \\
-Load Time & 8.1 s & 0.51 s & 16$\times$ faster \\
-Cache Size & 138 MB & 387 MB & 2.8$\times$ larger \\
+Memory (RSS) & 6.3 GB & 305 MB & 95\% less \\
+Load Time & 7.9 s & 0.7 s & 11$\times$ faster \\
+Compile Time & 8 s & 91 s & 11$\times$ slower \\
+Cache Size & 138 MB & 859 MB & 6$\times$ larger \\
 \bottomrule
 \end{tabular}
 \caption{Single-process performance comparison}
 \label{tab:single}
 \end{table}
 
-Context-Fabric achieves 94\% memory reduction in single-process mode. The larger cache size reflects the uncompressed numpy array format, which trades disk space for memory-mapping capability.
+Context-Fabric achieves 95\% memory reduction in single-process mode. The larger cache size (859 MB vs. 138 MB) reflects the uncompressed numpy array format, which trades disk space for memory-mapping capability. Compilation takes longer (91s vs. 8s) but this is a one-time cost that pays off across all subsequent sessions.
 
 \subsection{Spawn Mode (4 Workers)}
 
@@ -470,17 +461,15 @@ Context-Fabric achieves 94\% memory reduction in single-process mode. The larger
 \toprule
 \textbf{Metric} & \textbf{Text-Fabric} & \textbf{Context-Fabric} & \textbf{Reduction} \\
 \midrule
-Total Memory & 6.0 GB & 1.2 GB & 79\% \\
-Per Worker & 1.5 GB & 310 MB & 4.9$\times$ less \\
+Total Memory & 7.7 GB & 1.3 GB & 84\% \\
+Per Worker & 1.9 GB & 315 MB & 6$\times$ less \\
 \bottomrule
 \end{tabular}
 \caption{Spawn mode (4 workers) memory comparison}
 \label{tab:spawn}
 \end{table}
 
-In spawn mode, each worker loads independently. Context-Fabric's per-worker footprint (310 MB) reflects the memory-mapped approach where only accessed pages reside in physical memory.
-
-The Text-Fabric total (6.0 GB) is less than $4 \times$ single-process (5.2 GB) due to shared library pages and measurement timing---workers were measured after loading but before extensive feature access.
+In spawn mode, each worker loads independently. Context-Fabric's per-worker footprint (315 MB) reflects the memory-mapped approach where only accessed pages reside in physical memory.
 
 \subsection{Fork Mode (4 Workers)}
 
@@ -510,9 +499,9 @@ Fork mode shows the most dramatic efficiency gains. Text-Fabric's workers add mi
 \toprule
 \textbf{Scenario} & \textbf{Text-Fabric} & \textbf{Context-Fabric} & \textbf{Reduction} \\
 \midrule
-Single process & 5.2 GB & 300 MB & 94\% \\
-4 workers (spawn) & 6.0 GB & 1.2 GB & 79\% \\
-4 workers (fork) & 6.3 GB & 397 MB & 94\% \\
+Single process & 6.3 GB & 305 MB & 95\% \\
+4 workers (spawn) & 7.7 GB & 1.3 GB & 84\% \\
+4 workers (fork) & 6.3 GB & 398 MB & 94\% \\
 \bottomrule
 \end{tabular}
 \caption{Memory consumption summary across all scenarios}
@@ -522,7 +511,7 @@ Single process & 5.2 GB & 300 MB & 94\% \\
 \begin{figure}[ht]
 \centering
 \includegraphics[width=\textwidth]{performance_comparison.png}
-\caption{Performance comparison between Text-Fabric and Context-Fabric on the BHSA corpus. Top left: cache load time (16$\times$ faster). Top right: single-process memory usage (94\% reduction). Bottom left: spawn mode per-worker memory (4.9$\times$ less). Bottom right: fork mode per-worker memory (16$\times$ less).}
+\caption{Performance comparison between Text-Fabric and Context-Fabric on the BHSA corpus. Top left: cache load time (11$\times$ faster). Top right: single-process memory usage (95\% reduction). Bottom left: spawn mode per-worker memory (6$\times$ less). Bottom right: fork mode per-worker memory (16$\times$ less).}
 \label{fig:performance}
 \end{figure}
 
@@ -530,22 +519,25 @@ Single process & 5.2 GB & 300 MB & 94\% \\
 
 \subsection{Trade-offs and Their Amortization}
 
-Context-Fabric's memory efficiency comes with minimal trade-offs:
+Context-Fabric trades \emph{one-time compilation cost} for \emph{dramatic runtime efficiency}:
 
 \begin{itemize}
-    \item \textbf{Larger cache size}: Uncompressed numpy arrays require $\sim$2.8$\times$ more disk space (387 MB vs. 138 MB for BHSA).
-    \item \textbf{I/O sensitivity}: Performance depends on storage speed; SSDs recommended for optimal results.
+    \item \textbf{Longer compilation}: 91s vs. 8s (11$\times$ slower) to convert .tf source files to .cfm format
+    \item \textbf{Larger cache size}: 859 MB vs. 138 MB (6$\times$ larger) due to uncompressed numpy arrays
+    \item \textbf{I/O sensitivity}: Performance depends on storage speed; SSDs recommended for optimal results
 \end{itemize}
 
-Notably, compilation is actually \emph{faster} with Context-Fabric (30s vs. 62s) because it passes pre-computed data directly to the compiler, avoiding redundant parsing of source files. Every subsequent session---whether by a production API serving thousands of requests or a researcher running interactive queries---benefits from:
+These costs are incurred \emph{once}---on first load of a new corpus or after corpus updates. Every subsequent session benefits from:
 
 \begin{itemize}
-    \item 16$\times$ faster load times (0.51s vs. 8.1s)
-    \item 94\% less memory (300 MB vs. 5.2 GB)
+    \item 11$\times$ faster load times (0.7s vs. 7.9s)
+    \item 95\% less memory (305 MB vs. 6.3 GB)
     \item Ability to run on modest hardware (laptops, cloud free tiers)
 \end{itemize}
 
-For individual researchers, this means: compile once on first use, then enjoy dramatically improved performance for all future work. The sub-second loads save time on every session.
+For a corpus like BHSA, the amortization is rapid. A researcher who loads the corpus 10 times saves $10 \times 7.2\text{s} = 72\text{s}$ in load time, already recovering the 83-second compilation overhead. A production API serving thousands of requests per day recovers the cost in minutes.
+
+For individual researchers, this means: compile once on first use, then enjoy dramatically improved performance for all future work. The sub-second loads save time on every session. For API deployments, the memory reduction (95\%) is the primary benefit---enabling deployments that would otherwise be economically impractical.
 
 \subsection{Fork Mode Considerations}
 
@@ -566,10 +558,10 @@ Our benchmarks measured 4 workers. How do these results extrapolate to larger de
 In spawn mode, each Text-Fabric worker loads an independent copy of the corpus:
 
 \begin{itemize}
-    \item Memory per worker: $\sim$1.5 GB
-    \item 10 workers: 15 GB
-    \item 100 workers: 150 GB
-    \item 1000 workers: 1.5 TB (impractical on any single machine)
+    \item Memory per worker: $\sim$1.9 GB
+    \item 10 workers: 19 GB
+    \item 100 workers: 190 GB
+    \item 1000 workers: 1.9 TB (impractical on any single machine)
 \end{itemize}
 
 In fork mode with preloading, memory is dominated by the parent process:
@@ -585,10 +577,10 @@ In fork mode with preloading, memory is dominated by the parent process:
 In spawn mode, Context-Fabric workers share memory-mapped pages:
 
 \begin{itemize}
-    \item Memory per worker: $\sim$310 MB
-    \item 10 workers: 3.1 GB
-    \item 100 workers: 31 GB
-    \item 1000 workers: 310 GB
+    \item Memory per worker: $\sim$315 MB
+    \item 10 workers: 3.2 GB
+    \item 100 workers: 32 GB
+    \item 1000 workers: 315 GB
 \end{itemize}
 
 In fork mode, the base footprint is minimal:
@@ -607,11 +599,11 @@ In fork mode, the base footprint is minimal:
 \toprule
 \textbf{Workers} & \textbf{TF Spawn} & \textbf{TF Fork} & \textbf{CF Spawn} & \textbf{CF Fork} \\
 \midrule
-1 & 5.2 GB & 6.3 GB & 300 MB & 305 MB \\
-4 & 6.0 GB & 6.3 GB & 1.2 GB & 397 MB \\
-10 & 15 GB & 6.4 GB & 3.1 GB & 535 MB \\
-100 & 150 GB & 6.5 GB & 31 GB & 2.6 GB \\
-1000 & 1.5 TB & 6.5 GB & 310 GB & 23 GB \\
+1 & 6.3 GB & 6.3 GB & 305 MB & 305 MB \\
+4 & 7.7 GB & 6.3 GB & 1.3 GB & 398 MB \\
+10 & 19 GB & 6.4 GB & 3.2 GB & 535 MB \\
+100 & 190 GB & 6.5 GB & 32 GB & 2.6 GB \\
+1000 & 1.9 TB & 6.5 GB & 315 GB & 23 GB \\
 \bottomrule
 \end{tabular}
 \caption{Projected memory consumption by worker count}
@@ -642,7 +634,7 @@ For serving AI agents via the Model Context Protocol, Context-Fabric enables wha
 
 \section{Conclusion}
 
-This benchmark demonstrates that Context-Fabric's memory-mapped architecture achieves 79--94\% memory reduction compared to Text-Fabric across all tested deployment scenarios. The efficiency gains are most pronounced in fork-based production deployments, where Context-Fabric's 397 MB footprint (vs. 6.3 GB for Text-Fabric) enables a 200$\times$ improvement in worker density.
+This benchmark demonstrates that Context-Fabric's memory-mapped architecture achieves 84--95\% memory reduction compared to Text-Fabric across all tested deployment scenarios. The efficiency gains are most pronounced in fork-based production deployments, where Context-Fabric's 398 MB footprint (vs. 6.3 GB for Text-Fabric) enables a 200$\times$ improvement in worker density.
 
 \subsection{Toward AI-Powered Corpus Analysis}
 

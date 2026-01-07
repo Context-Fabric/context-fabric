@@ -1096,7 +1096,8 @@ class Fabric:
         Returns
         -------
         dict | None
-            Dictionary of precomputed data, or None if data hasn't been loaded.
+            Dictionary of precomputed data, or None if data hasn't been loaded
+            or if not ALL features are loaded (to avoid partial compilation).
         """
         # Check if WARP features are loaded
         if OTYPE not in self.features or OSLOTS not in self.features:
@@ -1106,6 +1107,33 @@ class Fabric:
         oslots_feat = self.features[OSLOTS]
 
         if not otype_feat.dataLoaded or not oslots_feat.dataLoaded:
+            return None
+
+        # Count how many .tf files exist on disk
+        source_dir = (
+            self.locations[-1] + "/" + self.modules[-1]
+            if self.modules and self.modules[-1]
+            else self.locations[-1]
+        )
+        source_path = Path(source_dir)
+        tf_files_on_disk = set()
+        for tf_file in source_path.glob("*.tf"):
+            tf_files_on_disk.add(tf_file.stem)
+
+        # Count loaded features (excluding computed features which start/end with __)
+        loaded_features = set()
+        for fname, fobj in self.features.items():
+            if fname.startswith('__') and fname.endswith('__'):
+                continue
+            if fobj.dataLoaded and fobj.data is not None:
+                loaded_features.add(fname)
+
+        # If not all features are loaded, don't use precomputed path
+        # This ensures the compiler reads ALL .tf files from disk
+        missing = tf_files_on_disk - loaded_features
+        if missing:
+            logger.debug(f"Not all features loaded ({len(missing)} missing), "
+                        f"compiler will read from disk")
             return None
 
         # Gather WARP data
