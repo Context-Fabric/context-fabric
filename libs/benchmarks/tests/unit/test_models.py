@@ -15,7 +15,7 @@ from cfabric_benchmarks.models.config import (
 from cfabric_benchmarks.models.latency import (
     LatencyStatistics,
     QueryMeasurement,
-    SearchPattern,
+    SearchQuery,
     ValidationReport,
 )
 from cfabric_benchmarks.models.memory import (
@@ -40,10 +40,10 @@ class TestBenchmarkConfig:
             corpora_dir=tmp_path / "corpora",
             output_dir=tmp_path / "output",
         )
-        assert config.num_runs == 5
+        assert config.memory_runs == 5
         assert config.warmup_runs == 1
         assert config.num_workers == 4
-        assert config.num_patterns == 50
+        assert config.num_queries == 50
         assert config.latency_iterations == 10
         assert config.validation_corpus == "cuc"
         assert config.generate_pdf is True
@@ -51,16 +51,16 @@ class TestBenchmarkConfig:
     def test_custom_values(self, tmp_path: Path) -> None:
         """Test custom configuration values."""
         config = BenchmarkConfig(
-            num_runs=10,
+            memory_runs=10,
             warmup_runs=2,
             corpora_dir=tmp_path / "corpora",
             output_dir=tmp_path / "output",
-            num_patterns=100,
+            num_queries=100,
             generate_pdf=False,
         )
-        assert config.num_runs == 10
+        assert config.memory_runs == 10
         assert config.warmup_runs == 2
-        assert config.num_patterns == 100
+        assert config.num_queries == 100
         assert config.generate_pdf is False
 
 
@@ -97,25 +97,25 @@ class TestCorpusConfig:
         assert names.index("lxx") < names.index("bhsa")
 
 
-class TestSearchPattern:
-    """Tests for SearchPattern model."""
+class TestSearchQuery:
+    """Tests for SearchQuery model."""
 
     def test_creation(self) -> None:
-        """Test pattern creation."""
-        pattern = SearchPattern(
+        """Test query creation."""
+        query = SearchQuery(
             id="lex_001",
             category="lexical",
             template="word sp=verb",
             description="Find all verbs",
             expected_complexity="low",
         )
-        assert pattern.id == "lex_001"
-        assert pattern.category == "lexical"
-        assert pattern.validated is False
+        assert query.id == "lex_001"
+        assert query.category == "lexical"
+        assert query.validated is False
 
     def test_validation_status(self) -> None:
-        """Test pattern validation status."""
-        pattern = SearchPattern(
+        """Test query validation status."""
+        query = SearchQuery(
             id="lex_001",
             category="lexical",
             template="word sp=verb",
@@ -123,7 +123,7 @@ class TestSearchPattern:
             expected_complexity="low",
             validated=True,
         )
-        assert pattern.validated is True
+        assert query.validated is True
 
 
 class TestQueryMeasurement:
@@ -132,7 +132,7 @@ class TestQueryMeasurement:
     def test_successful_measurement(self) -> None:
         """Test successful query measurement."""
         m = QueryMeasurement(
-            pattern_id="lex_001",
+            query_id="lex_001",
             implementation="TF",
             run_id=1,
             iteration=1,
@@ -147,7 +147,7 @@ class TestQueryMeasurement:
     def test_failed_measurement(self) -> None:
         """Test failed query measurement."""
         m = QueryMeasurement(
-            pattern_id="lex_001",
+            query_id="lex_001",
             implementation="CF",
             run_id=1,
             iteration=1,
@@ -255,8 +255,8 @@ class TestValidationReport:
 
     def test_creation(self) -> None:
         """Test validation report creation."""
-        patterns = [
-            SearchPattern(
+        queries = [
+            SearchQuery(
                 id="lex_001",
                 category="lexical",
                 template="word sp=verb",
@@ -264,7 +264,7 @@ class TestValidationReport:
                 expected_complexity="low",
                 validated=True,
             ),
-            SearchPattern(
+            SearchQuery(
                 id="lex_002",
                 category="lexical",
                 template="word sp=noun",
@@ -276,12 +276,12 @@ class TestValidationReport:
         ]
         report = ValidationReport(
             validation_corpus="cuc",
-            total_patterns=2,
+            total_queries=2,
             validated_count=1,
             failed_count=1,
-            patterns=patterns,
+            queries=queries,
         )
-        assert report.total_patterns == 2
+        assert report.total_queries == 2
         assert report.validated_count == 1
         assert report.failed_count == 1
         assert report.success_rate == 0.5

@@ -82,7 +82,7 @@ class TestLatencyMeasurementsCSV:
         """Test writing latency measurements to CSV."""
         measurements = [
             QueryMeasurement(
-                pattern_id="lex_001",
+                query_id="lex_001",
                 implementation="TF",
                 run_id=1,
                 iteration=1,
@@ -91,7 +91,7 @@ class TestLatencyMeasurementsCSV:
                 success=True,
             ),
             QueryMeasurement(
-                pattern_id="lex_001",
+                query_id="lex_001",
                 implementation="CF",
                 run_id=1,
                 iteration=1,
@@ -111,7 +111,7 @@ class TestLatencyMeasurementsCSV:
             rows = list(reader)
 
         assert len(rows) == 2
-        assert rows[0]["pattern_id"] == "lex_001"
+        assert rows[0]["query_id"] == "lex_001"
 
 
 class TestLatencyStatisticsCSV:
@@ -121,7 +121,7 @@ class TestLatencyStatisticsCSV:
         """Test writing latency statistics to CSV."""
         stats = [
             LatencyStatistics(
-                pattern_id="lex_001",
+                query_id="lex_001",
                 implementation="TF",
                 category="lexical",
                 mean_ms=15.0,
@@ -146,7 +146,7 @@ class TestLatencyStatisticsCSV:
             rows = list(reader)
 
         assert len(rows) == 1
-        assert rows[0]["pattern_id"] == "lex_001"
+        assert rows[0]["query_id"] == "lex_001"
         assert float(rows[0]["mean_ms"]) == 15.0
 
 
