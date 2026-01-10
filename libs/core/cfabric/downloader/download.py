@@ -38,7 +38,7 @@ def download(
     Example:
         >>> import cfabric
         >>> path = cfabric.download('bhsa')
-        >>> TF = cfabric.Fabric(locations=path)
+        >>> CF = cfabric.Fabric(locations=path)
 
         >>> # Or with full repo ID for community corpora
         >>> path = cfabric.download('researcher/cfabric-my-corpus')

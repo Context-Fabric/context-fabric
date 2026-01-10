@@ -28,7 +28,7 @@ CF = Fabric(locations='path/to/data')
 api = CF.load('feature1 feature2')
 
 # Navigate nodes
-for node in api.N():
+for node in api.N.walk():
     print(api.F.feature1.v(node))
 
 # Use locality

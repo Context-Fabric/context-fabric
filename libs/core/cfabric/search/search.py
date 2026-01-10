@@ -120,7 +120,7 @@ class Search:
             increase the `yarnRatio`.
 
         tryLimitFrom: integer
-            In order to determine the spreads of the relations, TF takes
+            In order to determine the spreads of the relations, CF takes
             random samples and extrapolates the results. We grab some nodes
             from the set at the *from* side of an edge, and some nodes at the
             *to* side of the same edge, Then we compute in how many cases the relation

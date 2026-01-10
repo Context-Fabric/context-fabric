@@ -5,11 +5,11 @@ Here are the functions that enable you to get the actual text in the dataset.
 There are several things to accomplish here, such as
 
 *   support the structure of the corpus
-*   support a rigid section system usable by the TF browser
+*   support a rigid section system usable by the CF browser
 *   handle multilingual section labels;
 *   switch between various text representations.
 
-The details of the Text API are dependent on the `tf.parameters.WARP` feature `otext`,
+The details of the Text API are dependent on the `cfabric.parameters.WARP` feature `otext`,
 which is a configuration feature.
 
 !!! hint "T"
@@ -28,7 +28,7 @@ If a corpus has sectional elements, such as
 `series`, `volume`, `book`, `part`, `document`, `chapter`, `fragment`, `verse`,
 `halfverse`, `line`, etc, then you can configure those elements as structural types.
 
-If your TF dataset designer has done that, the `T.api` will provide a number
+If your CF dataset designer has done that, the `T.api` will provide a number
 of handy functions to navigate your corpus along its structure, programmatically.
 
 The
@@ -80,13 +80,13 @@ functions available by which you can make handy use of that information.
     That makes this section system unsuitable to faithfully reflect the
     rich sectioning that may be present in a corpus.
 
-    On the other hand, applications (such as TF apps) can access a predictable
+    On the other hand, applications (such as CF apps) can access a predictable
     sectioning system by which they can divide the material in practical portions.
 
     The rule of thumb is:
 
     Level 1 divides the corpus into top level units,
-    of which there might be (very) many. The TF browser has a control that
+    of which there might be (very) many. The CF browser has a control that
     can deal with long lists.
 
     Level 2 divides a level 1 section into a division that can be loaded into
@@ -99,11 +99,11 @@ functions available by which you can make handy use of that information.
 
 !!! explanation "Section levels are generic"
     In this documentation, we call the main section level `book`, the second level
-    `chapter`, and the third level `verse`. TF, however, is completely
+    `chapter`, and the third level `verse`. CF, however, is completely
     agnostic about how these levels are called. It is prepared to distinguish three
     section levels, but how they are called, must be configured in the dataset. The
     task of the `otext` feature is to declare which node type and feature correspond
-    with which section level. TF assumes that the first section level may
+    with which section level. CF assumes that the first section level may
     have multilingual headings, but that section levels two and three have single
     language headings (numbers of some kind).
 
@@ -117,7 +117,7 @@ functions available by which you can make handy use of that information.
     `int`.
 
 !!! explanation "levels of node types"
-    Usually, TF computes the hierarchy of node types correctly, in the
+    Usually, CF computes the hierarchy of node types correctly, in the
     sense that node types that act as containers have a lower level than node types
     that act as containees. So books have the lowest level, words the highest. See
     [levels](#levels). However, if this level assignment turns out to be wrong for
@@ -141,7 +141,7 @@ functions available by which you can make handy use of that information.
 The names of the books may be available in multiple languages. The book names
 are stored in node features with names of the form `book@la`, where `la` is
 the [ISO 639](https://en.wikipedia.org/wiki/ISO_639) two-letter code for that
-language. TF will always load these features.
+language. CF will always load these features.
 
 ## Text representation
 
@@ -165,7 +165,7 @@ keyword | value | meaning
 *fullness* | `plain` | with accents and diacritical marks stripped, in Hebrew only the consonants are left
 *modifier* | `ketiv` | (Hebrew): where there is ketiv / qere, follow ketiv instead of qere (default);
 
-The default format is `text-orig-full`, we assume that every TF dataset defines
+The default format is `text-orig-full`, we assume that every CF dataset defines
 this format.
 
 A format is a template string, with fixed text and variable text.
@@ -198,7 +198,7 @@ This tries the feature `special` first, and if that is undefined, it takes
 !!! caution "undefined versus empty"
     The criterion to skip the value of feature `special` and use the value
     of feature `normal` is that `special` either has no value, or its value is
-    `None` (TF essentially makes no difference between the two).
+    `None` (CF essentially makes no difference between the two).
     But if the value of `special` happens to be the empty string, it will be used!
 
 !!! hint "longer chains"
@@ -222,7 +222,7 @@ You can also specify the empty string as the default:
 However, you do not need to do that, because the default is the empty string
 by default!
 
-TF datasets may also define formats of the form
+CF datasets may also define formats of the form
 
 `nodeType-default`
 
@@ -243,7 +243,7 @@ So formats may indicate that they should be applied to nodes of a specific type.
 See `T.text()` below.
 
 Remember that the formats are defined in the `otext` warp configuration feature of your
-set, not by TF.
+set, not by CF.
 
 !!! note "Freedom of names for formats"
     There is complete freedom of choosing names for text formats.
@@ -400,22 +400,22 @@ class Text:
         self.api = api
         C = api.C
         Fs = api.Fs
-        TF = api.TF
+        CF = api.CF
         self.languages: dict[str, dict[str, str]] = {}
         """A dictionary of the languages that are available for book names.
         """
 
         self.nameFromNode: dict[str, dict[int, str]] = {}
         self.nodeFromName: dict[str, dict[tuple[str, str], int]] = {}
-        config = api.TF.features[OTEXT].metaData if OTEXT in api.TF.features else {}
-        self.sectionTypes: tuple[str, ...] = TF.sectionTypes
-        self.sectionTypeSet: set[str] = set(TF.sectionTypes)
-        self.sectionFeats: tuple[str, ...] = TF.sectionFeats
-        self.sectionFeatsWithLanguage: set[str] = getattr(TF, "sectionFeatsWithLanguage", set())
+        config = api.CF.features[OTEXT].metaData if OTEXT in api.CF.features else {}
+        self.sectionTypes: tuple[str, ...] = CF.sectionTypes
+        self.sectionTypeSet: set[str] = set(CF.sectionTypes)
+        self.sectionFeats: tuple[str, ...] = CF.sectionFeats
+        self.sectionFeatsWithLanguage: set[str] = getattr(CF, "sectionFeatsWithLanguage", set())
         self.sectionFeatures: list[dict[int, str | int]] = []
         self.sectionFeatureTypes: list[str] = []
-        self.structureTypes: tuple[str, ...] = TF.structureTypes
-        self.structureFeats: tuple[str, ...] = TF.structureFeats
+        self.structureTypes: tuple[str, ...] = CF.structureTypes
+        self.structureFeats: tuple[str, ...] = CF.structureFeats
         self.structureTypeSet: set[str] = set(self.structureTypes)
         self.config: dict[str, str] = config
         self.defaultFormat: str = DEFAULT_FORMAT
@@ -447,12 +447,12 @@ class Text:
                     good = False
                     continue
                 # Get metadata from api.F feature (has loaded metadata from .cfm)
-                # or fall back to TF.features (for .tf loading)
+                # or fall back to CF.features (for .tf loading)
                 fFeature = getattr(api.F, fName, None)
                 if fFeature is not None and hasattr(fFeature, 'meta'):
                     meta = fFeature.meta
                 else:
-                    fObj = api.TF.features.get(fName)
+                    fObj = api.CF.features.get(fName)
                     meta = fObj.metaData if fObj else {}
                 code = meta.get("languageCode", "")
                 self.languages[code] = {
@@ -468,12 +468,12 @@ class Text:
                 if fData is None:
                     good = False
                     continue
-                # Get dataType from api.F feature or TF.features
+                # Get dataType from api.F feature or CF.features
                 fFeature = getattr(api.F, fName, None)
                 if fFeature is not None and hasattr(fFeature, 'meta'):
                     dataType = fFeature.meta.get('value_type', 'str')
                 else:
-                    fObj = api.TF.features.get(fName)
+                    fObj = api.CF.features.get(fName)
                     dataType = fObj.dataType if fObj else 'str'
                 self.sectionFeatures.append(fData.data)
                 self.sectionFeatureTypes.append(dataType)
@@ -1224,8 +1224,8 @@ EXPLANATION: T.text() called with parameters:
 
     def _compileFormats(self) -> None:
         api = self.api
-        TF = api.TF
-        cformats = TF.cformats
+        CF = api.CF
+        cformats = CF.cformats
 
         self.formats = {}
         self._tformats: dict[str, str] = {}

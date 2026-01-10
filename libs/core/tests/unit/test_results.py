@@ -122,7 +122,7 @@ class TestFeatureInfoMetadata:
             "valueType": "str",
             "description": "Test feature description",
         }
-        api.TF.features.get.return_value = feature_obj
+        api.CF.features.get.return_value = feature_obj
 
         info = FeatureInfo.from_api(api, "test_feature", "node")
 
@@ -133,16 +133,16 @@ class TestFeatureInfoMetadata:
         assert info.description == "Test feature description"
 
     def test_metadata_from_tf_features_cfm_format(self):
-        """Should get metadata from TF.features with .cfm format keys."""
+        """Should get metadata from CF.features with .cfm format keys."""
         api = MagicMock()
 
-        # Mock TF.features with .cfm-style metadata (value_type instead of valueType)
+        # Mock CF.features with .cfm-style metadata (value_type instead of valueType)
         feature_obj = MagicMock()
         feature_obj.metaData = {
             "value_type": "str",
             "description": "Loaded from .cfm format",
         }
-        api.TF.features.get.return_value = feature_obj
+        api.CF.features.get.return_value = feature_obj
 
         info = FeatureInfo.from_api(api, "test_feature", "node")
 
@@ -159,7 +159,7 @@ class TestFeatureInfoMetadata:
             "value_type": "int",
             "description": "Edge feature",
         }
-        api.TF.features.get.return_value = feature_obj
+        api.CF.features.get.return_value = feature_obj
 
         edge_feature = MagicMock()
         edge_feature.doValues = True
@@ -173,9 +173,9 @@ class TestFeatureInfoMetadata:
         assert info.has_values is True
 
     def test_returns_none_when_feature_not_found(self):
-        """Should return None when feature doesn't exist in TF.features."""
+        """Should return None when feature doesn't exist in CF.features."""
         api = MagicMock()
-        api.TF.features.get.return_value = None
+        api.CF.features.get.return_value = None
 
         info = FeatureInfo.from_api(api, "nonexistent", "node")
 

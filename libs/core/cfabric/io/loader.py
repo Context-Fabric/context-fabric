@@ -42,7 +42,7 @@ ERROR_CUTOFF = 20
 DATA_TYPES = ("str", "int")
 
 MEM_MSG = (
-    "TF is out of memory!\n"
+    "CF is out of memory!\n"
     + "If this happens and your computer has more than 3GB RAM on board:\n"
     + ("* make sure that you run 64-bit Python and/or\n" if check32()[0] else "")
     + "* close all other programs and try again.\n"
@@ -90,7 +90,7 @@ class Data:
     ) -> bool:
         """Load a feature from .tf source file.
 
-        For faster loading, use TF.load_cfm() which loads from pre-compiled
+        For faster loading, use CF.load_cfm() which loads from pre-compiled
         memory-mapped .cfm format instead.
 
         _withGc: boolean, optional False
@@ -188,7 +188,7 @@ class Data:
 
         path = self.path
         if not fileExists(path):
-            logger.error(f'TF reading: feature file "{path}" does not exist')
+            logger.error(f'CF reading: feature file "{path}" does not exist')
             return False
         fh = fileOpen(path)
         i = 0
@@ -472,7 +472,7 @@ class Data:
             fh.write("@edgeValues\n")
         for meta in sorted(self.metaData):
             fh.write(f"@{meta}={self.metaData[meta]}\n")
-        fh.write("@writtenBy=Text-Fabric\n")
+        fh.write("@writtenBy=Context-Fabric\n")
         fh.write(
             "@dateWritten={}\n".format(
                 utcnow().replace(microsecond=0).isoformat() + "Z"

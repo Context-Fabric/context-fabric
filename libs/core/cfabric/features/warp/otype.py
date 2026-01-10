@@ -3,7 +3,7 @@
 
 In general, features are stored as dictionaries, but this specific feature
 has an optimised representation. Since it is a large feature and present
-in any TF dataset, this pays off.
+in any CF dataset, this pays off.
 
 Supports two backends:
 - Dict-based tuple format (.tf loading): data = (type_tuple, maxSlot, maxNode, slotType)

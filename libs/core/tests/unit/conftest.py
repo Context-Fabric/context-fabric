@@ -116,7 +116,8 @@ def mock_api():
     api.T = MagicMock()
     api.L = MagicMock()
     api.N = MagicMock()
-    api.TF = MagicMock()
+    api.CF = MagicMock()
+    api.TF = api.CF  # Alias for backward compatibility
 
     # Set up otype data structure (maxSlot, maxNode, slotType)
     api.F.otype = MagicMock()

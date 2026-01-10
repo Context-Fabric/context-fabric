@@ -607,10 +607,10 @@ def getAllRealFeatures(api: Any) -> set[str]:
     that are not loaded by default.
     """
 
-    TF = api.TF
+    CF = api.CF
     allFeatures: set[str] = set()
 
-    for feat, fObj in TF.features.items():
+    for feat, fObj in CF.features.items():
         if fObj.method:
             continue
         if fObj.isConfig:

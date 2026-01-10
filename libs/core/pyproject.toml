@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "context-fabric"
-version = "0.5.2"
+version = "0.5.3"
 description = "Graph-based corpus engine for annotated text with efficient traversal and search"
 readme = "README.md"
 license = {text = "MIT"}

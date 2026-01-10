@@ -5,8 +5,8 @@ annotated text corpora using a graph-based data model.
 
 Basic usage:
     >>> import cfabric
-    >>> TF = cfabric.Fabric(locations='path/to/corpus')
-    >>> api = TF.load('feature1', 'feature2')
+    >>> CF = cfabric.Fabric(locations='path/to/corpus')
+    >>> api = CF.load('feature1', 'feature2')
     >>> for node in api.F.feature1.s('value'):
     ...     print(api.T.text(node))
 """

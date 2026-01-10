@@ -76,7 +76,7 @@ def _check_sentinel_collision(
 
 class Compiler:
     """
-    Compile TF source files to CF mmap format.
+    Compile .tf source files to CF mmap format.
 
     The compiler reads .tf plain text feature files and converts them to
     memory-mapped numpy arrays organized in the .cfm directory structure.
@@ -935,7 +935,7 @@ class Compiler:
 
 def compile_corpus(source_dir: str, output_dir: str | None = None) -> bool:
     """
-    Convenience function to compile a TF corpus to CFM format.
+    Convenience function to compile a .tf corpus to CFM format.
 
     Parameters
     ----------

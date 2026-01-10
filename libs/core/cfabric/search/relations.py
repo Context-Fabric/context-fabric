@@ -1580,17 +1580,17 @@ def basicRelations(searchExe: SearchExe, api: Api) -> None:
 
     # BUILD AND INITIALIZE ALL RELATIONAL FUNCTIONS
 
-    api.TF.explore(silent=DEEP)
+    api.CF.explore(silent=DEEP)
     edgeMap = {}
     nodeMap = {}
 
-    for efName in sorted(api.TF.featureSets["edges"]):
+    for efName in sorted(api.CF.featureSets["edges"]):
         if efName == OSLOTS or efName.startswith(OMAP):
             continue
         r = len(relations)
 
         (edgeRV, edgeIRV, edgeSRV) = makeEdgeMaps(efName)
-        doValues = api.TF.features[efName].edgeValues
+        doValues = api.CF.features[efName].edgeValues
         extra = " with value specification allowed" if doValues else ""
         relations.append(
             (

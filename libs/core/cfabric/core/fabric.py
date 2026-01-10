@@ -4,7 +4,7 @@
 The main class that works the core API.
 
 This module defines `Fabric`, which provides:
-- Locating and loading TF feature files
+- Locating and loading CF feature files
 - Compiling to and loading from .cfm format
 - Managing the core API (F, E, L, T, S, N, C)
 """
@@ -146,12 +146,12 @@ class Fabric:
 
     Top level management of
 
-    *   locating TF feature files
+    *   locating CF feature files
     *   loading and saving feature data
     *   pre-computing auxiliary data
     *   caching pre-computed and compressed data
 
-    TF is initialized for a corpus.
+    CF is initialized for a corpus.
     It will search a set of directories and catalogue all `.tf` files it finds there.
     These are the features you can subsequently load.
 
@@ -162,7 +162,7 @@ class Fabric:
     ----------
     locations: string | iterable of strings, optional
         The directories specified here are used as base locations
-        in searching for TF feature files.
+        in searching for CF feature files.
         In general, they will not searched directly, but certain subdirectories
         of them will be searched, specified by the `modules` parameter.
 
@@ -172,7 +172,7 @@ class Fabric:
             ~/text-fabric-data
             ~/github/text-fabric-data
 
-        So if you have stored your main TF dataset in
+        So if you have stored your main CF dataset in
         `text-fabric-data` in one of these directories
         you do not have to pass a location to Fabric.
 
@@ -189,7 +189,7 @@ class Fabric:
 
         Default: `['']`
 
-        So if you leave it out, TF will just search the paths specified
+        So if you leave it out, CF will just search the paths specified
         in `locations`.
 
     silent: string, optional "auto"
@@ -228,13 +228,13 @@ class Fabric:
         configure_logging(silent)
 
         self.banner = BANNER
-        """The banner Text-Fabric.
+        """The banner Context-Fabric.
 
         Will be shown just after start up, if the silence is not `deep`.
         """
 
         self.version = VERSION
-        """The version number of the TF library.
+        """The version number of the CF library.
         """
 
         (on32, warn, msg) = check32()
@@ -270,13 +270,13 @@ class Fabric:
         )
         self.featuresRequested: list[str] = []
         self.features: dict[str, Data] = {}
-        """Dictionary of all features that TF has found, whether loaded or not.
+        """Dictionary of all features that CF has found, whether loaded or not.
 
         Under each feature name is all info about that feature.
 
         The best use of this is to get the metadata of features:
 
-            TF.features['fff'].metaData
+            CF.features['fff'].metaData
 
         This works for all features `fff` that have been found,
         whether the feature is loaded or not.
@@ -494,7 +494,7 @@ class Fabric:
         silent: string, optional "auto"
             Verbosity level: "verbose", "auto", "terse", or "deep"
         show: boolean, optional True
-            If `False`, the resulting dictionary is delivered in `TF.featureSets`;
+            If `False`, the resulting dictionary is delivered in `CF.featureSets`;
             if `True`, the dictionary is returned as function result.
 
         Returns
@@ -613,7 +613,7 @@ class Fabric:
         module: str | None = None,
         silent: str = SILENT_D,
     ) -> bool:
-        """Saves newly generated data to disk as TF features, nodes and / or edges.
+        """Saves newly generated data to disk as CF features, nodes and / or edges.
 
         If you have collected feature data in dictionaries, keyed by the
         names of the features, and valued by their feature data,
@@ -621,7 +621,7 @@ class Fabric:
 
         It is this easy to export new data as features:
         collect the data and metadata of the features and feed it in an orderly way
-        to `TF.save()` and there you go.
+        to `CF.save()` and there you go.
 
         Parameters
         ----------
@@ -665,27 +665,27 @@ class Fabric:
                 feature `otext`, with no data associated.
 
         location: dict
-            The (meta)data will be written to the very last directory that TF searched
+            The (meta)data will be written to the very last directory that CF searched
             when looking for features (this is determined by the
-            `locations` and `modules` parameters in `tf.fabric.Fabric`.
+            `locations` and `modules` parameters in `cfabric.fabric.Fabric`.
 
             If both `locations` and `modules` are empty, writing will take place
             in the current directory.
 
             But you can override it:
 
-            If you pass `location=something`, TF will save in `something/mod`,
-            where `mod` is the last member of the `modules` parameter of TF.
+            If you pass `location=something`, CF will save in `something/mod`,
+            where `mod` is the last member of the `modules` parameter of CF.
 
         module: dict
             This is an additional way of overriding the default location
-            where TF saves new features. See the *location* parameter.
+            where CF saves new features. See the *location* parameter.
 
-            If you pass `module=something`, TF will save in `loc/something`,
-            where `loc` is the last member of the `locations` parameter of TF.
+            If you pass `module=something`, CF will save in `loc/something`,
+            where `loc` is the last member of the `locations` parameter of CF.
 
             If you pass `location=path1` and `module=path2`,
-            TF will save in `path1/path2`.
+            CF will save in `path1/path2`.
 
         silent: string, optional "auto"
             Verbosity level: "verbose", "auto", "terse", or "deep"
@@ -1037,7 +1037,7 @@ class Fabric:
             addLocality(api)
             addText(api)
             addSearch(api, self.silent)
-        logger.debug("All features loaded / computed - for details use TF.isLoaded()")
+        logger.debug("All features loaded / computed - for details use CF.isLoaded()")
         self.api = api
         setattr(self, "isLoaded", self.api.isLoaded)
         return api
@@ -1077,7 +1077,7 @@ class Fabric:
                             if hasattr(api.F, fName):
                                 delattr(api.F, fName)
                         fObj.unload()
-        logger.debug("All additional features loaded - for details use TF.isLoaded()")
+        logger.debug("All additional features loaded - for details use CF.isLoaded()")
 
     def _detect_cfm(self) -> Path | None:
         """Check if .cfm directory exists for the corpus.
@@ -1340,7 +1340,7 @@ class Fabric:
         """Register feature metadata in self.features for API compatibility.
 
         When loading from .cfm format, we need to populate self.features
-        so that TF.features[name].metaData works the same as .tf loading.
+        so that CF.features[name].metaData works the same as .tf loading.
         """
         # Create a lightweight Data-like object with just metaData
         feature_data = Data(
@@ -1350,8 +1350,8 @@ class Fabric:
         )
         feature_data.dataLoaded = True
 
-        # Set dataType for TF search compatibility
-        # TF search checks feature.dataType, not metadata
+        # Set dataType for CF search compatibility
+        # CF search checks feature.dataType, not metadata
         value_type = meta.get('valueType', meta.get('value_type', 'str'))
         feature_data.dataType = value_type
 

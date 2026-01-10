@@ -1,5 +1,5 @@
 """
-# The core API of TF.
+# The core API of CF.
 
 It provides methods to navigate nodes and edges and lookup features.
 """
@@ -56,21 +56,23 @@ API_REFS = dict(
     S=("Search", "search", "search"),
     Search=("Search", "search", "search"),
     T=("Text", "text", "text"),
+    CF=("Fabric", "fabric", "loading"),
     TF=("Fabric", "fabric", "loading"),
     Text=("Text", "text", "text"),
 )
 
 
 class Api:
-    def __init__(self, TF: Fabric) -> None:
-        self.TF = TF
-        self.ignored = tuple(sorted(TF.featuresIgnored))
+    def __init__(self, CF: Fabric) -> None:
+        self.CF = CF
+        self.TF = CF  # Alias for backward compatibility
+        self.ignored = tuple(sorted(CF.featuresIgnored))
         """Which features were found but ignored.
 
         Features are ignored if the feature is also present in another location
         that is loaded later.
         """
-        TF.ignored = self.ignored
+        CF.ignored = self.ignored
 
         self.F = NodeFeatures()
         self.Feature = self.F
@@ -79,9 +81,9 @@ class Api:
         self.C = Computeds()
         self.Computed = self.C
 
-        TF.ensureLoaded = self.ensureLoaded
-        TF.makeAvailableIn = self.makeAvailableIn
-        TF.footprint = self.footprint
+        CF.ensureLoaded = self.ensureLoaded
+        CF.makeAvailableIn = self.makeAvailableIn
+        CF.footprint = self.footprint
 
         setattr(self, "FeatureString", self.Fs)
         setattr(self, "EdgeString", self.Es)
@@ -210,12 +212,12 @@ class Api:
         ----------
         features: iterable | string, optional None
             The features to get info for.
-            If absent or None: all features seen by TF.
+            If absent or None: all features seen by CF.
             If a string, it is a comma and / or space separated list of feature names.
             Otherwise the items of the iterable are feature names.
 
         pretty: boolean, optional True
-            If True, it prints an overview of all features seen by TF with
+            If True, it prints an overview of all features seen by CF with
             information about kind, type, source location and loaded status.
             The amount of information printed can be tweaked by other parameters.
             Otherwise, it returns this information as a dict.
@@ -260,7 +262,7 @@ class Api:
             If `pretty`, nothing is returned, but the dict is pretty printed.
         """
 
-        fNames = list(self.TF.features) if features is None else fitemize(features)
+        fNames = list(self.CF.features) if features is None else fitemize(features)
         info = {}
 
         for fName in fNames:
@@ -269,8 +271,8 @@ class Api:
             edgeValues = None
             fSource = None
             hasInfo = True
-            if fName in self.TF.features:
-                fObj = self.TF.features[fName]
+            if fName in self.CF.features:
+                fObj = self.CF.features[fName]
                 fSource = ux(fObj.dirName)
                 fMeta = fObj.metaData
                 fType = fMeta.get("valueType", "")
@@ -291,7 +293,7 @@ class Api:
                 and hasattr(self.C, fName.strip("_"))
             ):
                 fKind = "computed"
-            elif fName in self.TF.features:
+            elif fName in self.CF.features:
                 if fObj.isConfig:
                     fKind = "config"
                 else:
@@ -381,7 +383,7 @@ class Api:
         Only the members whose names start with a capital are exported.
 
         If you are working with a single data source in your program, it is a bit
-        tedious to write the initial `TF.api.` or `A.api` all the time.
+        tedious to write the initial `CF.api.` or `A.api` all the time.
         By this method you can avoid that.
 
         !!! explanation "Longer names"
@@ -470,13 +472,13 @@ class Api:
 
         F = self.F
         E = self.E
-        TF = self.TF
+        CF = self.CF
 
         needToLoad = set()
         loadedFeatures = set()
 
         for fName in sorted(flattenToSet(features)):
-            fObj = TF.features.get(fName, None)
+            fObj = CF.features.get(fName, None)
             if not fObj:
                 logger.warning(f'Cannot load feature "{fName}": not in dataset')
                 continue
@@ -485,7 +487,7 @@ class Api:
             else:
                 needToLoad.add(fName)
         if len(needToLoad):
-            TF.load(
+            CF.load(
                 needToLoad,
                 add=True,
                 silent=DEEP,
@@ -494,7 +496,7 @@ class Api:
         return loadedFeatures
 
     def footprint(self, recompute: bool = False, bySize: bool = True) -> None:
-        """Computes the memory footprint in RAM of the loaded TF data.
+        """Computes the memory footprint in RAM of the loaded CF data.
 
         This includes the pre-computed data.
 
@@ -512,8 +514,8 @@ class Api:
         if hasattr(self, "sizes") and not recompute:
             sizes = self.sizes
         else:
-            TF = self.TF
-            features = TF.features
+            CF = self.CF
+            features = CF.features
             nFeatures = len(features)
             sizes = {}
 

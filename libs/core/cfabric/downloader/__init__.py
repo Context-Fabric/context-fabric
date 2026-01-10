@@ -5,7 +5,7 @@ This module provides functionality to download corpora from Hugging Face Hub.
 Usage:
     >>> import cfabric
     >>> path = cfabric.download('bhsa')
-    >>> TF = cfabric.Fabric(locations=path)
+    >>> CF = cfabric.Fabric(locations=path)
 
 See corpus-distribution-plan.md for full documentation.
 """

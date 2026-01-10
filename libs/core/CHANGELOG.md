@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3] - 2026-01-10 ([ck])
+
+### Changed
+- Renamed primary API attribute from `api.TF` to `api.CF` (Context-Fabric branding)
+- `api.TF` remains as backward-compatible alias
+- Updated all docstrings and comments from "TF" to "CF" and "Text-Fabric" to "Context-Fabric"
+- `@writtenBy` metadata in compiled `.cfm` files now shows "Context-Fabric"
+
+### Added
+- `CF` entry in `API_REFS` documentation alongside existing `TF` entry
+- Unit tests for API alias equivalence (`api.CF is api.TF`)
+
 ## [0.5.2] - 2026-01-09 ([ck])
 
 ### Added

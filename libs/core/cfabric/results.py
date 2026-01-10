@@ -350,10 +350,10 @@ class FeatureInfo:
         kind: str
             'node' or 'edge'
         """
-        TF = api.TF
+        CF = api.CF
 
-        # Get metadata from TF.features (populated for both .tf and .cfm loading)
-        fObj = TF.features.get(name)
+        # Get metadata from CF.features (populated for both .tf and .cfm loading)
+        fObj = CF.features.get(name)
         if not fObj:
             return None
 

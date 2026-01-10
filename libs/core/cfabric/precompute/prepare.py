@@ -1,10 +1,10 @@
 """
 # Pre-compute data.
 
-For TF to work efficiently, some  derived data needs to be pre-computed.
+For CF to work efficiently, some derived data needs to be pre-computed.
 The pre-computed data has a similar function as indexes in a database.
 
-Pre-computation is triggered when `tf.fabric.Fabric` loads features, and
+Pre-computation is triggered when `cfabric.fabric.Fabric` loads features, and
 the order and nature of the steps is configured in
 `cfabric.fabric.PRECOMPUTE`.
 
@@ -591,14 +591,14 @@ def sections(
 ) -> SectionsResult:
     """Computes section data.
 
-    TF datasets may define up to three section levels, roughly corresponding
+    CF datasets may define up to three section levels, roughly corresponding
     with a volume, a chapter, a paragraph.
 
     If the corpus has a richer section structure, it is also possible
     a different, more flexible and more extensive nest of structural sections.
     See `structure`.
 
-    TF must be able to go from sections at one level to the sections
+    CF must be able to go from sections at one level to the sections
     at one level lower. It must also be able to map section headings
     to nodes. For this, the section features are needed, since they
     contain the section headings.
@@ -652,7 +652,7 @@ def sections(
 
     Warnings
     --------
-    Note that the terms `book`, `chapter`, `verse` are not baked into TF.
+    Note that the terms `book`, `chapter`, `verse` are not baked into CF.
     It is the corpus data, especially the `otext` configuration feature that
     spells out the names of the sections.
 
@@ -780,7 +780,7 @@ def sectionsFromApi(
     Parameters
     ----------
     api : Api
-        The TF/CF API object with F, L, Fs attributes
+        The CF API object with F, L, Fs attributes
     sectionTypes : list
         Section type names, e.g. ['book', 'chapter', 'verse']
     sectionFeats : list
@@ -855,11 +855,11 @@ def structure(
     a flexible and extensive nest of structural sections.
 
     Independent of this,
-    TF datasets may also define up to three section levels,
+    CF datasets may also define up to three section levels,
     roughly corresponding with a volume, a chapter, a paragraph.
     See `sections`.
 
-    TF must be able to go from sections at one level to the sections
+    CF must be able to go from sections at one level to the sections
     at one level lower. It must also be able to map section headings
     to nodes. For this, the section features are needed, since they
     contain the section headings.

@@ -153,8 +153,8 @@ class FeatureDescription:
         """
         import numpy as np
 
-        TF = api.TF
-        fObj = TF.features.get(feature)
+        CF = api.CF
+        fObj = CF.features.get(feature)
         if not fObj:
             return cls(name=feature, kind="unknown", error=f"Feature '{feature}' not found")
 
@@ -292,8 +292,8 @@ def _parse_otext_format_pairs(api: Api) -> list[tuple[str, str, str, str, str]]:
 
     Returns list of (base_name, orig_name, trans_name, orig_spec, trans_spec)
     """
-    TF = api.TF
-    otext_feature = TF.features.get("otext")
+    CF = api.CF
+    otext_feature = CF.features.get("otext")
     if not otext_feature:
         return []
 
@@ -594,7 +594,7 @@ def list_features(
     list[FeatureCatalogEntry]
         List of features with name, kind, value_type, description
     """
-    TF = api.TF
+    CF = api.CF
 
     # Build feature→node_types mapping if filtering
     feature_node_types: dict[str, set[str]] = {}
@@ -631,7 +631,7 @@ def list_features(
                 if not any(nt in feature_types for nt in node_types):
                     continue
 
-            fObj = TF.features.get(fname)
+            fObj = CF.features.get(fname)
             if fObj:
                 meta = fObj.metaData or {}
                 features.append(
@@ -651,7 +651,7 @@ def list_features(
                 if not any(nt in feature_types for nt in node_types):
                     continue
 
-            fObj = TF.features.get(fname)
+            fObj = CF.features.get(fname)
             if fObj:
                 meta = fObj.metaData or {}
                 features.append(
@@ -685,7 +685,7 @@ def describe_corpus(api: Api, name: str = "") -> CorpusDescription:
         Complete description including node types, sections,
         text representations, and feature lists
     """
-    TF = api.TF
+    CF = api.CF
     F = api.F
 
     # Node types (from C.levels.data)
@@ -712,7 +712,7 @@ def describe_corpus(api: Api, name: str = "") -> CorpusDescription:
     # Features - names and types only
     features = []
     for fname in api.Fall(warp=False):
-        fObj = TF.features.get(fname)
+        fObj = CF.features.get(fname)
         if fObj:
             meta = fObj.metaData or {}
             features.append(
@@ -725,7 +725,7 @@ def describe_corpus(api: Api, name: str = "") -> CorpusDescription:
     # Edge features - names and types only
     edge_features = []
     for fname in api.Eall(warp=False):
-        fObj = TF.features.get(fname)
+        fObj = CF.features.get(fname)
         if fObj:
             meta = fObj.metaData or {}
             edge_features.append(

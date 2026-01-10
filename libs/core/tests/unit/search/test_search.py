@@ -81,7 +81,8 @@ class TestSearchMethod:
         from cfabric.search.search import Search
 
         mock_api = MagicMock()
-        mock_api.TF = MagicMock()
+        mock_api.CF = MagicMock()
+        mock_api.TF = mock_api.CF  # Alias
 
         s = Search(mock_api)
 
@@ -100,7 +101,8 @@ class TestSearchMethod:
         from cfabric.search.search import Search
 
         mock_api = MagicMock()
-        mock_api.TF = MagicMock()
+        mock_api.CF = MagicMock()
+        mock_api.TF = mock_api.CF  # Alias
 
         s = Search(mock_api)
 
@@ -122,7 +124,8 @@ class TestStudyMethod:
         from cfabric.search.search import Search
 
         mock_api = MagicMock()
-        mock_api.TF = MagicMock()
+        mock_api.CF = MagicMock()
+        mock_api.TF = mock_api.CF  # Alias
 
         s = Search(mock_api)
 
@@ -157,7 +160,8 @@ class TestFetchMethod:
         from cfabric.search.search import Search
 
         mock_api = MagicMock()
-        mock_api.TF = MagicMock()
+        mock_api.CF = MagicMock()
+        mock_api.TF = mock_api.CF  # Alias
 
         s = Search(mock_api)
         mock_exe = MagicMock()
@@ -190,7 +194,8 @@ class TestCountMethod:
         from cfabric.search.search import Search
 
         mock_api = MagicMock()
-        mock_api.TF = MagicMock()
+        mock_api.CF = MagicMock()
+        mock_api.TF = mock_api.CF  # Alias
 
         s = Search(mock_api)
         mock_exe = MagicMock()
@@ -222,7 +227,8 @@ class TestShowPlanMethod:
         from cfabric.search.search import Search
 
         mock_api = MagicMock()
-        mock_api.TF = MagicMock()
+        mock_api.CF = MagicMock()
+        mock_api.TF = mock_api.CF  # Alias
 
         s = Search(mock_api)
         mock_exe = MagicMock()

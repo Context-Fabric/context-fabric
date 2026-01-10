@@ -289,15 +289,15 @@ def backendRep(be: str | None, kind: str, default: str | None = None) -> str | N
 def annotateDir(app: Any, tool: str) -> tuple[str, str]:
     """Return the input and output and report directories for a specific annotation tool.
 
-    *   The input directory is located next to the TF data of the corpus
-    *   The output directory is located in the `_temp` directory next to the TF data of
+    *   The input directory is located next to the CF data of the corpus
+    *   The output directory is located in the `_temp` directory next to the CF data of
         the corpus
         of the corpus
 
     Parameters
     ----------
     app: object
-        the TF app
+        the CF app
     tool: string
         The name of the annotation tool
 
@@ -314,14 +314,14 @@ def annotateDir(app: Any, tool: str) -> tuple[str, str]:
 
 
 URL_TFDOC = f"https://{ORG}.{backendRep(GH, 'pages')}/{REPO}/tf"
-"""Base URL of the online TF documentation."""
+"""Base URL of the online CF documentation."""
 
 
 APIREF = f"https://{ORG}.{backendRep(GH, 'pages')}/{REPO}/tf/cheatsheet.html"
-"""Link to the Api docs of TF."""
+"""Link to the Api docs of CF."""
 
 SEARCHREF = f"https://{ORG}.{backendRep(GH, 'pages')}/{REPO}/tf/about/searchusage.html"
-"""Link to the Search docs of TF."""
+"""Link to the Search docs of CF."""
 
 
 DOWNLOADS = f"{_homeDir}/Downloads"
@@ -344,19 +344,19 @@ and a part of the corpus is not locally available.
 """
 
 APP_CONFIG = "config.yaml"
-"""Name of the config file of a TF app."""
+"""Name of the config file of a CF app."""
 
 APP_APP = "app"
-"""Name of the top-level directory of a TF app."""
+"""Name of the top-level directory of a CF app."""
 
 APP_DISPLAY = "static/display.css"
-"""Relative path of the CSS file of a TF app."""
+"""Relative path of the CSS file of a CF app."""
 
 SERVER_DISPLAY_BASE = "/browser/static"
 """Base of server CSS files."""
 
 SERVER_DISPLAY = ("fonts.css", "display.css", "highlight.css")
-"""Bunch of TF generic CSS files."""
+"""Bunch of CF generic CSS files."""
 
 TOOL_DISPLAY_BASE = "/browser/{}/static"
 """Base of tool CSS files."""
@@ -377,11 +377,11 @@ TEMP_DIR = "_temp"
 """
 
 LOCATIONS = ["~/text-fabric-data"]
-"""Default locations for TF data files.
+"""Default locations for CF data files.
 
-If the `locations` parameter for the `tf.fabric.Fabric` call is omitted,
+If the `locations` parameter for the `cfabric.fabric.Fabric` call is omitted,
 this is the default.
-TF will search all these directories as for `.tf` modules of files.
+CF will search all these directories as for `.tf` modules of files.
 """
 
 LOCAL = "_local"
@@ -389,7 +389,7 @@ LOCAL = "_local"
 
 Examples where this is used:
 
-*   volume support: inside a TF dataset, the directory `_local` contains
+*   volume support: inside a CF dataset, the directory `_local` contains
     volumes of that dataset
 """
 

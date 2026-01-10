@@ -238,15 +238,15 @@ def _validateFeature(
         hasValues = {}
     values = features[fName]
     fSet = "edges" if asEdge else "nodes"
-    if fName not in searchExe.api.TF.featureSets[fSet]:
+    if fName not in searchExe.api.CF.featureSets[fSet]:
         missingFeatures.setdefault(fName, []).append(q)
     else:
         if asEdge:
-            doValues = searchExe.api.TF.features[fName].edgeValues
+            doValues = searchExe.api.CF.features[fName].edgeValues
             if not doValues and values is not True:
                 hasValues.setdefault(fName, {}).setdefault(values, []).append(q)
                 return
-        requiredType = searchExe.api.TF.features[fName].dataType
+        requiredType = searchExe.api.CF.features[fName].dataType
         if values is True:
             return
         elif values is None:
@@ -381,7 +381,7 @@ def _validation(searchExe: SearchExe) -> None:
             opNameFG = ".f~r~g."
             addRels.setdefault(opNameFG, set()).add(((f, fF), r, (t, gF)))
             for fName in (fF, gF):
-                fType = searchExe.api.TF.features[fName].dataType
+                fType = searchExe.api.CF.features[fName].dataType
                 if fType != "str":
                     wrongTypes.setdefault(fName, {}).setdefault(fType, set()).add(e)
         else:
@@ -392,7 +392,7 @@ def _validation(searchExe: SearchExe) -> None:
                 addRels.setdefault(opNameFG, set()).add(((f, fF), (t, gF)))
                 if r in {"<", ">"}:
                     for fName in (fF, gF):
-                        fType = searchExe.api.TF.features[fName].dataType
+                        fType = searchExe.api.CF.features[fName].dataType
                         if fType != "int":
                             wrongTypes.setdefault(fName, {}).setdefault(
                                 fType, set()
