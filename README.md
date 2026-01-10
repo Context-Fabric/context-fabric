@@ -29,36 +29,10 @@
 
 Context-Fabric brings corpus analysis into the AI era. Built on the proven [Text-Fabric](https://github.com/annotation/text-fabric) data model, it introduces a memory-mapped architecture enabling parallel processing for production deployments—REST APIs, multi-worker services, and AI agent tools via MCP.
 
-<table>
-<tr>
-<td width="50%">
-
-### Built for Production
-Memory-mapped arrays enable true parallelization. Multiple workers share data instead of duplicating it.
-
-</td>
-<td width="50%">
-
-### AI-Native
-MCP server exposes corpus operations to Claude, GPT, and other LLM-powered tools.
-
-</td>
-</tr>
-<tr>
-<td width="50%">
-
-### Powerful Data Model
-Standoff annotation, graph traversal, pattern search, and arbitrary feature annotations.
-
-</td>
-<td width="50%">
-
-### Dramatic Efficiency
-3.5x faster loads, 65% less memory in single process, 62% less with parallel workers.
-
-</td>
-</tr>
-</table>
+- **Built for Production** — Memory-mapped arrays enable true parallelization. Multiple workers share data instead of duplicating it.
+- **AI-Native** — MCP server exposes corpus operations to Claude, GPT, and other LLM-powered tools.
+- **Powerful Data Model** — Standoff annotation, graph traversal, pattern search, and arbitrary feature annotations.
+- **Dramatic Efficiency** — 3.5x faster loads, 65% less memory in single process, 62% less with parallel workers.
 
 ---
 
