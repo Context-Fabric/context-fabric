@@ -1,3 +1,19 @@
+"""Command-line argument parsing utilities for Context-Fabric tools.
+
+This module provides a flexible argument parser for CLI tools that need to
+handle tasks, parameters, and flags. It supports:
+
+- Named tasks with descriptions
+- Key=value parameters with defaults
+- Boolean and tri-state flags (-/+/++ syntax)
+- Automatic help text generation
+- Validation of argument names
+
+See Also
+--------
+readArgs : Main function for parsing command-line arguments
+"""
+
 from __future__ import annotations
 
 import sys

@@ -1,0 +1,2568 @@
+{
+  "name": "cfabric_mcp",
+  "kind": "module",
+  "path": "",
+  "docstring": {
+    "summary": "Context-Fabric MCP Server.",
+    "description": "Context-Fabric MCP Server.\n\nThis package provides an MCP (Model Context Protocol) server that exposes\nContext-Fabric corpus operations to AI agents.\n\nUsage:\n    # Run as CLI\n    cfabric-mcp\n\n    # Or import and run programmatically\n    from cfabric_mcp import mcp\n    mcp.run(transport=\"stdio\")",
+    "parsed": []
+  },
+  "classes": {},
+  "functions": {},
+  "modules": {
+    "cache": {
+      "name": "cache",
+      "kind": "module",
+      "path": "",
+      "docstring": {
+        "summary": "Search result caching for Context-Fabric MCP server.",
+        "description": "Search result caching for Context-Fabric MCP server.\n\nCaches search results by (corpus, template) to avoid re-running expensive queries.\nAll return_types (results, count, statistics, passages) can draw from the same cache.",
+        "parsed": []
+      },
+      "classes": {
+        "CachedSearchResult": {
+          "name": "CachedSearchResult",
+          "kind": "class",
+          "path": "",
+          "docstring": {
+            "summary": "A cached search result.",
+            "description": "A cached search result.\n\nAttributes:\n    cursor_id: UUID for pagination/lookup\n    corpus: The corpus name\n    template: The search template\n    results: Raw search results (list of node ID tuples)\n    created_at: Unix timestamp when cached\n    expires_at: Unix timestamp when cache entry expires\n    last_accessed: Unix timestamp of last access (for LRU)",
+            "parsed": []
+          },
+          "bases": [],
+          "methods": {
+            "__init__": {
+              "name": "__init__",
+              "kind": "function",
+              "signature": "(self, cursor_id: str, corpus: str, template: str, results: list[tuple[(int, ...)]], created_at: float, expires_at: float, last_accessed: float = {'arguments': [], 'cls': 'ExprCall', 'function': {'cls': 'ExprAttribute', 'values': [{'cls': 'ExprName', 'member': None, 'name': 'time'}, {'cls': 'ExprName', 'member': None, 'name': 'time'}]}})",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "cursor_id",
+                  "type": "str",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "corpus",
+                  "type": "str",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "template",
+                  "type": "str",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "results",
+                  "type": "list[tuple[(int, ...)]]",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "created_at",
+                  "type": "float",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "expires_at",
+                  "type": "float",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "last_accessed",
+                  "type": "float",
+                  "default": {
+                    "arguments": [],
+                    "cls": "ExprCall",
+                    "function": {
+                      "cls": "ExprAttribute",
+                      "values": [
+                        {
+                          "cls": "ExprName",
+                          "member": null,
+                          "name": "time"
+                        },
+                        {
+                          "cls": "ExprName",
+                          "member": null,
+                          "name": "time"
+                        }
+                      ]
+                    }
+                  },
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "None"
+              },
+              "decorators": []
+            },
+            "touch": {
+              "name": "touch",
+              "kind": "function",
+              "signature": "(self)",
+              "docstring": {
+                "summary": "Update last accessed time.",
+                "description": "Update last accessed time.",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "None"
+              },
+              "decorators": []
+            }
+          },
+          "attributes": {
+            "corpus": {
+              "name": "corpus",
+              "type": "str",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": null
+            },
+            "created_at": {
+              "name": "created_at",
+              "type": "float",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": null
+            },
+            "cursor_id": {
+              "name": "cursor_id",
+              "type": "str",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": null
+            },
+            "expires_at": {
+              "name": "expires_at",
+              "type": "float",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": null
+            },
+            "is_expired": {
+              "name": "is_expired",
+              "type": "bool",
+              "docstring": {
+                "summary": "Check if this cache entry has expired.",
+                "description": "Check if this cache entry has expired.",
+                "parsed": []
+              },
+              "value": null
+            },
+            "last_accessed": {
+              "name": "last_accessed",
+              "type": "float",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": {
+                "arguments": [
+                  {
+                    "cls": "ExprKeyword",
+                    "function": {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "field"
+                    },
+                    "name": "default_factory",
+                    "value": {
+                      "cls": "ExprAttribute",
+                      "values": [
+                        {
+                          "cls": "ExprName",
+                          "member": null,
+                          "name": "time"
+                        },
+                        {
+                          "cls": "ExprName",
+                          "member": null,
+                          "name": "time"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "cls": "ExprCall",
+                "function": {
+                  "cls": "ExprName",
+                  "member": null,
+                  "name": "field"
+                }
+              }
+            },
+            "results": {
+              "name": "results",
+              "type": "list[tuple[(int, ...)]]",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": null
+            },
+            "template": {
+              "name": "template",
+              "type": "str",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": null
+            }
+          }
+        },
+        "SearchCache": {
+          "name": "SearchCache",
+          "kind": "class",
+          "path": "",
+          "docstring": {
+            "summary": "In-memory cache for search results.",
+            "description": "In-memory cache for search results.\n\nCaches by (corpus, template) key. Different return_types and parameters\ncan reuse the same cached results.\n\nThread-safe for concurrent access.",
+            "parsed": []
+          },
+          "bases": [],
+          "methods": {
+            "__init__": {
+              "name": "__init__",
+              "kind": "function",
+              "signature": "(self, default_ttl: int = 300, max_entries: int = 100, max_results_per_entry: int = 10000)",
+              "docstring": {
+                "summary": "Initialize the search cache.",
+                "description": "Initialize the search cache.\n\nArgs:\n    default_ttl: Default time-to-live in seconds\n    max_entries: Maximum number of cached searches\n    max_results_per_entry: Maximum results to cache per search",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "default_ttl",
+                  "type": "int",
+                  "default": "300",
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "max_entries",
+                  "type": "int",
+                  "default": "100",
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "max_results_per_entry",
+                  "type": "int",
+                  "default": "10000",
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "None"
+              },
+              "decorators": []
+            },
+            "_evict_if_needed": {
+              "name": "_evict_if_needed",
+              "kind": "function",
+              "signature": "(self)",
+              "docstring": {
+                "summary": "Evict entries if cache is at capacity.",
+                "description": "Evict entries if cache is at capacity.\n\nUses LRU eviction strategy.",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "None"
+              },
+              "decorators": []
+            },
+            "cleanup_expired": {
+              "name": "cleanup_expired",
+              "kind": "function",
+              "signature": "(self)",
+              "docstring": {
+                "summary": "Remove all expired cache entries.",
+                "description": "Remove all expired cache entries.\n\nReturns:\n    Number of entries removed",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "int"
+              },
+              "decorators": []
+            },
+            "clear": {
+              "name": "clear",
+              "kind": "function",
+              "signature": "(self)",
+              "docstring": {
+                "summary": "Clear all cache entries.",
+                "description": "Clear all cache entries.",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "None"
+              },
+              "decorators": []
+            },
+            "get_by_cursor": {
+              "name": "get_by_cursor",
+              "kind": "function",
+              "signature": "(self, cursor_id: str)",
+              "docstring": {
+                "summary": "Get cached result by cursor ID.",
+                "description": "Get cached result by cursor ID.\n\nArgs:\n    cursor_id: The cursor ID from a previous search\n\nReturns:\n    CachedSearchResult if found and not expired, None otherwise",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "cursor_id",
+                  "type": "str",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "CachedSearchResult | None"
+              },
+              "decorators": []
+            },
+            "get_or_execute": {
+              "name": "get_or_execute",
+              "kind": "function",
+              "signature": "(self, corpus: str, template: str, search_fn: Callable[([], list[tuple[(int, ...)]])], ttl: int | None = None)",
+              "docstring": {
+                "summary": "Get cached result or execute search and cache it.",
+                "description": "Get cached result or execute search and cache it.\n\nArgs:\n    corpus: Corpus name\n    template: Search template\n    search_fn: Function to execute search if not cached\n    ttl: Optional TTL override\n\nReturns:\n    CachedSearchResult with the search results",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "corpus",
+                  "type": "str",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "template",
+                  "type": "str",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "search_fn",
+                  "type": "Callable[([], list[tuple[(int, ...)]])]",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "ttl",
+                  "type": "int | None",
+                  "default": "None",
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "CachedSearchResult"
+              },
+              "decorators": []
+            },
+            "get_page": {
+              "name": "get_page",
+              "kind": "function",
+              "signature": "(self, cursor_id: str, offset: int, limit: int)",
+              "docstring": {
+                "summary": "Get a page of results from a cached search.",
+                "description": "Get a page of results from a cached search.\n\nArgs:\n    cursor_id: The cursor ID\n    offset: Number of results to skip\n    limit: Maximum results to return\n\nReturns:\n    Tuple of (results, has_more, total_count) or None if not found",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "cursor_id",
+                  "type": "str",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "offset",
+                  "type": "int",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "limit",
+                  "type": "int",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "tuple[(list[tuple[(int, ...)]], bool, int)] | None"
+              },
+              "decorators": []
+            },
+            "stats": {
+              "name": "stats",
+              "kind": "function",
+              "signature": "(self)",
+              "docstring": {
+                "summary": "Get cache statistics.",
+                "description": "Get cache statistics.\n\nReturns:\n    Dictionary with cache statistics",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "dict[(str, Any)]"
+              },
+              "decorators": []
+            }
+          },
+          "attributes": {
+            "_by_cursor": {
+              "name": "_by_cursor",
+              "type": "dict[(str, CachedSearchResult)]",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": {
+                "cls": "ExprDict",
+                "keys": [],
+                "values": []
+              }
+            },
+            "_cache": {
+              "name": "_cache",
+              "type": "dict[(tuple[(str, str)], CachedSearchResult)]",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": {
+                "cls": "ExprDict",
+                "keys": [],
+                "values": []
+              }
+            },
+            "_lock": {
+              "name": "_lock",
+              "type": "",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": {
+                "arguments": [],
+                "cls": "ExprCall",
+                "function": {
+                  "cls": "ExprAttribute",
+                  "values": [
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "threading"
+                    },
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "RLock"
+                    }
+                  ]
+                }
+              }
+            },
+            "default_ttl": {
+              "name": "default_ttl",
+              "type": "",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": {
+                "cls": "ExprName",
+                "member": null,
+                "name": "default_ttl"
+              }
+            },
+            "max_entries": {
+              "name": "max_entries",
+              "type": "",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": {
+                "cls": "ExprName",
+                "member": null,
+                "name": "max_entries"
+              }
+            },
+            "max_results_per_entry": {
+              "name": "max_results_per_entry",
+              "type": "",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": {
+                "cls": "ExprName",
+                "member": null,
+                "name": "max_results_per_entry"
+              }
+            }
+          }
+        }
+      },
+      "functions": {
+        "get_cache": {
+          "name": "get_cache",
+          "kind": "function",
+          "signature": "()",
+          "docstring": {
+            "summary": "Get the global search cache instance.",
+            "description": "Get the global search cache instance.\n\nCreates a new instance if none exists.",
+            "parsed": []
+          },
+          "parameters": [],
+          "returns": {
+            "type": "SearchCache"
+          },
+          "decorators": []
+        },
+        "reset_cache": {
+          "name": "reset_cache",
+          "kind": "function",
+          "signature": "()",
+          "docstring": {
+            "summary": "Reset the global cache instance.",
+            "description": "Reset the global cache instance.\n\nUseful for testing.",
+            "parsed": []
+          },
+          "parameters": [],
+          "returns": {
+            "type": "None"
+          },
+          "decorators": []
+        }
+      },
+      "modules": {},
+      "aliases": {
+        "Any": {
+          "name": "Any",
+          "target": "typing.Any"
+        },
+        "Callable": {
+          "name": "Callable",
+          "target": "typing.Callable"
+        },
+        "annotations": {
+          "name": "annotations",
+          "target": "__future__.annotations"
+        },
+        "dataclass": {
+          "name": "dataclass",
+          "target": "dataclasses.dataclass"
+        },
+        "field": {
+          "name": "field",
+          "target": "dataclasses.field"
+        },
+        "logging": {
+          "name": "logging",
+          "target": "logging"
+        },
+        "threading": {
+          "name": "threading",
+          "target": "threading"
+        },
+        "time": {
+          "name": "time",
+          "target": "time"
+        },
+        "uuid": {
+          "name": "uuid",
+          "target": "uuid"
+        }
+      }
+    },
+    "corpus_manager": {
+      "name": "corpus_manager",
+      "kind": "module",
+      "path": "",
+      "docstring": {
+        "summary": "Corpus management for MCP server.",
+        "description": "Corpus management for MCP server.\n\nHandles loading and caching of corpora for the MCP server.\nSupports multiple simultaneous corpora.",
+        "parsed": []
+      },
+      "classes": {
+        "CorpusManager": {
+          "name": "CorpusManager",
+          "kind": "class",
+          "path": "",
+          "docstring": {
+            "summary": "Manages loaded corpora for the MCP server.",
+            "description": "Manages loaded corpora for the MCP server.\n\nSupports loading multiple corpora and switching between them.",
+            "parsed": []
+          },
+          "bases": [],
+          "methods": {
+            "__init__": {
+              "name": "__init__",
+              "kind": "function",
+              "signature": "(self)",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "None"
+              },
+              "decorators": []
+            },
+            "get": {
+              "name": "get",
+              "kind": "function",
+              "signature": "(self, name: str | None = None)",
+              "docstring": {
+                "summary": "Get a loaded corpus.",
+                "description": "Get a loaded corpus.\n\nParameters\n----------\nname: str | None\n    Corpus name (defaults to current)\n\nReturns\n-------\ntuple[Fabric, Api]\n    The Fabric instance and API",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "name",
+                  "type": "str | None",
+                  "default": "None",
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "tuple[(, Api)]"
+              },
+              "decorators": []
+            },
+            "get_api": {
+              "name": "get_api",
+              "kind": "function",
+              "signature": "(self, name: str | None = None)",
+              "docstring": {
+                "summary": "Get API for a corpus.",
+                "description": "Get API for a corpus.",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "name",
+                  "type": "str | None",
+                  "default": "None",
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "Api"
+              },
+              "decorators": []
+            },
+            "is_loaded": {
+              "name": "is_loaded",
+              "kind": "function",
+              "signature": "(self, name: str)",
+              "docstring": {
+                "summary": "Check if a corpus is loaded.",
+                "description": "Check if a corpus is loaded.",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "name",
+                  "type": "str",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "bool"
+              },
+              "decorators": []
+            },
+            "list_corpora": {
+              "name": "list_corpora",
+              "kind": "function",
+              "signature": "(self)",
+              "docstring": {
+                "summary": "List loaded corpora.",
+                "description": "List loaded corpora.",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "list[str]"
+              },
+              "decorators": []
+            },
+            "load": {
+              "name": "load",
+              "kind": "function",
+              "signature": "(self, path: str, name: str | None = None, features: str | list[str] | None = None)",
+              "docstring": {
+                "summary": "Load a corpus.",
+                "description": "Load a corpus.\n\nParameters\n----------\npath: str\n    Path to the corpus directory\nname: str | None\n    Name for the corpus (defaults to directory name)\nfeatures: str | list[str] | None\n    Features to load (defaults to all)\n\nReturns\n-------\nCorpusInfo\n    Information about the loaded corpus",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "path",
+                  "type": "str",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "name",
+                  "type": "str | None",
+                  "default": "None",
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "features",
+                  "type": "str | list[str] | None",
+                  "default": "None",
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "CorpusInfo"
+              },
+              "decorators": []
+            },
+            "set_current": {
+              "name": "set_current",
+              "kind": "function",
+              "signature": "(self, name: str)",
+              "docstring": {
+                "summary": "Set the current corpus.",
+                "description": "Set the current corpus.",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "name",
+                  "type": "str",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "None"
+              },
+              "decorators": []
+            },
+            "unload": {
+              "name": "unload",
+              "kind": "function",
+              "signature": "(self, name: str)",
+              "docstring": {
+                "summary": "Unload a corpus.",
+                "description": "Unload a corpus.",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "name",
+                  "type": "str",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "None"
+              },
+              "decorators": []
+            }
+          },
+          "attributes": {
+            "_corpora": {
+              "name": "_corpora",
+              "type": "dict[(str, tuple[(, Api)])]",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": {
+                "cls": "ExprDict",
+                "keys": [],
+                "values": []
+              }
+            },
+            "_current": {
+              "name": "_current",
+              "type": "str | None",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": "None"
+            },
+            "current": {
+              "name": "current",
+              "type": "str | None",
+              "docstring": {
+                "summary": "Get the current corpus name.",
+                "description": "Get the current corpus name.",
+                "parsed": []
+              },
+              "value": null
+            }
+          }
+        }
+      },
+      "functions": {},
+      "modules": {},
+      "aliases": {
+        "Api": {
+          "name": "Api",
+          "target": "cfabric.core.api.Api"
+        },
+        "CorpusInfo": {
+          "name": "CorpusInfo",
+          "target": "cfabric.results.CorpusInfo"
+        },
+        "Path": {
+          "name": "Path",
+          "target": "pathlib.Path"
+        },
+        "TYPE_CHECKING": {
+          "name": "TYPE_CHECKING",
+          "target": "typing.TYPE_CHECKING"
+        },
+        "annotations": {
+          "name": "annotations",
+          "target": "__future__.annotations"
+        },
+        "cfabric": {
+          "name": "cfabric",
+          "target": "cfabric"
+        },
+        "logging": {
+          "name": "logging",
+          "target": "logging"
+        }
+      }
+    },
+    "resources": {
+      "name": "resources",
+      "kind": "module",
+      "path": "",
+      "docstring": {
+        "summary": "MCP resource definitions for Context-Fabric.",
+        "description": "MCP resource definitions for Context-Fabric.\n\nResources provide read-only data that agents can access via URIs.",
+        "parsed": []
+      },
+      "classes": {},
+      "functions": {
+        "get_corpus_resource": {
+          "name": "get_corpus_resource",
+          "kind": "function",
+          "signature": "(corpus_name: str)",
+          "docstring": {
+            "summary": "Get corpus information as a resource.",
+            "description": "Get corpus information as a resource.\n\nURI: corpus://{corpus_name}",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "corpus_name",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "str"
+          },
+          "decorators": []
+        },
+        "get_feature_list_resource": {
+          "name": "get_feature_list_resource",
+          "kind": "function",
+          "signature": "(corpus_name: str)",
+          "docstring": {
+            "summary": "Get list of features as a resource.",
+            "description": "Get list of features as a resource.\n\nURI: corpus://{corpus_name}/features",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "corpus_name",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "str"
+          },
+          "decorators": []
+        },
+        "get_node_resource": {
+          "name": "get_node_resource",
+          "kind": "function",
+          "signature": "(corpus_name: str, node_id: int)",
+          "docstring": {
+            "summary": "Get node information as a resource.",
+            "description": "Get node information as a resource.\n\nURI: corpus://{corpus_name}/node/{node_id}",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "corpus_name",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "node_id",
+              "type": "int",
+              "default": null,
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "str"
+          },
+          "decorators": []
+        },
+        "get_node_types_resource": {
+          "name": "get_node_types_resource",
+          "kind": "function",
+          "signature": "(corpus_name: str)",
+          "docstring": {
+            "summary": "Get node type information as a resource.",
+            "description": "Get node type information as a resource.\n\nURI: corpus://{corpus_name}/types",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "corpus_name",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "str"
+          },
+          "decorators": []
+        }
+      },
+      "modules": {},
+      "aliases": {
+        "Any": {
+          "name": "Any",
+          "target": "typing.Any"
+        },
+        "CorpusInfo": {
+          "name": "CorpusInfo",
+          "target": "cfabric.results.CorpusInfo"
+        },
+        "NodeInfo": {
+          "name": "NodeInfo",
+          "target": "cfabric.results.NodeInfo"
+        },
+        "annotations": {
+          "name": "annotations",
+          "target": "__future__.annotations"
+        },
+        "corpus_manager": {
+          "name": "corpus_manager",
+          "target": "cfabric_mcp.corpus_manager.corpus_manager"
+        },
+        "json": {
+          "name": "json",
+          "target": "json"
+        },
+        "logging": {
+          "name": "logging",
+          "target": "logging"
+        }
+      }
+    },
+    "server": {
+      "name": "server",
+      "kind": "module",
+      "path": "",
+      "docstring": {
+        "summary": "FastMCP server for Context-Fabric.",
+        "description": "FastMCP server for Context-Fabric.\n\nThis module defines the MCP server that exposes corpus operations\nto AI agents via the Model Context Protocol.\n\nTransports:\n- stdio (default): For Claude Desktop and local MCP clients\n- sse (--sse PORT): Server-Sent Events for remote MCP clients (e.g., Cursor)\n- http (--http PORT): Streamable HTTP for production deployments\n\nTool Set (10 tools):\nDiscovery:\n- list_corpora: List available corpora\n- describe_corpus: Corpus structure (node types, sections)\n- list_features: Browse features with optional node_type filter\n- describe_feature: Feature details with sample values\n- get_text_formats: Text encoding samples (cached)\nSearch:\n- search: Pattern search with return_type (results/count/statistics/passages)\n- search_continue: Paginated search continuation\n- search_syntax_guide: Search syntax docs (section-based)\nData Access:\n- get_passages: Batch section lookup\n- get_node_features: Batch feature lookup\n\nNote: Usage guide is provided via MCP instructions field at connection time.",
+        "parsed": []
+      },
+      "classes": {},
+      "functions": {
+        "corpus_resource": {
+          "name": "corpus_resource",
+          "kind": "function",
+          "signature": "(corpus_name: str)",
+          "docstring": {
+            "summary": "Get corpus information.",
+            "description": "Get corpus information.\n\nReturns detailed information about a loaded corpus including\nnode types, features, and statistics.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "corpus_name",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "str"
+          },
+          "decorators": [
+            {
+              "endlineno": 344,
+              "lineno": 344,
+              "value": {
+                "arguments": [
+                  "'corpus://{corpus_name}'"
+                ],
+                "cls": "ExprCall",
+                "function": {
+                  "cls": "ExprAttribute",
+                  "values": [
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "mcp"
+                    },
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "resource"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "describe_corpus": {
+          "name": "describe_corpus",
+          "kind": "function",
+          "signature": "(corpus: str | None = None)",
+          "docstring": {
+            "summary": "Get corpus structure overview.",
+            "description": "Get corpus structure overview.\n\nReturns node types and section structure. Use list_features() to browse\nfeatures, describe_feature() for details, get_text_formats() for encoding.\n\nArgs:\n    corpus: Corpus name (defaults to current corpus)\n\nReturns:\n    Corpus overview including:\n    - node_types: All node types with counts\n    - sections: Section hierarchy levels",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "corpus",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": [
+            {
+              "endlineno": 116,
+              "lineno": 116,
+              "value": {
+                "arguments": [],
+                "cls": "ExprCall",
+                "function": {
+                  "cls": "ExprAttribute",
+                  "values": [
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "mcp"
+                    },
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "tool"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "describe_feature": {
+          "name": "describe_feature",
+          "kind": "function",
+          "signature": "(feature: str | list[str], sample_limit: int = 20, corpus: str | None = None)",
+          "docstring": {
+            "summary": "Get detailed info about one or more features.",
+            "description": "Get detailed info about one or more features.\n\nReturns metadata, node_types, and sample values (by frequency).\nUse list_features() first to browse available features.\n\nArgs:\n    feature: Feature name or list of names (e.g., \"sp\" or [\"sp\", \"vt\"])\n    sample_limit: Max sample values per feature (default 20)\n    corpus: Corpus name (defaults to current corpus)\n\nReturns:\n    Feature details including:\n    - name, kind, value_type, description\n    - node_types: Which object types have this feature\n    - unique_values: Count of unique values\n    - sample_values: Top values by frequency with counts",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "feature",
+              "type": "str | list[str]",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "sample_limit",
+              "type": "int",
+              "default": "20",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "corpus",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": [
+            {
+              "endlineno": 134,
+              "lineno": 134,
+              "value": {
+                "arguments": [],
+                "cls": "ExprCall",
+                "function": {
+                  "cls": "ExprAttribute",
+                  "values": [
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "mcp"
+                    },
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "tool"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "features_resource": {
+          "name": "features_resource",
+          "kind": "function",
+          "signature": "(corpus_name: str)",
+          "docstring": {
+            "summary": "Get list of available features.",
+            "description": "Get list of available features.\n\nReturns lists of node features and edge features available in the corpus.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "corpus_name",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "str"
+          },
+          "decorators": [
+            {
+              "endlineno": 364,
+              "lineno": 364,
+              "value": {
+                "arguments": [
+                  "'corpus://{corpus_name}/features'"
+                ],
+                "cls": "ExprCall",
+                "function": {
+                  "cls": "ExprAttribute",
+                  "values": [
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "mcp"
+                    },
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "resource"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "get_node_features": {
+          "name": "get_node_features",
+          "kind": "function",
+          "signature": "(nodes: list[int], features: list[str], corpus: str | None = None)",
+          "docstring": {
+            "summary": "Get feature values for a list of nodes.",
+            "description": "Get feature values for a list of nodes.\n\nBatch lookup of feature values for multiple nodes.\n\nArgs:\n    nodes: List of node IDs\n    features: List of feature names to retrieve\n    corpus: Corpus name (defaults to current corpus)\n\nReturns:\n    Feature values for each node.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "nodes",
+              "type": "list[int]",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "features",
+              "type": "list[str]",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "corpus",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": [
+            {
+              "endlineno": 318,
+              "lineno": 318,
+              "value": {
+                "arguments": [],
+                "cls": "ExprCall",
+                "function": {
+                  "cls": "ExprAttribute",
+                  "values": [
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "mcp"
+                    },
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "tool"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "get_passages": {
+          "name": "get_passages",
+          "kind": "function",
+          "signature": "(sections: list[list[str | int]], limit: int = 50, lang: str = 'en', max_override: bool = False, corpus: str | None = None)",
+          "docstring": {
+            "summary": "Get passages by section references.",
+            "description": "Get passages by section references.\n\nBatch lookup of multiple sections at once.\n\nArgs:\n    sections: List of section references, e.g., [['Genesis', 1, 1], ['Exodus', 2, 3]]\n    limit: Maximum sections to return (default 50)\n    lang: ISO 639 language code for section names (e.g., 'en' for English book names)\n    max_override: Bypass limit cap. May produce large responses - use judiciously.\n    corpus: Corpus name (defaults to current corpus)\n\nReturns:\n    List of passages with text and node information.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "sections",
+              "type": "list[list[str | int]]",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "limit",
+              "type": "int",
+              "default": "50",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "lang",
+              "type": "str",
+              "default": "'en'",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "max_override",
+              "type": "bool",
+              "default": "False",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "corpus",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": [
+            {
+              "endlineno": 293,
+              "lineno": 293,
+              "value": {
+                "arguments": [],
+                "cls": "ExprCall",
+                "function": {
+                  "cls": "ExprAttribute",
+                  "values": [
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "mcp"
+                    },
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "tool"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "get_text_formats": {
+          "name": "get_text_formats",
+          "kind": "function",
+          "signature": "(corpus: str | None = None)",
+          "docstring": {
+            "summary": "Get text encoding samples showing original script and transliteration.",
+            "description": "Get text encoding samples showing original script and transliteration.\n\nReturns format pairs with diverse samples. Use when constructing search\nqueries that need specific text encodings. Results are cached per corpus.\n\nArgs:\n    corpus: Corpus name (defaults to current corpus)\n\nReturns:\n    Text format information with sample pairs.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "corpus",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": [
+            {
+              "endlineno": 182,
+              "lineno": 182,
+              "value": {
+                "arguments": [],
+                "cls": "ExprCall",
+                "function": {
+                  "cls": "ExprAttribute",
+                  "values": [
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "mcp"
+                    },
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "tool"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "list_corpora": {
+          "name": "list_corpora",
+          "kind": "function",
+          "signature": "()",
+          "docstring": {
+            "summary": "List all currently loaded corpora.",
+            "description": "List all currently loaded corpora.\n\nReturns:\n    Dictionary with 'corpora' list and 'current' corpus name.",
+            "parsed": []
+          },
+          "parameters": [],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": [
+            {
+              "endlineno": 106,
+              "lineno": 106,
+              "value": {
+                "arguments": [],
+                "cls": "ExprCall",
+                "function": {
+                  "cls": "ExprAttribute",
+                  "values": [
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "mcp"
+                    },
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "tool"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "list_features": {
+          "name": "list_features",
+          "kind": "function",
+          "signature": "(kind: str = 'all', node_types: list[str] | None = None, corpus: str | None = None)",
+          "docstring": {
+            "summary": "List features with optional filtering.",
+            "description": "List features with optional filtering.\n\nReturns lightweight catalog for discovery. Use node_types to filter by\nobject type. For full details with samples, use describe_feature().\n\nArgs:\n    kind: Filter by \"all\", \"node\", or \"edge\"\n    node_types: Filter to features for these types (e.g., [\"word\"])\n    corpus: Corpus name (defaults to current corpus)\n\nReturns:\n    List of features with name, kind, value_type, description.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "kind",
+              "type": "str",
+              "default": "'all'",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "node_types",
+              "type": "list[str] | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "corpus",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": [
+            {
+              "endlineno": 160,
+              "lineno": 160,
+              "value": {
+                "arguments": [],
+                "cls": "ExprCall",
+                "function": {
+                  "cls": "ExprAttribute",
+                  "values": [
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "mcp"
+                    },
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "tool"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "main": {
+          "name": "main",
+          "kind": "function",
+          "signature": "()",
+          "docstring": {
+            "summary": "Run the MCP server with configurable transport.",
+            "description": "Run the MCP server with configurable transport.",
+            "parsed": []
+          },
+          "parameters": [],
+          "returns": {
+            "type": "None"
+          },
+          "decorators": []
+        },
+        "node_resource": {
+          "name": "node_resource",
+          "kind": "function",
+          "signature": "(corpus_name: str, node_id: int)",
+          "docstring": {
+            "summary": "Get node information.",
+            "description": "Get node information.\n\nReturns detailed information about a specific node including\ntype, text, section reference, and slot positions.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "corpus_name",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "node_id",
+              "type": "int",
+              "default": null,
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "str"
+          },
+          "decorators": [
+            {
+              "endlineno": 354,
+              "lineno": 354,
+              "value": {
+                "arguments": [
+                  "'corpus://{corpus_name}/node/{node_id}'"
+                ],
+                "cls": "ExprCall",
+                "function": {
+                  "cls": "ExprAttribute",
+                  "values": [
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "mcp"
+                    },
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "resource"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "search": {
+          "name": "search",
+          "kind": "function",
+          "signature": "(template: str, return_type: str = 'results', aggregate_features: list[str] | None = None, group_by_section: bool = False, top_n: int = 50, limit: int = 100, max_override: bool = False, corpus: str | None = None)",
+          "docstring": {
+            "summary": "Search for patterns in the corpus.",
+            "description": "Search for patterns in the corpus.\n\nArgs:\n    template: Search template (use search_syntax_guide() for syntax help)\n    return_type: What to return:\n        - \"results\": Paginated node info with cursor (default)\n        - \"count\": Just total count\n        - \"statistics\": Feature distributions per matched node position\n        - \"passages\": Formatted text grouped by section\n    aggregate_features: For statistics: which features to aggregate\n    group_by_section: For statistics: include distribution by book\n    top_n: For statistics: max values per feature (default 50)\n    limit: For results/passages: page size (default 100)\n    max_override: Bypass limit cap. May produce large responses - use judiciously.\n    corpus: Corpus name (defaults to current corpus)\n\nReturns:\n    Search results formatted according to return_type.\n    For \"results\", includes cursor for pagination via search_continue().",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "template",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "return_type",
+              "type": "str",
+              "default": "'results'",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "aggregate_features",
+              "type": "list[str] | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "group_by_section",
+              "type": "bool",
+              "default": "False",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "top_n",
+              "type": "int",
+              "default": "50",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "limit",
+              "type": "int",
+              "default": "100",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "max_override",
+              "type": "bool",
+              "default": "False",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "corpus",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": [
+            {
+              "endlineno": 203,
+              "lineno": 203,
+              "value": {
+                "arguments": [],
+                "cls": "ExprCall",
+                "function": {
+                  "cls": "ExprAttribute",
+                  "values": [
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "mcp"
+                    },
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "tool"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "search_continue": {
+          "name": "search_continue",
+          "kind": "function",
+          "signature": "(cursor_id: str, offset: int = 0, limit: int = 100, max_override: bool = False)",
+          "docstring": {
+            "summary": "Continue a paginated search using a cursor ID.",
+            "description": "Continue a paginated search using a cursor ID.\n\nUse this to get additional pages of results from a previous search.\nCursors expire after 5 minutes.\n\nArgs:\n    cursor_id: The cursor ID from a previous search\n    offset: Number of results to skip\n    limit: Maximum number of results to return (default 100)\n    max_override: Bypass limit cap. May produce large responses - use judiciously.\n\nReturns:\n    Next page of search results with updated cursor.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "cursor_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "offset",
+              "type": "int",
+              "default": "0",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "limit",
+              "type": "int",
+              "default": "100",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "max_override",
+              "type": "bool",
+              "default": "False",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": [
+            {
+              "endlineno": 246,
+              "lineno": 246,
+              "value": {
+                "arguments": [],
+                "cls": "ExprCall",
+                "function": {
+                  "cls": "ExprAttribute",
+                  "values": [
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "mcp"
+                    },
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "tool"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "search_syntax_guide": {
+          "name": "search_syntax_guide",
+          "kind": "function",
+          "signature": "(section: str | None = None)",
+          "docstring": {
+            "summary": "Get documentation on search template syntax.",
+            "description": "Get documentation on search template syntax.\n\nCall without args for summary + available sections. Call with section\nname to get detailed content for that topic.\n\nArgs:\n    section: Optional section name (basics, structure, relations,\n             quantifiers, examples). None returns overview.\n\nReturns:\n    Without section: summary + list of available sections.\n    With section: detailed content for that section.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "section",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": [
+            {
+              "endlineno": 270,
+              "lineno": 270,
+              "value": {
+                "arguments": [],
+                "cls": "ExprCall",
+                "function": {
+                  "cls": "ExprAttribute",
+                  "values": [
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "mcp"
+                    },
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "tool"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "types_resource": {
+          "name": "types_resource",
+          "kind": "function",
+          "signature": "(corpus_name: str)",
+          "docstring": {
+            "summary": "Get node type information.",
+            "description": "Get node type information.\n\nReturns information about all node types including counts and node ranges.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "corpus_name",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "str"
+          },
+          "decorators": [
+            {
+              "endlineno": 373,
+              "lineno": 373,
+              "value": {
+                "arguments": [
+                  "'corpus://{corpus_name}/types'"
+                ],
+                "cls": "ExprCall",
+                "function": {
+                  "cls": "ExprAttribute",
+                  "values": [
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "mcp"
+                    },
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "resource"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      "modules": {},
+      "aliases": {
+        "Any": {
+          "name": "Any",
+          "target": "typing.Any"
+        },
+        "FastMCP": {
+          "name": "FastMCP",
+          "target": "mcp.server.fastmcp.FastMCP"
+        },
+        "annotations": {
+          "name": "annotations",
+          "target": "__future__.annotations"
+        },
+        "argparse": {
+          "name": "argparse",
+          "target": "argparse"
+        },
+        "corpus_manager": {
+          "name": "corpus_manager",
+          "target": "cfabric_mcp.corpus_manager.corpus_manager"
+        },
+        "logging": {
+          "name": "logging",
+          "target": "logging"
+        },
+        "resources": {
+          "name": "resources",
+          "target": "cfabric_mcp.resources"
+        },
+        "tools": {
+          "name": "tools",
+          "target": "cfabric_mcp.tools"
+        }
+      }
+    },
+    "tools": {
+      "name": "tools",
+      "kind": "module",
+      "path": "",
+      "docstring": {
+        "summary": "MCP tool implementations for Context-Fabric.",
+        "description": "MCP tool implementations for Context-Fabric.\n\nTools are functions that agents can execute to interact with corpora.",
+        "parsed": []
+      },
+      "classes": {},
+      "functions": {
+        "_format_passages": {
+          "name": "_format_passages",
+          "kind": "function",
+          "signature": "(api: Any, results: list[tuple[(int, ...)]], template: str, limit: int)",
+          "docstring": {
+            "summary": "Format search results as readable passages.",
+            "description": "Format search results as readable passages.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "api",
+              "type": "Any",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "results",
+              "type": "list[tuple[(int, ...)]]",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "template",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "limit",
+              "type": "int",
+              "default": null,
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": []
+        },
+        "_format_results": {
+          "name": "_format_results",
+          "kind": "function",
+          "signature": "(api: Any, results: list[tuple[(int, ...)]], template: str, cursor_id: str, limit: int)",
+          "docstring": {
+            "summary": "Format search results as paginated node info.",
+            "description": "Format search results as paginated node info.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "api",
+              "type": "Any",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "results",
+              "type": "list[tuple[(int, ...)]]",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "template",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "cursor_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "limit",
+              "type": "int",
+              "default": null,
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": []
+        },
+        "_format_statistics": {
+          "name": "_format_statistics",
+          "kind": "function",
+          "signature": "(api: Any, results: list[tuple[(int, ...)]], template: str, aggregate_features: list[str] | None, group_by_section: bool, top_n: int)",
+          "docstring": {
+            "summary": "Format search results as statistics with feature distributions.",
+            "description": "Format search results as statistics with feature distributions.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "api",
+              "type": "Any",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "results",
+              "type": "list[tuple[(int, ...)]]",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "template",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "aggregate_features",
+              "type": "list[str] | None",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "group_by_section",
+              "type": "bool",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "top_n",
+              "type": "int",
+              "default": null,
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": []
+        },
+        "describe_corpus": {
+          "name": "describe_corpus",
+          "kind": "function",
+          "signature": "(corpus: str | None = None)",
+          "docstring": {
+            "summary": "Get corpus structure overview.",
+            "description": "Get corpus structure overview.\n\nReturns node types, section structure, and feature counts.\nUse list_features() to browse features, describe_feature() for details,\nand get_text_formats() for text encoding samples.\n\nArgs:\n    corpus: Corpus name (defaults to current corpus)\n\nReturns:\n    Corpus overview with node types, sections, and feature counts.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "corpus",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": []
+        },
+        "describe_features": {
+          "name": "describe_features",
+          "kind": "function",
+          "signature": "(features: str | list[str], sample_limit: int = 20, corpus: str | None = None)",
+          "docstring": {
+            "summary": "Get detailed info about one or more features.",
+            "description": "Get detailed info about one or more features.\n\nReturns sample values (by frequency) and statistics for each feature.\nUse after describe_corpus() to explore specific features.\n\nArgs:\n    features: Feature name or list of feature names (e.g., \"sp\" or [\"sp\", \"vt\", \"vs\"])\n    sample_limit: Max sample values to return per feature (default 20)\n    corpus: Corpus name (defaults to current corpus)\n\nReturns:\n    For single feature: Feature details dict\n    For multiple features: Dict keyed by feature name with details for each",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "features",
+              "type": "str | list[str]",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "sample_limit",
+              "type": "int",
+              "default": "20",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "corpus",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": []
+        },
+        "get_corpus_info": {
+          "name": "get_corpus_info",
+          "kind": "function",
+          "signature": "(corpus: str | None = None)",
+          "docstring": {
+            "summary": "Get detailed information about a loaded corpus.",
+            "description": "Get detailed information about a loaded corpus.\n\nArgs:\n    corpus: Corpus name (defaults to current corpus)\n\nReturns:\n    Detailed corpus information including node types, features, and section structure.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "corpus",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": []
+        },
+        "get_node_features": {
+          "name": "get_node_features",
+          "kind": "function",
+          "signature": "(nodes: list[int], features: list[str], corpus: str | None = None)",
+          "docstring": {
+            "summary": "Get feature values for a list of nodes.",
+            "description": "Get feature values for a list of nodes.\n\nArgs:\n    nodes: List of node IDs\n    features: List of feature names to retrieve\n    corpus: Corpus name (defaults to current corpus)\n\nReturns:\n    Feature values for each node.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "nodes",
+              "type": "list[int]",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "features",
+              "type": "list[str]",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "corpus",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": []
+        },
+        "get_passages": {
+          "name": "get_passages",
+          "kind": "function",
+          "signature": "(sections: list[list[str | int]], limit: int = 50, lang: str = 'en', max_override: bool = False, corpus: str | None = None)",
+          "docstring": {
+            "summary": "Get passages by section references.",
+            "description": "Get passages by section references.\n\nArgs:\n    sections: List of section references, e.g., [['Genesis', 1, 1], ['Exodus', 2, 3]]\n    limit: Maximum sections to return (default 50)\n    lang: ISO 639 language code for section names (e.g., 'en' for English book names)\n    max_override: Bypass limit cap. May produce large responses - use judiciously.\n    corpus: Corpus name (defaults to current corpus)\n\nReturns:\n    List of passages with text and node information.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "sections",
+              "type": "list[list[str | int]]",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "limit",
+              "type": "int",
+              "default": "50",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "lang",
+              "type": "str",
+              "default": "'en'",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "max_override",
+              "type": "bool",
+              "default": "False",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "corpus",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": []
+        },
+        "get_text_formats": {
+          "name": "get_text_formats",
+          "kind": "function",
+          "signature": "(corpus: str | None = None)",
+          "docstring": {
+            "summary": "Get text format samples showing how text is encoded in this corpus.",
+            "description": "Get text format samples showing how text is encoded in this corpus.\n\nReturns original script and transliteration pairs with diverse samples.\nUse this when you need to understand text encoding for search queries.\nResults are cached per corpus.\n\nArgs:\n    corpus: Corpus name (defaults to current corpus)\n\nReturns:\n    Text format information with samples.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "corpus",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": []
+        },
+        "list_features": {
+          "name": "list_features",
+          "kind": "function",
+          "signature": "(kind: str = 'all', node_types: list[str] | None = None, corpus: str | None = None)",
+          "docstring": {
+            "summary": "List all features with optional filtering.",
+            "description": "List all features with optional filtering.\n\nReturns a lightweight catalog of features for discovery.\nUse node_types to filter by object type. For full details including\nsample values, use describe_feature().\n\nArgs:\n    kind: Filter by feature kind - \"all\", \"node\", or \"edge\"\n    node_types: Filter to features that apply to these object types (e.g., [\"word\"])\n    corpus: Corpus name (defaults to current corpus)\n\nReturns:\n    List of features with name, kind, value_type, and description.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "kind",
+              "type": "str",
+              "default": "'all'",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "node_types",
+              "type": "list[str] | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "corpus",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": []
+        },
+        "list_loaded_corpora": {
+          "name": "list_loaded_corpora",
+          "kind": "function",
+          "signature": "()",
+          "docstring": {
+            "summary": "List all currently loaded corpora.",
+            "description": "List all currently loaded corpora.\n\nReturns:\n    Dictionary with 'corpora' list and 'current' corpus name.",
+            "parsed": []
+          },
+          "parameters": [],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": []
+        },
+        "search": {
+          "name": "search",
+          "kind": "function",
+          "signature": "(template: str, return_type: str = 'results', aggregate_features: list[str] | None = None, group_by_section: bool = False, top_n: int = 50, limit: int = 100, max_override: bool = False, corpus: str | None = None)",
+          "docstring": {
+            "summary": "Search for patterns in the corpus.",
+            "description": "Search for patterns in the corpus.\n\nArgs:\n    template: Search template (see search_syntax_guide for syntax)\n    return_type: What to return - \"results\", \"count\", \"statistics\", or \"passages\"\n    aggregate_features: For statistics: which features to aggregate (default: all low-cardinality)\n    group_by_section: For statistics: include distribution by section (book/chapter)\n    top_n: For statistics: max values per feature distribution (default 50)\n    limit: For results/passages: page size (default 100)\n    max_override: Bypass limit cap. May produce large responses - use judiciously.\n    corpus: Corpus name (defaults to current corpus)\n\nReturns:\n    Search results formatted according to return_type.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "template",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "return_type",
+              "type": "str",
+              "default": "'results'",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "aggregate_features",
+              "type": "list[str] | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "group_by_section",
+              "type": "bool",
+              "default": "False",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "top_n",
+              "type": "int",
+              "default": "50",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "limit",
+              "type": "int",
+              "default": "100",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "max_override",
+              "type": "bool",
+              "default": "False",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "corpus",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": []
+        },
+        "search_continue": {
+          "name": "search_continue",
+          "kind": "function",
+          "signature": "(cursor_id: str, offset: int = 0, limit: int = 100, max_override: bool = False)",
+          "docstring": {
+            "summary": "Continue a paginated search using a cursor ID.",
+            "description": "Continue a paginated search using a cursor ID.\n\nArgs:\n    cursor_id: The cursor ID from a previous search\n    offset: Number of results to skip\n    limit: Maximum number of results to return (default 100)\n    max_override: Bypass limit cap. May produce large responses - use judiciously.\n\nReturns:\n    Next page of search results.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "cursor_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "offset",
+              "type": "int",
+              "default": "0",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "limit",
+              "type": "int",
+              "default": "100",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "max_override",
+              "type": "bool",
+              "default": "False",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": []
+        },
+        "search_syntax_guide": {
+          "name": "search_syntax_guide",
+          "kind": "function",
+          "signature": "(section: str | None = None)",
+          "docstring": {
+            "summary": "Get documentation on search template syntax.",
+            "description": "Get documentation on search template syntax.\n\nBy default returns a summary with available sections.\nCall with section='relations' (or basics/structure/quantifiers/examples)\nto get detailed info on a specific topic.\n\nArgs:\n    section: Specific section to retrieve (basics, structure, relations,\n             quantifiers, examples). Default: returns summary.\n\nReturns:\n    Summary with section list (default) or specific section content.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "section",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": []
+        }
+      },
+      "modules": {},
+      "aliases": {
+        "Any": {
+          "name": "Any",
+          "target": "typing.Any"
+        },
+        "Api": {
+          "name": "Api",
+          "target": "cfabric.core.api.Api"
+        },
+        "CorpusInfo": {
+          "name": "CorpusInfo",
+          "target": "cfabric.results.CorpusInfo"
+        },
+        "FeatureInfo": {
+          "name": "FeatureInfo",
+          "target": "cfabric.results.FeatureInfo"
+        },
+        "NodeInfo": {
+          "name": "NodeInfo",
+          "target": "cfabric.results.NodeInfo"
+        },
+        "TYPE_CHECKING": {
+          "name": "TYPE_CHECKING",
+          "target": "typing.TYPE_CHECKING"
+        },
+        "annotations": {
+          "name": "annotations",
+          "target": "__future__.annotations"
+        },
+        "core_describe_feature": {
+          "name": "core_describe_feature",
+          "target": "cfabric.describe.describe_feature"
+        },
+        "core_list_features": {
+          "name": "core_list_features",
+          "target": "cfabric.describe.list_features"
+        },
+        "corpus_manager": {
+          "name": "corpus_manager",
+          "target": "cfabric_mcp.corpus_manager.corpus_manager"
+        },
+        "defaultdict": {
+          "name": "defaultdict",
+          "target": "collections.defaultdict"
+        },
+        "describe_corpus_overview": {
+          "name": "describe_corpus_overview",
+          "target": "cfabric.describe.describe_corpus_overview"
+        },
+        "describe_text_formats": {
+          "name": "describe_text_formats",
+          "target": "cfabric.describe.describe_text_formats"
+        },
+        "get_cache": {
+          "name": "get_cache",
+          "target": "cfabric_mcp.cache.get_cache"
+        },
+        "logging": {
+          "name": "logging",
+          "target": "logging"
+        },
+        "re": {
+          "name": "re",
+          "target": "re"
+        }
+      }
+    }
+  },
+  "aliases": {
+    "CorpusManager": {
+      "name": "CorpusManager",
+      "target": "cfabric_mcp.corpus_manager.CorpusManager"
+    },
+    "logging": {
+      "name": "logging",
+      "target": "logging"
+    },
+    "main": {
+      "name": "main",
+      "target": "cfabric_mcp.server.main"
+    },
+    "mcp": {
+      "name": "mcp",
+      "target": "cfabric_mcp.server.mcp"
+    },
+    "sys": {
+      "name": "sys",
+      "target": "sys"
+    }
+  }
+}

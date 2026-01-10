@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cfabric-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "MCP server for Context Fabric corpus operations"
 readme = "README.md"
 license = {text = "MIT"}
@@ -29,6 +29,10 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "pytest-asyncio",
+]
+docs = [
+    "griffe>=1.0",
+    "griffe-typingdoc>=0.2",
 ]
 
 [project.scripts]

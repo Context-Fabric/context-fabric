@@ -1,5 +1,19 @@
-"""
-# Syntax of search templates
+"""Syntactic analysis of search templates.
+
+This module provides the lexical and syntactic parsing layer for Context-Fabric
+search templates. It tokenizes template strings into structured representations
+that can be validated and executed by the semantic analysis layer.
+
+The module handles:
+- Template line parsing (atoms, relations, features, operators)
+- Quantifier detection and nesting (where/have/without/with/or)
+- Feature value parsing (equality, regex, numeric comparisons)
+- Escape sequence processing
+
+See Also
+--------
+cfabric.search.semantics : Semantic validation of parsed templates
+cfabric.search.search : High-level search API
 """
 
 from __future__ import annotations
@@ -83,6 +97,33 @@ reTp: type = type(reRe)
 
 
 def syntax(searchExe: SearchExe) -> None:
+    """Perform syntactic analysis on a search template.
+
+    This is the main entry point for parsing search templates. It tokenizes
+    the template string into a list of structured tokens representing atoms,
+    relations, features, and quantifiers.
+
+    The function modifies the SearchExe object in place, setting:
+    - `searchExe.tokens`: List of parsed tokens if successful
+    - `searchExe.good`: False if syntax errors were found
+    - `searchExe.badSyntax`: List of (line_number, error_message) tuples
+
+    Parameters
+    ----------
+    searchExe : SearchExe
+        The search execution context containing the template to parse.
+        Must have `searchTemplate` and `offset` attributes set.
+
+    Notes
+    -----
+    Syntax errors are logged and stored in `searchExe.badSyntax`. The caller
+    should check `searchExe.good` after calling to determine if parsing succeeded.
+
+    See Also
+    --------
+    parseLine : Parse individual template lines
+    parseFeatureVals : Parse feature value specifications
+    """
     searchExe.good = True
     searchExe.badSyntax: list[tuple[int | None, str]] = []
     searchExe.searchLines: list[str] = searchExe.searchTemplate.split("\n")
@@ -469,6 +510,36 @@ def _tokenize(searchExe: SearchExe) -> None:
 
 
 def parseLine(line: str) -> tuple[str, tuple[Any, ...]]:
+    """Parse a single line of a search template.
+
+    Determines the type of line (operator, relation, atom, or feature) and
+    extracts its components.
+
+    Parameters
+    ----------
+    line : str
+        A single line from a search template.
+
+    Returns
+    -------
+    tuple[str, tuple[Any, ...]]
+        A tuple of (kind, data) where:
+        - kind is one of: "op", "rel", "atom", "feat"
+        - data is a tuple of parsed components depending on kind:
+            - "op": (indent, operator)
+            - "rel": (indent, from_name, operator, to_name)
+            - "atom": (indent, operator, name, otype, features)
+            - "feat": (features_string,)
+
+    Examples
+    --------
+    >>> parseLine("  word")
+    ('atom', ('  ', None, '', 'word', ''))
+    >>> parseLine("  a:word lemma=run")
+    ('atom', ('  ', None, 'a', 'word', 'lemma=run'))
+    >>> parseLine("a < b")
+    ('rel', ('', 'a', '<', 'b'))
+    """
     for x in [True]:
         escLine = _esc(line)
 
@@ -522,6 +593,43 @@ def parseFeatureVals(
     i: int,
     asEdge: bool = False,
 ) -> bool:
+    """Parse a feature value specification and add it to the features dict.
+
+    Handles various feature constraint syntaxes:
+    - `feature` or `feature*`: Feature must have any value / be True
+    - `feature#`: Feature must be absent (None)
+    - `feature=value` or `feature=val1|val2`: Equality with value(s)
+    - `feature#value`: Inequality (not equal to value)
+    - `feature>n` or `feature<n`: Numeric comparisons
+    - `feature~regex`: Regular expression match
+
+    Parameters
+    ----------
+    searchExe : SearchExe
+        The search execution context for error reporting.
+    featStr : str
+        The feature specification string to parse.
+    features : dict[str, Any]
+        Dictionary to update with the parsed feature constraint.
+    i : int
+        Line number for error reporting.
+    asEdge : bool, default False
+        If True, parse as edge feature (expects -feature> or <feature- syntax).
+
+    Returns
+    -------
+    bool
+        True if parsing succeeded, False if there was a syntax error.
+        Errors are appended to `searchExe.badSyntax`.
+
+    Examples
+    --------
+    >>> features = {}
+    >>> parseFeatureVals(exe, "lemma=run", features, 0)
+    True
+    >>> features
+    {'lemma': (True, frozenset({'run'}))}
+    """
     if asEdge:
         if not (
             (featStr[0] == "-" and featStr[-1] == ">")
@@ -617,6 +725,24 @@ def _genLine(kind: str, data: tuple[Any, ...]) -> str | None:
 
 
 def cleanParent(atom: str, parentName: str) -> str | None:
+    """Clean an atom line by replacing empty names with the parent name.
+
+    Used in quantifier processing to ensure atoms have proper names
+    when they reference the parent context.
+
+    Parameters
+    ----------
+    atom : str
+        The atom line string to process.
+    parentName : str
+        The name to use if the atom has no explicit name.
+
+    Returns
+    -------
+    str | None
+        The regenerated atom line with the name filled in, or None if
+        the line could not be parsed as an atom.
+    """
     (kind, data) = parseLine(atom)
     (indent, op, name, otype, features) = data
     if name == "":
@@ -628,6 +754,35 @@ def deContext(
     quantifier: tuple[str, list[list[str]], int],
     parentName: str,
 ) -> tuple[str, list[str], str, int]:
+    """Transform a quantifier by resolving parent references.
+
+    Quantifiers (where/have/without/with/or) contain nested search templates
+    that may reference their parent atom using ".." (PARENT_REF). This function
+    replaces those references with an actual parent name.
+
+    Parameters
+    ----------
+    quantifier : tuple[str, list[list[str]], int]
+        A tuple of (quantifier_kind, templates, line_number) where:
+        - quantifier_kind is one of: /where/, /have/, /without/, /with/, /or/
+        - templates is a list of template line lists (one per branch)
+        - line_number is where the quantifier started in the source
+    parentName : str
+        The name to assign to the parent. If empty, a unique name will be
+        generated based on names already used in the templates.
+
+    Returns
+    -------
+    tuple[str, list[str], str, int]
+        A tuple of (quantifier_kind, templates, parent_name, line_number)
+        where templates have ".." references replaced with the actual parent name.
+
+    Notes
+    -----
+    The ".." reference can appear in:
+    - Relation lines: ".. < child" becomes "parent < child"
+    - Atom otype position: ".." becomes "parent"
+    """
     (quKind, quTemplates, ln) = quantifier
 
     # choose a name for the parent

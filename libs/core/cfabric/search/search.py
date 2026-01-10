@@ -19,7 +19,59 @@ logger = logging.getLogger(__name__)
 
 
 class Search:
-    """ """
+    """High-level search interface for querying corpus data with structural templates.
+
+    The Search class provides the `S` API object for finding patterns in annotated
+    text corpora. It uses a template language that allows you to specify:
+
+    - Node types (atoms) to match, e.g., `word`, `phrase`, `sentence`
+    - Feature constraints on nodes, e.g., `word pos=verb lemma=run`
+    - Structural relations between nodes via indentation and operators
+    - Quantifiers for optional or alternative patterns
+
+    Attributes
+    ----------
+    api : Api
+        The corpus API providing access to features and navigation.
+    exe : SearchExe | None
+        The current search execution context after a search or study call.
+    perfParams : dict[str, int | float]
+        Performance tuning parameters for search optimization.
+
+    Examples
+    --------
+    Basic usage with the corpus API:
+
+    >>> CF = cfabric.Fabric(locations=corpus_path)
+    >>> api = CF.loadAll()
+    >>> S = api.S  # The Search object
+
+    Simple search for all verbs:
+
+    >>> results = S.search('''
+    ... word pos=verb
+    ... ''')
+
+    Search with structural nesting (phrase containing a verb):
+
+    >>> results = S.search('''
+    ... phrase
+    ...   word pos=verb
+    ... ''')
+
+    See Also
+    --------
+    search : Execute a search and return results
+    study : Analyze a search template and prepare for execution
+    fetch : Retrieve results after study
+    showPlan : Display the search execution plan
+
+    Notes
+    -----
+    For detailed template syntax, see the search usage documentation.
+    The search engine uses edge spinning optimization to efficiently
+    narrow down the search space before retrieving results.
+    """
 
     def __init__(self, api: Api, silent: str = SILENT_D) -> None:
         silent = silentConvert(silent)

@@ -1,0 +1,15 @@
+# Griffe configuration for Context-Fabric API documentation
+# https://mkdocstrings.github.io/griffe/
+
+[griffe]
+# Use griffe-typingdoc for better type annotation handling
+extensions = ["griffe_typingdoc"]
+
+# Parse NumPy-style docstrings (dominant style in this codebase)
+docstring_style = "numpy"
+
+# Allow inspection for runtime-only information
+allow_inspection = true
+
+# Resolve type aliases from TYPE_CHECKING blocks
+resolve_aliases = true

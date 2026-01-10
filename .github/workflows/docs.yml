@@ -1,0 +1,51 @@
+name: Generate API Docs
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - 'libs/**/*.py'
+      - 'scripts/docs/**'
+      - 'griffe.toml'
+  workflow_dispatch:
+
+jobs:
+  generate-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: |
+          pip install griffe griffe-typingdoc
+          pip install -e libs/core
+          pip install -e libs/mcp
+          pip install -e libs/benchmarks
+
+      - name: Generate documentation
+        run: python scripts/docs/generate_docs.py
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git add docs/api/
+          if git diff --staged --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit updated docs
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "docs: auto-generate API documentation"
+          git push

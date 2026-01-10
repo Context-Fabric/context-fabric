@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "context-fabric"
-version = "0.5.3"
+version = "0.5.4"
 description = "Graph-based corpus engine for annotated text with efficient traversal and search"
 readme = "README.md"
 license = {text = "MIT"}
@@ -45,9 +45,8 @@ dev = [
 mcp = ["cfabric-mcp>=0.1.0"]
 benchmarks = ["cfabric-benchmarks>=0.1.0"]
 docs = [
-    "sphinx>=7.0",
-    "sphinx-autodoc-typehints>=1.25",
-    "furo>=2024.1",
+    "griffe>=1.0",
+    "griffe-typingdoc>=0.2",
 ]
 
 [project.urls]

@@ -1,5 +1,22 @@
-"""
-# Semantics of search templates
+"""Semantic analysis and validation of search templates.
+
+This module performs semantic validation on syntactically parsed search templates.
+It verifies that the template is meaningful and executable against a corpus by:
+
+- Validating object types exist in the corpus
+- Checking that referenced features are loaded
+- Verifying relation operators are valid
+- Building the query graph (qnodes, qedges) for execution
+- Type-checking feature value comparisons
+
+The semantic analysis runs after syntactic parsing (see `cfabric.search.syntax`)
+and before search execution (see `cfabric.search.searchexe`).
+
+See Also
+--------
+cfabric.search.syntax : Syntactic parsing of templates
+cfabric.search.search : High-level search API
+cfabric.search.relations : Relation definitions and operators
 """
 
 from __future__ import annotations
@@ -21,6 +38,45 @@ logger = logging.getLogger(__name__)
 
 
 def semantics(searchExe: SearchExe) -> None:
+    """Perform semantic analysis on a parsed search template.
+
+    This is the main entry point for semantic validation. It takes a SearchExe
+    object that has already passed syntactic analysis and validates that the
+    template can be executed against the corpus.
+
+    The function modifies the SearchExe object in place, setting:
+    - `searchExe.qnames`: Mapping of atom names to query node indices
+    - `searchExe.qnodes`: List of query nodes (otype, features, src, quantifiers)
+    - `searchExe.qedges`: List of validated query edges (from, relation, to)
+    - `searchExe.good`: False if semantic errors were found
+    - `searchExe.badSemantics`: List of (line_number, error_message) tuples
+
+    Parameters
+    ----------
+    searchExe : SearchExe
+        The search execution context. Must have passed syntactic analysis
+        (i.e., `searchExe.good` is True and `searchExe.tokens` is populated).
+
+    Notes
+    -----
+    Semantic validation includes:
+
+    1. **Grammar validation**: Checks structural validity of the token sequence,
+       builds the query graph from indentation-based nesting.
+
+    2. **Feature validation**: Verifies all referenced features exist in the
+       corpus and have compatible value types.
+
+    3. **Relation validation**: Resolves relation operators to internal
+       relation functions, handles k-nearness and feature comparison relations.
+
+    Errors are logged and stored in `searchExe.badSemantics`. The caller should
+    check `searchExe.good` after calling to determine if validation succeeded.
+
+    See Also
+    --------
+    cfabric.search.syntax.syntax : Syntactic analysis (must be called first)
+    """
     if not searchExe.good:
         return
     searchExe.badSemantics = []
