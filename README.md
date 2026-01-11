@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/fabric_tan_mark_light.svg" alt="Context-Fabric" width="120">
+  <img src="assets/fabric_tan_mark.svg" alt="Context-Fabric" width="120">
 </p>
 
 <h1 align="center">Context-Fabric</h1>
