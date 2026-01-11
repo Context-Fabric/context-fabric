@@ -8,14 +8,14 @@ export function Hero() {
         {/* Content */}
         <div className="max-w-[480px] lg:max-w-none text-center lg:text-left mx-auto lg:mx-0">
           <div className="inline-block text-[0.8125rem] font-medium text-[var(--color-accent)] tracking-wide uppercase mb-6">
-            AI-Native Corpus Infrastructure
+            Corpus Linguistics Infrastructure
           </div>
           <h1 className="text-[2.25rem] md:text-[3.25rem] leading-[1.15] mb-6 tracking-tight">
             From research notebooks to production APIs
           </h1>
           <p className="text-[1.125rem] text-[var(--color-text-secondary)] mb-8 leading-relaxed">
             Memory-efficient storage and querying for annotated text corpora.
-            Morphology, syntax, discourse—35+ Text-Fabric datasets. Scales from laptops to AI-powered pipelines.
+            Compatible with 35+ Text-Fabric datasets. Scales from laptops to AI-powered pipelines.
           </p>
           <div className="flex gap-4 justify-center lg:justify-start">
             <Link
