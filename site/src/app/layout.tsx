@@ -33,14 +33,14 @@ export const metadata: Metadata = {
     images: [
       {
         url: "/images/og-image.png",
-        width: 512,
-        height: 512,
-        alt: "Context-Fabric logo",
+        width: 1200,
+        height: 630,
+        alt: "Context-Fabric - AI-Native Corpus Engine",
       },
     ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Context-Fabric",
     description: "Production-ready corpus analysis for the age of AI",
     images: ["/images/og-image.png"],
