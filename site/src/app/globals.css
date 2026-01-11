@@ -81,3 +81,14 @@ code, pre {
 .btn-primary:hover {
   opacity: 0.9;
 }
+
+/* Docs sidebar - hidden on mobile, visible on desktop */
+.docs-sidebar-desktop {
+  display: none !important;
+}
+
+@media (min-width: 1024px) {
+  .docs-sidebar-desktop {
+    display: block !important;
+  }
+}
