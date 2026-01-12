@@ -39,14 +39,16 @@ The MCP server extends this to AI workflows:
 
 Here's what working with Context-Fabric looks like:
 
+```bash
+# Clone the BHSA corpus (the Hebrew Bible)
+git clone https://github.com/ETCBC/bhsa ~/text-fabric-data/etcbc/bhsa
+```
+
 ```python
 import cfabric
 
-# Download a corpus (BHSA - the Hebrew Bible)
-path = cfabric.download('bhsa')
-
 # Load it
-CF = cfabric.Fabric(locations=path)
+CF = cfabric.Fabric(locations='~/text-fabric-data/etcbc/bhsa')
 api = CF.loadAll()
 
 # Find all words with lexeme "MLK" (king)
