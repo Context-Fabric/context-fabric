@@ -3,7 +3,7 @@ const features = [
     number: "01",
     title: "Memory-Mapped Storage",
     description:
-      "Data lives on disk, not in memory, so you can load more corpora at once. In production, multiple workers share the same pages. 65% less memory whether you're running locally or at scale.",
+      "Data lives on disk, not in memory, so you can load more corpora at once. In production, multiple workers share the same pages. 92% less memory whether you're running locally or at scale.",
   },
   {
     number: "02",

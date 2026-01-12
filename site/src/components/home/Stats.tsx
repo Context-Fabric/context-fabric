@@ -1,5 +1,5 @@
 const stats = [
-  { value: "65%*", label: "Less Memory" },
+  { value: "92%*", label: "Less Memory" },
   { value: "12x*", label: "Faster Loading" },
   { value: "35+", label: "Corpora" },
   { value: "Zero", label: "Data Copies" },
@@ -21,7 +21,7 @@ export function Stats() {
         ))}
       </div>
       <p className="text-center text-[0.8125rem] text-[var(--color-text-secondary)] mt-10 max-w-[900px] mx-auto">
-        *Compared to Text-Fabric
+        *Compared to Text-Fabric with BHSA
       </p>
     </section>
   );
