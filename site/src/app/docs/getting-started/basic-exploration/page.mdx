@@ -203,12 +203,11 @@ The available formats depend on how the corpus was built. Check the `otext` feat
 Here's a complete exploration session:
 
 ```python
-import cfabric
+from cfabric import Fabric
 from cfabric.describe import describe_corpus, describe_feature
 
-# Load corpus
-path = cfabric.download('bhsa')
-CF = cfabric.Fabric(locations=path)
+# Load corpus (clone first with: git clone --depth 1 https://github.com/ETCBC/bhsa.git)
+CF = Fabric('/path/to/bhsa/tf/c')
 api = CF.loadAll()
 
 # Overview
