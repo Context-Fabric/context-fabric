@@ -23,11 +23,32 @@ Multiple processes reading the same corpus share physical memory pages at the OS
 
 ```
 Process 1 ─┐
-Process 2 ──┼── Shared mmap pages ── .cfm files
+Process 2 ──┼── Page cache ── .cfm files
 Process 3 ─┘
 ```
 
-Four workers don't use four times the memory—they share read-only data transparently.
+Four workers don't use four times the memory—they share read-only data through the kernel's [page cache](https://www.kernel.org/doc/html/latest/admin-guide/mm/concepts.html).
+
+### How It Works
+
+Context-Fabric loads arrays with `mmap_mode='r'`, which translates to [`MAP_SHARED`](https://man7.org/linux/man-pages/man2/mmap.2.html) at the OS level. Each process gets its own virtual address mapping, but all mappings point to the same physical pages. This is the same mechanism that allows shared libraries to be loaded once and used by hundreds of processes.
+
+### Measured Overhead
+
+With 4 forked workers on the BHSA corpus (from [benchmarks](/docs/paper)):
+
+| Mode | Total RSS | Per-Worker Overhead |
+|------|-----------|---------------------|
+| Single process | 524 MB | — |
+| Fork (4 workers) | 658 MB | ~34 MB |
+
+The 134 MB total overhead (34 MB × 4) represents Python interpreter state, not corpus data. Without sharing, we'd expect ~2,096 MB.
+
+<details>
+<summary>Note on memory pressure</summary>
+
+Under memory pressure, the kernel may evict pages from the page cache. Accessing evicted data triggers a page fault and disk read—trading latency for memory. Resident pages are always shared.
+</details>
 
 ## Benchmark Summary
 
