@@ -1141,7 +1141,7 @@
       "path": "",
       "docstring": {
         "summary": "FastMCP server for Context-Fabric.",
-        "description": "FastMCP server for Context-Fabric.\n\nThis module defines the MCP server that exposes corpus operations\nto AI agents via the Model Context Protocol.\n\nTransports:\n- stdio (default): For Claude Desktop and local MCP clients\n- sse (--sse PORT): Server-Sent Events for remote MCP clients (e.g., Cursor)\n- http (--http PORT): Streamable HTTP for production deployments\n\nTool Set (10 tools):\nDiscovery:\n- list_corpora: List available corpora\n- describe_corpus: Corpus structure (node types, sections)\n- list_features: Browse features with optional node_type filter\n- describe_feature: Feature details with sample values\n- get_text_formats: Text encoding samples (cached)\nSearch:\n- search: Pattern search with return_type (results/count/statistics/passages)\n- search_continue: Paginated search continuation\n- search_syntax_guide: Search syntax docs (section-based)\nData Access:\n- get_passages: Batch section lookup\n- get_node_features: Batch feature lookup\n\nNote: Usage guide is provided via MCP instructions field at connection time.",
+        "description": "FastMCP server for Context-Fabric.\n\nThis module defines the MCP server that exposes corpus operations\nto AI agents via the Model Context Protocol.\n\nTransports:\n- stdio (default): For Claude Desktop and local MCP clients\n- sse (--sse PORT): Server-Sent Events for remote MCP clients (e.g., Cursor)\n- http (--http PORT): Streamable HTTP for production deployments\n\nTool Set (11 tools):\nDiscovery:\n- list_corpora: List available corpora\n- describe_corpus: Corpus structure (node types, sections)\n- list_features: Browse features with optional node_type filter\n- describe_feature: Feature details with sample values\n- get_text_formats: Text encoding samples (cached)\nSearch:\n- search: Pattern search with return_type (results/count/statistics/passages)\n- search_continue: Paginated search continuation\n- search_csv: Export search results to CSV file (stdio only)\n- search_syntax_guide: Search syntax docs (section-based)\nData Access:\n- get_passages: Batch section lookup\n- get_node_features: Batch feature lookup\n\nNote: Usage guide is provided via MCP instructions field at connection time.",
         "parsed": []
       },
       "classes": {},
@@ -1168,8 +1168,8 @@
           },
           "decorators": [
             {
-              "endlineno": 344,
-              "lineno": 344,
+              "endlineno": 378,
+              "lineno": 378,
               "value": {
                 "arguments": [
                   "'corpus://{corpus_name}'"
@@ -1216,8 +1216,8 @@
           },
           "decorators": [
             {
-              "endlineno": 116,
-              "lineno": 116,
+              "endlineno": 117,
+              "lineno": 117,
               "value": {
                 "arguments": [],
                 "cls": "ExprCall",
@@ -1274,8 +1274,8 @@
           },
           "decorators": [
             {
-              "endlineno": 134,
-              "lineno": 134,
+              "endlineno": 135,
+              "lineno": 135,
               "value": {
                 "arguments": [],
                 "cls": "ExprCall",
@@ -1320,8 +1320,8 @@
           },
           "decorators": [
             {
-              "endlineno": 364,
-              "lineno": 364,
+              "endlineno": 398,
+              "lineno": 398,
               "value": {
                 "arguments": [
                   "'corpus://{corpus_name}/features'"
@@ -1380,8 +1380,8 @@
           },
           "decorators": [
             {
-              "endlineno": 318,
-              "lineno": 318,
+              "endlineno": 352,
+              "lineno": 352,
               "value": {
                 "arguments": [],
                 "cls": "ExprCall",
@@ -1450,8 +1450,8 @@
           },
           "decorators": [
             {
-              "endlineno": 293,
-              "lineno": 293,
+              "endlineno": 327,
+              "lineno": 327,
               "value": {
                 "arguments": [],
                 "cls": "ExprCall",
@@ -1496,8 +1496,8 @@
           },
           "decorators": [
             {
-              "endlineno": 182,
-              "lineno": 182,
+              "endlineno": 183,
+              "lineno": 183,
               "value": {
                 "arguments": [],
                 "cls": "ExprCall",
@@ -1535,8 +1535,8 @@
           },
           "decorators": [
             {
-              "endlineno": 106,
-              "lineno": 106,
+              "endlineno": 107,
+              "lineno": 107,
               "value": {
                 "arguments": [],
                 "cls": "ExprCall",
@@ -1593,8 +1593,8 @@
           },
           "decorators": [
             {
-              "endlineno": 160,
-              "lineno": 160,
+              "endlineno": 161,
+              "lineno": 161,
               "value": {
                 "arguments": [],
                 "cls": "ExprCall",
@@ -1660,8 +1660,8 @@
           },
           "decorators": [
             {
-              "endlineno": 354,
-              "lineno": 354,
+              "endlineno": 388,
+              "lineno": 388,
               "value": {
                 "arguments": [
                   "'corpus://{corpus_name}/node/{node_id}'"
@@ -1750,8 +1750,8 @@
           },
           "decorators": [
             {
-              "endlineno": 203,
-              "lineno": 203,
+              "endlineno": 204,
+              "lineno": 204,
               "value": {
                 "arguments": [],
                 "cls": "ExprCall",
@@ -1814,8 +1814,78 @@
           },
           "decorators": [
             {
-              "endlineno": 246,
-              "lineno": 246,
+              "endlineno": 247,
+              "lineno": 247,
+              "value": {
+                "arguments": [],
+                "cls": "ExprCall",
+                "function": {
+                  "cls": "ExprAttribute",
+                  "values": [
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "mcp"
+                    },
+                    {
+                      "cls": "ExprName",
+                      "member": null,
+                      "name": "tool"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "search_csv": {
+          "name": "search_csv",
+          "kind": "function",
+          "signature": "(template: str, file_path: str, limit: int = 10000, delimiter: str = ',', corpus: str | None = None)",
+          "docstring": {
+            "summary": "Export search results to a CSV file.",
+            "description": "Export search results to a CSV file.\n\nUse this tool instead of search() when exporting large result sets that\nwould be unwieldy to return inline. Results are written directly to a file\nrather than returned in the response.\n\nNote: This tool writes to the local filesystem and requires stdio transport.\nNot available over HTTP/SSE - use search() with a limit parameter instead.\n\nWrites delimited values with header row. Multi-node search results\nare flattened with positional prefixes (node0_*, node1_*, etc.).\n\nArgs:\n    template: Search template (use search_syntax_guide() for syntax help)\n    file_path: Absolute path to write the CSV file\n    limit: Maximum rows to export (default 10000)\n    delimiter: Field separator (default \",\", use \"\\t\" for TSV)\n    corpus: Corpus name (defaults to current corpus)\n\nReturns:\n    File path, total matches found, and rows written.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "template",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "file_path",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "limit",
+              "type": "int",
+              "default": "10000",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "delimiter",
+              "type": "str",
+              "default": "','",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "corpus",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": [
+            {
+              "endlineno": 271,
+              "lineno": 271,
               "value": {
                 "arguments": [],
                 "cls": "ExprCall",
@@ -1860,8 +1930,8 @@
           },
           "decorators": [
             {
-              "endlineno": 270,
-              "lineno": 270,
+              "endlineno": 304,
+              "lineno": 304,
               "value": {
                 "arguments": [],
                 "cls": "ExprCall",
@@ -1906,8 +1976,8 @@
           },
           "decorators": [
             {
-              "endlineno": 373,
-              "lineno": 373,
+              "endlineno": 407,
+              "lineno": 407,
               "value": {
                 "arguments": [
                   "'corpus://{corpus_name}/types'"
@@ -2451,6 +2521,52 @@
           },
           "decorators": []
         },
+        "search_csv": {
+          "name": "search_csv",
+          "kind": "function",
+          "signature": "(template: str, file_path: str, limit: int = 10000, delimiter: str = ',', corpus: str | None = None)",
+          "docstring": {
+            "summary": "Export search results to a CSV file.",
+            "description": "Export search results to a CSV file.\n\nArgs:\n    template: Search template (same syntax as search())\n    file_path: Absolute path to write CSV file\n    limit: Max rows to export (default 10000)\n    delimiter: Field separator (default \",\", use \"\\t\" for TSV)\n    corpus: Corpus name (defaults to current)\n\nReturns:\n    Dictionary with file_path, total_count, and rows_written.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "template",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "file_path",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "limit",
+              "type": "int",
+              "default": "10000",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "delimiter",
+              "type": "str",
+              "default": "','",
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "corpus",
+              "type": "str | None",
+              "default": "None",
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "dict[(str, Any)]"
+          },
+          "decorators": []
+        },
         "search_syntax_guide": {
           "name": "search_syntax_guide",
           "kind": "function",
@@ -2470,6 +2586,28 @@
           ],
           "returns": {
             "type": "dict[(str, Any)]"
+          },
+          "decorators": []
+        },
+        "set_transport": {
+          "name": "set_transport",
+          "kind": "function",
+          "signature": "(transport: str)",
+          "docstring": {
+            "summary": "Set the transport mode (called by server at startup).",
+            "description": "Set the transport mode (called by server at startup).",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "transport",
+              "type": "str",
+              "default": null,
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "None"
           },
           "decorators": []
         }
