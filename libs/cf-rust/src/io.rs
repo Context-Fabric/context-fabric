@@ -1,9 +1,11 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use crate::compiled::compile_features;
+use crate::compiled::{compile_features, compile_loaded_corpus};
 use crate::config::CFM_VERSION;
+use crate::corpus::Corpus;
 use crate::error::Result;
 use crate::feature::{EdgeFeature, NodeFeature, TfFeature, tf_from_value};
 use crate::parser::{TfFeatureKind, parse_tf_file, parse_tf_file_metadata};
@@ -23,7 +25,9 @@ pub enum TfDataContent {
     },
 }
 
-#[derive(Debug, Clone)]
+pub type ComputeMethod = Arc<dyn Fn(&[&TfDataContent]) -> TfDataContent + Send + Sync>;
+
+#[derive(Clone)]
 pub struct TfData {
     pub path: String,
     pub dir_name: String,
@@ -37,6 +41,10 @@ pub struct TfData {
     pub data_loaded: bool,
     pub data_error: bool,
     pub data_type: String,
+    pub method: Option<ComputeMethod>,
+    pub method_name: String,
+    pub dependencies: Vec<String>,
+    dependency_data: Vec<TfDataContent>,
 }
 
 pub type Data = TfData;
@@ -67,6 +75,17 @@ impl Compiler {
             .unwrap_or_else(|| self.default_output_path());
         compile_corpus_to_path(&self.source_dir, &output_path)
     }
+
+    pub fn compile_precomputed(
+        &self,
+        output_path: Option<&Path>,
+        precomputed: &Corpus,
+    ) -> Result<bool> {
+        let output_path = output_path
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| self.default_output_path());
+        compile_precomputed_to_path(&output_path, precomputed)
+    }
 }
 
 pub fn default_compiled_output_path(source_dir: impl AsRef<Path>) -> PathBuf {
@@ -93,6 +112,18 @@ fn compile_corpus_to_path(
         fs::create_dir_all(parent)?;
     }
     compile_features(source_dir, output_path, &[])?;
+    Ok(true)
+}
+
+fn compile_precomputed_to_path(
+    output_path: impl AsRef<Path>,
+    precomputed: &Corpus,
+) -> Result<bool> {
+    let output_path = output_path.as_ref();
+    if let Some(parent) = output_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    compile_loaded_corpus(precomputed, output_path)?;
     Ok(true)
 }
 
@@ -125,10 +156,33 @@ impl TfData {
             data_loaded: false,
             data_error: false,
             data_type: "str".to_string(),
+            method: None,
+            method_name: "load".to_string(),
+            dependencies: Vec::new(),
+            dependency_data: Vec::new(),
         }
     }
 
+    pub fn new_computed(
+        path: impl AsRef<Path>,
+        method_name: impl Into<String>,
+        dependencies: Vec<String>,
+        dependency_data: Vec<TfDataContent>,
+        method: ComputeMethod,
+    ) -> Self {
+        let mut data = Self::new(path);
+        data.method = Some(method);
+        data.method_name = method_name.into();
+        data.dependencies = dependencies;
+        data.dependency_data = dependency_data;
+        data
+    }
+
     pub fn load(&mut self, meta_only: bool) -> bool {
+        if self.method.is_some() {
+            return self.compute(meta_only);
+        }
+
         let path = PathBuf::from(&self.path);
         if !path.exists() {
             self.data_error = true;
@@ -178,6 +232,10 @@ impl TfData {
         self.write_tf().is_ok()
     }
 
+    pub fn save_result(&self) -> Result<()> {
+        self.write_tf()
+    }
+
     pub fn set_data_type(&mut self) {
         if self.is_config == Some(true) {
             return;
@@ -205,6 +263,32 @@ impl TfData {
     #[allow(non_snake_case)]
     pub fn dataError(&self) -> bool {
         self.data_error
+    }
+
+    pub fn method(&self) -> &str {
+        &self.method_name
+    }
+
+    pub fn dependencies(&self) -> &[String] {
+        &self.dependencies
+    }
+
+    pub fn dependency_data(&self) -> &[TfDataContent] {
+        &self.dependency_data
+    }
+
+    fn compute(&mut self, meta_only: bool) -> bool {
+        if meta_only {
+            return true;
+        }
+        let Some(method) = self.method.as_ref() else {
+            return false;
+        };
+        let dependencies = self.dependency_data.iter().collect::<Vec<_>>();
+        self.data = Some(method(&dependencies));
+        self.data_loaded = true;
+        self.data_error = false;
+        true
     }
 
     #[allow(non_snake_case)]

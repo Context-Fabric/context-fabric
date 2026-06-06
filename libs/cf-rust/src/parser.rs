@@ -182,9 +182,6 @@ where
     let mut implicit_node = 1_u32;
     for line_result in data_lines {
         let (line_no, line) = line_result?;
-        if line.is_empty() {
-            continue;
-        }
         let fields: Vec<&str> = line.split('\t').collect();
         let (nodes, raw_value) = if fields.len() == 1 {
             (vec![implicit_node], fields[0])
@@ -241,11 +238,22 @@ where
             });
         }
         let (sources, targets, raw_value) = if fields.len() >= 2 {
-            (
-                parse_node_spec(fields[0], path, line_no)?,
-                parse_node_spec(fields[1], path, line_no)?,
-                fields.get(2).copied(),
-            )
+            if has_edge_values && fields.len() == 2 {
+                match parse_node_spec(fields[1], path, line_no) {
+                    Ok(targets) => (parse_node_spec(fields[0], path, line_no)?, targets, None),
+                    Err(_) => (
+                        vec![implicit_node],
+                        parse_node_spec(fields[0], path, line_no)?,
+                        Some(fields[1]),
+                    ),
+                }
+            } else {
+                (
+                    parse_node_spec(fields[0], path, line_no)?,
+                    parse_node_spec(fields[1], path, line_no)?,
+                    fields.get(2).copied(),
+                )
+            }
         } else if fields.len() == 1 {
             (
                 vec![implicit_node],

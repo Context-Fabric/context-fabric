@@ -22,6 +22,7 @@ pub mod types;
 pub mod utils;
 
 pub use api::{API_REF_ROWS, Api, api_refs};
+pub use compiled::{MappedCompiledCorpus, compile_features, compile_loaded_corpus};
 pub use config::{
     __version__, API_VERSION, BANNER, BANNER as CF_BANNER, BRANCH_DEFAULT, BRANCH_DEFAULT_NEW,
     CFM_VERSION, CONFIG_MISSING_STR_INDEX, DOI_DEFAULT, DOI_URL_PREFIX, GH, GL, HOST, INDEX_DTYPE,
@@ -34,7 +35,8 @@ pub use corpus::{
     Boundary, Chunk, ChunkLengthKey, ChunkPositionKey, ComputedFeatureData, Corpus,
     CorpusDescription, CorpusOverview, FeatureCatalogEntry, FeatureDescription, FeatureKind,
     FeatureValueSample, LoadedFeatureInfo, LoadedFeatureKind, NodeTypeOverview, SectionOptions,
-    TextFormatInfo, TextFormatSample, TextRepresentationInfo, WalkEvent,
+    StructureInfo, StructureTree, TextFormatInfo, TextFormatSample, TextOptions,
+    TextRepresentationInfo, WalkEvent,
 };
 pub use describe::{
     describe_corpus, describe_corpus_overview, describe_feature, describe_features,
@@ -45,7 +47,7 @@ pub use downloader::{
     corpus_registry, download, get_cache_dir, getCacheDir, list_corpora, resolve_corpus_id,
 };
 pub use error::{CfError, Result};
-pub use explore::{FeatureInventory, explore_features};
+pub use explore::{FeatureInventory, explore_feature_paths, explore_features};
 pub use fabric::{Fabric, FeatureSpec};
 pub use feature::{
     Computed, Computeds, EdgeFeature, EdgeFeatures, EdgeFrequency, FeatureValue, LevDownComputed,
@@ -90,20 +92,21 @@ pub use utils::{
     AUTO, AttrDict, CliFlagSpec, CliFlagValue, CliReadResult, CollectedFormat, DEEP, DirContext,
     FitemizeValue, FlattenFeatureSpec, LEVEL_MAP, LOCATIONS, LOG_LEVEL_DEBUG, LOG_LEVEL_ERROR,
     LOG_LEVEL_INFO, LOG_LEVEL_WARNING, LogicalRange, MSG64, Projection, SILENT_D, SetValue,
-    SilentInput, TERSE, VERBOSE, WARN32, abspath, backendRep, camel, chDir, check32, clean_name,
-    cleanName, collect_formats, collectFormats, configure_logging, console, console_message,
-    deep_attr_dict, deep_size_json, deepAttrDict, deepSize, deepSizeJson, deepdict, dirAllFiles,
-    dirContents, dirCopy, dirEmpty, dirExists, dirMake, dirMove, dirNm, dirRemove, expandDir,
-    expanduser, extNm, fileCopy, fileExists, fileMake, fileMove, fileNm, fileRemove, fitemize,
-    flatten_to_set, flattenToSet, format_meta, formatMeta, getCwd, html_esc, htmlEsc, is_clean,
-    is_int, is_iterable, isClean, isDir, isFile, isInt, isIterable, itemize, level_map,
-    logging_level, make_examples, make_index, make_inverse, make_inverse_val, makeExamples,
-    makeIndex, makeInverse, makeInverseVal, math_esc, mathEsc, md_esc, mdEsc, mdhtml_esc,
-    mdhtmlEsc, merge_dict, merge_dict_of_sets, mergeDict, mergeDictOfSets, nbytes, normpath,
-    pandas_esc, pandasEsc, prefixSlash, project, ranges_from_list, ranges_from_set, rangesFromList,
-    rangesFromSet, read_args, readArgs, readJson, readYaml, replaceExt, scanDir, set_from_spec,
-    set_from_str, set_from_value, set_logging_level, setDir, setFromSpec, setFromStr, setFromValue,
-    silentConvert, spec_from_ranges, spec_from_ranges_logical, specFromRanges,
-    specFromRangesLogical, splitExt, splitPath, stripExt, tsv_esc, tsvEsc, unexpanduser, utcnow,
-    var, version_sort, versionSort, writeJson, writeYaml, xml_esc, xmlEsc,
+    SilentInput, TERSE, VERBOSE, WARN32, abspath, active_logging_level, backendRep, camel, chDir,
+    check32, clean_name, cleanName, collect_formats, collectFormats, configure_logging, console,
+    console_message, deep_attr_dict, deep_size_json, deepAttrDict, deepSize, deepSizeJson,
+    deepdict, dirAllFiles, dirContents, dirCopy, dirEmpty, dirExists, dirMake, dirMove, dirNm,
+    dirRemove, expandDir, expanduser, extNm, fileCopy, fileExists, fileMake, fileMove, fileNm,
+    fileRemove, fitemize, flatten_to_set, flattenToSet, format_meta, formatMeta, getCwd, html_esc,
+    htmlEsc, is_clean, is_int, is_iterable, isClean, isDir, isFile, isInt, isIterable, itemize,
+    level_map, log_message, logging_level, make_examples, make_index, make_inverse,
+    make_inverse_val, makeExamples, makeIndex, makeInverse, makeInverseVal, math_esc, mathEsc,
+    md_esc, mdEsc, mdhtml_esc, mdhtmlEsc, merge_dict, merge_dict_of_sets, mergeDict,
+    mergeDictOfSets, nbytes, normpath, pandas_esc, pandasEsc, prefixSlash, project,
+    ranges_from_list, ranges_from_set, rangesFromList, rangesFromSet, read_args, readArgs,
+    readJson, readYaml, replaceExt, scanDir, set_from_spec, set_from_str, set_from_value,
+    set_logging_level, setDir, setFromSpec, setFromStr, setFromValue, should_log, silentConvert,
+    spec_from_ranges, spec_from_ranges_logical, specFromRanges, specFromRangesLogical, splitExt,
+    splitPath, stripExt, tsv_esc, tsvEsc, unexpanduser, utcnow, var, version_sort, versionSort,
+    writeJson, writeYaml, xml_esc, xmlEsc,
 };

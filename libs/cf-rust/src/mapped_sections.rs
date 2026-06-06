@@ -136,6 +136,9 @@ impl<'a> MappedSections<'a> {
             };
             if section_node.is_some() || options.fillup || index == 0 {
                 sections.push(section_node);
+                if node_type == section_type && !options.fillup {
+                    break;
+                }
             } else {
                 break;
             }
@@ -315,6 +318,7 @@ impl<'a> MappedSections<'a> {
             }
         }
         self.sort_nodes(&mut result)?;
+        result.reverse();
         Ok(result)
     }
 
@@ -334,6 +338,7 @@ impl<'a> MappedSections<'a> {
             result.push(candidate);
         }
         self.sort_nodes(&mut result)?;
+        result.reverse();
         Ok(result)
     }
 

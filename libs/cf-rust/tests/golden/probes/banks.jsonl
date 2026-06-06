@@ -1,0 +1,11 @@
+{"id":"banks_top","kind":"top","args":{}}
+{"id":"banks_structure_forest","kind":"structure","args":{}}
+{"id":"banks_sentence_heading","kind":"heading_from_node","args":{"node":115}}
+{"id":"banks_sentence_from_heading","kind":"node_from_heading","args":{"heading":[["book","Consider Phlebas"],["chapter",1],["sentence",1]]}}
+{"id":"banks_sentence_structure_pretty","kind":"structure_pretty","args":{"node":115}}
+{"id":"banks_sentence_structure_pretty_full","kind":"structure_pretty","args":{"node":115,"full_heading":true}}
+{"id":"banks_book_section","kind":"section_from_node","args":{"node":100}}
+{"id":"banks_sentence_section","kind":"section_from_node","args":{"node":115}}
+{"id":"banks_sentence_text_no_descend","kind":"text","args":{"node":115,"descend":false}}
+{"id":"banks_sentence_text_descend","kind":"text","args":{"node":115,"descend":true}}
+{"id":"banks_sentence_node","kind":"node_from_section","args":{"section":["Consider Phlebas",1,1]}}

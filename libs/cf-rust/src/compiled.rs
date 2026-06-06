@@ -729,7 +729,7 @@ impl MappedCompiledCorpus {
         let Some(feature) = self.metadata.edge_feature(name) else {
             return Ok(None);
         };
-        EdgeFeatureView::new(&self.path, &self.mmap, feature).map(Some)
+        EdgeFeatureView::new(&self.path, &self.mmap, feature, self.rank()?).map(Some)
     }
 
     #[allow(non_snake_case)]
@@ -1679,10 +1679,16 @@ pub struct EdgeFeatureView<'a> {
     row_offsets: Vec<usize>,
     edge_value_count: usize,
     edge_values_start: Option<usize>,
+    rank: Vec<u32>,
 }
 
 impl<'a> EdgeFeatureView<'a> {
-    fn new(path: &'a Path, bytes: &'a [u8], feature: &CompiledEdgeFeature) -> Result<Self> {
+    fn new(
+        path: &'a Path,
+        bytes: &'a [u8],
+        feature: &CompiledEdgeFeature,
+        rank: Vec<u32>,
+    ) -> Result<Self> {
         let mut offset = feature.payload_start;
         let row_count = read_u32_at(path, bytes, &mut offset)? as usize;
         if row_count != feature.row_count {
@@ -1704,6 +1710,7 @@ impl<'a> EdgeFeatureView<'a> {
             row_offsets,
             edge_value_count: feature.edge_value_count,
             edge_values_start: feature.edge_values_start,
+            rank,
         })
     }
 
@@ -1776,9 +1783,12 @@ impl<'a> EdgeFeatureView<'a> {
     }
 
     pub fn s(&self, source: u32) -> Result<Vec<u32>> {
-        self.targets(source)?
+        let mut targets = self
+            .targets(source)?
             .map(|targets| targets.collect::<Result<Vec<_>>>())
-            .unwrap_or_else(|| Ok(Vec::new()))
+            .unwrap_or_else(|| Ok(Vec::new()))?;
+        self.sort_nodes(&mut targets);
+        Ok(targets)
     }
 
     pub fn f(&self, source: u32) -> Result<Vec<u32>> {
@@ -1861,7 +1871,7 @@ impl<'a> EdgeFeatureView<'a> {
                 }
             }
         }
-        sources.sort_unstable();
+        self.sort_nodes(&mut sources);
         sources.dedup();
         Ok(sources)
     }
@@ -1887,7 +1897,7 @@ impl<'a> EdgeFeatureView<'a> {
     pub fn both(&self, node: u32) -> Result<Vec<u32>> {
         let mut nodes = self.forward(node)?;
         nodes.extend(self.backward(node)?);
-        nodes.sort_unstable();
+        self.sort_nodes(&mut nodes);
         nodes.dedup();
         Ok(nodes)
     }
@@ -1905,7 +1915,7 @@ impl<'a> EdgeFeatureView<'a> {
             by_node.insert(target, value);
         }
         let mut rows: Vec<_> = by_node.into_iter().collect();
-        rows.sort_unstable_by_key(|(node, _)| *node);
+        rows.sort_unstable_by_key(|(node, _)| self.rank_key(*node));
         Ok(rows)
     }
 
@@ -1935,12 +1945,25 @@ impl<'a> EdgeFeatureView<'a> {
                     targets_start + (index * 4),
                 )?);
             }
-            targets.sort_unstable();
+            self.sort_nodes(&mut targets);
             targets.dedup();
             rows.push((source, targets));
         }
-        rows.sort_unstable_by_key(|(source, _)| *source);
+        rows.sort_unstable_by_key(|(source, _)| self.rank_key(*source));
         Ok(rows)
+    }
+
+    fn sort_nodes(&self, nodes: &mut [u32]) {
+        nodes.sort_unstable_by_key(|node| self.rank_key(*node));
+    }
+
+    fn rank_key(&self, node: u32) -> (u32, u32) {
+        let rank = self
+            .rank
+            .get(node.saturating_sub(1) as usize)
+            .copied()
+            .unwrap_or(node);
+        (rank, node)
     }
 
     pub fn edge_value(
@@ -2124,6 +2147,10 @@ pub fn compile_features(
     }
     .with_rank_arrays();
     write_compiled(&corpus, output_path.as_ref())
+}
+
+pub fn compile_loaded_corpus(corpus: &Corpus, output_path: impl AsRef<Path>) -> Result<()> {
+    write_compiled(corpus, output_path.as_ref())
 }
 
 pub fn inspect_compiled(path: impl AsRef<Path>) -> Result<CompiledMetadata> {

@@ -2,14 +2,16 @@ use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader};
-use std::path::Path;
-use std::sync::OnceLock;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, OnceLock};
 
 use serde::Serialize;
 
 use crate::error::{CfError, Result};
 use crate::feature::{EdgeFeature, EdgeFrequency, FeatureValue, NodeFeature, TfFeature};
+use crate::io::{TfData, TfDataContent};
 use crate::parser::parse_tf_file;
+use crate::precompute::{self, StructureData, StructureHeading};
 use crate::search::Search;
 
 #[derive(Debug)]
@@ -108,6 +110,43 @@ pub struct TextFormatInfo {
 pub struct TextRepresentationInfo {
     pub description: String,
     pub formats: Vec<TextFormatInfo>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct TextOptions {
+    pub format: Option<String>,
+    pub descend: Option<bool>,
+}
+
+impl TextOptions {
+    pub fn new(format: Option<impl Into<String>>, descend: Option<bool>) -> Self {
+        Self {
+            format: format.map(Into::into),
+            descend,
+        }
+    }
+}
+
+struct ResolvedTextFormat {
+    target_type: String,
+    spec: String,
+    implicit_node_default: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub enum StructureTree {
+    Forest(Vec<StructureTree>),
+    Node {
+        node: u32,
+        children: Vec<StructureTree>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct StructureInfo {
+    pub headings: Vec<(String, String)>,
+    pub node_count: usize,
+    pub multiple_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -352,15 +391,52 @@ impl ChunkLengthKey {
 
 impl Corpus {
     pub fn load(path: impl AsRef<Path>) -> Result<Self> {
-        Self::load_inner(path.as_ref(), None)
+        Self::load_inner(&[path.as_ref().to_path_buf()], None)
     }
 
     pub fn load_features(path: impl AsRef<Path>, features: &[&str]) -> Result<Self> {
-        Self::load_inner(path.as_ref(), Some(features))
+        Self::load_inner(&[path.as_ref().to_path_buf()], Some(features))
+    }
+
+    pub fn load_paths<I, P>(paths: I) -> Result<Self>
+    where
+        I: IntoIterator<Item = P>,
+        P: AsRef<Path>,
+    {
+        let paths = paths
+            .into_iter()
+            .map(|path| path.as_ref().to_path_buf())
+            .collect::<Vec<_>>();
+        Self::load_inner(&paths, None)
+    }
+
+    pub fn load_features_from_paths<I, P>(paths: I, features: &[&str]) -> Result<Self>
+    where
+        I: IntoIterator<Item = P>,
+        P: AsRef<Path>,
+    {
+        let paths = paths
+            .into_iter()
+            .map(|path| path.as_ref().to_path_buf())
+            .collect::<Vec<_>>();
+        Self::load_inner(&paths, Some(features))
     }
 
     pub fn add_features_from(&mut self, path: impl AsRef<Path>, features: &[&str]) -> Result<bool> {
         let added = Self::load_features(path, features)?;
+        self.merge_loaded_features(added)
+    }
+
+    pub fn add_features_from_paths<I, P>(&mut self, paths: I, features: &[&str]) -> Result<bool>
+    where
+        I: IntoIterator<Item = P>,
+        P: AsRef<Path>,
+    {
+        let added = Self::load_features_from_paths(paths, features)?;
+        self.merge_loaded_features(added)
+    }
+
+    fn merge_loaded_features(&mut self, added: Self) -> Result<bool> {
         let mut node_features = std::mem::take(&mut self.node_features);
         let mut edge_features = std::mem::take(&mut self.edge_features);
         let mut config_features = std::mem::take(&mut self.config_features);
@@ -375,6 +451,7 @@ impl Corpus {
             Self::from_feature_maps_with_configs(node_features, edge_features, config_features)?;
         rebuilt.order = order;
         rebuilt.rank = rank;
+        rebuilt.attach_feature_rank();
         *self = rebuilt;
         Ok(true)
     }
@@ -382,6 +459,33 @@ impl Corpus {
     #[allow(non_snake_case)]
     pub fn addFeaturesFrom(&mut self, path: impl AsRef<Path>, features: &[&str]) -> Result<bool> {
         self.add_features_from(path, features)
+    }
+
+    pub fn save(&self, location: impl AsRef<Path>) -> Result<bool> {
+        let location = location.as_ref();
+        fs::create_dir_all(location).map_err(|source| CfError::Io {
+            path: location.to_path_buf(),
+            source,
+        })?;
+        for feature in self.node_features.values() {
+            let mut data = TfData::new(location.join(format!("{}.tf", feature.name)));
+            data.data = Some(TfDataContent::Node(feature.clone()));
+            data.save_result()?;
+        }
+        for feature in self.edge_features.values() {
+            let mut data = TfData::new(location.join(format!("{}.tf", feature.name)));
+            data.data = Some(TfDataContent::Edge(feature.clone()));
+            data.save_result()?;
+        }
+        for (name, metadata) in &self.config_features {
+            let mut data = TfData::new(location.join(format!("{name}.tf")));
+            data.data = Some(TfDataContent::Config {
+                name: name.clone(),
+                metadata: metadata.clone(),
+            });
+            data.save_result()?;
+        }
+        Ok(true)
     }
 
     pub(crate) fn from_feature_maps_with_configs(
@@ -452,7 +556,8 @@ impl Corpus {
             order_cache: OnceLock::new(),
             rank_cache: OnceLock::new(),
             boundary_cache: OnceLock::new(),
-        })
+        }
+        .with_rank_arrays())
     }
 
     pub(crate) fn with_rank_arrays(mut self) -> Self {
@@ -465,55 +570,74 @@ impl Corpus {
         }
         self.order = Some(order);
         self.rank = Some(rank);
+        self.attach_feature_rank();
         self
     }
 
-    fn load_inner(path: &Path, features: Option<&[&str]>) -> Result<Self> {
+    fn attach_feature_rank(&mut self) {
+        let Some(rank) = self.rank.clone() else {
+            return;
+        };
+        let rank = Arc::new(rank);
+        for feature in self.node_features.values_mut() {
+            let updated = feature.clone().with_rank(rank.clone());
+            *feature = updated;
+        }
+        for feature in self.edge_features.values_mut() {
+            let updated = feature.clone().with_rank(rank.clone());
+            *feature = updated;
+        }
+    }
+
+    fn load_inner(paths: &[PathBuf], features: Option<&[&str]>) -> Result<Self> {
         let mut node_features = BTreeMap::new();
         let mut edge_features = BTreeMap::new();
         let mut config_features = BTreeMap::new();
-        for entry in fs::read_dir(path).map_err(|source| CfError::Io {
-            path: path.to_path_buf(),
-            source,
-        })? {
-            let entry = entry.map_err(|source| CfError::Io {
+        for path in paths {
+            for entry in fs::read_dir(path).map_err(|source| CfError::Io {
                 path: path.to_path_buf(),
                 source,
-            })?;
-            let feature_path = entry.path();
-            if feature_path.extension().and_then(|ext| ext.to_str()) != Some("tf") {
-                continue;
-            }
-            let Some(feature_name) = feature_path.file_stem().and_then(|stem| stem.to_str()) else {
-                continue;
-            };
-            if let Some(features) = features {
-                if !features.contains(&feature_name)
-                    && !matches!(feature_name, "otype" | "oslots")
-                    && !is_config_feature_file(&feature_path)?
-                {
+            })? {
+                let entry = entry.map_err(|source| CfError::Io {
+                    path: path.to_path_buf(),
+                    source,
+                })?;
+                let feature_path = entry.path();
+                if feature_path.extension().and_then(|ext| ext.to_str()) != Some("tf") {
                     continue;
                 }
-            }
-            let parsed = parse_tf_file(&feature_path)?;
-            if let Some(features) = features {
-                if matches!(&parsed, TfFeature::Config { .. }) {
-                    // Config features are lightweight metadata and keep selective loads usable.
-                } else if !features.contains(&feature_name)
-                    && !matches!(feature_name, "otype" | "oslots")
-                {
+                let Some(feature_name) = feature_path.file_stem().and_then(|stem| stem.to_str())
+                else {
                     continue;
+                };
+                if let Some(features) = features {
+                    if !features.contains(&feature_name)
+                        && !matches!(feature_name, "otype" | "oslots")
+                        && !is_config_feature_file(&feature_path)?
+                    {
+                        continue;
+                    }
                 }
-            }
-            match parsed {
-                TfFeature::Node(feature) => {
-                    node_features.insert(feature.name.clone(), feature);
+                let parsed = parse_tf_file(&feature_path)?;
+                if let Some(features) = features {
+                    if matches!(&parsed, TfFeature::Config { .. }) {
+                        // Config features are lightweight metadata and keep selective loads usable.
+                    } else if !features.contains(&feature_name)
+                        && !matches!(feature_name, "otype" | "oslots")
+                    {
+                        continue;
+                    }
                 }
-                TfFeature::Edge(feature) => {
-                    edge_features.insert(feature.name.clone(), feature);
-                }
-                TfFeature::Config { name, metadata } => {
-                    config_features.insert(name, metadata);
+                match parsed {
+                    TfFeature::Node(feature) => {
+                        node_features.insert(feature.name.clone(), feature);
+                    }
+                    TfFeature::Edge(feature) => {
+                        edge_features.insert(feature.name.clone(), feature);
+                    }
+                    TfFeature::Config { name, metadata } => {
+                        config_features.insert(name, metadata);
+                    }
                 }
             }
         }
@@ -672,6 +796,16 @@ impl Corpus {
         self.is_loaded(features)
     }
 
+    pub fn footprint(&self) -> BTreeMap<String, usize> {
+        BTreeMap::from([
+            ("configs".to_string(), self.config_features.len()),
+            ("edges".to_string(), self.edge_features.len()),
+            ("nodes".to_string(), self.node_features.len()),
+            ("computed".to_string(), self.computed_names().len()),
+            ("maxNode".to_string(), self.max_node as usize),
+        ])
+    }
+
     pub fn overview(&self, name: impl Into<String>) -> CorpusOverview {
         let node_types = self
             .levels()
@@ -752,6 +886,145 @@ impl Corpus {
         self.structure_features()
     }
 
+    pub fn structure_data(&self) -> Option<StructureData> {
+        precompute::structure(self)
+    }
+
+    #[allow(non_snake_case)]
+    pub fn structureData(&self) -> Option<StructureData> {
+        self.structure_data()
+    }
+
+    pub fn structure(&self, node: Option<u32>) -> Option<StructureTree> {
+        let data = self.structure_data()?;
+        match node {
+            Some(node) => self.structure_tree_from_data(node, &data),
+            None => Some(StructureTree::Forest(
+                data.top
+                    .iter()
+                    .filter_map(|node| self.structure_tree_from_data(*node, &data))
+                    .collect(),
+            )),
+        }
+    }
+
+    pub fn structure_pretty(&self, node: Option<u32>, full_heading: bool) -> Option<String> {
+        let data = self.structure_data()?;
+        let tree = self.structure(node)?;
+        let mut lines = Vec::new();
+        self.structure_pretty_lines(&tree, &data, full_heading, "  ", &mut lines);
+        Some(lines.join("\n"))
+    }
+
+    #[allow(non_snake_case)]
+    pub fn structurePretty(&self, node: Option<u32>, full_heading: bool) -> Option<String> {
+        self.structure_pretty(node, full_heading)
+    }
+
+    pub fn structure_info(&self) -> Option<StructureInfo> {
+        let data = self.structure_data()?;
+        Some(StructureInfo {
+            headings: self
+                .structure_types()
+                .into_iter()
+                .zip(self.structure_features())
+                .collect(),
+            node_count: data.heading_from_node.len(),
+            multiple_count: data.multiple.len(),
+        })
+    }
+
+    #[allow(non_snake_case)]
+    pub fn structureInfo(&self) -> Option<StructureInfo> {
+        self.structure_info()
+    }
+
+    pub fn top(&self) -> Option<Vec<u32>> {
+        Some(self.structure_data()?.top)
+    }
+
+    pub fn structure_up(&self, node: u32) -> Option<u32> {
+        self.structure_data()?.up.get(&node).copied()
+    }
+
+    pub fn structure_down(&self, node: u32) -> Option<Vec<u32>> {
+        Some(
+            self.structure_data()?
+                .down
+                .get(&node)
+                .cloned()
+                .unwrap_or_default(),
+        )
+    }
+
+    pub fn heading_from_node(&self, node: u32) -> Option<Vec<StructureHeading>> {
+        self.structure_data()?.heading_from_node.get(&node).cloned()
+    }
+
+    #[allow(non_snake_case)]
+    pub fn headingFromNode(&self, node: u32) -> Option<Vec<StructureHeading>> {
+        self.heading_from_node(node)
+    }
+
+    pub fn node_from_heading(&self, heading: &[StructureHeading]) -> Option<u32> {
+        self.structure_data()?
+            .node_from_heading
+            .get(heading)
+            .copied()
+    }
+
+    #[allow(non_snake_case)]
+    pub fn nodeFromHeading(&self, heading: &[StructureHeading]) -> Option<u32> {
+        self.node_from_heading(heading)
+    }
+
+    fn structure_tree_from_data(&self, node: u32, data: &StructureData) -> Option<StructureTree> {
+        if !data.heading_from_node.contains_key(&node) {
+            return None;
+        }
+        Some(StructureTree::Node {
+            node,
+            children: data
+                .down
+                .get(&node)
+                .into_iter()
+                .flatten()
+                .filter_map(|child| self.structure_tree_from_data(*child, data))
+                .collect(),
+        })
+    }
+
+    fn structure_pretty_lines(
+        &self,
+        tree: &StructureTree,
+        data: &StructureData,
+        full_heading: bool,
+        indent: &str,
+        lines: &mut Vec<String>,
+    ) {
+        match tree {
+            StructureTree::Forest(children) => {
+                for child in children {
+                    self.structure_pretty_lines(child, data, full_heading, indent, lines);
+                }
+            }
+            StructureTree::Node { node, children } => {
+                if let Some(heading) = data.heading_from_node.get(node) {
+                    let parts = if full_heading {
+                        heading.as_slice()
+                    } else {
+                        heading.last().map(std::slice::from_ref).unwrap_or(&[])
+                    };
+                    lines.push(format!("{indent}{}", structure_heading_repr(parts)));
+                }
+                let child_indent = format!("{indent}    ");
+                for child in children {
+                    self.structure_pretty_lines(child, data, full_heading, &child_indent, lines);
+                }
+            }
+        }
+    }
+
     pub fn section_tuple(&self, node: u32, options: &SectionOptions) -> Vec<Option<u32>> {
         let section_types = self.section_types();
         if section_types.is_empty() || node == 0 || node > self.max_node {
@@ -786,6 +1059,9 @@ impl Corpus {
             };
             if section_node.is_some() || options.fillup || index == 0 {
                 sections.push(section_node);
+                if node_type == section_type && !options.fillup {
+                    break;
+                }
             } else {
                 break;
             }
@@ -807,14 +1083,28 @@ impl Corpus {
         node: u32,
         options: &SectionOptions,
     ) -> Vec<Option<FeatureValue>> {
+        self.section_from_node_lang(node, options, "en")
+    }
+
+    pub fn section_from_node_lang(
+        &self,
+        node: u32,
+        options: &SectionOptions,
+        lang: &str,
+    ) -> Vec<Option<FeatureValue>> {
         let section_features = self.section_features();
         self.section_tuple(node, options)
             .into_iter()
             .enumerate()
             .map(|(index, section_node)| {
                 let section_node = section_node?;
-                let feature_name = section_features.get(index)?;
-                self.node_feature(feature_name)
+                let feature_name = if index == 0 {
+                    self.section_0_feature_for_lang(lang)
+                        .or_else(|| section_features.get(index).cloned())?
+                } else {
+                    section_features.get(index)?.clone()
+                };
+                self.node_feature(&feature_name)
                     .and_then(|feature| feature.v(section_node))
                     .cloned()
             })
@@ -839,6 +1129,10 @@ impl Corpus {
     }
 
     pub fn node_from_section(&self, section: &[FeatureValue]) -> Option<u32> {
+        self.node_from_section_lang(section, "en")
+    }
+
+    pub fn node_from_section_lang(&self, section: &[FeatureValue], lang: &str) -> Option<u32> {
         let section_types = self.section_types();
         let section_features = self.section_features();
         if section.is_empty()
@@ -859,7 +1153,7 @@ impl Corpus {
                         level: Some(index + 1),
                         ..SectionOptions::default()
                     };
-                    self.section_from_node(*node, &options)
+                    self.section_from_node_lang(*node, &options, lang)
                         .get(index)
                         .and_then(Option::as_ref)
                         == Some(expected)
@@ -872,31 +1166,206 @@ impl Corpus {
         self.node_from_section(section)
     }
 
-    pub fn text(&self, node: u32, format: Option<&str>) -> String {
-        let format = format.unwrap_or("text-orig-full");
-        let format_key = if format.starts_with("fmt:") {
-            format.to_string()
-        } else {
-            format!("fmt:{format}")
+    pub fn languages(&self) -> BTreeMap<String, BTreeMap<String, String>> {
+        self.section_0_language_features()
+            .into_iter()
+            .filter_map(|(code, feature_name)| {
+                let feature = self.node_feature(&feature_name)?;
+                let mut metadata = BTreeMap::new();
+                metadata.insert(
+                    "language".to_string(),
+                    feature
+                        .metadata
+                        .get("language")
+                        .and_then(Option::clone)
+                        .unwrap_or_else(|| "default".to_string()),
+                );
+                metadata.insert(
+                    "languageEnglish".to_string(),
+                    feature
+                        .metadata
+                        .get("languageEnglish")
+                        .and_then(Option::clone)
+                        .unwrap_or_else(|| "default".to_string()),
+                );
+                Some((code, metadata))
+            })
+            .collect()
+    }
+
+    pub fn name_from_node(&self, lang: &str) -> BTreeMap<u32, String> {
+        let Some(feature_name) = self.section_0_feature_for_lang(lang) else {
+            return BTreeMap::new();
         };
+        let Some(feature) = self.node_feature(&feature_name) else {
+            return BTreeMap::new();
+        };
+        feature
+            .values
+            .iter()
+            .filter_map(|(node, value)| value.as_str().map(|value| (*node, value.to_string())))
+            .collect()
+    }
+
+    #[allow(non_snake_case)]
+    pub fn nameFromNode(&self, lang: &str) -> BTreeMap<u32, String> {
+        self.name_from_node(lang)
+    }
+
+    pub fn node_from_name(&self, lang: &str) -> BTreeMap<(String, String), u32> {
+        let section_0_type = self.section_types().into_iter().next().unwrap_or_default();
+        let names = self.name_from_node(lang);
+        self.nodes_of_type(&section_0_type)
+            .into_iter()
+            .filter_map(|node| {
+                names
+                    .get(node)
+                    .map(|name| ((section_0_type.clone(), name.clone()), *node))
+            })
+            .collect()
+    }
+
+    #[allow(non_snake_case)]
+    pub fn nodeFromName(&self, lang: &str) -> BTreeMap<(String, String), u32> {
+        self.node_from_name(lang)
+    }
+
+    pub fn section_0_name(&self, node: u32, lang: &str) -> Option<String> {
+        let section_0_type = self.section_types().into_iter().next()?;
+        let section_0_node = if self.node_type(node)? == section_0_type {
+            node
+        } else {
+            self.u(node, Some(&section_0_type)).into_iter().next()?
+        };
+        self.name_from_node(lang).get(&section_0_node).cloned()
+    }
+
+    pub fn section_0_node(&self, name: &str, lang: &str) -> Option<u32> {
+        let section_0_type = self.section_types().into_iter().next().unwrap_or_default();
+        self.node_from_name(lang)
+            .get(&(section_0_type, name.to_string()))
+            .copied()
+    }
+
+    #[allow(non_snake_case)]
+    pub fn bookName(&self, node: u32, lang: &str) -> Option<String> {
+        self.section_0_name(node, lang)
+    }
+
+    #[allow(non_snake_case)]
+    pub fn bookNode(&self, name: &str, lang: &str) -> Option<u32> {
+        self.section_0_node(name, lang)
+    }
+
+    fn section_0_language_features(&self) -> BTreeMap<String, String> {
+        let Some(section_0_type) = self.section_types().into_iter().next() else {
+            return BTreeMap::new();
+        };
+        self.node_features
+            .iter()
+            .filter_map(|(name, feature)| {
+                let code = feature
+                    .metadata
+                    .get("languageCode")
+                    .and_then(Option::as_deref)?;
+                let has_section_0_values = self
+                    .nodes_of_type(&section_0_type)
+                    .iter()
+                    .any(|node| feature.v(*node).is_some());
+                has_section_0_values.then(|| (code.to_string(), name.clone()))
+            })
+            .collect()
+    }
+
+    fn section_0_feature_for_lang(&self, lang: &str) -> Option<String> {
+        let language_features = self.section_0_language_features();
+        if let Some(feature) = language_features.get(lang) {
+            return Some(feature.clone());
+        }
+        if let Some(feature) = language_features.get("") {
+            return Some(feature.clone());
+        }
+        self.section_features().into_iter().next()
+    }
+
+    pub fn text(&self, node: u32, format: Option<&str>) -> String {
+        self.text_with_options(node, &TextOptions::new(format.map(str::to_string), None))
+    }
+
+    pub fn text_with_options(&self, node: u32, options: &TextOptions) -> String {
+        if node == 0 || node > self.max_node {
+            return String::new();
+        }
+        let Some(node_type) = self.node_type(node) else {
+            return String::new();
+        };
+        let Some(resolved) = self.resolve_text_format(node_type, options.format.as_deref()) else {
+            return String::new();
+        };
+
+        let down_type = match options.descend {
+            Some(true) => Some(resolved.target_type.as_str()),
+            Some(false) => None,
+            None => {
+                if resolved.implicit_node_default {
+                    None
+                } else {
+                    Some(resolved.target_type.as_str())
+                }
+            }
+        }
+        .filter(|down_type| *down_type != node_type);
+
+        let nodes = match down_type {
+            Some(down_type) if down_type == self.slot_type => self.slots(node),
+            Some(down_type) => self.d(node, Some(down_type)),
+            None => vec![node],
+        };
+        nodes
+            .into_iter()
+            .map(|text_node| self.text_for_node(text_node, &resolved.spec))
+            .collect()
+    }
+
+    #[allow(non_snake_case)]
+    pub fn textWithOptions(&self, node: u32, options: &TextOptions) -> String {
+        self.text_with_options(node, options)
+    }
+
+    fn resolve_text_format(
+        &self,
+        node_type: &str,
+        format: Option<&str>,
+    ) -> Option<ResolvedTextFormat> {
+        let otext = self.config_feature("otext")?;
+        let (format_name, implicit_node_default) = match format {
+            Some(format) => (
+                format.strip_prefix("fmt:").unwrap_or(format).to_string(),
+                false,
+            ),
+            None => {
+                let node_default = format!("{node_type}-default");
+                if otext.contains_key(&format!("fmt:{node_default}")) {
+                    (node_default, true)
+                } else {
+                    ("text-orig-full".to_string(), false)
+                }
+            }
+        };
+        let format_key = format!("fmt:{format_name}");
         let Some(spec) = self
             .config_feature("otext")
             .and_then(|metadata| metadata.get(&format_key))
             .and_then(Option::as_deref)
         else {
-            return String::new();
+            return None;
         };
-
-        if node == 0 || node > self.max_node {
-            return String::new();
-        }
-        if node <= self.max_slot {
-            return self.text_for_slot(node, spec);
-        }
-        self.slots(node)
-            .into_iter()
-            .map(|slot| self.text_for_slot(slot, spec))
-            .collect::<String>()
+        let (target_type, spec) = self.split_format(spec);
+        Some(ResolvedTextFormat {
+            target_type,
+            spec,
+            implicit_node_default,
+        })
     }
 
     pub fn text_nodes(&self, nodes: &[u32], format: Option<&str>) -> String {
@@ -935,7 +1404,7 @@ impl Corpus {
         self.split_default_format(template)
     }
 
-    fn text_for_slot(&self, slot: u32, spec: &str) -> String {
+    fn text_for_node(&self, node: u32, spec: &str) -> String {
         let mut rendered = String::new();
         let mut rest = spec;
         while let Some(start) = rest.find('{') {
@@ -946,7 +1415,7 @@ impl Corpus {
                 return rendered;
             };
             let placeholder = &after_start[..end];
-            rendered.push_str(&self.placeholder_value(slot, placeholder));
+            rendered.push_str(&self.placeholder_value(node, placeholder));
             rest = &after_start[(end + 1)..];
         }
         rendered.push_str(&render_format_literal(rest));
@@ -1888,6 +2357,7 @@ impl Corpus {
             }
         }
         self.sort_nodes(&mut result);
+        result.reverse();
         result
     }
 
@@ -1903,6 +2373,7 @@ impl Corpus {
             result.push(candidate);
         }
         self.sort_nodes(&mut result);
+        result.reverse();
         result
     }
 
@@ -2165,4 +2636,12 @@ fn section_value_to_string(value: FeatureValue) -> String {
         FeatureValue::Str(value) => value.to_string(),
         FeatureValue::Int(value) => value.to_string(),
     }
+}
+
+fn structure_heading_repr(heading: &[StructureHeading]) -> String {
+    heading
+        .iter()
+        .map(|part| format!("{}:{}", part.node_type, part.heading))
+        .collect::<Vec<_>>()
+        .join("-")
 }

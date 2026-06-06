@@ -1,0 +1,13 @@
+{"id":"genesis_node","kind":"node_from_section","args":{"section":["Genesis"]}}
+{"id":"genesis_1_1_node","kind":"node_from_section","args":{"section":["Genesis",1,1]}}
+{"id":"genesis_1_1_section","kind":"section_from_node","args":{"node":426630}}
+{"id":"genesis_1_1_text","kind":"text","args":{"node":426630,"format":"text-orig-full"}}
+{"id":"word_up","kind":"locality_up","args":{"node":1}}
+{"id":"where_have_universal","kind":"search","args":{"template":"phrase\n/where/\n  w:word sp=verb\n/have/\n  w vt=perf\n/-/","limit":10}}
+{"id":"genesis_book_he_section","kind":"section_from_node","args":{"node":426591,"lang":"he"}}
+{"id":"genesis_book_en_section","kind":"section_from_node","args":{"node":426591,"lang":"en"}}
+{"id":"genesis_book_he_node","kind":"node_from_section","args":{"section":["בראשית"],"lang":"he"}}
+{"id":"genesis_book_name_he","kind":"book_name","args":{"node":426591,"lang":"he"}}
+{"id":"genesis_book_node_he","kind":"book_node","args":{"name":"בראשית","lang":"he"}}
+{"id":"genesis_1_1_text_no_descend","kind":"text","args":{"node":426630,"format":"text-orig-full","descend":false}}
+{"id":"genesis_1_1_text_descend","kind":"text","args":{"node":426630,"format":"text-orig-full","descend":true}}

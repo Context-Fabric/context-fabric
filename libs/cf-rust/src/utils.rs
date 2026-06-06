@@ -3,6 +3,7 @@ use std::env;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicU32, Ordering as AtomicOrdering};
 use std::time::SystemTime;
 
 use crate::error::{CfError, Result};
@@ -153,6 +154,7 @@ pub const LOG_LEVEL_INFO: u32 = 20;
 pub const LOG_LEVEL_WARNING: u32 = 30;
 pub const LOG_LEVEL_ERROR: u32 = 40;
 pub const LOCATIONS: &[&str] = &["~/text-fabric-data"];
+static ACTIVE_LOG_LEVEL: AtomicU32 = AtomicU32::new(LOG_LEVEL_INFO);
 
 #[allow(non_snake_case)]
 pub fn silentConvert(value: Option<SilentInput>) -> String {
@@ -190,11 +192,30 @@ pub fn logging_level(silent: Option<SilentInput>) -> u32 {
 }
 
 pub fn configure_logging(silent: Option<SilentInput>) -> u32 {
-    logging_level(silent)
+    set_logging_level(silent)
 }
 
 pub fn set_logging_level(silent: Option<SilentInput>) -> u32 {
-    logging_level(silent)
+    let level = logging_level(silent);
+    ACTIVE_LOG_LEVEL.store(level, AtomicOrdering::Relaxed);
+    level
+}
+
+pub fn active_logging_level() -> u32 {
+    ACTIVE_LOG_LEVEL.load(AtomicOrdering::Relaxed)
+}
+
+pub fn should_log(level: u32) -> bool {
+    level >= active_logging_level()
+}
+
+pub fn log_message(level: u32, message: &str) -> bool {
+    if should_log(level) {
+        eprintln!("{message}");
+        true
+    } else {
+        false
+    }
 }
 
 pub fn utcnow() -> SystemTime {

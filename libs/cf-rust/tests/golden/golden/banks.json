@@ -1,0 +1,146 @@
+[
+  {
+    "id": "banks_top",
+    "result": [
+      100
+    ]
+  },
+  {
+    "id": "banks_structure_forest",
+    "result": [
+      [
+        100,
+        [
+          [
+            101,
+            [
+              [
+                115,
+                [
+                  [
+                    103,
+                    []
+                  ],
+                  [
+                    104,
+                    []
+                  ],
+                  [
+                    105,
+                    []
+                  ],
+                  [
+                    106,
+                    []
+                  ]
+                ]
+              ],
+              [
+                116,
+                [
+                  [
+                    107,
+                    []
+                  ],
+                  [
+                    108,
+                    []
+                  ],
+                  [
+                    109,
+                    []
+                  ]
+                ]
+              ]
+            ]
+          ],
+          [
+            102,
+            [
+              [
+                117,
+                [
+                  [
+                    110,
+                    []
+                  ],
+                  [
+                    111,
+                    []
+                  ],
+                  [
+                    112,
+                    []
+                  ],
+                  [
+                    113,
+                    []
+                  ],
+                  [
+                    114,
+                    []
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "id": "banks_sentence_heading",
+    "result": [
+      [
+        "book",
+        "Consider Phlebas"
+      ],
+      [
+        "chapter",
+        1
+      ],
+      [
+        "sentence",
+        1
+      ]
+    ]
+  },
+  {
+    "id": "banks_sentence_from_heading",
+    "result": 115
+  },
+  {
+    "id": "banks_sentence_structure_pretty",
+    "result": "  sentence:1\n      line:1\n      line:2\n      line:3\n      line:4"
+  },
+  {
+    "id": "banks_sentence_structure_pretty_full",
+    "result": "  book:Consider Phlebas-chapter:1-sentence:1\n      book:Consider Phlebas-chapter:1-sentence:1-line:1\n      book:Consider Phlebas-chapter:1-sentence:1-line:2\n      book:Consider Phlebas-chapter:1-sentence:1-line:3\n      book:Consider Phlebas-chapter:1-sentence:1-line:4"
+  },
+  {
+    "id": "banks_book_section",
+    "result": [
+      "Consider Phlebas"
+    ]
+  },
+  {
+    "id": "banks_sentence_section",
+    "result": [
+      "Consider Phlebas",
+      1,
+      1
+    ]
+  },
+  {
+    "id": "banks_sentence_text_no_descend",
+    "result": " "
+  },
+  {
+    "id": "banks_sentence_text_descend",
+    "result": "Everything about us, everything around us, everything we know and can know of is composed ultimately of patterns of nothing; that’s the bottom line, the final truth. "
+  },
+  {
+    "id": "banks_sentence_node",
+    "result": 115
+  }
+]

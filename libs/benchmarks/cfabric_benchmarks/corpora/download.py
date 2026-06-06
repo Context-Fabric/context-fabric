@@ -36,6 +36,12 @@ CORPORA: dict[str, dict[str, str]] = {
         "description": "Nestle 1904 Greek New Testament",
         "language": "Greek",
     },
+    "banks": {
+        "repo": "annotation/banks",
+        "tf_path": "tf/0.2",
+        "description": "Banks example corpus with explicit structure hierarchy",
+        "language": "English",
+    },
     "dss": {
         "repo": "ETCBC/dss",
         "tf_path": "tf/1.9",

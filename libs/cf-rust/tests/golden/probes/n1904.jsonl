@@ -1,0 +1,10 @@
+{"id":"matthew_node","kind":"node_from_section","args":{"section":["Matthew"]}}
+{"id":"matthew_1_1_node","kind":"node_from_section","args":{"section":["Matthew",1,1]}}
+{"id":"matthew_1_1_section","kind":"section_from_node","args":{"node":137795}}
+{"id":"matthew_1_1_text","kind":"text","args":{"node":137795,"format":"text-orig-full"}}
+{"id":"word_up","kind":"locality_up","args":{"node":1}}
+{"id":"word_adjacency","kind":"search","args":{"template":"w1:word\nw2:word\nw1 <: w2","limit":10}}
+{"id":"matthew_1_1_text_no_descend","kind":"text","args":{"node":137795,"format":"text-orig-full","descend":false}}
+{"id":"matthew_1_1_text_descend","kind":"text","args":{"node":137795,"format":"text-orig-full","descend":true}}
+{"id":"matthew_book_name","kind":"book_name","args":{"node":137795}}
+{"id":"matthew_book_node","kind":"book_node","args":{"name":"Matthew"}}

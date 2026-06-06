@@ -5,7 +5,7 @@ use crate::compiled::{MappedCompiledCorpus, compile_features, load_compiled};
 use crate::config::{BANNER, VERSION};
 use crate::corpus::Corpus;
 use crate::error::Result;
-use crate::explore::{FeatureInventory, explore_features};
+use crate::explore::{FeatureInventory, explore_feature_paths};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fabric {
@@ -16,7 +16,6 @@ pub struct Fabric {
     version: String,
     good: bool,
     features_requested: Vec<String>,
-    features_ignored: BTreeMap<String, Vec<PathBuf>>,
 }
 
 impl Fabric {
@@ -30,7 +29,6 @@ impl Fabric {
             version: VERSION.to_string(),
             good: true,
             features_requested: Vec::new(),
-            features_ignored: BTreeMap::new(),
         }
     }
 
@@ -56,7 +54,6 @@ impl Fabric {
             version: VERSION.to_string(),
             good: true,
             features_requested: Vec::new(),
-            features_ignored: BTreeMap::new(),
         }
     }
 
@@ -122,21 +119,43 @@ impl Fabric {
         self.features_requested()
     }
 
-    pub fn features_ignored(&self) -> &BTreeMap<String, Vec<PathBuf>> {
-        &self.features_ignored
+    pub fn features_ignored(&self) -> BTreeMap<String, Vec<PathBuf>> {
+        self.ignored_feature_paths().unwrap_or_default()
     }
 
     #[allow(non_snake_case)]
-    pub fn featuresIgnored(&self) -> &BTreeMap<String, Vec<PathBuf>> {
+    pub fn featuresIgnored(&self) -> BTreeMap<String, Vec<PathBuf>> {
         self.features_ignored()
     }
 
     pub fn explore(&self) -> Result<FeatureInventory> {
-        explore_features(&self.path)
+        explore_feature_paths(self.module_paths())
+    }
+
+    pub fn feature_inventory(&self) -> Result<FeatureInventory> {
+        self.explore()
+    }
+
+    pub fn feature_catalog(&self) -> Result<FeatureInventory> {
+        self.explore()
+    }
+
+    pub fn ignored_feature_paths(&self) -> Result<BTreeMap<String, Vec<PathBuf>>> {
+        Ok(self
+            .explore()?
+            .paths
+            .into_iter()
+            .filter_map(|(name, paths)| {
+                (paths.len() > 1).then(|| {
+                    let ignored = paths[..paths.len() - 1].to_vec();
+                    (name, ignored)
+                })
+            })
+            .collect())
     }
 
     pub fn load_all(&self) -> Result<Corpus> {
-        Corpus::load(&self.path)
+        Corpus::load_paths(self.module_paths())
     }
 
     #[allow(non_snake_case)]
@@ -147,13 +166,13 @@ impl Fabric {
     pub fn load(&self, features: impl FeatureSpec) -> Result<Corpus> {
         let features = features.feature_names();
         let feature_refs = features.iter().map(String::as_str).collect::<Vec<_>>();
-        Corpus::load_features(&self.path, &feature_refs)
+        Corpus::load_features_from_paths(self.module_paths(), &feature_refs)
     }
 
     pub fn load_add(&self, corpus: &mut Corpus, features: impl FeatureSpec) -> Result<bool> {
         let features = features.feature_names();
         let feature_refs = features.iter().map(String::as_str).collect::<Vec<_>>();
-        corpus.add_features_from(&self.path, &feature_refs)
+        corpus.add_features_from_paths(self.module_paths(), &feature_refs)
     }
 
     #[allow(non_snake_case)]
@@ -161,10 +180,39 @@ impl Fabric {
         self.load_add(corpus, features)
     }
 
+    pub fn ensure_loaded(&self, corpus: &mut Corpus, features: impl FeatureSpec) -> Result<bool> {
+        self.load_add(corpus, features)
+    }
+
+    #[allow(non_snake_case)]
+    pub fn ensureLoaded(&self, corpus: &mut Corpus, features: impl FeatureSpec) -> Result<bool> {
+        self.ensure_loaded(corpus, features)
+    }
+
+    pub fn save(
+        &self,
+        corpus: &Corpus,
+        location: Option<&Path>,
+        module: Option<&str>,
+    ) -> Result<bool> {
+        let base = location
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| self.path.clone());
+        let output = module
+            .filter(|module| !module.is_empty())
+            .map(|module| base.join(module))
+            .unwrap_or(base);
+        corpus.save(output)
+    }
+
     pub fn compile(&self, output_path: impl AsRef<Path>, features: impl FeatureSpec) -> Result<()> {
         let features = features.feature_names();
         let feature_refs = features.iter().map(String::as_str).collect::<Vec<_>>();
-        compile_features(&self.path, output_path, &feature_refs)
+        compile_features(
+            self.module_paths().last().unwrap_or(&self.path),
+            output_path,
+            &feature_refs,
+        )
     }
 
     pub fn load_compiled(&self, cache_path: impl AsRef<Path>) -> Result<Corpus> {
@@ -183,6 +231,22 @@ impl Fabric {
     #[allow(non_snake_case)]
     pub fn openMapped(&self, cache_path: impl AsRef<Path>) -> Result<MappedCompiledCorpus> {
         self.open_mapped(cache_path)
+    }
+
+    fn module_paths(&self) -> Vec<PathBuf> {
+        self.locations
+            .iter()
+            .flat_map(|location| {
+                self.modules.iter().map(move |module| {
+                    if module.is_empty() {
+                        location.clone()
+                    } else {
+                        location.join(module)
+                    }
+                })
+            })
+            .filter(|path| path.exists())
+            .collect()
     }
 }
 

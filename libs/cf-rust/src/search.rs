@@ -1402,8 +1402,59 @@ impl<'a> Search<'a> {
             let keep = match block.kind {
                 QuantifierKind::With => exists,
                 QuantifierKind::Without => !exists,
+                QuantifierKind::Where => self.where_block_holds(root, block, cache, sets)?,
             };
             if !keep {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
+    fn where_block_holds(
+        &self,
+        root: u32,
+        block: &ExecutableQuantifierBlock,
+        cache: &mut CandidateCache,
+        sets: Option<&SearchSets<'_>>,
+    ) -> Result<bool> {
+        for (antecedent, combined_plans) in &block.where_pairs {
+            let mut antecedent_rows = Vec::new();
+            self.extend_contained_matches(
+                root,
+                antecedent,
+                0,
+                &mut Vec::new(),
+                &mut antecedent_rows,
+                cache,
+                sets,
+            )?;
+            if antecedent_rows.is_empty() {
+                continue;
+            }
+
+            let antecedent_width = antecedent.atoms.len();
+            let mut satisfied = HashSet::new();
+            for combined_plan in combined_plans {
+                let mut combined_rows = Vec::new();
+                self.extend_contained_matches(
+                    root,
+                    combined_plan,
+                    0,
+                    &mut Vec::new(),
+                    &mut combined_rows,
+                    cache,
+                    sets,
+                )?;
+                for row in combined_rows {
+                    satisfied.insert(row.into_iter().take(antecedent_width).collect::<Vec<_>>());
+                }
+            }
+
+            if antecedent_rows
+                .into_iter()
+                .any(|row| !satisfied.contains(&row))
+            {
                 return Ok(false);
             }
         }
@@ -1971,12 +2022,14 @@ enum FeatureRelationComparison {
 enum QuantifierKind {
     With,
     Without,
+    Where,
 }
 
 #[derive(Debug)]
 struct QuantifierBlock {
     kind: QuantifierKind,
     alternatives: Vec<String>,
+    consequents: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -1993,6 +2046,7 @@ struct ExecutableQuantifiedTemplate {
 struct ExecutableQuantifierBlock {
     kind: QuantifierKind,
     alternatives: Vec<ExecutableQuantifierAlternative>,
+    where_pairs: Vec<(QueryPlan, Vec<QueryPlan>)>,
 }
 
 enum ExecutableQuantifierAlternative {
@@ -2022,9 +2076,31 @@ impl ExecutableQuantifiedTemplate {
                         }
                     })
                     .collect::<Result<Vec<_>>>()?;
+                let where_pairs = if block.kind == QuantifierKind::Where {
+                    block
+                        .alternatives
+                        .iter()
+                        .map(|antecedent| {
+                            let antecedent_plan = parse_query(antecedent)?;
+                            let combined_plans = block
+                                .consequents
+                                .iter()
+                                .map(|consequent| {
+                                    parse_query(&combine_quantifier_templates(
+                                        antecedent, consequent,
+                                    ))
+                                })
+                                .collect::<Result<Vec<_>>>()?;
+                            Ok((antecedent_plan, combined_plans))
+                        })
+                        .collect::<Result<Vec<_>>>()?
+                } else {
+                    Vec::new()
+                };
                 Ok(ExecutableQuantifierBlock {
                     kind: block.kind,
                     alternatives,
+                    where_pairs,
                 })
             })
             .collect::<Result<Vec<_>>>()?;
@@ -2038,6 +2114,8 @@ fn parse_quantified_template(template: &str) -> Result<QuantifiedTemplate> {
     let mut current_kind: Option<QuantifierKind> = None;
     let mut current_lines = Vec::new();
     let mut current_alternatives = Vec::new();
+    let mut current_consequents = Vec::new();
+    let mut collecting_consequents = false;
     let mut nested_depth = 0usize;
 
     for line in template.lines() {
@@ -2050,9 +2128,11 @@ fn parse_quantified_template(template: &str) -> Result<QuantifiedTemplate> {
                     continue;
                 }
                 current_kind = Some(match token {
+                    "/where/" => QuantifierKind::Where,
                     "/without/" => QuantifierKind::Without,
                     _ => QuantifierKind::With,
                 });
+                collecting_consequents = false;
             }
             "/have/" => {
                 if nested_depth > 0 {
@@ -2064,18 +2144,25 @@ fn parse_quantified_template(template: &str) -> Result<QuantifiedTemplate> {
                         "quantifier continuation without quantifier".to_string(),
                     ));
                 };
-                if kind != QuantifierKind::With {
+                if !matches!(kind, QuantifierKind::With | QuantifierKind::Where) {
                     return Err(CfError::InvalidQuery(
                         "/have/ is only supported after /where/ or /with/".to_string(),
                     ));
                 }
-                push_quantifier_alternative(&mut current_alternatives, &current_lines);
-                blocks.push(QuantifierBlock {
-                    kind,
-                    alternatives: std::mem::take(&mut current_alternatives),
-                });
-                current_lines.clear();
-                current_kind = Some(QuantifierKind::With);
+                if kind == QuantifierKind::Where {
+                    push_quantifier_alternative(&mut current_alternatives, &current_lines);
+                    current_lines.clear();
+                    collecting_consequents = true;
+                } else {
+                    push_quantifier_alternative(&mut current_alternatives, &current_lines);
+                    blocks.push(QuantifierBlock {
+                        kind,
+                        alternatives: std::mem::take(&mut current_alternatives),
+                        consequents: Vec::new(),
+                    });
+                    current_lines.clear();
+                    current_kind = Some(QuantifierKind::With);
+                }
             }
             "/or/" => {
                 if nested_depth > 0 {
@@ -2087,7 +2174,11 @@ fn parse_quantified_template(template: &str) -> Result<QuantifiedTemplate> {
                         "quantifier alternative without quantifier".to_string(),
                     ));
                 }
-                push_quantifier_alternative(&mut current_alternatives, &current_lines);
+                if collecting_consequents {
+                    push_quantifier_alternative(&mut current_consequents, &current_lines);
+                } else {
+                    push_quantifier_alternative(&mut current_alternatives, &current_lines);
+                }
                 current_lines.clear();
             }
             "/-/" => {
@@ -2101,12 +2192,25 @@ fn parse_quantified_template(template: &str) -> Result<QuantifiedTemplate> {
                         "quantifier terminator without quantifier".to_string(),
                     ));
                 };
-                push_quantifier_alternative(&mut current_alternatives, &current_lines);
+                if collecting_consequents {
+                    push_quantifier_alternative(&mut current_consequents, &current_lines);
+                } else {
+                    push_quantifier_alternative(&mut current_alternatives, &current_lines);
+                }
+                if kind == QuantifierKind::Where
+                    && (current_alternatives.is_empty() || current_consequents.is_empty())
+                {
+                    return Err(CfError::InvalidQuery(
+                        "/where/ requires antecedent and /have/ consequent templates".to_string(),
+                    ));
+                }
                 blocks.push(QuantifierBlock {
                     kind,
                     alternatives: std::mem::take(&mut current_alternatives),
+                    consequents: std::mem::take(&mut current_consequents),
                 });
                 current_lines.clear();
+                collecting_consequents = false;
             }
             _ => {
                 if current_kind.is_some() {
@@ -2127,6 +2231,15 @@ fn parse_quantified_template(template: &str) -> Result<QuantifiedTemplate> {
         base: base_lines.join("\n"),
         blocks,
     })
+}
+
+fn combine_quantifier_templates(first: &str, second: &str) -> String {
+    match (first.trim().is_empty(), second.trim().is_empty()) {
+        (true, true) => String::new(),
+        (true, false) => second.to_string(),
+        (false, true) => first.to_string(),
+        (false, false) => format!("{first}\n{second}"),
+    }
 }
 
 fn contains_quantifier_token(template: &str) -> bool {

@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashSet};
 use crate::compiled::{
     EdgeFeatureView, MappedCompiledCorpus, MappedNodeValue, StringPoolNodeFeatureView,
 };
-use crate::corpus::{TextFormatInfo, TextFormatSample, TextRepresentationInfo};
+use crate::corpus::{TextFormatInfo, TextFormatSample, TextOptions, TextRepresentationInfo};
 use crate::error::{CfError, Result};
 
 pub struct MappedText<'a> {
@@ -11,6 +11,12 @@ pub struct MappedText<'a> {
     otype: StringPoolNodeFeatureView<'a>,
     oslots: EdgeFeatureView<'a>,
     slot_type: String,
+}
+
+struct ResolvedMappedTextFormat {
+    target_type: String,
+    spec: String,
+    implicit_node_default: bool,
 }
 
 impl<'a> MappedText<'a> {
@@ -34,16 +40,43 @@ impl<'a> MappedText<'a> {
     }
 
     pub fn text(&self, node: u32, format: Option<&str>) -> Result<String> {
-        let Some(spec) = self.format_spec(format)? else {
+        self.text_with_options(node, &TextOptions::new(format.map(str::to_string), None))
+    }
+
+    pub fn text_with_options(&self, node: u32, options: &TextOptions) -> Result<String> {
+        let Some(node_type) = self.otype.str_value(node)? else {
             return Ok(String::new());
         };
-        if self.is_slot(node)? {
-            return self.text_for_slot(node, spec);
+        let Some(resolved) = self.resolve_text_format(node_type, options.format.as_deref())? else {
+            return Ok(String::new());
+        };
+        let down_type = match options.descend {
+            Some(true) => Some(resolved.target_type.as_str()),
+            Some(false) => None,
+            None => {
+                if resolved.implicit_node_default {
+                    None
+                } else {
+                    Some(resolved.target_type.as_str())
+                }
+            }
         }
-        self.slots(node)?
+        .filter(|down_type| *down_type != node_type);
+
+        let nodes = match down_type {
+            Some(down_type) if down_type == self.slot_type => self.slots(node)?,
+            Some(down_type) => self.descendants_of_type(node, down_type)?,
+            None => vec![node],
+        };
+        nodes
             .into_iter()
-            .map(|slot| self.text_for_slot(slot, spec))
+            .map(|text_node| self.text_for_node(text_node, &resolved.spec))
             .collect()
+    }
+
+    #[allow(non_snake_case)]
+    pub fn textWithOptions(&self, node: u32, options: &TextOptions) -> Result<String> {
+        self.text_with_options(node, options)
     }
 
     pub fn text_nodes(&self, nodes: &[u32], format: Option<&str>) -> Result<String> {
@@ -212,17 +245,37 @@ impl<'a> MappedText<'a> {
         Ok((samples, covered_chars.len()))
     }
 
-    fn format_spec(&self, format: Option<&str>) -> Result<Option<&'a str>> {
-        let format = format.unwrap_or("text-orig-full");
-        let format_key = if format.starts_with("fmt:") {
-            format.to_string()
-        } else {
-            format!("fmt:{format}")
-        };
+    fn resolve_text_format(
+        &self,
+        node_type: &str,
+        format: Option<&str>,
+    ) -> Result<Option<ResolvedMappedTextFormat>> {
         let Some(otext) = self.corpus.config_feature("otext")? else {
             return Ok(None);
         };
-        Ok(otext.get(&format_key)?.flatten())
+        let (format_name, implicit_node_default) = match format {
+            Some(format) => (
+                format.strip_prefix("fmt:").unwrap_or(format).to_string(),
+                false,
+            ),
+            None => {
+                let node_default = format!("{node_type}-default");
+                if otext.get(&format!("fmt:{node_default}"))?.is_some() {
+                    (node_default, true)
+                } else {
+                    ("text-orig-full".to_string(), false)
+                }
+            }
+        };
+        let Some(spec) = otext.get(&format!("fmt:{format_name}"))?.flatten() else {
+            return Ok(None);
+        };
+        let (target_type, spec) = self.split_format(spec)?;
+        Ok(Some(ResolvedMappedTextFormat {
+            target_type,
+            spec,
+            implicit_node_default,
+        }))
     }
 
     fn node_types(&self) -> Result<HashSet<String>> {
@@ -251,7 +304,33 @@ impl<'a> MappedText<'a> {
             .unwrap_or_else(|| Ok(Vec::new()))
     }
 
-    fn text_for_slot(&self, slot: u32, spec: &str) -> Result<String> {
+    fn descendants_of_type(&self, node: u32, node_type: &str) -> Result<Vec<u32>> {
+        let root_slots = self.slots(node)?;
+        let Some(root_first) = root_slots.first().copied() else {
+            return Ok(Vec::new());
+        };
+        let Some(root_last) = root_slots.last().copied() else {
+            return Ok(Vec::new());
+        };
+        let mut descendants = Vec::new();
+        for row in self.otype.rows() {
+            let (candidate, candidate_type) = row?;
+            if candidate_type != node_type {
+                continue;
+            }
+            let slots = self.slots(candidate)?;
+            if slots
+                .first()
+                .zip(slots.last())
+                .is_some_and(|(first, last)| root_first <= *first && *last <= root_last)
+            {
+                descendants.push(candidate);
+            }
+        }
+        Ok(descendants)
+    }
+
+    fn text_for_node(&self, slot: u32, spec: &str) -> Result<String> {
         let mut rendered = String::new();
         let mut rest = spec;
         while let Some(start) = rest.find('{') {

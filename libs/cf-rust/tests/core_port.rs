@@ -29,29 +29,30 @@ use cf_rust::{
     NodeInfoOptions, NodeList, Nodes, OrderComputed, OslotsFeature, OtypeFeature, PARENT_REF,
     Projection, QCONT, QEND, QHAVE, QINIT, QOR, QTERM, QWHERE, QWITH, QWITHOUT, RankComputed,
     SILENT_D, SearchPerfValue, SearchResult, SearchSession, SectionOptions, SetValue, SilentInput,
-    StringPool, TERSE, Text, TfData, TfDataContent, TfFeature, TfFeatureKind, VAL_ESCAPES, VERBOSE,
-    WARN32, WalkEvent, abspath, api_refs, atomOpRe, atomRe, backendRep, camel, chDir, check32,
-    clean_name, cleanName, collect_formats, collectFormats, compRe, compile_corpus,
-    configure_logging, console_message, deep_attr_dict, deep_size_json, deepSize, deepdict,
-    default_compiled_output_path, describe_corpus, describe_corpus_overview, describe_feature,
-    describe_features, describe_text_formats, dirAllFiles, dirContents, dirCopy, dirEmpty,
-    dirExists, dirMake, dirMove, dirNm, dirRemove, download, expandDir, expanduser, extNm,
-    fileCopy, fileExists, fileMake, fileMove, fileNm, fileRemove, fitemize, flatten_to_set,
-    format_meta, get_all_feature_otypes, get_cache_dir, get_feature_otypes, getCwd, html_esc,
-    htmlEsc, identRe, indentLineRe, is_clean, is_int, is_iterable, is_quantifier_continuation,
-    is_quantifier_init, is_quantifier_line, is_quantifier_terminator, is_search_name,
-    is_search_number, is_search_white_line, isClean, isDir, isFile, isInt, itemize, kRe, level_map,
-    list_corpora, list_features, logging_level, make_examples, make_index, make_inverse,
-    make_inverse_val, makeIndex, makeInverse, makeInverseVal, math_esc, mathEsc, md_esc, mdEsc,
-    mdhtml_esc, mdhtmlEsc, merge_dict, merge_dict_of_sets, nameRe, namesRe, nbytes, noneRe,
-    normpath, numRe, opLineRe, opStripRe, pandas_esc, pandasEsc, parse_atom_operator_syntax,
-    parse_atom_syntax, parse_comparison_syntax, parse_ident_syntax, parse_k_nearness_syntax,
-    parse_named_atom_prefix, parse_none_syntax, parse_operator_line_syntax,
-    parse_quantifier_line_syntax, parse_regex_feature_syntax, parse_relation_syntax, parse_tf_file,
-    parse_tf_file_metadata, parse_true_syntax, prefixSlash, project, quLineRe, ranges_from_list,
-    ranges_from_set, rangesFromList, rangesFromSet, reRe, read_args, readJson, readYaml, relRe,
-    replaceExt, resolve_corpus_id, scanDir, search_line_indent, search_perf_defaults,
-    set_from_spec, set_from_str, set_from_value, set_logging_level, setDir, setFromSpec,
+    StringPool, TERSE, Text, TextOptions, TfData, TfDataContent, TfFeature, TfFeatureKind,
+    VAL_ESCAPES, VERBOSE, WARN32, WalkEvent, abspath, active_logging_level, api_refs, atomOpRe,
+    atomRe, backendRep, camel, chDir, check32, clean_name, cleanName, collect_formats,
+    collectFormats, compRe, compile_corpus, configure_logging, console_message, deep_attr_dict,
+    deep_size_json, deepSize, deepdict, default_compiled_output_path, describe_corpus,
+    describe_corpus_overview, describe_feature, describe_features, describe_text_formats,
+    dirAllFiles, dirContents, dirCopy, dirEmpty, dirExists, dirMake, dirMove, dirNm, dirRemove,
+    download, expandDir, expanduser, extNm, fileCopy, fileExists, fileMake, fileMove, fileNm,
+    fileRemove, fitemize, flatten_to_set, format_meta, get_all_feature_otypes, get_cache_dir,
+    get_feature_otypes, getCwd, html_esc, htmlEsc, identRe, indentLineRe, is_clean, is_int,
+    is_iterable, is_quantifier_continuation, is_quantifier_init, is_quantifier_line,
+    is_quantifier_terminator, is_search_name, is_search_number, is_search_white_line, isClean,
+    isDir, isFile, isInt, itemize, kRe, level_map, list_corpora, list_features, log_message,
+    logging_level, make_examples, make_index, make_inverse, make_inverse_val, makeIndex,
+    makeInverse, makeInverseVal, math_esc, mathEsc, md_esc, mdEsc, mdhtml_esc, mdhtmlEsc,
+    merge_dict, merge_dict_of_sets, nameRe, namesRe, nbytes, noneRe, normpath, numRe, opLineRe,
+    opStripRe, pandas_esc, pandasEsc, parse_atom_operator_syntax, parse_atom_syntax,
+    parse_comparison_syntax, parse_ident_syntax, parse_k_nearness_syntax, parse_named_atom_prefix,
+    parse_none_syntax, parse_operator_line_syntax, parse_quantifier_line_syntax,
+    parse_regex_feature_syntax, parse_relation_syntax, parse_tf_file, parse_tf_file_metadata,
+    parse_true_syntax, prefixSlash, project, quLineRe, ranges_from_list, ranges_from_set,
+    rangesFromList, rangesFromSet, reRe, read_args, readJson, readYaml, relRe, replaceExt,
+    resolve_corpus_id, scanDir, search_line_indent, search_perf_defaults, set_from_spec,
+    set_from_str, set_from_value, set_logging_level, setDir, setFromSpec, should_log,
     silentConvert, spec_from_ranges, spec_from_ranges_logical, specFromRanges,
     specFromRangesLogical, splitExt, splitPath, strip_operator_syntax, stripExt, tf_from_value,
     tfFromValue, trueRe, tsv_esc, tsvEsc, unexpanduser, utcnow, value_from_tf, valueFromTf, var,
@@ -62,6 +63,28 @@ fn repo_path(relative: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .join(relative)
+}
+
+fn optional_corpus_tf(name: &str) -> Option<PathBuf> {
+    let path = repo_path(&format!("libs/benchmarks/.corpora/{name}/tf"));
+    if path.join("otype.tf").exists() {
+        Some(path)
+    } else if env::var_os("CF_REQUIRE_CORPORA").is_some() {
+        panic!(
+            "required corpus '{name}' is absent at {}",
+            path.to_string_lossy()
+        );
+    } else {
+        eprintln!(
+            "skipping corpus-dependent test: '{name}' is absent at {}",
+            path.to_string_lossy()
+        );
+        None
+    }
+}
+
+fn bhsa_tf() -> Option<PathBuf> {
+    optional_corpus_tf("bhsa")
 }
 
 fn write_numpy_u8(path: &std::path::Path, values: &[u8]) {
@@ -233,6 +256,21 @@ fn public_downloader_helpers_match_python_registry_and_path_behaviors() {
         match previous_cache {
             Some(value) => env::set_var("CFABRIC_CACHE", value),
             None => env::remove_var("CFABRIC_CACHE"),
+        }
+    }
+    let previous_xdg = env::var("XDG_CACHE_HOME").ok();
+    unsafe {
+        env::remove_var("XDG_CACHE_HOME");
+    }
+    let default_cache = get_cache_dir();
+    #[cfg(target_os = "macos")]
+    assert!(default_cache.ends_with(PathBuf::from("Library").join("Caches").join("cfabric")));
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    assert!(default_cache.ends_with(PathBuf::from(".cache").join("cfabric")));
+    unsafe {
+        match previous_xdg {
+            Some(value) => env::set_var("XDG_CACHE_HOME", value),
+            None => env::remove_var("XDG_CACHE_HOME"),
         }
     }
 
@@ -793,6 +831,57 @@ fn public_precompute_helpers_match_corpus_levels_order_and_rank() {
         7
     );
     assert!(structure.multiple.is_empty());
+    assert_eq!(structured.top(), Some(vec![8]));
+    assert_eq!(structured.structure_up(6), Some(8));
+    assert_eq!(structured.structure_down(8), Some(vec![6, 7]));
+    assert_eq!(
+        structured.heading_from_node(7),
+        structure.heading_from_node.get(&7).cloned()
+    );
+    assert_eq!(
+        structured.node_from_heading(&structure.heading_from_node[&7]),
+        Some(7)
+    );
+    assert_eq!(
+        structured.structure_info().unwrap().headings,
+        vec![
+            ("sentence".to_string(), "sentence_id".to_string()),
+            ("phrase".to_string(), "phrase_id".to_string()),
+        ]
+    );
+    assert_eq!(
+        structured.structure(Some(8)),
+        Some(cf_rust::StructureTree::Node {
+            node: 8,
+            children: vec![
+                cf_rust::StructureTree::Node {
+                    node: 6,
+                    children: Vec::new()
+                },
+                cf_rust::StructureTree::Node {
+                    node: 7,
+                    children: Vec::new()
+                },
+            ]
+        })
+    );
+    assert_eq!(
+        structured.structure_pretty(Some(8), false).unwrap(),
+        "  sentence:S1\n      phrase:1\n      phrase:2"
+    );
+    assert_eq!(
+        structured.structure_pretty(Some(7), true).unwrap(),
+        "  sentence:S1-phrase:2"
+    );
+    let text_api = Text::new(&structured);
+    assert_eq!(text_api.top(), structured.top());
+    assert_eq!(text_api.up(7), Some(8));
+    assert_eq!(text_api.down(8), Some(vec![6, 7]));
+    assert_eq!(text_api.headingFromNode(6), structured.heading_from_node(6));
+    assert_eq!(
+        text_api.nodeFromHeading(&structure.heading_from_node[&6]),
+        Some(6)
+    );
 
     let configured = cf_rust::precompute::levels(
         &node_types,
@@ -1564,10 +1653,15 @@ fn public_logging_helpers_match_python_utility_behaviors() {
         configure_logging(Some(SilentInput::Str(VERBOSE.to_string()))),
         LOG_LEVEL_DEBUG
     );
+    assert_eq!(active_logging_level(), LOG_LEVEL_DEBUG);
+    assert!(should_log(LOG_LEVEL_INFO));
     assert_eq!(
         set_logging_level(Some(SilentInput::Str(DEEP.to_string()))),
         LOG_LEVEL_ERROR
     );
+    assert_eq!(active_logging_level(), LOG_LEVEL_ERROR);
+    assert!(!should_log(LOG_LEVEL_WARNING));
+    assert!(log_message(LOG_LEVEL_ERROR, "logging side-effect test"));
 }
 
 #[test]
@@ -2096,6 +2190,8 @@ fn public_tf_data_loader_matches_python_loader_behaviors() {
     assert_eq!(data.dirName(), temp_dir.path().to_string_lossy());
     assert_eq!(data.fileName(), "myfeature");
     assert_eq!(data.extension, ".tf");
+    assert_eq!(data.method(), "load");
+    assert!(data.dependencies().is_empty());
     assert!(!data.dataLoaded());
     assert!(!data.dataError());
 
@@ -2238,6 +2334,62 @@ fn public_tf_data_loader_matches_python_loader_behaviors() {
         BTreeMap::from([("valueType".to_string(), Some("unknown".to_string()))]);
     unknown_type.set_data_type();
     assert_eq!(unknown_type.data_type, "str");
+}
+
+#[test]
+fn tf_data_computed_method_and_feature_accessors_use_canonical_rank_order() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("otype.tf"),
+        "@node\n@valueType=str\n\nword\nword\nphrase\nsentence\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("oslots.tf"),
+        "@edge\n@valueType=int\n\n3\t1-2\n4\t1-2\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("label.tf"),
+        "@node\n@valueType=str\n\n1\tsame\n2\tsame\n3\tsame\n4\tsame\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("rel.tf"),
+        "@edge\n@valueType=int\n\n4\t1-3\n",
+    )
+    .unwrap();
+
+    let corpus = Corpus::load(dir.path()).unwrap();
+    let mut expected = vec![1, 2, 3, 4];
+    corpus.sort_nodes(&mut expected);
+    assert_eq!(
+        corpus
+            .node_feature("label")
+            .unwrap()
+            .select(&FeatureValue::string("same")),
+        expected
+    );
+    let mut rel_expected = vec![1, 2, 3];
+    corpus.sort_nodes(&mut rel_expected);
+    assert_eq!(corpus.edge_feature("rel").unwrap().s(4), rel_expected);
+
+    let dependency = TfDataContent::Node(corpus.node_feature("label").unwrap().clone());
+    let mut computed = TfData::new_computed(
+        dir.path().join("computed_label.tf"),
+        "copy_label",
+        vec!["label".to_string()],
+        vec![dependency],
+        std::sync::Arc::new(|dependencies| dependencies[0].clone()),
+    );
+    assert_eq!(computed.method(), "copy_label");
+    assert_eq!(computed.dependencies(), &["label".to_string()]);
+    assert_eq!(computed.dependency_data().len(), 1);
+    assert!(computed.load(false));
+    let Some(TfDataContent::Node(feature)) = computed.data.as_ref() else {
+        panic!("expected computed node feature");
+    };
+    assert_eq!(feature.value(1), Some(&FeatureValue::string("same")));
 }
 
 #[test]
@@ -2522,7 +2674,9 @@ fn text_fabric_value_escape_helpers_match_python_round_trip_behaviors() {
 
 #[test]
 fn parses_explicit_ranges_in_otype() {
-    let path = repo_path("libs/benchmarks/.corpora/bhsa/tf/otype.tf");
+    let Some(path) = bhsa_tf().map(|path| path.join("otype.tf")) else {
+        return;
+    };
     let feature = parse_tf_file(path).expect("BHSA otype.tf should parse");
     let TfFeature::Node(feature) = feature else {
         panic!("expected node feature");
@@ -2707,6 +2861,19 @@ fn public_io_compiler_wrappers_match_python_compile_entrypoints() {
     let default_loaded = load_compiled(compiler.default_output_path()).unwrap();
     assert_eq!(default_loaded.slotType(), "word");
     assert_eq!(default_loaded.search().count("phrase", None).unwrap(), 2);
+
+    let precomputed_source = Corpus::load(&copied_source).unwrap();
+    let precomputed_cache = temp_dir.path().join("precomputed.cfr");
+    assert!(
+        compiler
+            .compile_precomputed(Some(&precomputed_cache), &precomputed_source)
+            .unwrap()
+    );
+    let precomputed_loaded = load_compiled(precomputed_cache).unwrap();
+    assert_eq!(
+        precomputed_loaded.search().count("phrase", None).unwrap(),
+        2
+    );
 }
 
 #[test]
@@ -3079,6 +3246,83 @@ fn loads_mini_corpus_and_queries_basic_types() {
 }
 
 #[test]
+fn text_api_supports_multilingual_section_names_and_book_aliases() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("otype.tf"),
+        "@node\n@valueType=str\n\nword\nbook\nchapter\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("oslots.tf"),
+        "@edge\n@valueType=int\n\n2\t1\n3\t1\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("book.tf"),
+        "@node\n@valueType=str\n@languageCode=en\n@language=English\n@languageEnglish=English\n\n2\tGenesis\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("book@he.tf"),
+        "@node\n@valueType=str\n@languageCode=he\n@language=עברית\n@languageEnglish=Hebrew\n\n2\tבראשית\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("chapter.tf"),
+        "@node\n@valueType=int\n\n3\t1\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("word.tf"),
+        "@node\n@valueType=str\n\nhello\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("otext.tf"),
+        "@config\n@fmt:text-orig-full={word}\n@sectionTypes=book,chapter\n@sectionFeatures=book,chapter\n\n",
+    )
+    .unwrap();
+
+    let corpus = Corpus::load(dir.path()).unwrap();
+    assert!(corpus.languages().contains_key("en"));
+    assert_eq!(
+        corpus.languages()["he"]
+            .get("languageEnglish")
+            .map(String::as_str),
+        Some("Hebrew")
+    );
+    assert_eq!(corpus.name_from_node("en")[&2], "Genesis");
+    assert_eq!(corpus.name_from_node("he")[&2], "בראשית");
+    assert_eq!(
+        corpus.section_from_node_lang(1, &SectionOptions::default(), "he"),
+        vec![
+            Some(FeatureValue::string("בראשית")),
+            Some(FeatureValue::Int(1))
+        ]
+    );
+    assert_eq!(
+        corpus.node_from_section_lang(&[FeatureValue::string("בראשית")], "he"),
+        Some(2)
+    );
+    assert_eq!(corpus.bookName(1, "en"), Some("Genesis".to_string()));
+    assert_eq!(corpus.bookName(1, "he"), Some("בראשית".to_string()));
+    assert_eq!(corpus.bookNode("Genesis", "en"), Some(2));
+    assert_eq!(corpus.bookNode("בראשית", "he"), Some(2));
+
+    let text = Text::new(&corpus);
+    assert_eq!(text.bookName(1, "he"), Some("בראשית".to_string()));
+    assert_eq!(text.bookNode("Genesis", "en"), Some(2));
+    assert_eq!(
+        text.sectionFromNode(1, &SectionOptions::default(), "en"),
+        vec![
+            Some(FeatureValue::string("Genesis")),
+            Some(FeatureValue::Int(1))
+        ]
+    );
+}
+
+#[test]
 fn explores_tf_directory_without_materializing_features() {
     let inventory = explore_features(repo_path("libs/core/tests/fixtures/mini_corpus")).unwrap();
 
@@ -3091,10 +3335,12 @@ fn explores_tf_directory_without_materializing_features() {
     assert!(inventory.nodes().contains(&"word".to_string()));
     assert!(inventory.edges().contains(&"parent".to_string()));
     assert!(inventory.configs().contains(&"otext".to_string()));
+    assert!(inventory.computeds().contains(&"rank".to_string()));
     let categories = inventory.categories();
     assert!(categories["nodes"].contains(&"word".to_string()));
     assert!(categories["edges"].contains(&"parent".to_string()));
     assert!(categories["configs"].contains(&"otext".to_string()));
+    assert!(categories["computeds"].contains(&"rank".to_string()));
     assert!(!inventory.nodes.contains(&"parent".to_string()));
     assert!(!inventory.edges.contains(&"word".to_string()));
 
@@ -3175,6 +3421,105 @@ fn fabric_facade_explores_loads_compiles_and_opens_mapped_corpora() {
 }
 
 #[test]
+fn fabric_modules_use_last_module_wins_and_report_ignored_feature_paths() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("otype.tf"),
+        "@node\n@valueType=str\n\nword\nword\n",
+    )
+    .unwrap();
+    fs::write(dir.path().join("oslots.tf"), "@edge\n@valueType=int\n\n").unwrap();
+    fs::write(
+        dir.path().join("word.tf"),
+        "@node\n@valueType=str\n@description=base words\n\nbase1\nbase2\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("otext.tf"),
+        "@config\n@fmt:text-orig-full={word}\n\n",
+    )
+    .unwrap();
+
+    let extra = dir.path().join("extra");
+    fs::create_dir(&extra).unwrap();
+    fs::write(
+        extra.join("word.tf"),
+        "@node\n@valueType=str\n@description=override words\n\nextra1\nextra2\n",
+    )
+    .unwrap();
+
+    let fabric = Fabric::with_modules(dir.path(), ["", "extra"]);
+    let inventory = fabric.explore().unwrap();
+    assert_eq!(
+        inventory.feature_paths("word").unwrap(),
+        &[dir.path().join("word.tf"), extra.join("word.tf")]
+    );
+    assert_eq!(
+        inventory
+            .feature_metadata("word")
+            .unwrap()
+            .get("description")
+            .and_then(Option::as_deref),
+        Some("override words")
+    );
+    assert_eq!(
+        fabric.ignored_feature_paths().unwrap()["word"],
+        vec![dir.path().join("word.tf")]
+    );
+    assert_eq!(
+        fabric.features_ignored()["word"],
+        vec![dir.path().join("word.tf")]
+    );
+    assert_eq!(
+        fabric.featuresIgnored()["word"],
+        vec![dir.path().join("word.tf")]
+    );
+
+    let corpus = fabric.load_all().unwrap();
+    assert_eq!(
+        corpus.node_feature("word").unwrap().str_value(1),
+        Some("extra1")
+    );
+    assert_eq!(corpus.text(2, None), "extra2");
+}
+
+#[test]
+fn fabric_save_round_trips_loaded_corpus_features_to_tf_files() {
+    let source = Corpus::load(repo_path("libs/core/tests/fixtures/mini_corpus")).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let fabric = Fabric::new(dir.path());
+    let output = dir.path().join("saved");
+
+    assert!(fabric.save(&source, Some(&output), None).unwrap());
+    assert!(output.join("otype.tf").exists());
+    assert!(output.join("oslots.tf").exists());
+    assert!(output.join("relation.tf").exists());
+    assert!(output.join("otext.tf").exists());
+
+    let reloaded = Corpus::load(&output).unwrap();
+    assert_eq!(
+        reloaded.node_feature("word").unwrap().values,
+        source.node_feature("word").unwrap().values
+    );
+    assert_eq!(
+        reloaded.edge_feature("oslots").unwrap().values,
+        source.edge_feature("oslots").unwrap().values
+    );
+    assert_eq!(
+        reloaded.edge_feature("relation").unwrap().edge_values,
+        source.edge_feature("relation").unwrap().edge_values
+    );
+    assert_eq!(
+        reloaded.config_feature("otext").unwrap(),
+        source.config_feature("otext").unwrap()
+    );
+    assert_eq!(
+        reloaded.search().search("word word=hello", None).unwrap(),
+        vec![vec![1]]
+    );
+}
+
+#[test]
 fn public_fabric_constructor_metadata_matches_python_public_state() {
     let source = repo_path("libs/core/tests/fixtures/mini_corpus");
     let fabric = Fabric::new(&source);
@@ -3225,7 +3570,8 @@ fn corpus_loading_reports_clean_errors_for_missing_or_empty_locations() {
 
 #[test]
 fn selective_load_always_includes_warp_features_and_configs() {
-    let corpus =
+    let source = repo_path("libs/core/tests/fixtures/mini_corpus");
+    let mut corpus =
         Corpus::load_features(repo_path("libs/core/tests/fixtures/mini_corpus"), &["word"])
             .unwrap();
 
@@ -3238,6 +3584,20 @@ fn selective_load_always_includes_warp_features_and_configs() {
 
     let results = corpus.search().search("word word=hello", None).unwrap();
     assert_eq!(results, vec![vec![1]]);
+
+    let fabric = Fabric::new(&source);
+    assert!(fabric.ensure_loaded(&mut corpus, "pos parent").unwrap());
+    assert!(corpus.node_feature("pos").is_some());
+    assert!(corpus.edge_feature("parent").is_some());
+    assert!(fabric.ensureLoaded(&mut corpus, "relation").unwrap());
+    assert!(corpus.edge_feature("relation").is_some());
+
+    let footprint = corpus.footprint();
+    assert_eq!(footprint["maxNode"], 8);
+    assert!(footprint["nodes"] >= 3);
+    assert!(footprint["edges"] >= 3);
+    assert!(footprint["configs"] >= 1);
+    assert_eq!(footprint["computed"], corpus.computed_names().len());
 }
 
 #[test]
@@ -3433,8 +3793,10 @@ fn edge_feature_forward_backward_both_and_count() {
     assert_eq!(parent.forward(999), Vec::<u32>::new());
     let parent_items = parent.items();
     assert_eq!(parent_items.len(), 7);
-    assert_eq!(parent_items[0], (1, vec![6]));
-    assert_eq!(parent_items[6], (7, vec![8]));
+    let mut parent_sources = vec![1, 2, 3, 4, 5, 6, 7];
+    corpus.sort_nodes(&mut parent_sources);
+    assert_eq!(parent_items[0].0, parent_sources[0]);
+    assert_eq!(parent_items[6].0, parent_sources[6]);
     assert_eq!(parent.edge_count(), 7);
     assert_eq!(parent.edge_value_count(), 0);
     assert!(!parent.has_edge_values());
@@ -3443,10 +3805,36 @@ fn edge_feature_forward_backward_both_and_count() {
     assert_eq!(relation.edge_value_count(), 5);
     assert!(relation.has_edge_values());
     assert!(relation.hasEdgeValues());
+    assert_eq!(
+        relation.forward_with_values(1),
+        vec![(6, Some(FeatureValue::string("subject")))]
+    );
+    assert_eq!(
+        relation.data_with_values().get(&1),
+        Some(&vec![(6, Some(FeatureValue::string("subject")))])
+    );
+    assert_eq!(
+        relation.dataInvWithValues().get(&6),
+        Some(&vec![
+            (1, Some(FeatureValue::string("subject"))),
+            (2, Some(FeatureValue::string("predicate"))),
+            (3, Some(FeatureValue::string("object"))),
+        ])
+    );
+    assert_eq!(
+        relation.itemsWithValues()[0],
+        (1, vec![(6, Some(FeatureValue::string("subject")))])
+    );
     let oslots = corpus.edge_feature("oslots").unwrap();
     assert_eq!(oslots.s(8), vec![1, 2, 3, 4, 5]);
-    assert_eq!(oslots.t(1), vec![6, 8]);
-    assert_eq!(oslots.items()[2], (8, vec![1, 2, 3, 4, 5]));
+    assert_eq!(oslots.s(1), vec![1]);
+    let mut embedders_for_slot_1 = vec![6, 8];
+    corpus.sort_nodes(&mut embedders_for_slot_1);
+    assert_eq!(oslots.t(1), embedders_for_slot_1);
+    assert_eq!(
+        oslots.items().into_iter().find(|(source, _)| *source == 8),
+        Some((8, vec![1, 2, 3, 4, 5]))
+    );
 
     assert_eq!(
         corpus.edge_frequency_list("parent", None, None).unwrap(),
@@ -3616,7 +4004,7 @@ fn corpus_node_ordering_and_locality_navigation() {
     assert_eq!(corpus.up(1, Some("sentence")), vec![8]);
     assert_eq!(
         corpus.up_types(1, Some(&["phrase", "sentence"])),
-        vec![8, 6]
+        vec![6, 8]
     );
     assert_eq!(
         locality.up_types(1, Some(&["phrase", "sentence"])),
@@ -3629,16 +4017,16 @@ fn corpus_node_ordering_and_locality_navigation() {
     assert_eq!(corpus.u(8, None), corpus.up(8, None));
     assert_eq!(corpus.up(8, None), Vec::<u32>::new());
 
-    assert_eq!(corpus.intersecting(6, None), vec![8, 1, 2, 3]);
+    assert_eq!(corpus.intersecting(6, None), vec![3, 2, 1, 8]);
     assert_eq!(locality.intersecting(6, None), corpus.intersecting(6, None));
     assert_eq!(corpus.i(6, None), corpus.intersecting(6, None));
     assert_eq!(locality.i(6, None), corpus.i(6, None));
     assert_eq!(corpus.i(6, Some("sentence")), vec![8]);
-    assert_eq!(corpus.i(6, Some("word")), vec![1, 2, 3]);
+    assert_eq!(corpus.i(6, Some("word")), vec![3, 2, 1]);
     assert_eq!(corpus.intersecting(1, None), Vec::<u32>::new());
     assert_eq!(
         corpus.intersecting_types(8, Some(&["phrase", "word"])),
-        vec![6, 1, 2, 3, 7, 4, 5]
+        vec![5, 4, 7, 3, 2, 1, 6]
     );
 
     assert_eq!(corpus.down(6, Some("word")), vec![1, 2, 3]);
@@ -4342,6 +4730,68 @@ fn text_formats_support_python_fallback_defaults_and_layout_escapes() {
     assert_eq!(
         mapped_text.text(3, Some("fallback")).unwrap(),
         corpus.text(3, Some("fallback"))
+    );
+}
+
+#[test]
+fn text_respects_node_default_target_formats_and_descend_option() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("otype.tf"),
+        "@node\n@valueType=str\n\nword\nword\nphrase\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("oslots.tf"),
+        "@edge\n@valueType=int\n\n3\t1-2\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("word.tf"),
+        "@node\n@valueType=str\n\nhello\nworld\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("label.tf"),
+        "@node\n@valueType=str\n\n3\tP1\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("otext.tf"),
+        "@config\n@fmt:text-orig-full={word} \n@fmt:phrase-default=phrase#{label}\n@fmt:phrase-label=phrase#{label}\n\n",
+    )
+    .unwrap();
+
+    let corpus = Corpus::load(dir.path()).unwrap();
+    assert_eq!(corpus.text(3, None), "P1");
+    assert_eq!(corpus.text(3, Some("phrase-label")), "P1");
+    assert_eq!(
+        corpus.text_with_options(3, &TextOptions::new(Some("phrase-label"), Some(true))),
+        "P1"
+    );
+    assert_eq!(
+        corpus.text_with_options(3, &TextOptions::new(Some("text-orig-full"), Some(false))),
+        " "
+    );
+    assert_eq!(
+        corpus.text_with_options(3, &TextOptions::new(Some("text-orig-full"), Some(true))),
+        "hello world "
+    );
+    assert_eq!(
+        Text::new(&corpus).textWithOptions(3, &TextOptions::new(None::<String>, None)),
+        "P1"
+    );
+
+    let cache_path = dir.path().join("targeted-text.cfr");
+    compile_features(dir.path(), &cache_path, &[]).unwrap();
+    let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
+    let mapped_text = MappedText::new(&mapped).unwrap();
+    assert_eq!(mapped_text.text(3, None).unwrap(), corpus.text(3, None));
+    assert_eq!(
+        mapped_text
+            .text_with_options(3, &TextOptions::new(Some("text-orig-full"), Some(true)))
+            .unwrap(),
+        corpus.text_with_options(3, &TextOptions::new(Some("text-orig-full"), Some(true)))
     );
 }
 
@@ -6125,6 +6575,22 @@ sentence
         .unwrap();
     assert_eq!(where_have, vec![vec![8]]);
 
+    let where_have_is_universal_not_existential = corpus
+        .search()
+        .search(
+            "
+phrase
+/where/
+  w:word pos=adjective
+/have/
+  w number=1
+/-/
+",
+            None,
+        )
+        .unwrap();
+    assert_eq!(where_have_is_universal_not_existential, vec![vec![7]]);
+
     let with_or_alternatives = corpus
         .search()
         .search(
@@ -6885,7 +7351,7 @@ fn mapped_sections_match_materialized_containment_and_locality_without_materiali
     assert_eq!(sections.up(8, None).unwrap(), parsed.up(8, None));
     assert_eq!(
         sections.up_types(1, Some(&["phrase", "sentence"])).unwrap(),
-        parsed.up_types(1, Some(&["phrase", "sentence"]))
+        vec![6, 8]
     );
     assert_eq!(
         sections.u_types(1, Some(&["phrase", "sentence"])).unwrap(),
@@ -7574,11 +8040,17 @@ fn mapped_compiled_edge_features_read_targets_without_materializing() {
         .unwrap();
     assert_eq!(sentence_slots, vec![1, 2, 3, 4, 5]);
     assert_eq!(oslots.s(8).unwrap(), vec![1, 2, 3, 4, 5]);
-    assert_eq!(oslots.t(1).unwrap(), vec![6, 8]);
-    assert_eq!(oslots.backward(1).unwrap(), vec![6, 8]);
+    let mut embedders_for_slot_1 = vec![6, 8];
+    parsed.sort_nodes(&mut embedders_for_slot_1);
+    assert_eq!(oslots.t(1).unwrap(), embedders_for_slot_1);
+    assert_eq!(oslots.backward(1).unwrap(), embedders_for_slot_1);
     assert_eq!(
         oslots.backward_with_values(1).unwrap(),
-        vec![(6, None), (8, None)]
+        embedders_for_slot_1
+            .iter()
+            .copied()
+            .map(|node| (node, None))
+            .collect::<Vec<_>>()
     );
     assert_eq!(
         oslots.t_with_values(1).unwrap(),
@@ -7598,7 +8070,14 @@ fn mapped_compiled_edge_features_read_targets_without_materializing() {
         oslots.items().unwrap(),
         parsed.edge_feature("oslots").unwrap().items()
     );
-    assert_eq!(oslots.items().unwrap()[2], (8, vec![1, 2, 3, 4, 5]));
+    assert_eq!(
+        oslots
+            .items()
+            .unwrap()
+            .into_iter()
+            .find(|(source, _)| *source == 8),
+        Some((8, vec![1, 2, 3, 4, 5]))
+    );
     assert_eq!(oslots.edge_count().unwrap(), 10);
 
     assert!(oslots.targets(1).unwrap().is_none());
@@ -8936,6 +9415,22 @@ sentence
             .search(
                 "
 phrase
+/where/
+  w:word pos=adjective
+/have/
+  w number=1
+/-/
+",
+                None
+            )
+            .unwrap(),
+        vec![vec![7]]
+    );
+    assert_eq!(
+        search
+            .search(
+                "
+phrase
 /with/
   word word=hello
 /or/
@@ -9043,12 +9538,113 @@ w ]] p
 }
 
 #[test]
-fn loads_bhsa_and_runs_lexical_queries() {
-    let corpus = Corpus::load_features(
-        repo_path("libs/benchmarks/.corpora/bhsa/tf"),
-        &["otype", "oslots", "sp"],
+fn mapped_adjacent_before_uses_slot_boundaries_not_node_ids() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("otype.tf"),
+        "@node\n@valueType=str\n\n1-4\tword\n5\tphrase\n6\tsentence\n7\tphrase\n",
     )
     .unwrap();
+    fs::write(
+        dir.path().join("oslots.tf"),
+        "@edge\n@valueType=int\n\n5\t1-2\n6\t1-4\n7\t3-4\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("word.tf"),
+        "@node\n@valueType=str\n\n1\ta\n2\tb\n3\tc\n4\td\n",
+    )
+    .unwrap();
+
+    let cache_path = dir.path().join("synthetic.cfr");
+    compile_features(dir.path(), &cache_path, &["otype", "oslots", "word"]).unwrap();
+
+    let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
+    let search = MappedSearch::new(&mapped);
+
+    assert_eq!(
+        search
+            .search(
+                "
+p1:phrase
+p2:phrase
+p1 <: p2
+",
+                None
+            )
+            .unwrap(),
+        vec![vec![5, 7]]
+    );
+}
+
+#[test]
+fn golden_master_public_api_probes_match_python_when_available() {
+    let script = repo_path("libs/cf-rust/tests/golden/compare.py");
+    let output = std::process::Command::new("python3")
+        .arg(script)
+        .current_dir(repo_path("libs/cf-rust"))
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "golden comparison failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn committed_golden_masters_are_regenerable_from_python_when_available() {
+    let python = repo_path("libs/core/.venv/bin/python");
+    if !python.exists() {
+        eprintln!(
+            "skipping Python golden authenticity test: missing {}",
+            python.to_string_lossy()
+        );
+        return;
+    }
+    let corpora = ["bhsa", "n1904", "banks"]
+        .into_iter()
+        .filter(|name| optional_corpus_tf(name).is_some())
+        .collect::<Vec<_>>();
+    if corpora.is_empty() {
+        return;
+    }
+
+    let temp_dir = tempfile::tempdir().unwrap();
+    let script = repo_path("libs/cf-rust/tests/golden/gen_golden.py");
+    let output = std::process::Command::new(&python)
+        .arg(script)
+        .arg("--output-dir")
+        .arg(temp_dir.path())
+        .args(&corpora)
+        .current_dir(repo_path(""))
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "Python golden regeneration failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    for corpus in corpora {
+        let expected = fs::read_to_string(repo_path(&format!(
+            "libs/cf-rust/tests/golden/golden/{corpus}.json"
+        )))
+        .unwrap();
+        let regenerated = fs::read_to_string(temp_dir.path().join(format!("{corpus}.json")))
+            .unwrap_or_else(|error| panic!("missing regenerated golden for {corpus}: {error}"));
+        assert_eq!(regenerated, expected, "golden mismatch for {corpus}");
+    }
+}
+
+#[test]
+fn loads_bhsa_and_runs_lexical_queries() {
+    let Some(path) = bhsa_tf() else {
+        return;
+    };
+    let corpus = Corpus::load_features(path, &["otype", "oslots", "sp"]).unwrap();
     assert_eq!(corpus.nodes_of_type("word").len(), 426_590);
     assert_eq!(corpus.nodes_of_type("book").len(), 39);
     assert_eq!(corpus.node_type(1), Some("word"));
@@ -9071,8 +9667,11 @@ fn loads_bhsa_and_runs_lexical_queries() {
 
 #[test]
 fn renders_bhsa_text_from_otext_format_features() {
+    let Some(path) = bhsa_tf() else {
+        return;
+    };
     let corpus = Corpus::load_features(
-        repo_path("libs/benchmarks/.corpora/bhsa/tf"),
+        path,
         &[
             "otype",
             "oslots",
@@ -9115,8 +9714,11 @@ fn renders_bhsa_text_from_otext_format_features() {
 
 #[test]
 fn runs_representative_bhsa_curated_query_shapes() {
+    let Some(path) = bhsa_tf() else {
+        return;
+    };
     let corpus = Corpus::load_features(
-        repo_path("libs/benchmarks/.corpora/bhsa/tf"),
+        path,
         &[
             "otype", "oslots", "sp", "vt", "vs", "gn", "nu", "language", "function", "typ", "kind",
         ],

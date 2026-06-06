@@ -52,6 +52,7 @@ pub struct NodeFeature {
     pub metadata: BTreeMap<String, Option<String>>,
     pub values: HashMap<u32, FeatureValue>,
     pub by_value: HashMap<FeatureValue, Vec<u32>>,
+    rank: Option<Arc<Vec<u32>>>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -88,6 +89,24 @@ impl NodeFeature {
             metadata,
             values,
             by_value,
+            rank: None,
+        }
+    }
+
+    pub fn with_rank(mut self, rank: Arc<Vec<u32>>) -> Self {
+        self.rank = Some(rank);
+        self.reindex_by_value();
+        self
+    }
+
+    fn reindex_by_value(&mut self) {
+        self.by_value.clear();
+        for (node, value) in &self.values {
+            self.by_value.entry(value.clone()).or_default().push(*node);
+        }
+        let rank = self.rank.clone();
+        for nodes in self.by_value.values_mut() {
+            sort_nodes_by_rank(nodes, rank.as_deref());
         }
     }
 
@@ -142,7 +161,8 @@ impl NodeFeature {
             .iter()
             .map(|(node, value)| (*node, value.clone()))
             .collect();
-        rows.sort_unstable_by_key(|(node, _)| *node);
+        let rank = self.rank.as_deref();
+        rows.sort_unstable_by_key(|(node, _)| rank_key(*node, rank));
         rows
     }
 
@@ -244,6 +264,7 @@ pub struct EdgeFeature {
     pub metadata: BTreeMap<String, Option<String>>,
     pub values: HashMap<u32, Vec<u32>>,
     pub edge_values: HashMap<(u32, u32), FeatureValue>,
+    rank: Option<Arc<Vec<u32>>>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -316,7 +337,17 @@ impl EdgeFeature {
             metadata,
             values,
             edge_values,
+            rank: None,
         }
+    }
+
+    pub fn with_rank(mut self, rank: Arc<Vec<u32>>) -> Self {
+        self.rank = Some(rank.clone());
+        for targets in self.values.values_mut() {
+            sort_nodes_by_rank(targets, Some(&rank));
+            targets.dedup();
+        }
+        self
     }
 
     pub fn targets(&self, node: u32) -> Option<&[u32]> {
@@ -349,7 +380,12 @@ impl EdgeFeature {
     }
 
     pub fn s(&self, node: u32) -> Vec<u32> {
-        self.forward(node)
+        let targets = self.forward(node);
+        if targets.is_empty() && self.name == "oslots" {
+            vec![node]
+        } else {
+            targets
+        }
     }
 
     pub fn f(&self, node: u32) -> Vec<u32> {
@@ -463,6 +499,40 @@ impl EdgeFeature {
         self.data_inv()
     }
 
+    pub fn data_with_values(&self) -> HashMap<u32, Vec<(u32, Option<FeatureValue>)>> {
+        self.values
+            .keys()
+            .map(|source| (*source, self.forward_with_values(*source)))
+            .collect()
+    }
+
+    #[allow(non_snake_case)]
+    pub fn dataWithValues(&self) -> HashMap<u32, Vec<(u32, Option<FeatureValue>)>> {
+        self.data_with_values()
+    }
+
+    pub fn data_inv_with_values(&self) -> HashMap<u32, Vec<(u32, Option<FeatureValue>)>> {
+        let mut inverse: HashMap<u32, Vec<(u32, Option<FeatureValue>)>> = HashMap::new();
+        for (source, targets) in &self.values {
+            for target in targets {
+                inverse
+                    .entry(*target)
+                    .or_default()
+                    .push((*source, self.edge_value(*source, *target).cloned()));
+            }
+        }
+        for sources in inverse.values_mut() {
+            sources.sort_unstable_by_key(|(source, _)| *source);
+            sources.dedup();
+        }
+        inverse
+    }
+
+    #[allow(non_snake_case)]
+    pub fn dataInvWithValues(&self) -> HashMap<u32, Vec<(u32, Option<FeatureValue>)>> {
+        self.data_inv_with_values()
+    }
+
     pub fn backward(&self, node: u32) -> Vec<u32> {
         let mut sources = Vec::new();
         for (source, targets) in &self.values {
@@ -470,7 +540,7 @@ impl EdgeFeature {
                 sources.push(*source);
             }
         }
-        sources.sort_unstable();
+        self.sort_nodes(&mut sources);
         sources.dedup();
         sources
     }
@@ -507,7 +577,7 @@ impl EdgeFeature {
             by_node.insert(target, value);
         }
         let mut rows: Vec<_> = by_node.into_iter().collect();
-        rows.sort_unstable_by_key(|(node, _)| *node);
+        rows.sort_unstable_by_key(|(node, _)| rank_key(*node, self.rank.as_deref()));
         rows
     }
 
@@ -521,13 +591,28 @@ impl EdgeFeature {
             .iter()
             .map(|(source, targets)| {
                 let mut targets = targets.clone();
-                targets.sort_unstable();
+                self.sort_nodes(&mut targets);
                 targets.dedup();
                 (*source, targets)
             })
             .collect();
-        rows.sort_unstable_by_key(|(source, _)| *source);
+        rows.sort_unstable_by_key(|(source, _)| rank_key(*source, self.rank.as_deref()));
         rows
+    }
+
+    pub fn items_with_values(&self) -> Vec<(u32, Vec<(u32, Option<FeatureValue>)>)> {
+        let mut rows: Vec<_> = self
+            .values
+            .keys()
+            .map(|source| (*source, self.forward_with_values(*source)))
+            .collect();
+        rows.sort_unstable_by_key(|(source, _)| rank_key(*source, self.rank.as_deref()));
+        rows
+    }
+
+    #[allow(non_snake_case)]
+    pub fn itemsWithValues(&self) -> Vec<(u32, Vec<(u32, Option<FeatureValue>)>)> {
+        self.items_with_values()
     }
 
     pub fn frequency_list(&self) -> EdgeFrequency {
@@ -561,6 +646,21 @@ impl EdgeFeature {
     pub fn edge_count(&self) -> usize {
         self.values.values().map(Vec::len).sum()
     }
+
+    fn sort_nodes(&self, nodes: &mut [u32]) {
+        sort_nodes_by_rank(nodes, self.rank.as_deref());
+    }
+}
+
+fn sort_nodes_by_rank(nodes: &mut [u32], rank: Option<&Vec<u32>>) {
+    nodes.sort_unstable_by_key(|node| rank_key(*node, rank));
+}
+
+fn rank_key(node: u32, rank: Option<&Vec<u32>>) -> (u32, u32) {
+    let canonical = rank
+        .and_then(|rank| rank.get(node.saturating_sub(1) as usize).copied())
+        .unwrap_or(node);
+    (canonical, node)
 }
 
 fn optional_feature_value_sort_token(value: &Option<FeatureValue>) -> String {

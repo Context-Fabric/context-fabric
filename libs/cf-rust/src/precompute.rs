@@ -1,6 +1,8 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap};
 
+use serde::Serialize;
+
 use crate::corpus::{Boundary, Corpus};
 use crate::feature::FeatureValue;
 
@@ -19,7 +21,7 @@ pub struct SectionsData {
     pub node_from_seq: BTreeMap<Vec<u32>, u32>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct StructureHeading {
     pub node_type: String,
     pub heading: String,

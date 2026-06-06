@@ -598,6 +598,15 @@ class Fabric:
             if sections_data:
                 setattr(api.C, 'sections', Computed(api, sections_data))
 
+        # Compute structure after loadAll() has materialized every feature. The
+        # first load("") call can happen before all structure heading features
+        # are available, so recompute here just as we do for sections above.
+        if getattr(self, 'structureOK', False) and '__structure__' in self.features:
+            structure_feature = self.features['__structure__']
+            if structure_feature.load(silent=silent):
+                setattr(api.C, 'structure', Computed(api, structure_feature.data))
+                addText(api)
+
         return api
 
     def save(
