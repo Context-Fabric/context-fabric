@@ -32,7 +32,7 @@ import numpy as np
 
 def load_corpus():
     """Load the BHSA corpus using Context-Fabric."""
-    from cfabric.core.fabric import Fabric
+    from cfabric import Fabric
 
     # Path relative to benchmarks directory
     corpus_path = Path(__file__).parent.parent.parent / ".corpora" / "bhsa" / "tf"

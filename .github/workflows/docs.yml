@@ -18,14 +18,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: dtolnay/rust-toolchain@stable
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
 
       - name: Install dependencies
         run: |
-          pip install griffe griffe-typingdoc
-          pip install -e libs/core
+          pip install griffe griffe-typingdoc maturin
+          PYO3_PYTHON="$(python -c 'import sys; print(sys.executable)')" pip install -e libs/core
           pip install -e libs/mcp
           pip install -e libs/benchmarks
 

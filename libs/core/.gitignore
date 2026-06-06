@@ -1,0 +1,4 @@
+target/
+dist/
+cfabric/_core*.so
+cfabric/__pycache__/

@@ -286,7 +286,7 @@ def load_with_context_fabric(tf_path: Path, collect_samples: bool = False) -> Co
     """Load corpus with Context-Fabric and return stats."""
     stats = CorpusStats()
     try:
-        from cfabric.core.fabric import Fabric
+        from cfabric import Fabric
 
         tf = Fabric(locations=str(tf_path), silent="deep")
         api = tf.loadAll(silent="deep")

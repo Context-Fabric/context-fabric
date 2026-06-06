@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0rc1] - 2026-06-06 ([ck])
+
+### Changed
+- Replaced the pure-Python core engine with the Rust/PyO3 implementation packaged through maturin as `context-fabric`.
+- Promoted compiled cache and memory-mapped corpus loading to the public Python API (`loadCompiled()`, `openMapped()`).
+- Updated GitHub workflows to build, test, and publish Rust-backed Python wheels.
+
+### Added
+- Text-Fabric oracle parity gates, golden comparison tooling, and public API compatibility tests for the Rust-backed package.
+- Performance cutover gates documenting mapped-load and query overhead versus raw Rust and Text-Fabric baselines.
+
+### Fixed
+- Text-Fabric valued edge parsing for implicit `@edgeValues` rows and compact `target:value` syntax.
+- Downstream MCP and benchmark package imports for the new top-level `cfabric` API surface.
+
 ## [0.5.7] - 2026-01-15 ([ck])
 
 ### Fixed

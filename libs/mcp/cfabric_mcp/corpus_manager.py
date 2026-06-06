@@ -8,13 +8,10 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Any
 
 import cfabric
 from cfabric.results import CorpusInfo
-
-if TYPE_CHECKING:
-    from cfabric.core.api import Api
 
 logger = logging.getLogger("cfabric_mcp.corpus_manager")
 
@@ -26,7 +23,7 @@ class CorpusManager:
     """
 
     def __init__(self) -> None:
-        self._corpora: dict[str, tuple[cfabric.Fabric, Api]] = {}
+        self._corpora: dict[str, tuple[cfabric.Fabric, Any]] = {}
         self._current: str | None = None
 
     def load(
@@ -88,7 +85,7 @@ class CorpusManager:
         )
         return info
 
-    def get(self, name: str | None = None) -> tuple[cfabric.Fabric, Api]:
+    def get(self, name: str | None = None) -> tuple[cfabric.Fabric, Any]:
         """Get a loaded corpus.
 
         Parameters
@@ -111,7 +108,7 @@ class CorpusManager:
         logger.debug("Accessing corpus '%s'", name)
         return self._corpora[name]
 
-    def get_api(self, name: str | None = None) -> Api:
+    def get_api(self, name: str | None = None) -> Any:
         """Get API for a corpus."""
         return self.get(name)[1]
 

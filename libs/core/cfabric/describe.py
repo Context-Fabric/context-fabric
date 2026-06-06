@@ -14,10 +14,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from cfabric.core.api import Api
+Api = Any
 
 __all__ = [
     "describe_corpus",
@@ -151,22 +150,7 @@ class FeatureDescription:
         sample_limit : int
             Maximum sample values to return
         """
-        import numpy as np
-
-        CF = api.CF
-        fObj = CF.features.get(feature)
-        if not fObj:
-            return cls(name=feature, kind="unknown", error=f"Feature '{feature}' not found")
-
-        meta = fObj.metaData or {}
-        value_type = meta.get("valueType", meta.get("value_type", "str"))
-        description = meta.get("description", "")
-
         def _convert(v: Any) -> str | int | float:
-            if isinstance(v, np.integer):
-                return int(v)
-            elif isinstance(v, np.floating):
-                return float(v)
             return v
 
         # Get node types this feature applies to
@@ -179,8 +163,8 @@ class FeatureDescription:
             return cls(
                 name=feature,
                 kind="node",
-                value_type=value_type,
-                description=description,
+                value_type=getattr(fobj, "valueType", None) or "",
+                description=getattr(fobj, "description", None) or "",
                 node_types=node_types,
                 unique_values=len(freq_list),
                 sample_values=[
@@ -191,12 +175,12 @@ class FeatureDescription:
         # Try as edge feature
         eobj = api.Es(feature, warn=False)
         if eobj:
-            has_values = eobj.doValues
+            has_values = eobj.hasEdgeValues()
             result = cls(
                 name=feature,
                 kind="edge",
-                value_type=value_type,
-                description=description,
+                value_type=getattr(eobj, "valueType", None) or "",
+                description=getattr(eobj, "description", None) or "",
                 node_types=node_types,
                 has_values=has_values,
             )
@@ -292,37 +276,7 @@ def _parse_otext_format_pairs(api: Api) -> list[tuple[str, str, str, str, str]]:
 
     Returns list of (base_name, orig_name, trans_name, orig_spec, trans_spec)
     """
-    CF = api.CF
-    otext_feature = CF.features.get("otext")
-    if not otext_feature:
-        return []
-
-    otext_meta = otext_feature.metaData or {}
-
-    # Collect all orig and trans formats
-    orig_formats: dict[str, tuple[str, str]] = {}  # base -> (full_name, spec)
-    trans_formats: dict[str, tuple[str, str]] = {}
-
-    for key, spec in otext_meta.items():
-        if not key.startswith("fmt:"):
-            continue
-        full_name = key[4:]  # Remove "fmt:"
-
-        if "-orig-" in full_name:
-            base_name = full_name.replace("-orig-", "-")
-            orig_formats[base_name] = (full_name, spec)
-        elif "-trans-" in full_name:
-            base_name = full_name.replace("-trans-", "-")
-            trans_formats[base_name] = (full_name, spec)
-
-    # Match pairs
-    pairs = []
-    for base_name, (orig_name, orig_spec) in orig_formats.items():
-        if base_name in trans_formats:
-            trans_name, trans_spec = trans_formats[base_name]
-            pairs.append((base_name, orig_name, trans_name, orig_spec, trans_spec))
-
-    return pairs
+    return []
 
 
 def _get_exhaustive_text_samples(
@@ -594,8 +548,6 @@ def list_features(
     list[FeatureCatalogEntry]
         List of features with name, kind, value_type, description
     """
-    CF = api.CF
-
     # Build feature→node_types mapping if filtering
     feature_node_types: dict[str, set[str]] = {}
     if node_types:
@@ -631,17 +583,15 @@ def list_features(
                 if not any(nt in feature_types for nt in node_types):
                     continue
 
-            fObj = CF.features.get(fname)
-            if fObj:
-                meta = fObj.metaData or {}
-                features.append(
-                    FeatureCatalogEntry(
-                        name=fname,
-                        kind="node",
-                        value_type=meta.get("valueType", meta.get("value_type", "str")),
-                        description=meta.get("description", ""),
-                    )
+            fobj = api.Fs(fname, warn=False)
+            features.append(
+                FeatureCatalogEntry(
+                    name=fname,
+                    kind="node",
+                    value_type=getattr(fobj, "valueType", None) or "",
+                    description=getattr(fobj, "description", None) or "",
                 )
+            )
 
     # Edge features
     if kind in ("all", "edge"):
@@ -651,17 +601,15 @@ def list_features(
                 if not any(nt in feature_types for nt in node_types):
                     continue
 
-            fObj = CF.features.get(fname)
-            if fObj:
-                meta = fObj.metaData or {}
-                features.append(
-                    FeatureCatalogEntry(
-                        name=fname,
-                        kind="edge",
-                        value_type=meta.get("valueType", meta.get("value_type", "str")),
-                        description=meta.get("description", ""),
-                    )
+            eobj = api.Es(fname, warn=False)
+            features.append(
+                FeatureCatalogEntry(
+                    name=fname,
+                    kind="edge",
+                    value_type=getattr(eobj, "valueType", None) or "",
+                    description=getattr(eobj, "description", None) or "",
                 )
+            )
 
     return features
 
@@ -685,7 +633,6 @@ def describe_corpus(api: Api, name: str = "") -> CorpusDescription:
         Complete description including node types, sections,
         text representations, and feature lists
     """
-    CF = api.CF
     F = api.F
 
     # Node types (from C.levels.data)
@@ -712,28 +659,12 @@ def describe_corpus(api: Api, name: str = "") -> CorpusDescription:
     # Features - names and types only
     features = []
     for fname in api.Fall(warp=False):
-        fObj = CF.features.get(fname)
-        if fObj:
-            meta = fObj.metaData or {}
-            features.append(
-                {
-                    "name": fname,
-                    "value_type": meta.get("valueType", meta.get("value_type", "str")),
-                }
-            )
+        features.append({"name": fname, "value_type": ""})
 
     # Edge features - names and types only
     edge_features = []
     for fname in api.Eall(warp=False):
-        fObj = CF.features.get(fname)
-        if fObj:
-            meta = fObj.metaData or {}
-            edge_features.append(
-                {
-                    "name": fname,
-                    "value_type": meta.get("valueType", meta.get("value_type", "str")),
-                }
-            )
+        edge_features.append({"name": fname, "value_type": ""})
 
     return CorpusDescription(
         name=name,

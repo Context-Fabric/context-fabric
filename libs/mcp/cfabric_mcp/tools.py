@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import re
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from cfabric.results import NodeInfo, FeatureInfo, CorpusInfo
 from cfabric.describe import (
@@ -20,9 +20,6 @@ from cfabric.describe import (
 
 from cfabric_mcp.cache import get_cache
 from cfabric_mcp.corpus_manager import corpus_manager
-
-if TYPE_CHECKING:
-    from cfabric.core.api import Api
 
 logger = logging.getLogger("cfabric_mcp.tools")
 
@@ -917,5 +914,4 @@ def get_node_features(
         "features_requested": features,
         "total": len(results),
     }
-
 

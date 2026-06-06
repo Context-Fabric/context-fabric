@@ -439,7 +439,7 @@ def _load_cf_and_measure(source: str) -> tuple[float, float, float, float]:
     Returns:
         Tuple of (memory_mb, load_time_s, cache_size_mb, compile_time_s)
     """
-    from cfabric.core.fabric import Fabric as CFFabric
+    from cfabric import Fabric as CFFabric
 
     compile_time = 0.0
     cache_path = Path(source) / ".cfm"
@@ -502,7 +502,7 @@ def _cf_spawn_worker(ready_event, start_event, result_queue, source: str):
 
     Embedding structures are preloaded automatically by default.
     """
-    from cfabric.core.fabric import Fabric as CFFabric
+    from cfabric import Fabric as CFFabric
 
     cf = CFFabric(locations=source, silent="deep")
     api = cf.loadAll(silent="deep")
@@ -592,7 +592,7 @@ def _run_cf_fork_scenario(source: str, num_workers: int) -> tuple[float, float]:
 
     Embedding structures are preloaded automatically by default.
     """
-    from cfabric.core.fabric import Fabric as CFFabric
+    from cfabric import Fabric as CFFabric
 
     cf = CFFabric(locations=source, silent="deep")
     api = cf.loadAll(silent="deep")

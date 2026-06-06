@@ -102,7 +102,7 @@ def load_cf_api(source: str | Path) -> Any:
     Returns:
         Context-Fabric API object
     """
-    from cfabric.core.fabric import Fabric as CFFabric
+    from cfabric import Fabric as CFFabric
 
     cf = CFFabric(locations=str(source), silent="deep")
     return cf.loadAll(silent="deep")

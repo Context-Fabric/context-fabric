@@ -256,7 +256,7 @@ def _cf_progressive_loader(
     corpus_names: list[str],
 ) -> list[tuple[float, float, list[str]]]:
     """Load CF corpora progressively and measure memory."""
-    from cfabric.core.fabric import Fabric as CFFabric
+    from cfabric import Fabric as CFFabric
 
     results = []
     loaded_apis = []

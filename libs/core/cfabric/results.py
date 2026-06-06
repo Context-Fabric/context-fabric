@@ -8,10 +8,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field, asdict
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from cfabric.core.api import Api
+from typing import Any
 
 # Maximum slots for text extraction - nodes larger than this skip textification
 MAX_TEXT_SLOTS = 100
@@ -79,7 +76,7 @@ class NodeInfo:
     @classmethod
     def from_api(
         cls,
-        api: Api,
+        api: Any,
         node: int,
         include_text: bool = True,
         include_section: bool = True,
@@ -200,7 +197,7 @@ class NodeList:
     @classmethod
     def from_nodes(
         cls,
-        api: Api,
+        api: Any,
         nodes: list[int] | tuple[int, ...],
         limit: int | None = None,
         query: str | None = None,
@@ -262,7 +259,7 @@ class SearchResult:
     @classmethod
     def from_search(
         cls,
-        api: Api,
+        api: Any,
         results: tuple[tuple[int, ...], ...] | list[tuple[int, ...]],
         template: str,
         limit: int | None = None,
@@ -335,7 +332,7 @@ class FeatureInfo:
     @classmethod
     def from_api(
         cls,
-        api: Api,
+        api: Any,
         name: str,
         kind: str,
     ) -> FeatureInfo | None:
@@ -350,30 +347,24 @@ class FeatureInfo:
         kind: str
             'node' or 'edge'
         """
-        CF = api.CF
-
-        # Get metadata from CF.features (populated for both .tf and .cfm loading)
-        fObj = CF.features.get(name)
-        if not fObj:
+        if kind == "node":
+            fobj = api.Fs(name, warn=False)
+        elif kind == "edge":
+            fobj = api.Es(name, warn=False)
+        else:
+            fobj = None
+        if not fobj:
             return None
 
-        meta = fObj.metaData or {}
-        # Handle both .tf format (valueType) and .cfm format (value_type)
-        value_type = meta.get("valueType", meta.get("value_type", ""))
-        description = meta.get("description", "")
-
-        # For edge features, check if they have values
         has_values = None
         if kind == "edge":
-            eobj = api.Es(name, warn=False)
-            if eobj:
-                has_values = eobj.doValues
+            has_values = bool(fobj.hasEdgeValues())
 
         return cls(
             name=name,
             kind=kind,
-            value_type=value_type,
-            description=description,
+            value_type=getattr(fobj, "valueType", None) or "",
+            description=getattr(fobj, "description", None) or "",
             has_values=has_values,
         )
 
@@ -413,7 +404,7 @@ class CorpusInfo:
         return json.dumps(self.to_dict())
 
     @classmethod
-    def from_api(cls, api: Api, name: str, path: str) -> CorpusInfo:
+    def from_api(cls, api: Any, name: str, path: str) -> CorpusInfo:
         """Create CorpusInfo from API.
 
         Parameters

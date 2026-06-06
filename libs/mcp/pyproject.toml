@@ -20,7 +20,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "context-fabric>=0.2.0",
+    "context-fabric>=0.6.0rc1",
     "mcp>=1.0,<2",
     # uvicorn is used by FastMCP for SSE/HTTP transports
     "uvicorn>=0.32.0",

@@ -575,10 +575,12 @@ def validate_patterns(
     click.echo(f"  Invalid: {report.total_queries - valid_count}")
 
     # Show failures
-    if report.failures:
+    failures = [query for query in report.queries if not query.validated]
+    if failures:
         click.echo(f"\nFailed patterns:")
-        for f in report.failures[:10]:  # Show first 10
-            click.echo(f"  - {f.pattern_id}: {f.error_message[:60]}...")
+        for failure in failures[:10]:  # Show first 10
+            error = failure.validation_error or ""
+            click.echo(f"  - {failure.id}: {error[:60]}...")
 
     # Save results
     patterns_data = [p.model_dump() for p in report.queries]
@@ -586,11 +588,11 @@ def validate_patterns(
         json.dump(patterns_data, f, indent=2)
 
     report_data = {
-        "corpus": report.corpus_name,
+        "corpus": report.validation_corpus,
         "total": report.total_queries,
         "valid": valid_count,
         "invalid": report.total_queries - valid_count,
-        "failures": [f.model_dump() for f in report.failures],
+        "failures": [failure.model_dump() for failure in failures],
     }
     with open(output_dir / "validation_report.json", "w") as f:
         json.dump(report_data, f, indent=2)

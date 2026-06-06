@@ -21,7 +21,7 @@ pip install context-fabric
 ## Quick Start
 
 ```python
-from cfabric.core import Fabric
+from cfabric import Fabric
 
 # Load a dataset
 CF = Fabric(locations='path/to/data')
@@ -47,7 +47,7 @@ embedded = api.L.d(node)
 
 ## Performance
 
-Context-Fabric uses memory-mapped numpy arrays for dramatically faster loading and reduced memory consumption compared to Text-Fabric's pickle-based caching.
+Context-Fabric uses a Rust core with memory-mapped compiled corpus caches for fast loading and low-memory traversal/search workloads.
 
 ### Benchmarks (BHSA Hebrew Bible corpus — 1.4M nodes, 109 features)
 

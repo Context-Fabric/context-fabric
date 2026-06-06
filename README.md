@@ -83,7 +83,7 @@ pip install context-fabric[mcp]
 ## Quick Start
 
 ```python
-from cfabric.core import Fabric
+from cfabric import Fabric
 
 # Load a corpus
 CF = Fabric(locations='path/to/corpus')

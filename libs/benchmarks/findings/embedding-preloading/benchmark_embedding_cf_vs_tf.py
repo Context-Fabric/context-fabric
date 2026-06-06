@@ -61,7 +61,7 @@ EMBEDDING_PATTERNS = [
 
 def run_cf_benchmark(corpus_path: Path, preload: bool = False):
     """Run benchmark with Context-Fabric."""
-    from cfabric.core.fabric import Fabric
+    from cfabric import Fabric
 
     print(f"Loading CF corpus (preload={preload})...")
     TF = Fabric(locations=str(corpus_path), silent='deep')

@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["maturin>=1.8,<2"]
+build-backend = "maturin"
 
 [project]
 name = "context-fabric"
-version = "0.5.7"
+version = "0.6.0rc1"
 description = "Graph-based corpus engine for annotated text with efficient traversal and search"
 readme = "README.md"
 license = {text = "MIT"}
@@ -21,6 +21,7 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
     "Topic :: Text Processing :: Linguistic",
     "Topic :: Scientific/Engineering :: Information Analysis",
 ]
@@ -31,10 +32,7 @@ keywords = [
     "corpus",
     "graph",
 ]
-dependencies = [
-    "numpy>=1.26",
-    "pyyaml>=5.3",
-]
+dependencies = ["pyyaml>=5.3"]
 
 [project.optional-dependencies]
 dev = [
@@ -55,9 +53,21 @@ Documentation = "https://context-fabric.ai/docs"
 Repository = "https://github.com/Context-Fabric/context-fabric"
 Issues = "https://github.com/Context-Fabric/context-fabric/issues"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["cfabric*"]
+[tool.maturin]
+features = ["python", "extension-module"]
+module-name = "cfabric._core"
+python-source = "."
+include = [
+    { path = "cfabric/py.typed", format = ["sdist", "wheel"] },
+]
+
+[tool.cibuildwheel]
+build = "cp313-*"
+skip = "*-musllinux_*"
+test-command = "python -c \"from cfabric import Fabric, VERSION; assert VERSION == '0.6.0rc1'; assert Fabric is not None\""
+
+[tool.cibuildwheel.environment]
+MATURIN_FEATURES = "python,extension-module"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
