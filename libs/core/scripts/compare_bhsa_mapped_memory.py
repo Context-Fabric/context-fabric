@@ -1,19 +1,15 @@
 #!/usr/bin/env python3
-"""Compare Python cfabric and Rust mapped BHSA peak memory usage."""
+"""Compare Python cfabric and Rust mapped BHSA owned memory usage."""
 
 from __future__ import annotations
 
 import argparse
 import os
-import re
 import subprocess
 import sys
+import tempfile
+import time
 from pathlib import Path
-
-
-MAC_RSS_RE = re.compile(r"(?P<rss>\d+)\s+maximum resident set size")
-MAC_FOOTPRINT_RE = re.compile(r"(?P<rss>\d+)\s+peak memory footprint")
-GNU_RSS_RE = re.compile(r"Maximum resident set size \(kbytes\):\s+(?P<rss>\d+)")
 
 
 def main() -> int:
@@ -33,10 +29,10 @@ def main() -> int:
     )
     parser.add_argument("--limit", type=int, default=5)
     parser.add_argument(
-        "--max-rust-rss-ratio",
+        "--max-rust-uss-ratio",
         type=float,
         default=1.0,
-        help="Fail if Rust peak RSS is more than this fraction of Python peak RSS.",
+        help="Fail if Rust peak USS is more than this fraction of Python peak USS.",
     )
     args = parser.parse_args()
 
@@ -91,25 +87,30 @@ def main() -> int:
     print(rust.time_output.rstrip())
     print()
     print("memory")
-    ratio = rust.rss_bytes / python.rss_bytes
-    print(
-        f"python_peak_rss_mb={python.rss_bytes / (1024 * 1024):.2f} "
-        f"rust_peak_rss_mb={rust.rss_bytes / (1024 * 1024):.2f} "
-        f"rust_vs_python_rss_ratio={ratio:.3f}"
-    )
-    if ratio > args.max_rust_rss_ratio:
+    if python.uss_bytes == 0 or rust.uss_bytes == 0:
         raise RuntimeError(
-            f"Rust peak RSS ratio {ratio:.3f} exceeds "
-            f"{args.max_rust_rss_ratio:.3f}"
+            "USS measurement returned zero; this OS may deny child process "
+            "memory_full_info().uss access"
+        )
+    ratio = rust.uss_bytes / python.uss_bytes
+    print(
+        f"python_peak_uss_mb={python.uss_bytes / (1024 * 1024):.2f} "
+        f"rust_peak_uss_mb={rust.uss_bytes / (1024 * 1024):.2f} "
+        f"rust_vs_python_uss_ratio={ratio:.3f}"
+    )
+    if ratio > args.max_rust_uss_ratio:
+        raise RuntimeError(
+            f"Rust peak USS ratio {ratio:.3f} exceeds "
+            f"{args.max_rust_uss_ratio:.3f}"
         )
     return 0
 
 
 class Measurement:
-    def __init__(self, output: str, time_output: str, rss_bytes: int) -> None:
+    def __init__(self, output: str, time_output: str, uss_bytes: int) -> None:
         self.output = output
         self.time_output = time_output
-        self.rss_bytes = rss_bytes
+        self.uss_bytes = uss_bytes
 
 
 def run_command(command: list[str], cwd: Path, env: dict[str, str]) -> str:
@@ -126,32 +127,53 @@ def run_command(command: list[str], cwd: Path, env: dict[str, str]) -> str:
 
 
 def measure_command(command: list[str], cwd: Path, env: dict[str, str]) -> Measurement:
-    time_command = ["/usr/bin/time", "-l", *command]
-    completed = subprocess.run(
-        time_command,
-        cwd=cwd,
-        env=env,
-        check=True,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    rss_bytes = parse_time_rss_bytes(completed.stderr)
+    try:
+        import psutil
+    except ImportError as error:
+        raise RuntimeError("psutil is required for USS memory measurement") from error
+
+    with tempfile.TemporaryFile(mode="w+") as stdout_file, tempfile.TemporaryFile(
+        mode="w+"
+    ) as stderr_file:
+        process = psutil.Popen(
+            command,
+            cwd=cwd,
+            env=env,
+            text=True,
+            stdout=stdout_file,
+            stderr=stderr_file,
+        )
+        peak_uss = 0
+        while True:
+            peak_uss = max(peak_uss, process_tree_uss(process))
+            if process.poll() is not None:
+                break
+            time.sleep(0.02)
+        stdout_file.seek(0)
+        stderr_file.seek(0)
+        stdout = stdout_file.read()
+        stderr = stderr_file.read()
+    if process.returncode != 0:
+        raise subprocess.CalledProcessError(process.returncode, command, stdout, stderr)
     return Measurement(
-        output=completed.stdout,
-        time_output=completed.stderr,
-        rss_bytes=rss_bytes,
+        output=stdout,
+        time_output=f"peak_uss_bytes={peak_uss}\n{stderr}",
+        uss_bytes=peak_uss,
     )
 
 
-def parse_time_rss_bytes(output: str) -> int:
-    if match := MAC_RSS_RE.search(output):
-        return int(match.group("rss"))
-    if match := MAC_FOOTPRINT_RE.search(output):
-        return int(match.group("rss"))
-    if match := GNU_RSS_RE.search(output):
-        return int(match.group("rss")) * 1024
-    raise RuntimeError(f"could not parse peak RSS from /usr/bin/time output:\n{output}")
+def process_tree_uss(process: object) -> int:
+    try:
+        processes = [process, *process.children(recursive=True)]
+    except Exception:
+        processes = [process]
+    total = 0
+    for item in processes:
+        try:
+            total += item.memory_full_info().uss
+        except Exception:
+            continue
+    return total
 
 
 if __name__ == "__main__":

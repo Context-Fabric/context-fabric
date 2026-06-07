@@ -5,9 +5,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyString, PyTuple};
 
 use crate::compiled::MappedCompiledCorpus;
-use crate::corpus::Corpus;
 use crate::fabric::Fabric;
-use crate::mapped_search::MappedSearch;
 
 use super::accessors::{PyLocality, PyNodes, PySearch, PyText};
 use super::features::{PyComputeds, PyEdgeFeature, PyEdgeFeatures, PyNodeFeature, PyNodeFeatures};
@@ -98,22 +96,22 @@ impl PyFabric {
         let corpus = if features.is_empty() {
             self.inner.load_all()?
         } else {
-            self.inner.load(features)?
+            self.inner.load(features.clone())?
         };
-        Ok(PyCorpus::new(corpus))
+        Ok(PyCorpus::new(corpus, features))
     }
 
     #[allow(non_snake_case)]
     #[pyo3(signature = (silent=None))]
     fn loadAll(&self, silent: Option<&str>) -> PyResult<PyCorpus> {
         let _ = silent;
-        Ok(PyCorpus::new(self.inner.load_all()?))
+        Ok(PyCorpus::new(self.inner.load_all()?, Vec::new()))
     }
 
     #[pyo3(signature = (silent=None))]
     fn load_all(&self, silent: Option<&str>) -> PyResult<PyCorpus> {
         let _ = silent;
-        Ok(PyCorpus::new(self.inner.load_all()?))
+        Ok(PyCorpus::new(self.inner.load_all()?, Vec::new()))
     }
 
     #[pyo3(signature = (output_path, features=None, silent=None))]
@@ -174,20 +172,11 @@ impl PyFabric {
     }
 
     #[allow(non_snake_case)]
-    fn loadCompiled(&self, cache_path: &str) -> PyResult<PyCorpus> {
-        Ok(PyCorpus::new(self.inner.load_compiled(cache_path)?))
+    fn openMapped(&self, cache_path: &str) -> PyResult<PyCorpus> {
+        Ok(PyCorpus::new(self.inner.open_mapped(cache_path)?, Vec::new()))
     }
 
-    fn load_compiled(&self, cache_path: &str) -> PyResult<PyCorpus> {
-        self.loadCompiled(cache_path)
-    }
-
-    #[allow(non_snake_case)]
-    fn openMapped(&self, cache_path: &str) -> PyResult<PyMappedCorpus> {
-        Ok(PyMappedCorpus::new(self.inner.open_mapped(cache_path)?))
-    }
-
-    fn open_mapped(&self, cache_path: &str) -> PyResult<PyMappedCorpus> {
+    fn open_mapped(&self, cache_path: &str) -> PyResult<PyCorpus> {
         self.openMapped(cache_path)
     }
 
@@ -209,66 +198,22 @@ impl PyFabric {
     }
 }
 
-#[pyclass(name = "MappedCorpus")]
-pub(crate) struct PyMappedCorpus {
-    corpus: Arc<MappedCompiledCorpus>,
-}
-
-impl PyMappedCorpus {
-    fn new(corpus: MappedCompiledCorpus) -> Self {
-        Self {
-            corpus: Arc::new(corpus),
-        }
-    }
-}
-
-#[pymethods]
-impl PyMappedCorpus {
-    #[allow(non_snake_case)]
-    #[pyo3(signature = (warp=true))]
-    fn Fall(&self, py: Python<'_>, warp: bool) -> PyResult<PyObject> {
-        Ok(PyTuple::new(py, self.corpus.Fall(warp))?.into())
-    }
-
-    #[allow(non_snake_case)]
-    #[pyo3(signature = (warp=true))]
-    fn Eall(&self, py: Python<'_>, warp: bool) -> PyResult<PyObject> {
-        Ok(PyTuple::new(py, self.corpus.Eall(warp))?.into())
-    }
-
-    #[allow(non_snake_case)]
-    fn Call(&self, py: Python<'_>) -> PyResult<PyObject> {
-        Ok(PyTuple::new(py, self.corpus.Call())?.into())
-    }
-
-    #[getter]
-    #[allow(non_snake_case)]
-    fn maxNode(&self) -> u32 {
-        self.corpus.max_node()
-    }
-
-    #[pyo3(signature = (template, limit=None))]
-    fn search(&self, py: Python<'_>, template: &str, limit: Option<usize>) -> PyResult<PyObject> {
-        let search = MappedSearch::new(&self.corpus);
-        let rows = search.search(template, limit)?;
-        let rows = rows
-            .iter()
-            .map(|row| PyTuple::new(py, row.iter().copied()).map(Into::into))
-            .collect::<PyResult<Vec<PyObject>>>()?;
-        Ok(PyTuple::new(py, rows)?.into())
-    }
-}
-
 #[pyclass(name = "Corpus")]
 pub(crate) struct PyCorpus {
-    corpus: Arc<Corpus>,
+    corpus: Arc<MappedCompiledCorpus>,
+    visible_features: Vec<String>,
 }
 
 impl PyCorpus {
-    fn new(corpus: Corpus) -> Self {
+    fn new(corpus: MappedCompiledCorpus, visible_features: Vec<String>) -> Self {
         Self {
             corpus: Arc::new(corpus),
+            visible_features,
         }
+    }
+
+    fn exposes(&self, name: &str) -> bool {
+        self.visible_features.is_empty() || self.visible_features.iter().any(|feature| feature == name)
     }
 }
 
@@ -330,29 +275,36 @@ impl PyCorpus {
     #[pyo3(signature = (name, warn=true))]
     fn Fs(&self, name: &str, warn: bool) -> Option<PyNodeFeature> {
         let _ = warn;
+        if !self.exposes(name) {
+            return None;
+        }
         self.corpus
+            .metadata()
             .node_feature(name)
-            .cloned()
-            .map(|feature| PyNodeFeature::new_with_corpus(feature, Arc::clone(&self.corpus)))
+            .map(|_| PyNodeFeature::new(name.to_string(), Arc::clone(&self.corpus)))
     }
 
     #[allow(non_snake_case)]
     #[pyo3(signature = (name, warn=true))]
     fn Es(&self, name: &str, warn: bool) -> Option<PyEdgeFeature> {
         let _ = warn;
+        if !self.exposes(name) {
+            return None;
+        }
         self.corpus
+            .metadata()
             .edge_feature(name)
-            .cloned()
-            .map(PyEdgeFeature::new)
+            .map(|_| PyEdgeFeature::new(name.to_string(), Arc::clone(&self.corpus)))
     }
 
     fn node_feature_names(&self, py: Python<'_>) -> PyResult<PyObject> {
         Ok(PyTuple::new(
             py,
             self.corpus
-                .node_feature_names()
+                .all_node_features(true)
                 .into_iter()
-                .map(str::to_string),
+                .filter(|name| self.exposes(name))
+                .collect::<Vec<_>>(),
         )?
         .into())
     }
@@ -360,16 +312,25 @@ impl PyCorpus {
     #[allow(non_snake_case)]
     #[pyo3(signature = (warp=true))]
     fn Fall(&self, py: Python<'_>, warp: bool) -> PyResult<PyObject> {
-        Ok(PyTuple::new(py, self.corpus.all_node_features(warp))?.into())
+        Ok(PyTuple::new(
+            py,
+            self.corpus
+                .all_node_features(warp)
+                .into_iter()
+                .filter(|name| self.exposes(name))
+                .collect::<Vec<_>>(),
+        )?
+        .into())
     }
 
     fn edge_feature_names(&self, py: Python<'_>) -> PyResult<PyObject> {
         Ok(PyTuple::new(
             py,
             self.corpus
-                .edge_feature_names()
+                .all_edge_features(true)
                 .into_iter()
-                .map(str::to_string),
+                .filter(|name| self.exposes(name))
+                .collect::<Vec<_>>(),
         )?
         .into())
     }
@@ -377,7 +338,15 @@ impl PyCorpus {
     #[allow(non_snake_case)]
     #[pyo3(signature = (warp=true))]
     fn Eall(&self, py: Python<'_>, warp: bool) -> PyResult<PyObject> {
-        Ok(PyTuple::new(py, self.corpus.all_edge_features(warp))?.into())
+        Ok(PyTuple::new(
+            py,
+            self.corpus
+                .all_edge_features(warp)
+                .into_iter()
+                .filter(|name| self.exposes(name))
+                .collect::<Vec<_>>(),
+        )?
+        .into())
     }
 
     #[allow(non_snake_case)]
@@ -401,9 +370,9 @@ impl PyCorpus {
             return Ok(true);
         }
         Ok(requested.iter().all(|feature| {
-            self.corpus.node_feature(feature).is_some()
-                || self.corpus.edge_feature(feature).is_some()
-                || self.corpus.config_features.contains_key(feature)
+            self.corpus.metadata().node_feature(feature).is_some()
+                || self.corpus.metadata().edge_feature(feature).is_some()
+                || self.corpus.metadata().config_feature(feature).is_some()
         }))
     }
 

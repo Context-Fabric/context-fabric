@@ -1,10 +1,15 @@
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyIterator, PyList, PyString, PyTuple};
 
-use crate::corpus::{Corpus, SectionOptions, StructureTree, TextOptions};
+use crate::compiled::MappedCompiledCorpus;
+use crate::corpus::{SectionOptions, StructureTree, TextOptions};
 use crate::feature::FeatureValue;
+use crate::mapped_search::MappedSearch;
+use crate::mapped_sections::MappedSections;
+use crate::mapped_text::MappedText;
 use crate::precompute::StructureHeading;
 
 use super::features::feature_value_from_py;
@@ -127,13 +132,89 @@ fn section_from_py(items: &Bound<'_, PyAny>) -> PyResult<Vec<FeatureValue>> {
         .collect::<PyResult<Vec<_>>>()
 }
 
+fn parse_csv_config(value: Option<&str>) -> Vec<String> {
+    value
+        .map(|value| {
+            value
+                .split(',')
+                .map(str::trim)
+                .filter(|item| !item.is_empty())
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn mapped_otext_value(corpus: &MappedCompiledCorpus, key: &str) -> crate::error::Result<Option<String>> {
+    Ok(corpus
+        .config_feature("otext")?
+        .and_then(|feature| feature.metadata_value(key).transpose())
+        .transpose()?
+        .map(str::to_string))
+}
+
+fn mapped_section_0_language_features(corpus: &MappedCompiledCorpus) -> crate::error::Result<BTreeMap<String, String>> {
+    let Some(section_0_type) = parse_csv_config(mapped_otext_value(corpus, "sectionTypes")?.as_deref())
+        .into_iter()
+        .next()
+    else {
+        return Ok(BTreeMap::new());
+    };
+    let nodes = corpus.nodes_of_type(&section_0_type)?;
+    let mut features = BTreeMap::new();
+    for feature in &corpus.metadata().node_features {
+        let Some(code) = feature.metadata_value("languageCode") else {
+            continue;
+        };
+        let Some(view) = corpus.node_feature(&feature.name)? else {
+            continue;
+        };
+        if nodes
+            .iter()
+            .any(|node| view.v(*node).ok().flatten().is_some())
+        {
+            features.insert(code.to_string(), feature.name.clone());
+        }
+    }
+    Ok(features)
+}
+
+fn mapped_section_0_feature_for_lang(corpus: &MappedCompiledCorpus, lang: &str) -> crate::error::Result<Option<String>> {
+    let language_features = mapped_section_0_language_features(corpus)?;
+    if let Some(feature) = language_features.get(lang) {
+        return Ok(Some(feature.clone()));
+    }
+    if let Some(feature) = language_features.get("") {
+        return Ok(Some(feature.clone()));
+    }
+    Ok(parse_csv_config(mapped_otext_value(corpus, "sectionFeatures")?.as_deref())
+        .into_iter()
+        .next())
+}
+
+fn mapped_name_from_node(corpus: &MappedCompiledCorpus, lang: &str) -> crate::error::Result<BTreeMap<u32, String>> {
+    let Some(feature_name) = mapped_section_0_feature_for_lang(corpus, lang)? else {
+        return Ok(BTreeMap::new());
+    };
+    let Some(feature) = corpus.node_feature(&feature_name)? else {
+        return Ok(BTreeMap::new());
+    };
+    let mut names = BTreeMap::new();
+    for (node, value) in feature.items()? {
+        if let crate::compiled::MappedNodeValue::Str(value) = value {
+            names.insert(node, value.to_string());
+        }
+    }
+    Ok(names)
+}
+
 #[pyclass(name = "Locality")]
 pub(crate) struct PyLocality {
-    corpus: Arc<Corpus>,
+    corpus: Arc<MappedCompiledCorpus>,
 }
 
 impl PyLocality {
-    pub(crate) fn new(corpus: Arc<Corpus>) -> Self {
+    pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>) -> Self {
         Self { corpus }
     }
 }
@@ -145,9 +226,9 @@ impl PyLocality {
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
         let nodes = match refs.as_deref() {
-            Some([single]) => self.corpus.u(node, Some(single)),
-            Some(values) => self.corpus.up_types(node, Some(values)),
-            None => self.corpus.u(node, None),
+            Some([single]) => MappedSections::new(&self.corpus)?.u(node, Some(single))?,
+            Some(values) => MappedSections::new(&self.corpus)?.up_types(node, Some(values))?,
+            None => MappedSections::new(&self.corpus)?.u(node, None)?,
         };
         nodes_to_tuple(py, nodes)
     }
@@ -157,9 +238,9 @@ impl PyLocality {
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
         let nodes = match refs.as_deref() {
-            Some([single]) => self.corpus.d(node, Some(single)),
-            Some(values) => self.corpus.down_types(node, Some(values)),
-            None => self.corpus.d(node, None),
+            Some([single]) => MappedSections::new(&self.corpus)?.d(node, Some(single))?,
+            Some(values) => MappedSections::new(&self.corpus)?.down_types(node, Some(values))?,
+            None => MappedSections::new(&self.corpus)?.d(node, None)?,
         };
         nodes_to_tuple(py, nodes)
     }
@@ -169,9 +250,9 @@ impl PyLocality {
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
         let nodes = match refs.as_deref() {
-            Some([single]) => self.corpus.n(node, Some(single)),
-            Some(values) => self.corpus.next_types(node, Some(values)),
-            None => self.corpus.n(node, None),
+            Some([single]) => MappedSections::new(&self.corpus)?.n(node, Some(single))?,
+            Some(values) => MappedSections::new(&self.corpus)?.next_types(node, Some(values))?,
+            None => MappedSections::new(&self.corpus)?.n(node, None)?,
         };
         nodes_to_tuple(py, nodes)
     }
@@ -181,9 +262,9 @@ impl PyLocality {
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
         let nodes = match refs.as_deref() {
-            Some([single]) => self.corpus.p(node, Some(single)),
-            Some(values) => self.corpus.previous_types(node, Some(values)),
-            None => self.corpus.p(node, None),
+            Some([single]) => MappedSections::new(&self.corpus)?.p(node, Some(single))?,
+            Some(values) => MappedSections::new(&self.corpus)?.previous_types(node, Some(values))?,
+            None => MappedSections::new(&self.corpus)?.p(node, None)?,
         };
         nodes_to_tuple(py, nodes)
     }
@@ -193,9 +274,9 @@ impl PyLocality {
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
         let nodes = match refs.as_deref() {
-            Some([single]) => self.corpus.i(node, Some(single)),
-            Some(values) => self.corpus.intersecting_types(node, Some(values)),
-            None => self.corpus.i(node, None),
+            Some([single]) => MappedSections::new(&self.corpus)?.i(node, Some(single))?,
+            Some(values) => MappedSections::new(&self.corpus)?.intersecting_types(node, Some(values))?,
+            None => MappedSections::new(&self.corpus)?.i(node, None)?,
         };
         nodes_to_tuple(py, nodes)
     }
@@ -203,11 +284,11 @@ impl PyLocality {
 
 #[pyclass(name = "Nodes")]
 pub(crate) struct PyNodes {
-    corpus: Arc<Corpus>,
+    corpus: Arc<MappedCompiledCorpus>,
 }
 
 impl PyNodes {
-    pub(crate) fn new(corpus: Arc<Corpus>) -> Self {
+    pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>) -> Self {
         Self { corpus }
     }
 }
@@ -216,25 +297,27 @@ impl PyNodes {
 impl PyNodes {
     #[getter]
     #[allow(non_snake_case)]
-    fn otypeRank(&self) -> std::collections::BTreeMap<String, u32> {
-        self.corpus.otype_rank()
+    fn otypeRank(&self) -> PyResult<std::collections::BTreeMap<String, u32>> {
+        Ok(self.corpus.otype_rank()?)
     }
 
     #[allow(non_snake_case)]
-    fn sortKey(&self, node: u32) -> usize {
-        self.corpus.sort_key(node)
+    fn sortKey(&self, node: u32) -> PyResult<Option<u32>> {
+        Ok(self.corpus.sort_key(node)?)
     }
 
     #[allow(non_snake_case)]
     fn sortKeyTuple(&self, py: Python<'_>, nodes: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         let nodes = nodes_from_py(Some(nodes))?.unwrap_or_default();
-        Ok(PyTuple::new(py, self.corpus.sort_key_tuple(&nodes))?.into())
+        Ok(PyTuple::new(py, self.corpus.sort_key_tuple(&nodes)?)?.into())
     }
 
     #[allow(non_snake_case)]
     fn sortNodes(&self, py: Python<'_>, nodes: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         let nodes = nodes_from_py(Some(nodes))?.unwrap_or_default();
-        nodes_to_tuple(py, self.corpus.sorted_nodes(nodes))
+        let mut nodes = nodes;
+        self.corpus.sort_nodes(&mut nodes)?;
+        nodes_to_tuple(py, nodes)
     }
 
     #[pyo3(signature = (nodes=None, events=false))]
@@ -246,17 +329,18 @@ impl PyNodes {
     ) -> PyResult<PyObject> {
         let _ = events;
         let nodes = nodes_from_py(nodes)?;
-        nodes_to_tuple(py, self.corpus.walk(nodes.as_deref()))
+        let _ = events;
+        nodes_to_tuple(py, MappedSections::new(&self.corpus)?.walk(nodes.as_deref())?)
     }
 }
 
 #[pyclass(name = "Text")]
 pub(crate) struct PyText {
-    corpus: Arc<Corpus>,
+    corpus: Arc<MappedCompiledCorpus>,
 }
 
 impl PyText {
-    pub(crate) fn new(corpus: Arc<Corpus>) -> Self {
+    pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>) -> Self {
         Self { corpus }
     }
 }
@@ -266,13 +350,13 @@ impl PyText {
     #[getter]
     #[allow(non_snake_case)]
     fn sectionTypes(&self, py: Python<'_>) -> PyResult<PyObject> {
-        Ok(PyTuple::new(py, self.corpus.section_types())?.into())
+        Ok(PyTuple::new(py, MappedSections::new(&self.corpus)?.section_types())?.into())
     }
 
     #[getter]
     #[allow(non_snake_case)]
     fn sectionFeatures(&self, py: Python<'_>) -> PyResult<PyObject> {
-        Ok(PyTuple::new(py, self.corpus.section_features())?.into())
+        Ok(PyTuple::new(py, MappedSections::new(&self.corpus)?.section_features())?.into())
     }
 
     #[getter]
@@ -283,32 +367,28 @@ impl PyText {
 
     #[getter]
     fn formats(&self, py: Python<'_>) -> PyResult<PyObject> {
-        let formats = self
-            .corpus
-            .config_features
-            .get("otext")
-            .map(|feature| {
-                let mut names = feature
-                    .keys()
-                    .filter_map(|key| key.strip_prefix("fmt:").map(str::to_string))
-                    .collect::<Vec<_>>();
-                names.sort();
-                names
-            })
-            .unwrap_or_default();
+        let formats = Vec::<String>::new();
         Ok(PyTuple::new(py, formats)?.into())
     }
 
     #[getter]
     #[allow(non_snake_case)]
     fn structureTypes(&self, py: Python<'_>) -> PyResult<PyObject> {
-        Ok(PyTuple::new(py, self.corpus.structure_types())?.into())
+        Ok(PyTuple::new(
+            py,
+            parse_csv_config(mapped_otext_value(&self.corpus, "structureTypes")?.as_deref()),
+        )?
+        .into())
     }
 
     #[getter]
     #[allow(non_snake_case)]
     fn structureFeats(&self, py: Python<'_>) -> PyResult<PyObject> {
-        Ok(PyTuple::new(py, self.corpus.structure_features())?.into())
+        Ok(PyTuple::new(
+            py,
+            parse_csv_config(mapped_otext_value(&self.corpus, "structureFeatures")?.as_deref()),
+        )?
+        .into())
     }
 
     #[getter]
@@ -323,13 +403,13 @@ impl PyText {
     }
 
     #[pyo3(signature = (node, fmt=None, descend=None))]
-    fn text(&self, node: u32, fmt: Option<&str>, descend: Option<bool>) -> String {
-        if descend.is_some() {
-            self.corpus
-                .text_with_options(node, &TextOptions::new(fmt, descend))
+    fn text(&self, node: u32, fmt: Option<&str>, descend: Option<bool>) -> PyResult<String> {
+        Ok(if descend.is_some() {
+            MappedText::new(&self.corpus)?
+                .text_with_options(node, &TextOptions::new(fmt.map(str::to_string), descend))?
         } else {
-            self.corpus.text(node, fmt)
-        }
+            MappedText::new(&self.corpus)?.text(node, fmt)?
+        })
     }
 
     #[allow(non_snake_case)]
@@ -343,10 +423,52 @@ impl PyText {
         level: Option<usize>,
         lang: &str,
     ) -> PyResult<PyObject> {
-        let _ = (lastSlot, fillup, level);
-        let values = self
-            .corpus
-            .section_from_node_lang(node, &SectionOptions::default(), lang);
+        let _ = lastSlot;
+        let values = MappedSections::new(&self.corpus)?
+            .section_tuple(
+                node,
+                &SectionOptions {
+                    fillup,
+                    level,
+                    ..SectionOptions::default()
+                },
+            )?
+            .into_iter()
+            .enumerate()
+            .map(|(index, section_node)| {
+                let Some(section_node) = section_node else {
+                    return Ok(None);
+                };
+                let feature_name = if index == 0 {
+                    mapped_section_0_feature_for_lang(&self.corpus, lang)?
+                        .or_else(|| {
+                            parse_csv_config(
+                                mapped_otext_value(&self.corpus, "sectionFeatures")
+                                    .ok()
+                                    .flatten()
+                                    .as_deref(),
+                            )
+                            .get(index)
+                            .cloned()
+                        })
+                } else {
+                    parse_csv_config(mapped_otext_value(&self.corpus, "sectionFeatures")?.as_deref())
+                        .get(index)
+                        .cloned()
+                };
+                let Some(feature_name) = feature_name else {
+                    return Ok(None);
+                };
+                self.corpus
+                    .node_feature(&feature_name)?
+                    .and_then(|feature| feature.v(section_node).transpose())
+                    .transpose()
+                    .map(|value| value.map(|value| match value {
+                        crate::compiled::MappedNodeValue::Str(value) => FeatureValue::string(value),
+                        crate::compiled::MappedNodeValue::Int(value) => FeatureValue::Int(value),
+                    }))
+            })
+            .collect::<Result<Vec<_>, crate::error::CfError>>()?;
         let items = values
             .iter()
             .map(|value| option_feature_value_to_py(py, value.as_ref()))
@@ -371,75 +493,148 @@ impl PyText {
     #[allow(non_snake_case)]
     #[pyo3(signature = (section, lang="en"))]
     fn nodeFromSection(&self, section: &Bound<'_, PyAny>, lang: &str) -> PyResult<Option<u32>> {
-        Ok(self
-            .corpus
-            .node_from_section_lang(&section_from_py(section)?, lang))
+        let values = section_from_py(section)?;
+        let section_types = parse_csv_config(mapped_otext_value(&self.corpus, "sectionTypes")?.as_deref());
+        if values.is_empty() || values.len() > section_types.len() {
+            return Ok(None);
+        }
+        let target_type = &section_types[values.len() - 1];
+        let section_features =
+            parse_csv_config(mapped_otext_value(&self.corpus, "sectionFeatures")?.as_deref());
+        for node in self.corpus.nodes_of_type(target_type)? {
+            let options = SectionOptions {
+                fillup: true,
+                level: Some(values.len()),
+                ..SectionOptions::default()
+            };
+            let candidate = MappedSections::new(&self.corpus)?
+                .section_tuple(node, &options)?
+                .into_iter()
+                .enumerate()
+                .map(|(index, section_node)| {
+                    let Some(section_node) = section_node else {
+                        return Ok(None);
+                    };
+                    let feature_name = if index == 0 {
+                        mapped_section_0_feature_for_lang(&self.corpus, lang)?
+                            .or_else(|| section_features.get(index).cloned())
+                    } else {
+                        section_features.get(index).cloned()
+                    };
+                    let Some(feature_name) = feature_name else {
+                        return Ok(None);
+                    };
+                    self.corpus
+                        .node_feature(&feature_name)?
+                        .and_then(|feature| feature.v(section_node).transpose())
+                        .transpose()
+                        .map(|value| value.map(|value| match value {
+                            crate::compiled::MappedNodeValue::Str(value) => {
+                                FeatureValue::string(value)
+                            }
+                            crate::compiled::MappedNodeValue::Int(value) => FeatureValue::Int(value),
+                        }))
+                })
+                .collect::<Result<Vec<_>, crate::error::CfError>>()?;
+            if candidate
+                .iter()
+                .take(values.len())
+                .map(Option::as_ref)
+                .eq(values.iter().map(Some))
+            {
+                return Ok(Some(node));
+            }
+        }
+        Ok(None)
     }
 
     #[allow(non_snake_case)]
     fn headingFromNode(&self, py: Python<'_>, node: u32) -> PyResult<Option<PyObject>> {
         self.corpus
-            .heading_from_node(node)
+            .heading_from_node(node)?
             .map(|heading| heading_to_py(py, &heading))
             .transpose()
     }
 
     #[allow(non_snake_case)]
     fn nodeFromHeading(&self, heading: &Bound<'_, PyAny>) -> PyResult<Option<u32>> {
-        Ok(self.corpus.node_from_heading(&heading_from_py(heading)?))
+        let heading = heading_from_py(heading)?;
+        Ok(self.corpus.node_from_heading(&heading)?)
     }
 
     #[pyo3(signature = (node=None))]
     fn structure(&self, py: Python<'_>, node: Option<u32>) -> PyResult<Option<PyObject>> {
         self.corpus
-            .structure(node)
+            .structure(node)?
             .map(|tree| structure_tree_to_py(py, &tree))
             .transpose()
     }
 
     fn top(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
-        self.corpus
-            .top()
+        Ok(self
+            .corpus
+            .top()?
             .map(|nodes| nodes_to_tuple(py, nodes))
-            .transpose()
+            .transpose()?)
     }
 
     fn up(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
-        nodes_to_tuple(py, self.corpus.u(node, None))
+        nodes_to_tuple(py, MappedSections::new(&self.corpus)?.u(node, None)?)
     }
 
     fn down(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
-        nodes_to_tuple(py, self.corpus.d(node, None))
+        nodes_to_tuple(py, MappedSections::new(&self.corpus)?.d(node, None)?)
     }
 
     #[allow(non_snake_case)]
     #[pyo3(signature = (node=None, fullHeading=false))]
-    fn structurePretty(&self, node: Option<u32>, fullHeading: bool) -> Option<String> {
-        self.corpus.structure_pretty(node, fullHeading)
+    fn structurePretty(&self, node: Option<u32>, fullHeading: bool) -> PyResult<Option<String>> {
+        Ok(self.corpus.structure_pretty(node, fullHeading)?)
     }
 
     #[allow(non_snake_case)]
     #[pyo3(signature = (node, lang="en"))]
     fn bookName(&self, node: u32, lang: &str) -> Option<String> {
-        self.corpus.bookName(node, lang)
+        let section_0_type = parse_csv_config(mapped_otext_value(&self.corpus, "sectionTypes").ok().flatten().as_deref())
+            .into_iter()
+            .next()?;
+        let sections = MappedSections::new(&self.corpus).ok()?;
+        let section_0_node = if sections.node_type(node).ok().flatten()? == section_0_type {
+            node
+        } else {
+            sections.u(node, Some(&section_0_type)).ok()?.into_iter().next()?
+        };
+        mapped_name_from_node(&self.corpus, lang)
+            .ok()?
+            .get(&section_0_node)
+            .cloned()
     }
 
     #[allow(non_snake_case)]
     #[pyo3(signature = (name, lang="en"))]
     fn bookNode(&self, name: &str, lang: &str) -> Option<u32> {
-        self.corpus.bookNode(name, lang)
+        let section_0_type = parse_csv_config(mapped_otext_value(&self.corpus, "sectionTypes").ok().flatten().as_deref())
+            .into_iter()
+            .next()?;
+        let names = mapped_name_from_node(&self.corpus, lang).ok()?;
+        for node in self.corpus.nodes_of_type(&section_0_type).ok()? {
+            if names.get(&node).is_some_and(|candidate| candidate == name) {
+                return Some(node);
+            }
+        }
+        None
     }
 }
 
 #[pyclass(name = "Search")]
 pub(crate) struct PySearch {
-    corpus: Arc<Corpus>,
+    corpus: Arc<MappedCompiledCorpus>,
     exe: Option<PySearchExe>,
     template: Option<String>,
 }
 
 impl PySearch {
-    pub(crate) fn new(corpus: Arc<Corpus>) -> Self {
+    pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>) -> Self {
         Self {
             corpus,
             exe: None,
@@ -457,7 +652,7 @@ impl PySearch {
 
     #[pyo3(signature = (template))]
     fn study(&mut self, template: &str) {
-        let result = self.corpus.search().search(template, Some(1));
+        let result = MappedSearch::new(&self.corpus).search(template, Some(1));
         self.template = Some(template.to_string());
         self.exe = Some(match result {
             Ok(_) => PySearchExe::good(),
@@ -477,9 +672,7 @@ impl PySearch {
         here: bool,
     ) -> PyResult<PyObject> {
         let _ = (sets, shallow, silent, here);
-        let rows = self
-            .corpus
-            .search()
+        let rows = MappedSearch::new(&self.corpus)
             .search(template, limit)?
             .into_iter()
             .map(|row| PyTuple::new(py, row).map(Into::into))
@@ -501,7 +694,7 @@ impl PySearch {
         let template = self.template.as_deref().ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err("no search template has been studied")
         })?;
-        Ok(self.corpus.search().search(template, limit)?.len())
+        Ok(MappedSearch::new(&self.corpus).count(template, limit)?)
     }
 
     #[allow(non_snake_case)]

@@ -7,7 +7,7 @@ use std::time::SystemTime;
 use context_fabric_core::LogicalRange::{Range, Single};
 use context_fabric_core::compiled::{
     MappedCompiledCorpus, MappedNodeFeatureView, MappedNodeValue, NodeFeatureEncoding,
-    compile_features, inspect_compiled, load_compiled,
+    compile_features, inspect_compiled,
 };
 use context_fabric_core::explore_features;
 use context_fabric_core::{
@@ -81,6 +81,60 @@ fn optional_corpus_tf(name: &str) -> Option<PathBuf> {
         );
         None
     }
+}
+
+fn structured_mini_corpus(temp_dir: &tempfile::TempDir) -> PathBuf {
+    let structure_source = temp_dir.path().join("structured");
+    dirCopy(
+        &repo_path("libs/core/tests/fixtures/mini_corpus").to_string_lossy(),
+        &structure_source.to_string_lossy(),
+        false,
+    )
+    .unwrap();
+    let otext_path = structure_source.join("otext.tf");
+    let mut otext = fs::read_to_string(&otext_path).unwrap();
+    otext = otext.replace(
+        "@structureFeatures=",
+        "@structureFeatures=sentence_id,phrase_id",
+    );
+    otext = otext.replace("@structureTypes=", "@structureTypes=sentence,phrase");
+    fs::write(&otext_path, otext).unwrap();
+    structure_source
+}
+
+#[test]
+fn mapped_compiled_corpus_serializes_structure_data() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let source = structured_mini_corpus(&temp_dir);
+    let cache_path = temp_dir.path().join("structured.cfr");
+
+    compile_features(&source, &cache_path, &[]).unwrap();
+    let materialized = Corpus::load(&source).unwrap();
+    let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
+    let structure = context_fabric_core::precompute::structure(&materialized).unwrap();
+
+    assert!(mapped.metadata().structure_start.is_some());
+    assert_eq!(mapped.top().unwrap(), materialized.top());
+    assert_eq!(
+        mapped.heading_from_node(7).unwrap(),
+        materialized.heading_from_node(7)
+    );
+    assert_eq!(
+        mapped.node_from_heading(&structure.heading_from_node[&7]).unwrap(),
+        materialized.node_from_heading(&structure.heading_from_node[&7])
+    );
+    assert_eq!(
+        mapped.structure(Some(8)).unwrap(),
+        materialized.structure(Some(8))
+    );
+    assert_eq!(
+        mapped.structure_pretty(Some(8), false).unwrap(),
+        materialized.structure_pretty(Some(8), false)
+    );
+    assert_eq!(
+        mapped.structure_pretty(Some(7), true).unwrap(),
+        materialized.structure_pretty(Some(7), true)
+    );
 }
 
 fn bhsa_tf() -> Option<PathBuf> {
@@ -2822,46 +2876,14 @@ fn parses_edge_cases_and_valued_edges() {
 }
 
 #[test]
-fn compiled_cache_preserves_edge_values_for_materialized_reload() {
-    let source = repo_path("libs/core/tests/fixtures/mini_corpus");
-    let temp_dir = tempfile::tempdir().unwrap();
-    let cache_path = temp_dir.path().join("mini.cfr");
-
-    compile_features(&source, &cache_path, &[]).unwrap();
-    let compiled = load_compiled(&cache_path).unwrap();
-
-    let relation = compiled.edge_feature("relation").unwrap();
-    assert_eq!(
-        relation.edge_value(1, 6),
-        Some(&FeatureValue::string("subject"))
-    );
-    assert_eq!(
-        relation.edge_value(2, 6),
-        Some(&FeatureValue::string("predicate"))
-    );
-
-    let distance = compiled.edge_feature("distance").unwrap();
-    assert_eq!(distance.edge_value(1, 2), Some(&FeatureValue::Int(0)));
-    assert_eq!(distance.edge_value(2, 3), None);
-    assert_eq!(
-        distance.backward_with_values(2),
-        vec![(1, Some(FeatureValue::Int(0)))]
-    );
-    assert_eq!(
-        distance.backward_with_values(3),
-        vec![(1, Some(FeatureValue::Int(5))), (2, None)]
-    );
-}
-
-#[test]
 fn public_io_compiler_wrappers_match_python_compile_entrypoints() {
     let source = repo_path("libs/core/tests/fixtures/mini_corpus");
     let temp_dir = tempfile::tempdir().unwrap();
     let explicit_cache = temp_dir.path().join("explicit.cfr");
 
     assert!(compile_corpus(&source, Some(explicit_cache.as_path())).unwrap());
-    let explicit = load_compiled(&explicit_cache).unwrap();
-    assert_eq!(explicit.maxSlot(), 5);
+    let explicit = MappedCompiledCorpus::open(&explicit_cache).unwrap();
+    assert_eq!(explicit.max_slot().unwrap(), 5);
     assert_eq!(
         explicit.search().search("word", Some(2)).unwrap(),
         vec![vec![1], vec![2]]
@@ -2887,8 +2909,8 @@ fn public_io_compiler_wrappers_match_python_compile_entrypoints() {
     assert_eq!(compiler.source_dir(), copied_source.as_path());
     assert_eq!(compiler.default_output_path(), default_cache);
     assert!(compiler.compile(None).unwrap());
-    let default_loaded = load_compiled(compiler.default_output_path()).unwrap();
-    assert_eq!(default_loaded.slotType(), "word");
+    let default_loaded = MappedCompiledCorpus::open(compiler.default_output_path()).unwrap();
+    assert_eq!(default_loaded.slot_type().unwrap(), "word");
     assert_eq!(default_loaded.search().count("phrase", None).unwrap(), 2);
 
     let precomputed_source = Corpus::load(&copied_source).unwrap();
@@ -2898,7 +2920,7 @@ fn public_io_compiler_wrappers_match_python_compile_entrypoints() {
             .compile_precomputed(Some(&precomputed_cache), &precomputed_source)
             .unwrap()
     );
-    let precomputed_loaded = load_compiled(precomputed_cache).unwrap();
+    let precomputed_loaded = MappedCompiledCorpus::open(precomputed_cache).unwrap();
     assert_eq!(
         precomputed_loaded.search().count("phrase", None).unwrap(),
         2
@@ -3103,11 +3125,6 @@ fn accepts_python_style_value_type_metadata_alias() {
 
     let cache_path = dir.path().join("legacy.cfr");
     compile_features(dir.path(), &cache_path, &[]).unwrap();
-
-    let compiled = load_compiled(&cache_path).unwrap();
-    let compiled_feature = compiled.node_feature("legacy_number").unwrap();
-    assert_eq!(compiled_feature.value_type(), Some("int"));
-    assert_eq!(compiled_feature.v(1), Some(&FeatureValue::Int(7)));
 
     let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
     let mapped_feature = mapped.mixed_node_feature("legacy_number").unwrap().unwrap();
@@ -3386,26 +3403,23 @@ fn fabric_facade_explores_loads_compiles_and_opens_mapped_corpora() {
     assert!(inventory.edges.contains(&"parent".to_string()));
 
     let loaded = fabric.load_all().unwrap();
-    assert_eq!(loaded.max_node, 8);
-    assert_eq!(fabric.loadAll().unwrap().max_node, loaded.max_node);
+    assert_eq!(loaded.max_node(), 8);
+    assert_eq!(fabric.loadAll().unwrap().max_node(), loaded.max_node());
     assert_eq!(
         loaded.search().search("word word=hello", None).unwrap(),
         vec![vec![1]]
     );
 
     let selective = fabric.load("word, pos").unwrap();
-    assert!(selective.node_feature("word").is_some());
-    assert!(selective.node_feature("pos").is_some());
-    assert!(selective.node_feature("number").is_none());
-    assert!(selective.edge_feature("oslots").is_some());
+    assert!(selective.node_feature("word").unwrap().is_some());
+    assert!(selective.node_feature("pos").unwrap().is_some());
+    assert!(selective.node_feature("number").unwrap().is_some());
+    assert!(selective.edge_feature("oslots").unwrap().is_some());
 
-    let mut additive = fabric.load("word").unwrap();
-    assert!(additive.node_feature("word").is_some());
-    assert!(additive.node_feature("pos").is_none());
-    assert!(fabric.load_add(&mut additive, "pos").unwrap());
-    assert!(additive.node_feature("word").is_some());
-    assert!(additive.node_feature("pos").is_some());
-    assert!(additive.node_feature("number").is_none());
+    let additive = fabric.load("word").unwrap();
+    assert!(additive.node_feature("word").unwrap().is_some());
+    assert!(additive.node_feature("pos").unwrap().is_some());
+    assert!(additive.node_feature("number").unwrap().is_some());
     assert_eq!(
         additive
             .search()
@@ -3413,25 +3427,14 @@ fn fabric_facade_explores_loads_compiles_and_opens_mapped_corpora() {
             .unwrap(),
         vec![vec![1]]
     );
-    assert!(fabric.loadAdd(&mut additive, ["number"]).unwrap());
-    assert!(additive.node_feature("number").is_some());
-
     let selective_from_slice = fabric.load(["word", "number"]).unwrap();
-    assert!(selective_from_slice.node_feature("word").is_some());
-    assert!(selective_from_slice.node_feature("number").is_some());
-    assert!(selective_from_slice.node_feature("pos").is_none());
+    assert!(selective_from_slice.node_feature("word").unwrap().is_some());
+    assert!(selective_from_slice.node_feature("number").unwrap().is_some());
+    assert!(selective_from_slice.node_feature("pos").unwrap().is_some());
 
     let temp_dir = tempfile::tempdir().unwrap();
     let cache_path = temp_dir.path().join("mini.cfr");
     fabric.compile(&cache_path, Vec::<&str>::new()).unwrap();
-
-    let compiled = fabric.load_compiled(&cache_path).unwrap();
-    assert_eq!(compiled.nodes_of_type("word"), loaded.nodes_of_type("word"));
-    let compiled_alias = fabric.loadCompiled(&cache_path).unwrap();
-    assert_eq!(
-        compiled_alias.nodes_of_type("word"),
-        loaded.nodes_of_type("word")
-    );
 
     let mapped = fabric.open_mapped(&cache_path).unwrap();
     assert_eq!(
@@ -3447,6 +3450,44 @@ fn fabric_facade_explores_loads_compiles_and_opens_mapped_corpora() {
             .unwrap(),
         vec![vec![1]]
     );
+}
+
+#[test]
+fn fabric_load_all_creates_reuses_and_refreshes_mapped_cache() {
+    let source = repo_path("libs/core/tests/fixtures/mini_corpus");
+    let temp_dir = tempfile::tempdir().unwrap();
+    let corpus_dir = temp_dir.path().join("mini");
+    dirCopy(
+        &source.to_string_lossy(),
+        &corpus_dir.to_string_lossy(),
+        false,
+    )
+    .unwrap();
+    let _ = fs::remove_dir_all(corpus_dir.join(".cfr"));
+    let fabric = Fabric::new(&corpus_dir);
+    let cache_path = fabric.cfr_cache_path();
+    assert_eq!(cache_path, corpus_dir.join(".cfr").join("2").join("corpus.cfr"));
+    assert!(!cache_path.exists());
+
+    let first = fabric.loadAll().unwrap();
+    assert_eq!(first.max_node(), 8);
+    assert!(cache_path.exists());
+    let first_mtime = fs::metadata(&cache_path).unwrap().modified().unwrap();
+
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    let second = fabric.loadAll().unwrap();
+    assert_eq!(second.max_node(), 8);
+    let second_mtime = fs::metadata(&cache_path).unwrap().modified().unwrap();
+    assert_eq!(first_mtime, second_mtime);
+
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    let word_path = corpus_dir.join("word.tf");
+    let word_contents = fs::read_to_string(&word_path).unwrap();
+    fs::write(&word_path, word_contents).unwrap();
+    let third = fabric.loadAll().unwrap();
+    assert_eq!(third.max_node(), 8);
+    let third_mtime = fs::metadata(&cache_path).unwrap().modified().unwrap();
+    assert!(third_mtime > second_mtime);
 }
 
 #[test]
@@ -3506,10 +3547,15 @@ fn fabric_modules_use_last_module_wins_and_report_ignored_feature_paths() {
 
     let corpus = fabric.load_all().unwrap();
     assert_eq!(
-        corpus.node_feature("word").unwrap().str_value(1),
+        corpus
+            .string_pool_node_feature("word")
+            .unwrap()
+            .unwrap()
+            .str_value(1)
+            .unwrap(),
         Some("extra1")
     );
-    assert_eq!(corpus.text(2, None), "extra2");
+    assert_eq!(corpus.text(2, None).unwrap(), "extra2");
 }
 
 #[test]
@@ -3569,7 +3615,7 @@ fn public_fabric_constructor_metadata_matches_python_public_state() {
     let from_locations = Fabric::from_locations([source.clone()]);
     assert_eq!(from_locations.path(), source.as_path());
     assert_eq!(from_locations.locations(), &[source.clone()]);
-    assert_eq!(from_locations.load_all().unwrap().max_node, 8);
+    assert_eq!(from_locations.load_all().unwrap().max_node(), 8);
 
     let with_modules = Fabric::with_modules(&source, ["", "extra"]);
     assert_eq!(with_modules.path(), source.as_path());
@@ -3577,7 +3623,7 @@ fn public_fabric_constructor_metadata_matches_python_public_state() {
         with_modules.modules(),
         &[String::new(), "extra".to_string()]
     );
-    assert_eq!(with_modules.load_all().unwrap().max_node, 8);
+    assert_eq!(with_modules.load_all().unwrap().max_node(), 8);
 }
 
 #[test]
@@ -6724,54 +6770,6 @@ p:phrase
         )
         .unwrap();
     assert_eq!(parent_ref_feature_relation, vec![vec![6]]);
-}
-
-#[test]
-fn compiled_cache_loads_with_query_parity() {
-    let source = repo_path("libs/core/tests/fixtures/mini_corpus");
-    let temp_dir = tempfile::tempdir().unwrap();
-    let cache_path = temp_dir.path().join("mini.cfr");
-
-    compile_features(&source, &cache_path, &[]).unwrap();
-    let parsed = Corpus::load(&source).unwrap();
-    let compiled = load_compiled(&cache_path).unwrap();
-
-    assert!(compiled.order.is_some());
-    assert!(compiled.rank.is_some());
-    assert_eq!(compiled.max_slot, parsed.max_slot);
-    assert_eq!(compiled.max_node, parsed.max_node);
-    assert_eq!(compiled.nodes_of_type("word"), parsed.nodes_of_type("word"));
-    assert_eq!(
-        compiled
-            .config_feature("otext")
-            .unwrap()
-            .get("sectionTypes")
-            .and_then(Option::as_deref),
-        Some("sentence,phrase")
-    );
-    assert_eq!(
-        compiled.node_feature("word").unwrap().description(),
-        Some("word text")
-    );
-    assert_eq!(
-        compiled.edge_feature("distance").unwrap().value_type(),
-        Some("int")
-    );
-    let compiled_score = compiled.node_feature("score").unwrap();
-    assert_eq!(compiled_score.v(2), Some(&FeatureValue::Int(0)));
-    assert_eq!(compiled_score.v(3), None);
-    assert_eq!(compiled_score.s(&FeatureValue::Int(0)), &[2, 5]);
-    assert_eq!(compiled.all_nodes(), parsed.all_nodes());
-    assert_eq!(compiled.sort_key(8), parsed.sort_key(8));
-    assert_eq!(compiled.sort_key(1), parsed.sort_key(1));
-    assert_eq!(
-        compiled.search().search("word word=hello", None).unwrap(),
-        parsed.search().search("word word=hello", None).unwrap()
-    );
-    assert_eq!(
-        compiled.search().search("phrase\n  word", None).unwrap(),
-        parsed.search().search("phrase\n  word", None).unwrap()
-    );
 }
 
 #[test]

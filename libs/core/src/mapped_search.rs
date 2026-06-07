@@ -767,7 +767,7 @@ impl<'a> MappedSearch<'a> {
         if plan.has_parent_relation_endpoint() {
             return Ok(PrecomputedAlternative::ParentRelationPlan(plan.clone()));
         }
-        if plan.relations.is_empty() {
+        if plan.relations.is_empty() && plan.atoms.iter().all(|atom| atom.indent == 0) {
             let parent_atoms = plan
                 .atoms
                 .iter()

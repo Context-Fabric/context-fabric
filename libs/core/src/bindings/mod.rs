@@ -7,7 +7,7 @@ use pyo3::prelude::*;
 
 use crate::config::{BANNER, NAME, VERSION};
 use accessors::{PyLocality, PyNodes, PySearch, PySearchExe, PyText};
-use fabric::{PyCorpus, PyFabric, PyMappedCorpus};
+use fabric::{PyCorpus, PyFabric};
 use features::{
     PyComputed, PyComputeds, PyEdgeFeature, PyEdgeFeatures, PyNodeFeature, PyNodeFeatures,
 };
@@ -20,7 +20,6 @@ pub fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("BANNER", BANNER)?;
     module.add_class::<PyFabric>()?;
     module.add_class::<PyCorpus>()?;
-    module.add_class::<PyMappedCorpus>()?;
     module.add_class::<PyNodeFeature>()?;
     module.add_class::<PyNodeFeatures>()?;
     module.add_class::<PyEdgeFeature>()?;

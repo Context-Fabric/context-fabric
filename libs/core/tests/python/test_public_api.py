@@ -111,16 +111,18 @@ def test_compiled_cache_round_trip(mini_corpus_path, tmp_path):
     cache_path = tmp_path / "mini.cfr"
 
     assert fabric.compile(str(cache_path), features=("otype", "oslots", "word"))
-    api = fabric.loadCompiled(str(cache_path))
+    assert not hasattr(fabric, "loadCompiled")
+    assert not hasattr(fabric, "load_compiled")
+    api = fabric.openMapped(str(cache_path))
 
     assert api.F.word.v(1) == "hello"
     assert api.E.oslots.s(8) == (1, 2, 3, 4, 5)
     assert api.S.search("word", limit=1) == ((1,),)
 
     mapped = fabric.openMapped(str(cache_path))
-    assert mapped.maxNode == 8
+    assert mapped.F.otype.maxNode == 8
     assert mapped.Fall(warp=False) == ("word",)
-    assert mapped.search("word", limit=1) == ((1,),)
+    assert mapped.S.search("word", limit=1) == ((1,),)
 
 
 def test_result_dataclasses(loaded_api):

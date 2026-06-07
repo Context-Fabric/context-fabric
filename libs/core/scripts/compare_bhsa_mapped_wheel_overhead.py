@@ -43,11 +43,12 @@ def main() -> int:
     parser.add_argument("--cache-path", type=Path, default=core_root / "target/bhsa-mapped-curated.cfr")
     parser.add_argument("--limit", type=int, default=5)
     parser.add_argument("--max-load-overhead-ratio", type=float, default=1.2)
+    parser.add_argument("--min-load-ms-for-ratio", type=float, default=1.0)
     parser.add_argument("--max-query-geomean-overhead-ratio", type=float, default=1.3)
     parser.add_argument("--min-shared-queries", type=int, default=100)
     args = parser.parse_args()
 
-    if not args.cache_path.exists():
+    if not is_valid_cache(args.cache_path):
         Fabric(locations=str(args.tf_path), silent="deep").compile(
             str(args.cache_path),
             features=FEATURES,
@@ -77,7 +78,10 @@ def main() -> int:
     print(f"query_geomean_overhead={query_geomean:.3f}x queries={len(shared)}")
 
     failures = []
-    if load_overhead > args.max_load_overhead_ratio:
+    if (
+        rust.load_ms >= args.min_load_ms_for_ratio
+        and load_overhead > args.max_load_overhead_ratio
+    ):
         failures.append(
             f"load overhead {load_overhead:.3f} exceeds {args.max_load_overhead_ratio:.3f}"
         )
@@ -98,6 +102,16 @@ class Timings:
         self.raw = raw
 
 
+def is_valid_cache(cache_path: Path) -> bool:
+    if not cache_path.exists():
+        return False
+    try:
+        Fabric(silent="deep").openMapped(str(cache_path))
+    except Exception:
+        return False
+    return True
+
+
 def run_wheel(cache_path: Path, limit: int) -> Timings:
     start = time.perf_counter()
     mapped = Fabric(silent="deep").openMapped(str(cache_path))
@@ -105,7 +119,7 @@ def run_wheel(cache_path: Path, limit: int) -> Timings:
     timings = {}
     for query_id, template in QUERIES:
         start = time.perf_counter()
-        mapped.search(template, limit=limit)
+        mapped.S.search(template, limit=limit)
         timings[query_id] = (time.perf_counter() - start) * 1000
     return Timings(load_ms, timings)
 

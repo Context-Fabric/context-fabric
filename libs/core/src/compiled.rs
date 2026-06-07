@@ -11,13 +11,16 @@ use memmap2::Mmap;
 use crate::corpus::{
     Chunk, ChunkLengthKey, ChunkPositionKey, ComputedFeatureData, Corpus, FeatureCatalogEntry,
     FeatureDescription, FeatureKind, FeatureValueSample, LoadedFeatureInfo, LoadedFeatureKind,
+    StructureTree,
 };
 use crate::error::{CfError, Result};
 use crate::feature::{EdgeFeature, EdgeFrequency, FeatureValue, NodeFeature};
+use crate::precompute::{self, StructureData, StructureHeading};
 
-const MAGIC: &[u8; 8] = b"CFRUST01";
+const MAGIC: &[u8; 8] = b"CFRUST02";
 const FEATURE_METADATA_MAGIC: &[u8; 8] = b"CFRMETA1";
 const EDGE_VALUES_MAGIC: &[u8; 8] = b"CFREDGE1";
+const STRUCTURE_MAGIC: &[u8; 8] = b"CFRSTRC2";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompiledMetadata {
@@ -29,6 +32,7 @@ pub struct CompiledMetadata {
     pub rank_len: usize,
     pub order_start: Option<usize>,
     pub rank_start: Option<usize>,
+    pub structure_start: Option<usize>,
 }
 
 impl CompiledMetadata {
@@ -118,7 +122,19 @@ pub struct CompiledConfigFeature {
 pub struct MappedCompiledCorpus {
     path: PathBuf,
     mmap: Mmap,
+    #[cfg(target_os = "macos")]
+    _shared_mmap_hint: Mmap,
     metadata: CompiledMetadata,
+}
+
+impl std::fmt::Debug for MappedCompiledCorpus {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("MappedCompiledCorpus")
+            .field("path", &self.path)
+            .field("metadata", &self.metadata)
+            .finish_non_exhaustive()
+    }
 }
 
 fn metadata_value<'a>(
@@ -154,9 +170,13 @@ impl MappedCompiledCorpus {
         let path = path.as_ref();
         let mmap = map_file(path)?;
         let metadata = inspect_compiled_bytes(path, &mmap)?;
+        #[cfg(target_os = "macos")]
+        let shared_mmap_hint = map_file(path)?;
         Ok(Self {
             path: path.to_path_buf(),
             mmap,
+            #[cfg(target_os = "macos")]
+            _shared_mmap_hint: shared_mmap_hint,
             metadata,
         })
     }
@@ -262,6 +282,113 @@ impl MappedCompiledCorpus {
             .string_pool_node_feature("otype")?
             .ok_or_else(|| CfError::MissingFeature("otype".to_string()))?;
         Ok(otype.str_value(1)?.unwrap_or_default().to_string())
+    }
+
+    pub fn search(&self) -> crate::mapped_search::MappedSearch<'_> {
+        crate::mapped_search::MappedSearch::new(self)
+    }
+
+    pub fn nodes_of_type(&self, node_type: &str) -> Result<Vec<u32>> {
+        Ok(self
+            .string_pool_node_feature("otype")?
+            .ok_or_else(|| CfError::MissingFeature("otype".to_string()))?
+            .s(node_type)?)
+    }
+
+    pub fn text(&self, node: u32, format: Option<&str>) -> Result<String> {
+        crate::mapped_text::MappedText::new(self)?.text(node, format)
+    }
+
+    pub fn structure_data(&self) -> Result<Option<StructureData>> {
+        let Some(structure_start) = self.metadata.structure_start else {
+            return Ok(None);
+        };
+        let mut reader = Reader {
+            path: &self.path,
+            bytes: &self.mmap,
+            offset: structure_start,
+        };
+        reader.read_structure_section()
+    }
+
+    #[allow(non_snake_case)]
+    pub fn structureData(&self) -> Result<Option<StructureData>> {
+        self.structure_data()
+    }
+
+    pub fn structure(&self, node: Option<u32>) -> Result<Option<StructureTree>> {
+        let Some(data) = self.structure_data()? else {
+            return Ok(None);
+        };
+        Ok(match node {
+            Some(node) => structure_tree_from_data(node, &data),
+            None => Some(StructureTree::Forest(
+                data.top
+                    .iter()
+                    .filter_map(|node| structure_tree_from_data(*node, &data))
+                    .collect(),
+            )),
+        })
+    }
+
+    pub fn top(&self) -> Result<Option<Vec<u32>>> {
+        Ok(self.structure_data()?.map(|data| data.top))
+    }
+
+    pub fn heading_from_node(&self, node: u32) -> Result<Option<Vec<StructureHeading>>> {
+        Ok(self
+            .structure_data()?
+            .and_then(|data| data.heading_from_node.get(&node).cloned()))
+    }
+
+    #[allow(non_snake_case)]
+    pub fn headingFromNode(&self, node: u32) -> Result<Option<Vec<StructureHeading>>> {
+        self.heading_from_node(node)
+    }
+
+    pub fn node_from_heading(&self, heading: &[StructureHeading]) -> Result<Option<u32>> {
+        Ok(self
+            .structure_data()?
+            .and_then(|data| data.node_from_heading.get(heading).copied()))
+    }
+
+    #[allow(non_snake_case)]
+    pub fn nodeFromHeading(&self, heading: &[StructureHeading]) -> Result<Option<u32>> {
+        self.node_from_heading(heading)
+    }
+
+    pub fn structure_pretty(
+        &self,
+        node: Option<u32>,
+        full_heading: bool,
+    ) -> Result<Option<String>> {
+        let Some(data) = self.structure_data()? else {
+            return Ok(None);
+        };
+        let tree = match node {
+            Some(node) => structure_tree_from_data(node, &data),
+            None => Some(StructureTree::Forest(
+                data.top
+                    .iter()
+                    .filter_map(|node| structure_tree_from_data(*node, &data))
+                    .collect(),
+            )),
+        };
+        let Some(tree) = tree else {
+            return Ok(None);
+        };
+        let mut lines = Vec::new();
+        structure_pretty_lines(&tree, &data, full_heading, "  ", &mut lines);
+        Ok(Some(lines.join("\n")))
+    }
+
+    #[allow(non_snake_case)]
+    pub fn structurePretty(
+        &self,
+        node: Option<u32>,
+        full_heading: bool,
+    ) -> Result<Option<String>> {
+        self.structure_pretty(node, full_heading)
     }
 
     #[allow(non_snake_case)]
@@ -2212,6 +2339,11 @@ fn inspect_compiled_bytes(path: &Path, bytes: &[u8]) -> Result<CompiledMetadata>
             }
         }
     }
+    let structure_start = if reader.is_done() {
+        None
+    } else {
+        reader.inspect_structure_section()?
+    };
 
     Ok(CompiledMetadata {
         byte_len: bytes.len(),
@@ -2222,71 +2354,8 @@ fn inspect_compiled_bytes(path: &Path, bytes: &[u8]) -> Result<CompiledMetadata>
         rank_len,
         order_start,
         rank_start,
+        structure_start,
     })
-}
-
-pub fn load_compiled(path: impl AsRef<Path>) -> Result<Corpus> {
-    let path = path.as_ref();
-    let mmap = map_file(path)?;
-    let mut reader = Reader::new(path, &mmap);
-    reader.expect_magic()?;
-
-    let mut node_features = BTreeMap::new();
-    let node_count = reader.read_u32()? as usize;
-    for _ in 0..node_count {
-        let feature = reader.read_node_feature()?;
-        node_features.insert(feature.name.clone(), feature);
-    }
-
-    let mut edge_features = BTreeMap::new();
-    let edge_count = reader.read_u32()? as usize;
-    for _ in 0..edge_count {
-        let feature = reader.read_edge_feature()?;
-        edge_features.insert(feature.name.clone(), feature);
-    }
-
-    let mut order = None;
-    let mut rank = None;
-    if !reader.is_done() {
-        order = Some(reader.read_u32_vec()?);
-        rank = Some(reader.read_u32_vec()?);
-    }
-    let config_features = if reader.is_done() {
-        BTreeMap::new()
-    } else {
-        reader.read_config_features()?
-    };
-    if !reader.is_done() {
-        let (node_metadata, edge_metadata) = reader.read_feature_metadata_section()?;
-        for (name, metadata) in node_metadata {
-            if let Some(feature) = node_features.get_mut(&name) {
-                feature.metadata = metadata;
-            }
-        }
-        for (name, metadata) in edge_metadata {
-            if let Some(feature) = edge_features.get_mut(&name) {
-                feature.metadata = metadata;
-            }
-        }
-    }
-    if !reader.is_done() {
-        let edge_values = reader.read_edge_values_section()?;
-        for (name, values) in edge_values {
-            if let Some(feature) = edge_features.get_mut(&name) {
-                feature.edge_values = values;
-            }
-        }
-    }
-
-    let mut corpus =
-        Corpus::from_feature_maps_with_configs(node_features, edge_features, config_features)?;
-    if let (Some(order), Some(rank)) = (order, rank) {
-        if order.len() == corpus.max_node as usize && rank.len() == corpus.max_node as usize {
-            corpus.order = Some(order);
-            corpus.rank = Some(rank);
-        }
-    }
-    Ok(corpus)
 }
 
 fn map_file(path: &Path) -> Result<Mmap> {
@@ -2444,6 +2513,60 @@ fn optional_feature_value_sort_token(value: &Option<FeatureValue>) -> String {
     }
 }
 
+fn structure_tree_from_data(node: u32, data: &StructureData) -> Option<StructureTree> {
+    if !data.heading_from_node.contains_key(&node) {
+        return None;
+    }
+    Some(StructureTree::Node {
+        node,
+        children: data
+            .down
+            .get(&node)
+            .into_iter()
+            .flatten()
+            .filter_map(|child| structure_tree_from_data(*child, data))
+            .collect(),
+    })
+}
+
+fn structure_heading_repr(heading: &[StructureHeading]) -> String {
+    heading
+        .iter()
+        .map(|item| format!("{}:{}", item.node_type, item.heading))
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
+fn structure_pretty_lines(
+    tree: &StructureTree,
+    data: &StructureData,
+    full_heading: bool,
+    indent: &str,
+    lines: &mut Vec<String>,
+) {
+    match tree {
+        StructureTree::Forest(children) => {
+            for child in children {
+                structure_pretty_lines(child, data, full_heading, indent, lines);
+            }
+        }
+        StructureTree::Node { node, children } => {
+            if let Some(heading) = data.heading_from_node.get(node) {
+                let parts = if full_heading {
+                    heading.as_slice()
+                } else {
+                    heading.last().map(std::slice::from_ref).unwrap_or(&[])
+                };
+                lines.push(format!("{indent}{}", structure_heading_repr(parts)));
+            }
+            let child_indent = format!("{indent}    ");
+            for child in children {
+                structure_pretty_lines(child, data, full_heading, &child_indent, lines);
+            }
+        }
+    }
+}
+
 fn skip_mixed_node_row(path: &Path, bytes: &[u8], offset: usize) -> Result<usize> {
     let tag_offset = offset
         .checked_add(4)
@@ -2535,6 +2658,7 @@ fn write_compiled(corpus: &Corpus, output_path: &Path) -> Result<()> {
         output_path,
     )?;
     write_edge_values_section(&mut writer, &corpus.edge_features, output_path)?;
+    write_structure_section(&mut writer, corpus, output_path)?;
     writer.flush().map_err(|source| CfError::Io {
         path: output_path.to_path_buf(),
         source,
@@ -2627,6 +2751,58 @@ fn write_edge_values_section<W: Write>(
     Ok(())
 }
 
+fn write_structure_section<W: Write>(writer: &mut W, corpus: &Corpus, path: &Path) -> Result<()> {
+    let Some(data) = precompute::structure(corpus) else {
+        return Ok(());
+    };
+    writer
+        .write_all(STRUCTURE_MAGIC)
+        .map_err(|source| CfError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    write_u32_vec(writer, &data.top, path)?;
+    write_u32(writer, data.heading_from_node.len() as u32, path)?;
+    for (node, heading) in &data.heading_from_node {
+        write_u32(writer, *node, path)?;
+        write_heading(writer, heading, path)?;
+    }
+    write_u32(writer, data.node_from_heading.len() as u32, path)?;
+    for (heading, node) in &data.node_from_heading {
+        write_heading(writer, heading, path)?;
+        write_u32(writer, *node, path)?;
+    }
+    write_u32(writer, data.multiple.len() as u32, path)?;
+    for (heading, nodes) in &data.multiple {
+        write_heading(writer, heading, path)?;
+        write_u32_vec(writer, nodes, path)?;
+    }
+    write_u32(writer, data.up.len() as u32, path)?;
+    for (node, parent) in &data.up {
+        write_u32(writer, *node, path)?;
+        write_u32(writer, *parent, path)?;
+    }
+    write_u32(writer, data.down.len() as u32, path)?;
+    for (parent, children) in &data.down {
+        write_u32(writer, *parent, path)?;
+        write_u32_vec(writer, children, path)?;
+    }
+    Ok(())
+}
+
+fn write_heading<W: Write>(
+    writer: &mut W,
+    heading: &[StructureHeading],
+    path: &Path,
+) -> Result<()> {
+    write_u32(writer, heading.len() as u32, path)?;
+    for item in heading {
+        write_string(writer, &item.node_type, path)?;
+        write_string(writer, &item.heading, path)?;
+    }
+    Ok(())
+}
+
 fn write_metadata_map<W: Write>(
     writer: &mut W,
     metadata: &BTreeMap<String, Option<String>>,
@@ -2666,7 +2842,9 @@ fn write_node_feature<W: Write>(writer: &mut W, feature: &NodeFeature, path: &Pa
             path: path.to_path_buf(),
             source,
         })?;
+    write_u32(writer, feature.values.len() as u32, path)?;
 
+    let mut payload = Vec::new();
     if all_strings {
         let mut pool: Vec<Arc<str>> = Vec::new();
         let mut pool_ids: HashMap<Arc<str>, u32> = HashMap::new();
@@ -2681,40 +2859,42 @@ fn write_node_feature<W: Write>(writer: &mut W, feature: &NodeFeature, path: &Pa
             }
         }
         write_u32(writer, pool.len() as u32, path)?;
+        write_u32(&mut payload, pool.len() as u32, path)?;
         for value in &pool {
-            write_string(writer, value, path)?;
+            write_string(&mut payload, value, path)?;
         }
 
-        write_u32(writer, feature.values.len() as u32, path)?;
+        write_u32(&mut payload, feature.values.len() as u32, path)?;
         let mut rows: Vec<_> = feature.values.iter().collect();
         rows.sort_unstable_by_key(|(node, _)| **node);
         for (node, value) in rows {
             let FeatureValue::Str(value) = value else {
                 unreachable!();
             };
-            write_u32(writer, *node, path)?;
-            write_u32(writer, pool_ids[value], path)?;
+            write_u32(&mut payload, *node, path)?;
+            write_u32(&mut payload, pool_ids[value], path)?;
         }
     } else {
-        write_u32(writer, feature.values.len() as u32, path)?;
+        write_u32(writer, 0, path)?;
+        write_u32(&mut payload, feature.values.len() as u32, path)?;
         let mut rows: Vec<_> = feature.values.iter().collect();
         rows.sort_unstable_by_key(|(node, _)| **node);
         for (node, value) in rows {
-            write_u32(writer, *node, path)?;
+            write_u32(&mut payload, *node, path)?;
             match value {
                 FeatureValue::Str(value) => {
-                    writer.write_all(&[0]).map_err(|source| CfError::Io {
+                    payload.write_all(&[0]).map_err(|source| CfError::Io {
                         path: path.to_path_buf(),
                         source,
                     })?;
-                    write_string(writer, value, path)?;
+                    write_string(&mut payload, value, path)?;
                 }
                 FeatureValue::Int(value) => {
-                    writer.write_all(&[1]).map_err(|source| CfError::Io {
+                    payload.write_all(&[1]).map_err(|source| CfError::Io {
                         path: path.to_path_buf(),
                         source,
                     })?;
-                    writer
+                    payload
                         .write_all(&value.to_le_bytes())
                         .map_err(|source| CfError::Io {
                             path: path.to_path_buf(),
@@ -2724,21 +2904,33 @@ fn write_node_feature<W: Write>(writer: &mut W, feature: &NodeFeature, path: &Pa
             }
         }
     }
+    write_u32(writer, payload.len() as u32, path)?;
+    writer.write_all(&payload).map_err(|source| CfError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
     Ok(())
 }
 
 fn write_edge_feature<W: Write>(writer: &mut W, feature: &EdgeFeature, path: &Path) -> Result<()> {
     write_string(writer, &feature.name, path)?;
     write_u32(writer, feature.values.len() as u32, path)?;
+    let mut payload = Vec::new();
+    write_u32(&mut payload, feature.values.len() as u32, path)?;
     let mut rows: Vec<_> = feature.values.iter().collect();
     rows.sort_unstable_by_key(|(node, _)| **node);
     for (node, targets) in rows {
-        write_u32(writer, *node, path)?;
-        write_u32(writer, targets.len() as u32, path)?;
+        write_u32(&mut payload, *node, path)?;
+        write_u32(&mut payload, targets.len() as u32, path)?;
         for target in targets {
-            write_u32(writer, *target, path)?;
+            write_u32(&mut payload, *target, path)?;
         }
     }
+    write_u32(writer, payload.len() as u32, path)?;
+    writer.write_all(&payload).map_err(|source| CfError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
     Ok(())
 }
 
@@ -2817,51 +3009,17 @@ impl<'a> Reader<'a> {
         Ok(())
     }
 
-    fn read_node_feature(&mut self) -> Result<NodeFeature> {
-        let name = self.read_string()?;
-        let encoding = self.read_u8()?;
-        let values = match encoding {
-            0 => self.read_string_pool_node_values()?,
-            1 => self.read_mixed_node_values()?,
-            _ => return Err(self.invalid("invalid node feature encoding")),
-        };
-        let build_index = name != "otype";
-        Ok(NodeFeature::new_with_indexing(
-            name,
-            BTreeMap::new(),
-            values,
-            build_index,
-        ))
-    }
-
     fn inspect_node_feature(&mut self) -> Result<CompiledNodeFeature> {
         let name = self.read_string()?;
         let encoding_tag = self.read_u8()?;
+        let row_count = self.read_u32()? as usize;
+        let aux_count = self.read_u32()? as usize;
+        let payload_len = self.read_u32()? as usize;
         let payload_start = self.offset;
-        let (encoding, row_count, string_pool_count) = match encoding_tag {
-            0 => {
-                let pool_count = self.read_u32()? as usize;
-                for _ in 0..pool_count {
-                    self.skip_string()?;
-                }
-                let row_count = self.read_u32()? as usize;
-                self.skip_bytes(row_count.checked_mul(8).ok_or_else(|| {
-                    self.invalid("compiled string-pool row byte count overflow")
-                })?)?;
-                (NodeFeatureEncoding::StringPool, row_count, Some(pool_count))
-            }
-            1 => {
-                let row_count = self.read_u32()? as usize;
-                for _ in 0..row_count {
-                    self.skip_bytes(4)?;
-                    match self.read_u8()? {
-                        0 => self.skip_string()?,
-                        1 => self.skip_bytes(8)?,
-                        _ => return Err(self.invalid("invalid feature value tag")),
-                    }
-                }
-                (NodeFeatureEncoding::Mixed, row_count, None)
-            }
+        self.skip_bytes(payload_len)?;
+        let (encoding, string_pool_count) = match encoding_tag {
+            0 => (NodeFeatureEncoding::StringPool, Some(aux_count)),
+            1 => (NodeFeatureEncoding::Mixed, None),
             _ => return Err(self.invalid("invalid node feature encoding")),
         };
         Ok(CompiledNodeFeature {
@@ -2873,81 +3031,6 @@ impl<'a> Reader<'a> {
             payload_end: self.offset,
             metadata: BTreeMap::new(),
         })
-    }
-
-    fn read_string_pool_node_values(&mut self) -> Result<HashMap<u32, FeatureValue>> {
-        let pool_count = self.read_u32()? as usize;
-        let mut pool: Vec<Arc<str>> = Vec::with_capacity(pool_count);
-        for _ in 0..pool_count {
-            pool.push(Arc::from(self.read_string()?));
-        }
-
-        let row_count = self.read_u32()? as usize;
-        let mut values = HashMap::with_capacity(row_count);
-        for _ in 0..row_count {
-            let node = self.read_u32()?;
-            let pool_id = self.read_u32()? as usize;
-            let Some(value) = pool.get(pool_id) else {
-                return Err(self.invalid("string pool id out of bounds"));
-            };
-            values.insert(node, FeatureValue::Str(value.clone()));
-        }
-        Ok(values)
-    }
-
-    fn read_mixed_node_values(&mut self) -> Result<HashMap<u32, FeatureValue>> {
-        let row_count = self.read_u32()? as usize;
-        let mut values = HashMap::with_capacity(row_count);
-        for _ in 0..row_count {
-            let node = self.read_u32()?;
-            let tag = self.read_u8()?;
-            let value = match tag {
-                0 => FeatureValue::Str(Arc::from(self.read_string()?)),
-                1 => FeatureValue::Int(self.read_i64()?),
-                _ => return Err(self.invalid("invalid feature value tag")),
-            };
-            values.insert(node, value);
-        }
-        Ok(values)
-    }
-
-    fn read_edge_feature(&mut self) -> Result<EdgeFeature> {
-        let name = self.read_string()?;
-        let row_count = self.read_u32()? as usize;
-        let mut values = HashMap::with_capacity(row_count);
-        for _ in 0..row_count {
-            let source = self.read_u32()?;
-            let target_count = self.read_u32()? as usize;
-            let mut targets = Vec::with_capacity(target_count);
-            for _ in 0..target_count {
-                targets.push(self.read_u32()?);
-            }
-            values.insert(source, targets);
-        }
-        Ok(EdgeFeature::new(name, BTreeMap::new(), values))
-    }
-
-    fn read_config_features(
-        &mut self,
-    ) -> Result<BTreeMap<String, BTreeMap<String, Option<String>>>> {
-        let feature_count = self.read_u32()? as usize;
-        let mut features = BTreeMap::new();
-        for _ in 0..feature_count {
-            let name = self.read_string()?;
-            let metadata_count = self.read_u32()? as usize;
-            let mut metadata = BTreeMap::new();
-            for _ in 0..metadata_count {
-                let key = self.read_string()?;
-                let value = match self.read_u8()? {
-                    0 => None,
-                    1 => Some(self.read_string()?),
-                    _ => return Err(self.invalid("invalid config metadata value tag")),
-                };
-                metadata.insert(key, value);
-            }
-            features.insert(name, metadata);
-        }
-        Ok(features)
     }
 
     fn inspect_config_features(&mut self) -> Result<Vec<CompiledConfigFeature>> {
@@ -3020,28 +3103,64 @@ impl<'a> Reader<'a> {
         Ok(edge_values)
     }
 
-    fn read_edge_values_section(
-        &mut self,
-    ) -> Result<HashMap<String, HashMap<(u32, u32), FeatureValue>>> {
-        let magic = self.take(EDGE_VALUES_MAGIC.len())?;
-        if magic != EDGE_VALUES_MAGIC {
-            return Err(self.invalid("invalid edge value metadata magic"));
+    fn inspect_structure_section(&mut self) -> Result<Option<usize>> {
+        let start = self.offset;
+        self.read_structure_section()?;
+        Ok(Some(start))
+    }
+
+    fn read_structure_section(&mut self) -> Result<Option<StructureData>> {
+        let magic = self.take(STRUCTURE_MAGIC.len())?;
+        if magic != STRUCTURE_MAGIC {
+            return Err(self.invalid("invalid structure section magic"));
         }
-        let feature_count = self.read_u32()? as usize;
-        let mut features = HashMap::with_capacity(feature_count);
-        for _ in 0..feature_count {
-            let name = self.read_string()?;
-            let value_count = self.read_u32()? as usize;
-            let mut values = HashMap::with_capacity(value_count);
-            for _ in 0..value_count {
-                let source = self.read_u32()?;
-                let target = self.read_u32()?;
-                let value = self.read_feature_value()?;
-                values.insert((source, target), value);
-            }
-            features.insert(name, values);
+        let top = self.read_u32_vec()?;
+
+        let heading_count = self.read_u32()? as usize;
+        let mut heading_from_node = BTreeMap::new();
+        for _ in 0..heading_count {
+            let node = self.read_u32()?;
+            heading_from_node.insert(node, self.read_heading()?);
         }
-        Ok(features)
+
+        let node_heading_count = self.read_u32()? as usize;
+        let mut node_from_heading = BTreeMap::new();
+        for _ in 0..node_heading_count {
+            let heading = self.read_heading()?;
+            let node = self.read_u32()?;
+            node_from_heading.insert(heading, node);
+        }
+
+        let multiple_count = self.read_u32()? as usize;
+        let mut multiple = BTreeMap::new();
+        for _ in 0..multiple_count {
+            let heading = self.read_heading()?;
+            multiple.insert(heading, self.read_u32_vec()?);
+        }
+
+        let up_count = self.read_u32()? as usize;
+        let mut up = BTreeMap::new();
+        for _ in 0..up_count {
+            let node = self.read_u32()?;
+            let parent = self.read_u32()?;
+            up.insert(node, parent);
+        }
+
+        let down_count = self.read_u32()? as usize;
+        let mut down = BTreeMap::new();
+        for _ in 0..down_count {
+            let parent = self.read_u32()?;
+            down.insert(parent, self.read_u32_vec()?);
+        }
+
+        Ok(Some(StructureData {
+            heading_from_node,
+            node_from_heading,
+            multiple,
+            top,
+            up,
+            down,
+        }))
     }
 
     fn read_metadata_map(&mut self) -> Result<BTreeMap<String, Option<String>>> {
@@ -3061,17 +3180,10 @@ impl<'a> Reader<'a> {
 
     fn inspect_edge_feature(&mut self) -> Result<CompiledEdgeFeature> {
         let name = self.read_string()?;
-        let payload_start = self.offset;
         let row_count = self.read_u32()? as usize;
-        for _ in 0..row_count {
-            self.skip_bytes(4)?;
-            let target_count = self.read_u32()? as usize;
-            self.skip_bytes(
-                target_count
-                    .checked_mul(4)
-                    .ok_or_else(|| self.invalid("compiled edge target byte count overflow"))?,
-            )?;
-        }
+        let payload_len = self.read_u32()? as usize;
+        let payload_start = self.offset;
+        self.skip_bytes(payload_len)?;
         Ok(CompiledEdgeFeature {
             name,
             row_count,
@@ -3081,14 +3193,6 @@ impl<'a> Reader<'a> {
             edge_values_start: None,
             metadata: BTreeMap::new(),
         })
-    }
-
-    fn read_feature_value(&mut self) -> Result<FeatureValue> {
-        match self.read_u8()? {
-            0 => Ok(FeatureValue::Str(Arc::from(self.read_string()?))),
-            1 => Ok(FeatureValue::Int(self.read_i64()?)),
-            _ => Err(self.invalid("invalid feature value tag")),
-        }
     }
 
     fn skip_feature_value(&mut self) -> Result<()> {
@@ -3126,6 +3230,18 @@ impl<'a> Reader<'a> {
         Ok(values)
     }
 
+    fn read_heading(&mut self) -> Result<Vec<StructureHeading>> {
+        let len = self.read_u32()? as usize;
+        let mut heading = Vec::with_capacity(len);
+        for _ in 0..len {
+            heading.push(StructureHeading {
+                node_type: self.read_string()?,
+                heading: self.read_string()?,
+            });
+        }
+        Ok(heading)
+    }
+
     fn inspect_u32_vec(&mut self) -> Result<(usize, Option<usize>)> {
         let len = self.read_u32()? as usize;
         let start = self.offset;
@@ -3134,12 +3250,6 @@ impl<'a> Reader<'a> {
                 .ok_or_else(|| self.invalid("compiled u32 vector byte count overflow"))?,
         )?;
         Ok((len, Some(start)))
-    }
-
-    fn read_i64(&mut self) -> Result<i64> {
-        let mut bytes = [0_u8; 8];
-        bytes.copy_from_slice(self.take(8)?);
-        Ok(i64::from_le_bytes(bytes))
     }
 
     fn take(&mut self, len: usize) -> Result<&'a [u8]> {

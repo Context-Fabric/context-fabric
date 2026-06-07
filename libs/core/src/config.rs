@@ -45,6 +45,7 @@ pub const TRY_LIMIT_TO: i64 = 40;
 pub const SEARCH_FAIL_FACTOR: u32 = 4;
 
 pub const CFM_VERSION: &str = "1";
+pub const CFR_VERSION: &str = "2";
 pub const NODE_DTYPE: &str = "uint32";
 pub const RANK_DTYPE: &str = "uint32";
 pub const INDEX_DTYPE: &str = "uint32";

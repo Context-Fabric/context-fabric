@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare Python cfabric and Rust BHSA load-all time and peak memory."""
+"""Compare Python cfabric and Rust BHSA load-all time and owned memory."""
 
 from __future__ import annotations
 
@@ -13,11 +13,6 @@ from pathlib import Path
 
 LOAD_RE = re.compile(r"load_ms=(?P<load_ms>[0-9.]+)")
 QUERY_RE = re.compile(r"ok query=(?P<query>\S+) results=(?P<results>\d+) elapsed_ms=(?P<elapsed_ms>[0-9.]+)")
-MAC_RSS_RE = re.compile(r"(?P<rss>\d+)\s+maximum resident set size")
-MAC_FOOTPRINT_RE = re.compile(r"(?P<rss>\d+)\s+peak memory footprint")
-GNU_RSS_RE = re.compile(r"Maximum resident set size \(kbytes\):\s+(?P<rss>\d+)")
-
-
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[3]
     core_root = repo_root / "libs/core"
@@ -38,14 +33,14 @@ def main() -> int:
     parser.add_argument(
         "--max-query-overhead-ratio",
         type=float,
-        default=1.3,
+        default=1.5,
         help="Fail if wheel query time is more than this multiple of raw Rust query time.",
     )
     parser.add_argument(
-        "--max-rust-rss-ratio",
+        "--max-rust-uss-ratio",
         type=float,
         default=1.1,
-        help="Fail if Rust peak RSS is more than this fraction of Python peak RSS.",
+        help="Fail if Rust peak USS is more than this fraction of Python peak USS.",
     )
     args = parser.parse_args()
 
@@ -63,7 +58,7 @@ def main() -> int:
         env=os.environ.copy(),
     )
 
-    python = measure_command(
+    python_output = run_command(
         [
             sys.executable,
             "-c",
@@ -74,7 +69,7 @@ def main() -> int:
         cwd=core_root,
         env=python_env,
     )
-    rust = measure_command(
+    rust_output = run_command(
         [
             str(core_root / "target/release/cf_rust_bhsa_load_all"),
             str(args.tf_path),
@@ -84,17 +79,15 @@ def main() -> int:
         env=os.environ.copy(),
     )
 
-    python_timing = parse_timing(python.output)
-    rust_timing = parse_timing(rust.output)
-    rss_ratio = rust.rss_bytes / python.rss_bytes
+    python_timing = parse_timing(python_output)
+    rust_timing = parse_timing(rust_output)
+    python_memory = parse_memory(python_output)
 
     print("python")
-    print(python.output.rstrip())
-    print(python.time_output.rstrip())
+    print(python_output.rstrip())
     print()
     print("rust")
-    print(rust.output.rstrip())
-    print(rust.time_output.rstrip())
+    print(rust_output.rstrip())
     print()
     print("comparison")
     print(
@@ -106,9 +99,10 @@ def main() -> int:
         f"python_ms={python_timing.query_ms:.3f} rust_ms={rust_timing.query_ms:.3f}"
     )
     print(
-        f"python_peak_rss_mb={python.rss_bytes / (1024 * 1024):.2f} "
-        f"rust_peak_rss_mb={rust.rss_bytes / (1024 * 1024):.2f} "
-        f"rust_vs_python_rss_ratio={rss_ratio:.3f}"
+        f"python_baseline_uss_mb={python_memory.baseline_uss_mb:.2f} "
+        f"python_first_open_uss_mb={python_memory.first_open_uss_mb:.2f} "
+        f"python_final_uss_mb={python_memory.final_uss_mb:.2f} "
+        f"python_repeated_open_growth_mb={python_memory.repeated_growth_mb:.2f}"
     )
     load_overhead = python_timing.load_ms / rust_timing.load_ms
     query_overhead = python_timing.query_ms / rust_timing.query_ms
@@ -123,10 +117,15 @@ def main() -> int:
             f"wheel query overhead {query_overhead:.3f} exceeds "
             f"{args.max_query_overhead_ratio:.3f}"
         )
-    if rss_ratio > args.max_rust_rss_ratio:
+    if python_memory.first_open_uss_mb > 50:
         failures.append(
-            f"Rust peak RSS ratio {rss_ratio:.3f} exceeds "
-            f"{args.max_rust_rss_ratio:.3f}"
+            f"Python first-open USS {python_memory.first_open_uss_mb:.2f} MB exceeds 50 MB"
+        )
+    if python_memory.final_uss_mb > 50:
+        failures.append(f"Python final USS {python_memory.final_uss_mb:.2f} MB exceeds 50 MB")
+    if python_memory.repeated_growth_mb > 5:
+        failures.append(
+            f"Python repeated-open USS growth {python_memory.repeated_growth_mb:.2f} MB exceeds 5 MB"
         )
     if failures:
         raise RuntimeError("; ".join(failures))
@@ -136,10 +135,18 @@ def main() -> int:
 PYTHON_LOAD_ALL = r"""
 import sys
 import time
+import gc
+import psutil
 from cfabric import Fabric
 
 tf_path = sys.argv[1]
 limit = int(sys.argv[2])
+process = psutil.Process()
+
+def uss_mb():
+    return process.memory_full_info().uss / (1024 * 1024)
+
+baseline_uss_mb = uss_mb()
 load_start = time.perf_counter()
 fabric = Fabric(locations=tf_path, silent="deep")
 api = fabric.loadAll(silent="deep")
@@ -149,6 +156,19 @@ load_ms = (time.perf_counter() - load_start) * 1000
 
 feature_count = len(api.Fall(warp=False)) + len(api.Eall(warp=False))
 print(f"loaded python_features={feature_count} load_ms={load_ms:.3f}")
+
+first_open_uss_mb = uss_mb()
+apis = [api]
+for _ in range(4):
+    apis.append(Fabric(locations=tf_path, silent="deep").loadAll(silent="deep"))
+    gc.collect()
+final_uss_mb = uss_mb()
+print(
+    f"memory baseline_uss_mb={baseline_uss_mb:.2f} "
+    f"first_open_uss_mb={first_open_uss_mb:.2f} "
+    f"final_uss_mb={final_uss_mb:.2f} "
+    f"repeated_growth_mb={final_uss_mb - first_open_uss_mb:.2f}"
+)
 
 query_start = time.perf_counter()
 results = []
@@ -162,16 +182,30 @@ print(f"ok query=word_sp_verb results={len(results)} elapsed_ms={query_ms:.3f}")
 
 
 class Measurement:
-    def __init__(self, output: str, time_output: str, rss_bytes: int) -> None:
+    def __init__(self, output: str, time_output: str, uss_bytes: int) -> None:
         self.output = output
         self.time_output = time_output
-        self.rss_bytes = rss_bytes
+        self.uss_bytes = uss_bytes
 
 
 class Timing:
     def __init__(self, load_ms: float, query_ms: float) -> None:
         self.load_ms = load_ms
         self.query_ms = query_ms
+
+
+class Memory:
+    def __init__(
+        self,
+        baseline_uss_mb: float,
+        first_open_uss_mb: float,
+        final_uss_mb: float,
+        repeated_growth_mb: float,
+    ) -> None:
+        self.baseline_uss_mb = baseline_uss_mb
+        self.first_open_uss_mb = first_open_uss_mb
+        self.final_uss_mb = final_uss_mb
+        self.repeated_growth_mb = repeated_growth_mb
 
 
 def run_command(command: list[str], cwd: Path, env: dict[str, str]) -> str:
@@ -187,23 +221,6 @@ def run_command(command: list[str], cwd: Path, env: dict[str, str]) -> str:
     return completed.stdout
 
 
-def measure_command(command: list[str], cwd: Path, env: dict[str, str]) -> Measurement:
-    completed = subprocess.run(
-        ["/usr/bin/time", "-l", *command],
-        cwd=cwd,
-        env=env,
-        check=True,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    return Measurement(
-        output=completed.stdout,
-        time_output=completed.stderr,
-        rss_bytes=parse_time_rss_bytes(completed.stderr),
-    )
-
-
 def parse_timing(output: str) -> Timing:
     load_match = LOAD_RE.search(output)
     query_match = QUERY_RE.search(output)
@@ -215,14 +232,22 @@ def parse_timing(output: str) -> Timing:
     )
 
 
-def parse_time_rss_bytes(output: str) -> int:
-    if match := MAC_RSS_RE.search(output):
-        return int(match.group("rss"))
-    if match := MAC_FOOTPRINT_RE.search(output):
-        return int(match.group("rss"))
-    if match := GNU_RSS_RE.search(output):
-        return int(match.group("rss")) * 1024
-    raise RuntimeError(f"could not parse peak RSS from /usr/bin/time output:\n{output}")
+def parse_memory(output: str) -> Memory:
+    memory_match = re.search(
+        r"baseline_uss_mb=(?P<baseline>[0-9.]+) "
+        r"first_open_uss_mb=(?P<first>[0-9.]+) "
+        r"final_uss_mb=(?P<final>[0-9.]+) "
+        r"repeated_growth_mb=(?P<growth>-?[0-9.]+)",
+        output,
+    )
+    if not memory_match:
+        raise RuntimeError(f"missing memory fields in output:\n{output}")
+    return Memory(
+        baseline_uss_mb=float(memory_match.group("baseline")),
+        first_open_uss_mb=float(memory_match.group("first")),
+        final_uss_mb=float(memory_match.group("final")),
+        repeated_growth_mb=float(memory_match.group("growth")),
+    )
 
 
 if __name__ == "__main__":

@@ -1,10 +1,14 @@
 use std::collections::BTreeMap;
+use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
-use crate::compiled::{MappedCompiledCorpus, compile_features, load_compiled};
-use crate::config::{BANNER, VERSION};
+use crate::compiled::{
+    MappedCompiledCorpus, compile_features, compile_loaded_corpus, inspect_compiled,
+};
+use crate::config::{BANNER, CFR_VERSION, VERSION};
 use crate::corpus::Corpus;
-use crate::error::Result;
+use crate::error::{CfError, Result};
 use crate::explore::{FeatureInventory, explore_feature_paths};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -154,19 +158,49 @@ impl Fabric {
             .collect())
     }
 
-    pub fn load_all(&self) -> Result<Corpus> {
-        Corpus::load_paths(self.module_paths())
+    pub fn cfr_cache_path(&self) -> PathBuf {
+        cfr_cache_path(self.module_paths().last().unwrap_or(&self.path))
+    }
+
+    pub fn load_mapped(&self, features: impl FeatureSpec) -> Result<MappedCompiledCorpus> {
+        let _ = features.feature_names();
+        let module_paths = self.module_paths();
+        let module_path = module_paths.last().unwrap_or(&self.path);
+        let cache_path = cfr_cache_path(module_path);
+        if !is_cache_fresh(&cache_path, &module_paths)? {
+            let cache_dir = cache_path.parent().unwrap_or(module_path);
+            fs::create_dir_all(cache_dir).map_err(|source| CfError::Io {
+                path: cache_dir.to_path_buf(),
+                source,
+            })?;
+            if module_paths.len() > 1 {
+                let corpus = Corpus::load_paths(module_paths.clone())?.with_rank_arrays();
+                compile_loaded_corpus(&corpus, &cache_path)
+            } else {
+                compile_features(module_path, &cache_path, &[])
+            }
+            .map_err(|error| match error {
+                CfError::Io { source, .. } => CfError::Io {
+                    path: cache_path.clone(),
+                    source,
+                },
+                other => other,
+            })?;
+        }
+        MappedCompiledCorpus::open(cache_path)
+    }
+
+    pub fn load_all(&self) -> Result<MappedCompiledCorpus> {
+        self.load_mapped(Vec::<String>::new())
     }
 
     #[allow(non_snake_case)]
-    pub fn loadAll(&self) -> Result<Corpus> {
+    pub fn loadAll(&self) -> Result<MappedCompiledCorpus> {
         self.load_all()
     }
 
-    pub fn load(&self, features: impl FeatureSpec) -> Result<Corpus> {
-        let features = features.feature_names();
-        let feature_refs = features.iter().map(String::as_str).collect::<Vec<_>>();
-        Corpus::load_features_from_paths(self.module_paths(), &feature_refs)
+    pub fn load(&self, features: impl FeatureSpec) -> Result<MappedCompiledCorpus> {
+        self.load_mapped(features)
     }
 
     pub fn load_add(&self, corpus: &mut Corpus, features: impl FeatureSpec) -> Result<bool> {
@@ -215,15 +249,6 @@ impl Fabric {
         )
     }
 
-    pub fn load_compiled(&self, cache_path: impl AsRef<Path>) -> Result<Corpus> {
-        load_compiled(cache_path)
-    }
-
-    #[allow(non_snake_case)]
-    pub fn loadCompiled(&self, cache_path: impl AsRef<Path>) -> Result<Corpus> {
-        self.load_compiled(cache_path)
-    }
-
     pub fn open_mapped(&self, cache_path: impl AsRef<Path>) -> Result<MappedCompiledCorpus> {
         MappedCompiledCorpus::open(cache_path)
     }
@@ -248,6 +273,80 @@ impl Fabric {
             .filter(|path| path.exists())
             .collect()
     }
+}
+
+pub fn cfr_cache_path(tf_dir: impl AsRef<Path>) -> PathBuf {
+    tf_dir
+        .as_ref()
+        .join(".cfr")
+        .join(CFR_VERSION)
+        .join("corpus.cfr")
+}
+
+pub fn is_cache_fresh(cache_path: &Path, module_paths: &[PathBuf]) -> Result<bool> {
+    let cache_mtime = match fs::metadata(cache_path).and_then(|metadata| metadata.modified()) {
+        Ok(mtime) => mtime,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(source) => {
+            return Err(CfError::Io {
+                path: cache_path.to_path_buf(),
+                source,
+            });
+        }
+    };
+    let mut newest_source = SystemTime::UNIX_EPOCH;
+    for module_path in module_paths {
+        for entry in fs::read_dir(module_path).map_err(|source| CfError::Io {
+            path: module_path.clone(),
+            source,
+        })? {
+            let entry = entry.map_err(|source| CfError::Io {
+                path: module_path.clone(),
+                source,
+            })?;
+            let path = entry.path();
+            if path.extension().and_then(|extension| extension.to_str()) != Some("tf") {
+                continue;
+            }
+            let mtime = entry
+                .metadata()
+                .and_then(|metadata| metadata.modified())
+                .map_err(|source| CfError::Io {
+                    path: path.clone(),
+                    source,
+                })?;
+            newest_source = newest_source.max(mtime);
+        }
+    }
+    if cache_mtime < newest_source {
+        return Ok(false);
+    }
+    let metadata = match inspect_compiled(cache_path) {
+        Ok(metadata) => metadata,
+        Err(_) => return Ok(false),
+    };
+    if source_has_structure_config(module_paths)? && metadata.structure_start.is_none() {
+        return Ok(false);
+    }
+    Ok(true)
+}
+
+fn source_has_structure_config(module_paths: &[PathBuf]) -> Result<bool> {
+    for module_path in module_paths {
+        let otext_path = module_path.join("otext.tf");
+        let Ok(content) = fs::read_to_string(&otext_path) else {
+            continue;
+        };
+        for line in content.lines() {
+            let Some(value) = line.strip_prefix("@structureTypes=") else {
+                continue;
+            };
+            if !value.trim().is_empty() {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
 }
 
 pub trait FeatureSpec {
