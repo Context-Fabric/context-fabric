@@ -32,7 +32,7 @@ Context-Fabric brings corpus analysis into the AI era. Built on the proven [Text
 - **Built for Production** — Memory-mapped arrays enable true parallelization. Multiple workers share data instead of duplicating it.
 - **AI-Native** — MCP server exposes corpus operations to Claude, GPT, and other LLM-powered tools.
 - **Powerful Data Model** — Standoff annotation, graph traversal, pattern search, and arbitrary feature annotations.
-- **Dramatic Efficiency** — 3.5x faster loads, 65% less memory in single process, 62% less with parallel workers.
+- **Dramatic Efficiency** — on BHSA, ~477x faster loads and ~27x less resident memory than Text-Fabric, with per-call latency that beats it on every probe.
 
 → [Read the Technical Paper](docs/intro-to-cf/intro-to-cf.pdf)
 
@@ -58,15 +58,9 @@ The server provides 10 tools for discovery, search, and data access—designed f
 
 ## Memory Efficiency
 
-Text-Fabric loads entire corpora into memory—effective for single-user research, but each parallel worker duplicates that memory footprint. Context-Fabric's memory-mapped arrays change the equation:
+Text-Fabric loads entire corpora into memory—effective for single-user research, but each parallel worker duplicates that memory footprint. Context-Fabric keeps the corpus memory-mapped, so resident memory stays low and multiple workers share the same on-disk pages instead of duplicating the corpus in RAM.
 
-| Scenario | Memory Reduction |
-|----------|------------------|
-| Single process | 65% less |
-| 4 workers (spawn) | 62% less |
-| 4 workers (fork) | 62% less |
-
-*Mean reduction across 10 corpora. Memory measured as total RSS after loading from cache.*
+On BHSA (1.4M nodes, 109 features), resident memory after load is **236 MB** versus Text-Fabric's **6.4 GB** — about **27x less** in a single process, with the gap widening across parallel workers because the mmap'd pages are shared.
 
 ---
 
@@ -122,24 +116,21 @@ clause
 
 Context-Fabric trades **one-time compilation cost** for **dramatic runtime efficiency**. Compile once, benefit forever.
 
-| Metric | Mean Improvement |
-|--------|------------------|
-| Load time | 3.5x faster |
-| Memory (single) | 65% less |
-| Memory (spawn) | 62% less |
-| Memory (fork) | 62% less |
+Measured on BHSA against Text-Fabric 13.0.19 (idle machine, 2026-06-10):
 
-*Mean across 10 corpora. The larger cache enables memory-mapped access—no deserialization, instant loads, shared memory across workers.*
+| Metric | Text-Fabric | Context-Fabric | Improvement |
+|--------|-------------|----------------|-------------|
+| Load time | 8.6 s | 0.018 s | ~477x faster |
+| Resident memory | 6.4 GB | 236 MB | ~27x less |
+| Compile time | ~8 s | ~57 s | one-time cost |
 
-<p align="center">
-  <img src="libs/benchmarks/benchmark_results/2026-01-09_032952/fig_memory_multicorpus.png" alt="Memory Comparison Across Corpora" width="700">
-</p>
+Per-call latency beats Text-Fabric on every probe (e.g. `L.d` 0.75 µs vs 4.36 µs, `T.text` 7.1 µs vs 21.0 µs), and all 34 ETCBC reference queries return Text-Fabric counts in <= Text-Fabric wall time. Full numbers and the per-call table are in the [core README](libs/core/README.md#performance) and `libs/benchmarks/baselines/cf_0.6.0_record.json`.
 
 Run benchmarks yourself:
 
 ```bash
 pip install context-fabric[benchmarks]
-cfabric-bench memory --corpus path/to/corpus
+python -m cfabric_benchmarks.perf_gate --engine cf --assert
 ```
 
 ---

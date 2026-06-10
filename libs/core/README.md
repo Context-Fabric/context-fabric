@@ -45,53 +45,67 @@ embedded = api.L.d(node)
 - **T** (Text) - Retrieve text representations
 - **S** (Search) - Search using templates
 
+## Compatibility
+
+Context-Fabric is `tf.core` API-compatible: the N/F/E/L/T/S surfaces keep
+Text-Fabric's signatures and return types, search templates parse identically, and
+`TF.save`-authored `.tf` files reload in Text-Fabric. On BHSA, 34/34 reference
+ETCBC queries match Text-Fabric result counts and sets.
+
+Known divergences:
+
+- **Result-list ordering** is unspecified-but-deterministic. Parity is defined by
+  result counts and sets, not list order (Text-Fabric's order is search-strategy
+  dependent). Within-tuple column order matches template atom order.
+- **`silent` / progress knobs** are accepted but are no-ops.
+- **Volumes/works and MQL** are out of scope.
+- **`C.levUp` / `C.levDown`** are exposed as lazy views keyed by node id.
+
 ## Performance
 
-Context-Fabric uses a Rust core with memory-mapped compiled corpus caches for fast loading and low-memory traversal/search workloads.
+Context-Fabric uses a Rust core that keeps the corpus memory-mapped at all times.
+Loading is near-instant, resident memory stays low, and per-call latency beats
+Text-Fabric on every probe. Compilation to the `.cfr` cache happens once; loading
+happens every session.
 
 ### Benchmarks (BHSA Hebrew Bible corpus — 1.4M nodes, 109 features)
 
+Measured against Text-Fabric 13.0.19 on an idle machine, 2026-06-10
+(`libs/benchmarks/baselines/cf_0.6.0_record.json`).
+
 | Metric | Text-Fabric | Context-Fabric | Improvement |
 |--------|-------------|----------------|-------------|
-| **Load Time** | 7.9s | 0.7s | **11x faster** |
-| **Memory Usage** | 6.3 GB | 305 MB | **95% reduction** |
-| Compile Time | 8s | 91s | one-time cost |
-| Cache Size | 138 MB | 859 MB | 6x larger |
+| **Load time** | 8.6 s | 0.018 s | **~477x faster** |
+| **Resident memory** | 6.4 GB | 236 MB | **~27x less** |
+| Compile time | ~8 s | ~57 s | one-time cost |
+| Cache size | 138 MB | ~498 MB | larger (mmap'd, on-demand) |
 
-<p align="center">
-  <img src="../../benchmarks/results/performance_comparison.png" alt="Performance Comparison" width="700">
-</p>
+### Per-call latency (steady state)
 
-The key insight: **compilation happens once, loading happens every session**. Context-Fabric trades one-time compile cost for dramatic runtime efficiency:
+Median per-call latency after warmup. Context-Fabric reads from mmap'd CSR
+indexes and cached view metadata rather than loading the corpus into RAM.
 
-- **Memory-mapped arrays**: Data stays on disk, accessed on-demand
-- **Efficient sparse iteration**: Uses numpy vectorized operations instead of Python loops
-- **Cached materialization**: Dictionary views computed once per session
+| Operation | Text-Fabric | Context-Fabric |
+|-----------|-------------|----------------|
+| `F.<feat>.v` (node feature) | 0.43 µs | 0.33 µs |
+| `E.<feat>.f` (edge feature) | 0.23 µs | 0.14 µs |
+| `L.u` (containing nodes) | 0.79 µs | 0.62 µs |
+| `L.d` (contained nodes) | 4.36 µs | 0.75 µs |
+| `T.sectionFromNode` | 9.55 µs | 3.2 µs |
+| `T.text` (verse) | 21.0 µs | 7.1 µs |
 
-### Parallel Worker Scaling
+All 34 ETCBC reference queries return Text-Fabric counts in <= Text-Fabric wall time.
 
-Memory-mapped arrays enable efficient parallel processing. Multiple workers share the same mmap'd data instead of each loading a full copy into RAM.
+Because the data stays memory-mapped, multiple workers (spawn or fork) share the
+same on-disk pages instead of each duplicating the corpus in RAM, which is the
+core advantage for multi-worker API deployments.
 
-**Spawn mode** (cold start — each worker loads independently):
-
-| Metric | Text-Fabric | Context-Fabric | Savings |
-|--------|-------------|----------------|---------|
-| Total (4 workers) | 7.7 GB | 1.3 GB | **84% less** |
-| Per worker | 1.9 GB | 315 MB | **6x less** |
-
-**Fork mode** (API scenario — pre-load then fork workers):
-
-| Metric | Text-Fabric | Context-Fabric | Savings |
-|--------|-------------|----------------|---------|
-| Total (4 workers) | 6.3 GB | 398 MB | **94% less** |
-| Per worker | 1.6 GB | 99 MB | **16x less** |
-
-*Memory measured as total RSS after loading from cache on BHSA corpus.*
-
-Run the benchmark yourself:
+Run the benchmarks yourself:
 
 ```bash
-python benchmarks/compare_performance.py --source path/to/tf/data --workers 4
+pip install context-fabric[benchmarks]
+python -m cfabric_benchmarks.perf_gate --engine cf --assert \
+    --targets baselines/targets.json --baseline baselines/bhsa_tf.json
 ```
 
 ## Testing

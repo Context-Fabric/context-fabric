@@ -189,8 +189,23 @@ python scripts/compare_bhsa_mapped_subset.py --tf-path ../benchmarks/.corpora/bh
 python scripts/compare_bhsa_mapped_memory.py --tf-path ../benchmarks/.corpora/bhsa/tf --cache-path target/bhsa-mapped-curated.cfr --limit 5
 ```
 
-## Completion Status
+## Completion Status (0.6.0)
 
-- No known remaining documented/tested public API input/output parity gaps after the final public-surface audit.
-- Original objective gates pass: scaffold, plan/notes, converted Rust test suite, benchmark-corpus loading/querying, BHSA confirmation, curated BHSA query validation, and Python-vs-Rust performance proof.
+The June 2026 evaluation of 0.6.0rc1 against text-fabric 13.0.19 on BHSA found the
+data model faithful (407,719/409,288 API checks) but surfaced three defect classes:
+search-engine operator/quantifier semantics (only 8/34 ETCBC queries correct),
+mapped-view performance (per-call view rebuilds), and binding-surface gaps
+(`save`/`sets`/`shallow`/`lastSlot` ignored). These were remediated in the
+`concurrent-rainbow` work (see `.claude/plans/`), and the release is now gated:
+
+- **Search**: 34/34 ETCBC queries match TF counts and result sets, 0 crashes, all <= TF wall time (gate: `tests/parity` 34-query suite).
+- **Performance**: steady-state per-call latency beats TF on every probe; load 0.018 s, RSS 236 MB (gate: recorded `libs/benchmarks/baselines/cf_0.6.0_record.json`).
+- **Parity**: TF-oracle pytest (`CONTEXT_FABRIC_RUN_PARITY=1`) and golden 3-mode comparison (`tests/golden`) regenerated against TF truth.
+- **API surface**: `sets`/`shallow`/`lastSlot`/`freqList` filters wired; `TF.save` round-trips back into Text-Fabric.
+
+Documented divergences (intentional, see core CHANGELOG/README): result-*list*
+order is unspecified-but-deterministic (parity is by count + set); `silent`/progress
+knobs are no-ops; volumes/works and MQL are out of scope; `C.levUp`/`C.levDown` are
+lazy views keyed by node id.
+
 - Explicitly out of scope by user decision: Python downloader/network transport and exact Python `.cfm` internals unless a public local-cache behavior depends on them.

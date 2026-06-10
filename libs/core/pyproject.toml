@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "context-fabric"
-version = "0.6.0rc1"
+version = "0.6.0"
 description = "Graph-based corpus engine for annotated text with efficient traversal and search"
 readme = "README.md"
 license = {text = "MIT"}
@@ -65,7 +65,7 @@ exclude = ["**/.cfr/**"]
 [tool.cibuildwheel]
 build = "cp313-*"
 skip = "*-musllinux_*"
-test-command = "python -c \"from cfabric import Fabric, VERSION; assert VERSION == '0.6.0rc1'; assert Fabric is not None\""
+test-command = "python -c \"from cfabric import Fabric, VERSION; assert VERSION == '0.6.0'; assert Fabric is not None\""
 
 [tool.cibuildwheel.environment]
 MATURIN_FEATURES = "python,extension-module"

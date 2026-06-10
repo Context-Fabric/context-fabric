@@ -21,10 +21,9 @@ Assert a CF run against the per-call targets and the recorded TF baseline
         --targets baselines/targets.json \
         --baseline baselines/bhsa_tf.json
 
-The ``--assert`` mode is informational in Phase 0: the current 0.6.0rc1 engine
-fails several targets by design (the perf work lands in Phases 2/3).  It exits
-non-zero only when ``--strict`` is also passed, so it can be wired into CI later
-without breaking today's build.
+The ``--assert`` mode reports per-call latencies against the recorded targets;
+the 0.6.0 engine meets them on every probe.  It exits non-zero only when
+``--strict`` is also passed, so it can be wired into CI as a hard gate.
 
 Run Python from outside the repository root; importing ``cfabric`` from the repo
 root breaks.  The CLI does not chdir, so invoke it from another directory.

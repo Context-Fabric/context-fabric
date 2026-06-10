@@ -1,8 +1,8 @@
-pub const VERSION: &str = "0.6.0rc1";
+pub const VERSION: &str = "0.6.0";
 #[allow(non_upper_case_globals)]
 pub const __version__: &str = VERSION;
 pub const NAME: &str = "Context-Fabric";
-pub const BANNER: &str = "This is Context-Fabric 0.6.0rc1";
+pub const BANNER: &str = "This is Context-Fabric 0.6.0";
 pub const API_VERSION: u32 = 3;
 
 pub const OTYPE: &str = "otype";

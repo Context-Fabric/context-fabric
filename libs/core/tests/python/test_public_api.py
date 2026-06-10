@@ -6,9 +6,9 @@ from cfabric.results import CorpusInfo, FeatureInfo, NodeInfo, NodeList, SearchR
 
 
 def test_top_level_exports(mini_corpus_path):
-    assert VERSION == "0.6.0rc1"
+    assert VERSION == "0.6.0"
     assert NAME == "Context-Fabric"
-    assert "0.6.0rc1" in BANNER
+    assert "0.6.0" in BANNER
 
     fabric = Fabric(locations=str(mini_corpus_path), silent="deep")
     assert fabric.good is True
