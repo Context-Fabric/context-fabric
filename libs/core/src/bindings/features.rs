@@ -1,12 +1,13 @@
 use std::collections::BTreeMap;
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyAttributeError, PyTypeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyInt, PyString, PyTuple};
 
-use crate::compiled::{MappedCompiledCorpus, MappedNodeValue};
+use crate::compiled::{MappedCompiledCorpus, MappedNodeValue, NodeFeatureEncoding};
 use crate::corpus::{Boundary, Chunk, ChunkLengthKey, ChunkPositionKey, ComputedFeatureData};
 use crate::feature::{EdgeFrequency, FeatureValue};
 
@@ -136,15 +137,119 @@ fn mapped_value_from_feature(value: &FeatureValue) -> MappedNodeValue<'_> {
     }
 }
 
+/// Cached encoding of a node feature, resolved lazily on the long-lived
+/// `PyNodeFeature` handle so the per-call `.v()` path can branch without a
+/// metadata scan and dispatch straight to the concrete mmap accessor.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CachedKind {
+    /// String-pool encoded: every distinct value is a single, stable byte range
+    /// in the pool, so the returned `&str` slice is identity-stable per value and
+    /// can be interned by `(ptr, len)`.
+    StringPool,
+    /// Mixed (string/int) encoded, or feature absent: values are read inline per
+    /// row, so the slice pointer is per-node and not safe to intern.
+    Mixed,
+}
+
+/// Upper bound on distinct interned Python strings per feature handle. A simple
+/// "stop interning once full" policy keeps memory bounded (no LRU): at this cap
+/// the table holds at most ~65k short `str` objects (a few MB), well under the
+/// per-process budget. High-cardinality features (e.g. `g_word`) simply fall
+/// back to building fresh strings once the table fills.
+const INTERN_CAP: usize = 65_536;
+
+/// Minimal multiplicative hasher for the integer intern keys. The default
+/// `SipHash` is overkill (and ~10-20ns) for keys we already control; a single
+/// Fibonacci-style multiply distributes pool pointers well enough and shaves the
+/// hot-path cost on every `.v()` lookup.
+#[derive(Default)]
+struct IdHasher(u64);
+
+impl std::hash::Hasher for IdHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        let mut acc = self.0;
+        for &byte in bytes {
+            acc = (acc.rotate_left(5) ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3);
+        }
+        self.0 = acc;
+    }
+
+    fn write_u128(&mut self, value: u128) {
+        let lo = value as u64;
+        let hi = (value >> 64) as u64;
+        self.0 = (hi ^ lo).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+    }
+}
+
+type IdBuildHasher = std::hash::BuildHasherDefault<IdHasher>;
+
+#[derive(Default)]
+struct InternTable {
+    /// Key is `((ptr as u128) << 64) | len`. The string-pool slice pointer alone
+    /// would collide for an empty-string pool entry that shares a start offset
+    /// with the following entry, so the length is folded in to make the key a
+    /// true value identity.
+    map: HashMap<u128, Py<PyString>, IdBuildHasher>,
+    full: bool,
+}
+
 #[pyclass(name = "NodeFeature")]
 pub(crate) struct PyNodeFeature {
     name: String,
     corpus: Arc<MappedCompiledCorpus>,
+    /// Resolved once on first `.v()` access (mechanism 2: handle-owned decision).
+    kind: OnceLock<CachedKind>,
+    /// Pool-id (pointer-keyed) string interning cache (mechanism 1). Guarded by a
+    /// `Mutex` so the handle stays `Sync` for pyo3; the GIL makes it uncontended.
+    intern: Mutex<InternTable>,
 }
 
 impl PyNodeFeature {
     pub(crate) fn new(name: String, corpus: Arc<MappedCompiledCorpus>) -> Self {
-        Self { name, corpus }
+        Self {
+            name,
+            corpus,
+            kind: OnceLock::new(),
+            intern: Mutex::new(InternTable::default()),
+        }
+    }
+
+    fn cached_kind(&self) -> CachedKind {
+        *self.kind.get_or_init(|| {
+            match self
+                .corpus
+                .metadata()
+                .node_feature(&self.name)
+                .map(|feature| feature.encoding)
+            {
+                Some(NodeFeatureEncoding::StringPool) => CachedKind::StringPool,
+                _ => CachedKind::Mixed,
+            }
+        })
+    }
+
+    /// Returns the Python `str` for a string-pool value, reusing a cached
+    /// `Py<PyString>` (INCREF) when the same pool entry was seen before so repeat
+    /// values avoid re-encoding the bytes into a fresh CPython object.
+    fn intern_str(&self, py: Python<'_>, value: &str) -> PyObject {
+        let key = ((value.as_ptr() as u128) << 64) | (value.len() as u128);
+        let mut table = self.intern.lock().unwrap_or_else(|err| err.into_inner());
+        if let Some(existing) = table.map.get(&key) {
+            return existing.clone_ref(py).into_any();
+        }
+        let py_str = PyString::new(py, value);
+        if !table.full {
+            if table.map.len() >= INTERN_CAP {
+                table.full = true;
+            } else {
+                table.map.insert(key, py_str.clone().unbind());
+            }
+        }
+        py_str.into_any().unbind()
     }
 }
 
@@ -221,6 +326,39 @@ impl PyNodeFeature {
     }
 
     fn v(&self, py: Python<'_>, node: u32) -> PyResult<Option<PyObject>> {
+        match self.cached_kind() {
+            CachedKind::StringPool => {
+                // Dispatch straight to the string-pool accessor, skipping the
+                // generic `node_feature` dispatcher's extra metadata scan.
+                let Some(view) = self.corpus.string_pool_node_feature(&self.name)? else {
+                    return Ok(None);
+                };
+                let Some(value) = view.str_value(node)? else {
+                    return Ok(None);
+                };
+                Ok(Some(self.intern_str(py, value)))
+            }
+            CachedKind::Mixed => self
+                .corpus
+                .mixed_node_feature(&self.name)?
+                .map(|feature| feature.v(node))
+                .transpose()?
+                .flatten()
+                .map(|value| mapped_value_to_py(py, value))
+                .transpose(),
+        }
+    }
+
+    /// pyo3 call-overhead floor: a positional-only method that does no work, used
+    /// by the benchmark to subtract the binding's per-call cost from `.v()`.
+    fn _noop(&self, node: u32) -> u32 {
+        node
+    }
+
+    /// Pre-optimization `.v()` path (generic dispatcher + a fresh `PyString` per
+    /// call, no interning). Kept private for the benchmark's before/after table so
+    /// both numbers come from the same binary; not part of the public API.
+    fn _v_legacy(&self, py: Python<'_>, node: u32) -> PyResult<Option<PyObject>> {
         self.corpus
             .node_feature(&self.name)?
             .map(|feature| feature.v(node))
@@ -315,22 +453,41 @@ impl PyNodeFeature {
 #[pyclass(name = "NodeFeatures")]
 pub(crate) struct PyNodeFeatures {
     corpus: Arc<MappedCompiledCorpus>,
+    /// Cache of resolved `PyNodeFeature` handles keyed by feature name. Returning
+    /// the *same* handle for repeated `F.<feat>` accesses keeps the per-handle
+    /// intern cache (mechanism 1) alive across `F.<feat>.v(n)` statements, which
+    /// is what makes interning pay off in ordinary usage (TF's `sp = F.sp.v`
+    /// idiom and bare `F.sp.v(n)` loops both benefit).
+    handles: Mutex<HashMap<String, Py<PyNodeFeature>>>,
 }
 
 impl PyNodeFeatures {
     pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>) -> Self {
-        Self { corpus }
+        Self {
+            corpus,
+            handles: Mutex::new(HashMap::new()),
+        }
     }
 }
 
 #[pymethods]
 impl PyNodeFeatures {
-    fn __getattr__(&self, name: &str) -> PyResult<PyNodeFeature> {
-        self.corpus
-            .metadata()
-            .node_feature(name)
-            .map(|_| PyNodeFeature::new(name.to_string(), Arc::clone(&self.corpus)))
-            .ok_or_else(|| PyAttributeError::new_err(format!("no node feature named {name}")))
+    fn __getattr__(&self, py: Python<'_>, name: &str) -> PyResult<Py<PyNodeFeature>> {
+        if self.corpus.metadata().node_feature(name).is_none() {
+            return Err(PyAttributeError::new_err(format!(
+                "no node feature named {name}"
+            )));
+        }
+        let mut handles = self.handles.lock().unwrap_or_else(|err| err.into_inner());
+        if let Some(existing) = handles.get(name) {
+            return Ok(existing.clone_ref(py));
+        }
+        let handle = Py::new(
+            py,
+            PyNodeFeature::new(name.to_string(), Arc::clone(&self.corpus)),
+        )?;
+        handles.insert(name.to_string(), handle.clone_ref(py));
+        Ok(handle)
     }
 
     fn __dir__(&self) -> Vec<String> {
