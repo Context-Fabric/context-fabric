@@ -4159,16 +4159,18 @@ fn corpus_node_ordering_and_locality_navigation() {
     assert_eq!(corpus.u(8, None), corpus.up(8, None));
     assert_eq!(corpus.up(8, None), Vec::<u32>::new());
 
-    assert_eq!(corpus.intersecting(6, None), vec![3, 2, 1, 8]);
+    // L.i returns intersectors in canonical ascending rank order (matches TF
+    // `tf/core/locality.py` `i`).
+    assert_eq!(corpus.intersecting(6, None), vec![8, 1, 2, 3]);
     assert_eq!(locality.intersecting(6, None), corpus.intersecting(6, None));
     assert_eq!(corpus.i(6, None), corpus.intersecting(6, None));
     assert_eq!(locality.i(6, None), corpus.i(6, None));
     assert_eq!(corpus.i(6, Some("sentence")), vec![8]);
-    assert_eq!(corpus.i(6, Some("word")), vec![3, 2, 1]);
+    assert_eq!(corpus.i(6, Some("word")), vec![1, 2, 3]);
     assert_eq!(corpus.intersecting(1, None), Vec::<u32>::new());
     assert_eq!(
         corpus.intersecting_types(8, Some(&["phrase", "word"])),
-        vec![5, 4, 7, 3, 2, 1, 6]
+        vec![6, 1, 2, 3, 7, 4, 5]
     );
 
     assert_eq!(corpus.down(6, Some("word")), vec![1, 2, 3]);

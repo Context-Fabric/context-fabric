@@ -2359,7 +2359,9 @@ impl Corpus {
             }
         }
         self.sort_nodes(&mut result);
-        result.reverse();
+        // TF `L.i` returns `sortNodes(result - {n})` in canonical (ascending
+        // rank) order with no reversal (`tf/core/locality.py` `i`). The earlier
+        // `result.reverse()` produced exactly the reverse of text-fabric.
         result
     }
 

@@ -201,6 +201,40 @@ impl<'a> MappedSections<'a> {
             return Ok(None);
         }
 
+        // v3 fast path: resolve the section-0 node by value, then index the
+        // CFRSECT1 `sec1`/`sec2` lookup tables by heading key (mirrors TF
+        // `text.py` `nodeFromSection`). O(section-0 nodes) + O(log n) map lookups
+        // instead of a linear scan over every node of the target type.
+        if section.len() <= 3 {
+            if let Some(sections) = self.corpus.sections_data()? {
+                let Some(sec0_node) = self.sec0_node(&section[0])? else {
+                    return Ok(None);
+                };
+                return Ok(match section.len() {
+                    1 => Some(sec0_node),
+                    2 => sections
+                        .sec1
+                        .get(&sec0_node)
+                        .and_then(|headings| {
+                            headings.get(&section_value_to_string(section[1].clone()))
+                        })
+                        .copied(),
+                    _ => sections
+                        .sec2
+                        .get(&sec0_node)
+                        .and_then(|level1| {
+                            level1.get(&section_value_to_string(section[1].clone()))
+                        })
+                        .and_then(|level2| {
+                            level2.get(&section_value_to_string(section[2].clone()))
+                        })
+                        .copied(),
+                });
+            }
+        }
+
+        // Linear fallback for pre-v3 caches (or section hierarchies deeper than
+        // the three levels stored in CFRSECT1).
         let target_type = &self.section_types[section.len() - 1];
         for node in self.otype.s(target_type)? {
             let matches = section
@@ -296,9 +330,42 @@ impl<'a> MappedSections<'a> {
         if slots.is_empty() {
             return Ok(Vec::new());
         }
+        let slot_type_allowed =
+            node_types.is_none_or(|expected| expected.contains(&self.slot_type.as_str()));
+
+        // v3 fast path: intersectors are the union of `levUp` embedders over the
+        // node's slots (per TF `locality.py` `i`), plus the slots themselves when
+        // the slot type is requested. `levUp` rows never contain slot nodes.
+        let mut v3_set: HashSet<u32> = HashSet::new();
+        let mut have_v3 = true;
+        for slot in &slots {
+            let Some(row) = self.corpus.lev_up_row(*slot)? else {
+                have_v3 = false;
+                break;
+            };
+            for embedder in row {
+                if self.node_type_allowed(embedder, node_types)? {
+                    v3_set.insert(embedder);
+                }
+            }
+            if slot_type_allowed {
+                v3_set.insert(*slot);
+            }
+        }
+        if have_v3 {
+            v3_set.remove(&node);
+            let mut result: Vec<u32> = v3_set.into_iter().collect();
+            self.sort_nodes(&mut result)?;
+            // TF returns `sortNodes(result - {n})` in canonical (ascending rank)
+            // order — no reversal (`tf/core/locality.py` `i`, `nodes.py`
+            // `sortNodes`).
+            return Ok(result);
+        }
+
+        // Fallback scan for pre-v3 caches.
         let slot_set = slots.iter().copied().collect::<HashSet<_>>();
         let mut result = Vec::new();
-        if self.node_type_allowed(1, node_types)? {
+        if slot_type_allowed {
             result.extend(slots.iter().copied());
         }
         for row in self.otype.rows() {
@@ -318,11 +385,21 @@ impl<'a> MappedSections<'a> {
             }
         }
         self.sort_nodes(&mut result)?;
-        result.reverse();
+        // Canonical ascending order to match TF `L.i` (the previous `.reverse()`
+        // here produced exactly the reverse of TF and has been removed).
         Ok(result)
     }
 
     pub fn up_types(&self, node: u32, node_types: Option<&[&str]>) -> Result<Vec<u32>> {
+        // v3 fast path: `levUp` rows are precomputed in descending-rank order
+        // (right/small embedders before left/big, per TF `L.u`) and already
+        // exclude `node` itself and slot nodes; just apply the otype filter,
+        // preserving order.
+        if let Some(row) = self.corpus.lev_up_row(node)? {
+            return self.filter_locality_nodes(row, node_types);
+        }
+
+        // Fallback scan for pre-v3 caches.
         let mut result = Vec::new();
         for row in self.otype.rows() {
             let (candidate, node_type) = row?;
@@ -358,7 +435,7 @@ impl<'a> MappedSections<'a> {
     }
 
     pub fn down_types(&self, node: u32, node_types: Option<&[&str]>) -> Result<Vec<u32>> {
-        let slots = self
+        let slots: Vec<u32> = self
             .oslots
             .targets(node)?
             .map(|targets| targets.collect())
@@ -366,8 +443,29 @@ impl<'a> MappedSections<'a> {
         if slots.is_empty() {
             return Ok(Vec::new());
         }
+        let slot_type_allowed =
+            node_types.is_none_or(|expected| expected.contains(&self.slot_type.as_str()));
+
+        // v3 fast path: `levDown` rows hold the non-slot embeddees; combine them
+        // with the node's slots (when the slot type is requested) and sort into
+        // canonical (ascending rank) order, matching the scan path.
+        if let Some(row) = self.corpus.lev_down_row(node)? {
+            let mut result = Vec::new();
+            if slot_type_allowed {
+                result.extend_from_slice(&slots);
+            }
+            for candidate in row {
+                if self.node_type_allowed(candidate, node_types)? {
+                    result.push(candidate);
+                }
+            }
+            self.sort_nodes(&mut result)?;
+            return Ok(result);
+        }
+
+        // Fallback scan for pre-v3 caches.
         let mut result = Vec::new();
-        if node_types.is_none_or(|expected| expected.contains(&self.slot_type.as_str())) {
+        if slot_type_allowed {
             result.extend_from_slice(&slots);
         }
         for row in self.otype.rows() {
@@ -415,8 +513,14 @@ impl<'a> MappedSections<'a> {
             return Ok(Vec::new());
         }
 
+        // v3 fast path: nodes whose first slot is `next_slot` come straight from
+        // the boundary CSR (descending-rank order, same as `nodes_starting_at`).
+        let starting = match self.corpus.boundary_first(next_slot)? {
+            Some(rows) => rows,
+            None => self.nodes_starting_at(next_slot)?,
+        };
         let mut result = vec![next_slot];
-        result.extend(self.nodes_starting_at(next_slot)?);
+        result.extend(starting);
         self.filter_locality_nodes(result, node_types)
     }
 
@@ -443,7 +547,12 @@ impl<'a> MappedSections<'a> {
             return Ok(Vec::new());
         }
 
-        let mut result = self.nodes_ending_at(previous_slot)?;
+        // v3 fast path: nodes whose last slot is `previous_slot` come straight
+        // from the boundary CSR (ascending-rank order, same as `nodes_ending_at`).
+        let mut result = match self.corpus.boundary_last(previous_slot)? {
+            Some(rows) => rows,
+            None => self.nodes_ending_at(previous_slot)?,
+        };
         result.push(previous_slot);
         self.filter_locality_nodes(result, node_types)
     }
@@ -525,14 +634,42 @@ impl<'a> MappedSections<'a> {
         let max_slot = self.max_slot()?;
         let mut first_slots = Vec::with_capacity(max_slot as usize);
         let mut last_slots = Vec::with_capacity(max_slot as usize);
+        // v3 fast path: serve first/last-slot membership from the stored boundary
+        // CSRs (`C.boundary` then completes in O(max_slot) mmap reads instead of
+        // an O(max_slot * nodes) scan). Fall back per slot for pre-v3 caches.
         for slot in 1..=max_slot {
-            first_slots.push(self.nodes_starting_at(slot)?);
-            last_slots.push(self.nodes_ending_at(slot)?);
+            let first = match self.corpus.boundary_first(slot)? {
+                Some(rows) => rows,
+                None => self.nodes_starting_at(slot)?,
+            };
+            let last = match self.corpus.boundary_last(slot)? {
+                Some(rows) => rows,
+                None => self.nodes_ending_at(slot)?,
+            };
+            first_slots.push(first);
+            last_slots.push(last);
         }
         Ok(Boundary {
             first_slots,
             last_slots,
         })
+    }
+
+    /// Resolves the section-0 (e.g. book) node whose section-0 feature value
+    /// equals `expected`. Section-0 nodes are few, so a direct scan is cheap and
+    /// matches the linear `node_from_section` reference exactly.
+    fn sec0_node(&self, expected: &FeatureValue) -> Result<Option<u32>> {
+        let (Some(section_0_type), Some(feature_name)) =
+            (self.section_types.first(), self.section_features.first())
+        else {
+            return Ok(None);
+        };
+        for node in self.otype.s(section_0_type)? {
+            if self.node_feature_value(feature_name, node)?.as_ref() == Some(expected) {
+                return Ok(Some(node));
+            }
+        }
+        Ok(None)
     }
 
     fn up_first(&self, reference_slot: u32, section_type: &str) -> Result<Option<u32>> {
