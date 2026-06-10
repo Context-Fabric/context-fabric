@@ -1,0 +1,681 @@
+{
+  "corpus": "BHSA (Biblia Hebraica Stuttgartensia Amstelodamensis)",
+  "tf_data": "/Users/cody/github/context-fabric/libs/benchmarks/.corpora/bhsa/tf",
+  "text_fabric_version": "13.0.19",
+  "purpose": "Output-parity baselines for the context-fabric Rust port. tf_count and tf_first_results are the golden values produced by text-fabric S.search.",
+  "generated": "2026-06-09",
+  "query_count": 34,
+  "queries": [
+    {
+      "id": "q_with_or_subj",
+      "template": "\nc:clause\n/with/\n  =: phrase function=Subj\n/or/\n  := phrase function=Subj\n/-/\n  phrase\n  <: phrase\n",
+      "source": "bhsa/tutorial/searchQuantifiers.ipynb",
+      "exercises": "/with/ + /or/ quantifier, =: and := positional, named atom, <: adjacency",
+      "tf_count": 28228,
+      "tf_first_results": [
+        [
+          458759,
+          746250,
+          746251
+        ],
+        [
+          458759,
+          746251,
+          746252
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_where_have",
+      "template": "\nclause\n/where/\n  phrase function=Pred\n/have/\n  /without/\n    word sp#verb\n  /-/\n/-/\n  phrase function=Subj\n",
+      "source": "bhsa/tutorial/searchQuantifiers.ipynb",
+      "exercises": "/where/ + /have/ quantifier with nested /without/, # inequality",
+      "tf_count": 31431,
+      "tf_first_results": [
+        [
+          427559,
+          651575
+        ],
+        [
+          427560,
+          651578
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_where_have_parent",
+      "template": "\nphrase\n/where/\n  w:word pdp=verb\n/have/\n.. function=Pred\n/-/\n",
+      "source": "bhsa/tutorial/searchQuantifiers.ipynb",
+      "exercises": "/where/ + /have/ quantifier with parent ref (..)",
+      "tf_count": 241249,
+      "tf_first_results": [
+        [
+          651573
+        ],
+        [
+          651574
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_phrase_without_verb",
+      "template": "\nphrase typ=VP\n/without/\n  word sp#verb\n/-/\n",
+      "source": "bhsa/tutorial/cookbook/tfVsAlpino.ipynb",
+      "exercises": "/without/ quantifier + # inequality",
+      "tf_count": 62771,
+      "tf_first_results": [
+        [
+          786436
+        ],
+        [
+          786438
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_mother_basic",
+      "template": "\nclause\n-mother> clause\n",
+      "source": "bhsa/tutorial/searchAdvanced.ipynb",
+      "exercises": "-mother> edge relation (clause depends on clause)",
+      "tf_count": 13917,
+      "tf_first_results": [
+        [
+          491522,
+          491521
+        ],
+        [
+          458756,
+          458755
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_mother_named_distinct_verse",
+      "template": "\nv1:verse\n    c1:clause\nv2:verse\n    c2:clause\n\nc1 -mother> c2\nv1 # v2\n",
+      "source": "bhsa/tutorial/searchAdvanced.ipynb",
+      "exercises": "-mother> edge with named atoms across distinct verses, # inequality",
+      "tf_count": 710,
+      "tf_first_results": [
+        [
+          1414406,
+          427619,
+          1414405,
+          427618
+        ],
+        [
+          1414426,
+          427706,
+          1414423,
+          427697
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_mother_reverse",
+      "template": "\nclause\n<mother- clause\n",
+      "source": "constructed (inverse of searchAdvanced -mother>)",
+      "exercises": "<mother- inverse edge relation",
+      "tf_count": 13917,
+      "tf_first_results": [
+        [
+          491521,
+          491522
+        ],
+        [
+          458755,
+          458756
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_agree_nu_eq",
+      "template": "\nclause\n  phrase function=Pred\n    w1:word pdp=verb\n  phrase function=Subj\n    =: w2:word pdp=subs\n    :=\nw1 .nu. w2\n",
+      "source": "bhsa/tutorial/searchAdvanced.ipynb",
+      "exercises": ".nu. feature-equality comparison (verb/subject number agreement), =: :=",
+      "tf_count": 3759,
+      "tf_first_results": [
+        [
+          458755,
+          746241,
+          164534,
+          746242,
+          164535
+        ],
+        [
+          458760,
+          746255,
+          164556,
+          746254,
+          164555
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_agree_nu_neq",
+      "template": "\nclause\n  phrase function=Pred\n    w1:word pdp=verb\n  phrase function=Subj\n    =: w2:word pdp=subs lex#>LHJM/\n    :=\nw1 .nu#nu. w2\n",
+      "source": "bhsa/tutorial/searchAdvanced.ipynb",
+      "exercises": ".nu#nu. feature-inequality comparison, lex# inequality",
+      "tf_count": 525,
+      "tf_first_results": [
+        [
+          499730,
+          859345,
+          344177,
+          859346,
+          344178
+        ],
+        [
+          483346,
+          816202,
+          279337,
+          816203,
+          279338
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_samelex_adjacent",
+      "template": "\nclause\n  phrase\n    := w1:word sp=verb\n  <: phrase\n    =: w2:word sp=verb\n\nw1 .lex. w2\n",
+      "source": "bhsa/tutorial/cookbook/tfVsAlpino.ipynb",
+      "exercises": ".lex. cross-node feature equality, := =: positional, <: adjacency",
+      "tf_count": 475,
+      "tf_first_results": [
+        [
+          427741,
+          652112,
+          976,
+          652113,
+          977
+        ],
+        [
+          427744,
+          652123,
+          994,
+          652124,
+          995
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_knear_before",
+      "template": "\nchapter book=Jeremia chapter=1\n  w1:word\n  <20: w2:word\n\nw1 < w2\nw1 .g_cons=g_cons. w2\nw1 .lex#lex. w2\n",
+      "source": "bhsa/tutorial/searchFromMQL.ipynb",
+      "exercises": "<20: k-nearness (before within 20), .g_cons=g_cons. equality, .lex#lex. inequality",
+      "tf_count": 1,
+      "tf_first_results": [
+        [
+          427030,
+          235193,
+          235204
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_knear_after",
+      "template": "\nchapter book=Genesis chapter=1\n  w1:word lex=>RY/\n  :30> w2:word lex=>RY/\n",
+      "source": "constructed (k-near :k> form, searchFromMQL idiom)",
+      "exercises": ":30> k-nearness (after within 30) between two occurrences of the same lexeme",
+      "tf_count": 50,
+      "tf_first_results": [
+        [
+          426630,
+          11,
+          11
+        ],
+        [
+          426630,
+          14,
+          11
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_regex_gcons",
+      "template": "\nlex\n  word sp=subs g_cons~^>.$\n",
+      "source": "bhsa/tutorial/searchAdvanced.ipynb",
+      "exercises": "~ regex on g_cons inside a lex container node",
+      "tf_count": 816,
+      "tf_first_results": [
+        [
+          1437729,
+          14451
+        ],
+        [
+          1437729,
+          15621
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_regex_typ",
+      "template": "\nclause typ~^W[xX]\n  word sp=verb vs#qal\n",
+      "source": "bhsa/tutorial/searchAdvanced.ipynb",
+      "exercises": "~ regex on clause typ, # inequality on vs",
+      "tf_count": 3098,
+      "tf_first_results": [
+        [
+          507904,
+          379249
+        ],
+        [
+          507908,
+          379308
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_regex_gloss_space",
+      "template": "\nlex gloss~[\\ ] sp=subs\n",
+      "source": "bhsa/tutorial/searchAdvanced.ipynb",
+      "exercises": "~ regex on lex gloss (multi-word gloss), bare lex otype",
+      "tf_count": 406,
+      "tf_first_results": [
+        [
+          1439747
+        ],
+        [
+          1439748
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_feat_exists_qere",
+      "template": "\nword qere\n",
+      "source": "bhsa/tutorial/searchAdvanced.ipynb (qere idiom)",
+      "exercises": "bare feature existence: feature name alone -> word has a qere value (ketiv/qere)",
+      "tf_count": 1892,
+      "tf_first_results": [
+        [
+          368642
+        ],
+        [
+          368643
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_feat_empty_qere",
+      "template": "\nword qere#\n",
+      "source": "bhsa/tutorial/searchAdvanced.ipynb",
+      "exercises": "# with empty RHS: feature is absent/empty (no qere)",
+      "tf_count": 424698,
+      "tf_first_results": [
+        [
+          1
+        ],
+        [
+          2
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_multivalue_neg",
+      "template": "\nword sp=verb vs#qal vt#infc|infa|ptca|ptcp ps#p3 nu#sg gn#m\n",
+      "source": "bhsa/tutorial/searchAdvanced.ipynb",
+      "exercises": "finite-verb filter: multi-value inequality vt#a|b|c plus several # inequalities",
+      "tf_count": 271,
+      "tf_first_results": [
+        [
+          419332
+        ],
+        [
+          388613
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_multivalue_pos_agree",
+      "template": "\nclause\n    phrase function=Subj\n        =: word nu=sg|pl\n        :=\n    phrase function=Pred|PreO\n        word sp=verb\n             nu=sg|pl\n",
+      "source": "bhsa/tutorial/search.ipynb",
+      "exercises": "f=a|b multi-value, function=Pred|PreO alternation, =: := positional",
+      "tf_count": 10638,
+      "tf_first_results": [
+        [
+          508899,
+          884735,
+          385346,
+          884736,
+          385347
+        ],
+        [
+          472781,
+          786437,
+          230799,
+          786436,
+          230798
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_slot_equal",
+      "template": "\nv:verse\n    s:sentence\nv == s\n",
+      "source": "bhsa/tutorial/searchRelations.ipynb",
+      "exercises": "== same-slots relation (verse occupies exactly the sentence's slots)",
+      "tf_count": 3583,
+      "tf_first_results": [
+        [
+          1433606,
+          1226461
+        ],
+        [
+          1425421,
+          1204507
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_slot_diff_start",
+      "template": "\ns:sentence\n=: sa:sentence_atom\ns ## sa\n",
+      "source": "bhsa/tutorial/searchRelations.ipynb",
+      "exercises": "## different-slots relation, =: shared start",
+      "tf_count": 702,
+      "tf_first_results": [
+        [
+          1179738,
+          1243507
+        ],
+        [
+          1179743,
+          1243512
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_slot_disjoint",
+      "template": "\np:phrase\n  s1:subphrase\n  < s2:subphrase\ns1 || s2\n",
+      "source": "bhsa/tutorial/searchRelations.ipynb",
+      "exercises": "|| disjoint-slots relation, < ordering, subphrase otype",
+      "tf_count": 168504,
+      "tf_first_results": [
+        [
+          786434,
+          1361515,
+          1361516
+        ],
+        [
+          786435,
+          1361517,
+          1361518
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_slot_overlap_parent",
+      "template": "\nsentence\n/with/\nv1:verse\n&& ..\nv2:verse\n&& ..\nv1 < v2\n/-/\n",
+      "source": "bhsa/tutorial/searchRelations.ipynb",
+      "exercises": "&& overlap relation against parent (..), /with/, < ordering",
+      "tf_count": 887,
+      "tf_first_results": [
+        [
+          1218560
+        ],
+        [
+          1189894
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_adj_before",
+      "template": "\nclause\n  phrase\n  <: phrase\n",
+      "source": "bhsa/tutorial/searchRelations.ipynb",
+      "exercises": "<: immediately-before adjacency",
+      "tf_count": 162653,
+      "tf_first_results": [
+        [
+          427559,
+          651573,
+          651574
+        ],
+        [
+          427559,
+          651574,
+          651575
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_adj_after",
+      "template": "\nclause\n  phrase\n  :> phrase\n",
+      "source": "bhsa/tutorial/searchRelations.ipynb",
+      "exercises": ":> immediately-after adjacency",
+      "tf_count": 162653,
+      "tf_first_results": [
+        [
+          427559,
+          651574,
+          651573
+        ],
+        [
+          427559,
+          651575,
+          651574
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_section_adjacency",
+      "template": "\nbook book=Genesis\n  chapter chapter=1\n    verse verse=1\n      sentence\n        word nu=sg\n        <: word nu=pl\n",
+      "source": "bhsa/tutorial/search.ipynb",
+      "exercises": "section features book/chapter/verse, deep nesting (5), <: adjacency, number change",
+      "tf_count": 1,
+      "tf_first_results": [
+        [
+          426591,
+          426630,
+          1414389,
+          1172308,
+          3,
+          4
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_start_end_agree_mismatch",
+      "template": "\nverse\n  clause\n    phrase function=Pred\n      word pdp=verb nu=sg\n    phrase function=Subj\n      =: word pdp=subs nu=pl\n      :=\n",
+      "source": "bhsa/tutorial/searchSets.ipynb",
+      "exercises": "=: starts-at and := ends-at, nesting depth 4, number disagreement",
+      "tf_count": 262,
+      "tf_first_results": [
+        [
+          1430537,
+          493343,
+          842835,
+          321146,
+          842836,
+          321147
+        ],
+        [
+          1433101,
+          500358,
+          861076,
+          346480,
+          861075,
+          346479
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_phrase_gap",
+      "template": "\np:phrase\n  wPreGap:word\n  wLast:word\n  :=\n\nwGap:word\nwPreGap <: wGap\nwGap < wLast\n\np || wGap\n",
+      "source": "bhsa/tutorial/searchGaps.ipynb",
+      "exercises": "discontinuous-phrase (gap) detection: || disjoint, <: adjacency, < ordering, := end",
+      "tf_count": 716,
+      "tf_first_results": [
+        [
+          651638,
+          105,
+          115,
+          106
+        ],
+        [
+          651689,
+          186,
+          190,
+          187
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_slot_containment",
+      "template": "\np:phrase\n    =: wFirst:word\n    wLast:word\n    :=\n\nwGap:word\nwFirst < wGap\nwLast > wGap\n\np || wGap\n\nv:verse\n\nv [[ wFirst\nv [[ wGap\n",
+      "source": "bhsa/tutorial/searchGaps.ipynb",
+      "exercises": "[[ slot-containment (verse embeds words), || disjoint, < and > ordering",
+      "tf_count": 2739,
+      "tf_first_results": [
+        [
+          651638,
+          103,
+          115,
+          106,
+          1414395
+        ],
+        [
+          651638,
+          103,
+          115,
+          107,
+          1414395
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_idiom_chen",
+      "template": "\nclause\n  p1:phrase function=Pred|PreC\n    word sp=verb vs=qal lex=MY>[\n  p2:phrase function=Objc\n    word lex=XN/\n  p3:phrase function=Cmpl\n    word lex=B\n    <: word lex=<JN/\n  p2 << p3\n",
+      "source": "bhsa/tutorial/searchFromMQL.ipynb",
+      "exercises": "<< before-not-adjacent, three named phrases with lexeme constraints, depth 3",
+      "tf_count": 40,
+      "tf_first_results": [
+        [
+          431259,
+          662786,
+          18224,
+          662787,
+          18225,
+          662788,
+          18226,
+          18227
+        ],
+        [
+          455918,
+          737542,
+          150752,
+          737543,
+          150753,
+          737544,
+          150754,
+          150755
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_complex_subj_prec",
+      "template": "\nc:clause\n/without/\n  phrase function=Subj\n  << phrase function=Pred\n/-/\n  p:phrase function=Subj\n    phrase_atom rela#Appo|Para|Spec\n      word pdp=subs|nmpr|prps|prde|prin|adjv\n  << phrase function=PreC\n  /without/\n    word pdp=prep\n  /-/\n    word pdp=subs|nmpr|prin|adjv ls=card|ordn\n",
+      "source": "bhsa/tutorial/searchFromMQL.ipynb",
+      "exercises": "layered /without/ around relations, << ordering, multi-value =/# on pdp/rela/ls, phrase_atom otype, depth 3",
+      "tf_count": 2303,
+      "tf_first_results": [
+        [
+          512000,
+          893599,
+          1159880,
+          404243,
+          893600,
+          404246
+        ],
+        [
+          512000,
+          893599,
+          1159880,
+          404243,
+          893600,
+          404247
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_rank_lex_numeric",
+      "template": "\nsentence\n  := word rank_lex<100\n",
+      "source": "bhsa/tutorial/searchAdvanced.ipynb",
+      "exercises": ":= ends-at positional, numeric feature comparison rank_lex<100",
+      "tf_count": 28095,
+      "tf_first_results": [
+        [
+          1179650,
+          47489
+        ],
+        [
+          1179652,
+          47507
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_lex_only_ezra_neh",
+      "template": "\nlex\n/without/\nbook book@en#Ezra|Nehemiah\n  w:word\n  w ]] ..\n/-/\n",
+      "source": "bhsa/tutorial/searchQuantifiers.ipynb",
+      "exercises": "/without/ over books, book@en multilingual feature with #|, ]] reverse containment, .. parent",
+      "tf_count": 382,
+      "tf_first_results": [
+        [
+          1445888
+        ],
+        [
+          1445889
+        ]
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q_order_lo_then_impf",
+      "template": "\nclause\n    word lex=>L= language=Hebrew\n    < word language=Hebrew sp=verb vt=impf ps=p1|p2|p3 vbe#H=\n",
+      "source": "bhsa/tutorial/export.ipynb",
+      "exercises": "< ordering inside clause, language feature, ps=a|b|c multi-value, vbe# inequality",
+      "tf_count": 692,
+      "tf_first_results": [
+        [
+          468993,
+          215935,
+          215936
+        ],
+        [
+          493569,
+          321895,
+          321896
+        ]
+      ],
+      "notes": ""
+    }
+  ]
+}

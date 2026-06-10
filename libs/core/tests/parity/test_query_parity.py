@@ -43,7 +43,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 ROOT = Path(__file__).resolve().parents[4]
-QUERIES_JSON = ROOT / ".claude" / "parity_queries.json"
+QUERIES_JSON = Path(__file__).resolve().parent / "parity_queries.json"
 TF_DIR = Path(
     os.environ.get(
         "CFABRIC_BHSA_TF",
