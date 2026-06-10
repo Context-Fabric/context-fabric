@@ -1193,6 +1193,18 @@ impl MappedCompiledCorpus {
                 .total_cmp(&left.average_slots)
                 .then_with(|| right.min_node.cmp(&left.min_node))
         });
+
+        // Honor `@levelConstraints` (TF `prepare.py`) so the otype ranks derived
+        // from this list (and hence canonical tie-breaks) match Text-Fabric.
+        if let Some(spec) = self
+            .config_feature("otext")?
+            .and_then(|otext| otext.metadata_value("levelConstraints").transpose())
+            .transpose()?
+        {
+            crate::precompute::apply_level_constraints(&mut levels, spec, |level| {
+                level.node_type.as_str()
+            });
+        }
         Ok(levels)
     }
 

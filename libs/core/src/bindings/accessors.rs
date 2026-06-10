@@ -217,27 +217,28 @@ fn mapped_otext_value(corpus: &MappedCompiledCorpus, key: &str) -> crate::error:
 }
 
 fn mapped_section_0_language_features(corpus: &MappedCompiledCorpus) -> crate::error::Result<BTreeMap<String, String>> {
-    let Some(section_0_type) = parse_csv_config(mapped_otext_value(corpus, "sectionTypes")?.as_deref())
+    // TF `sectionFeatsWithLanguage` (tf/core/fabric.py:364): the language-aware
+    // section-0 features are EXACTLY the first section feature and its `@<code>`
+    // variants — never arbitrary features that happen to carry a `languageCode`
+    // (e.g. quran's `name@en`). Section functions also require `sectionTypes`.
+    if parse_csv_config(mapped_otext_value(corpus, "sectionTypes")?.as_deref()).is_empty() {
+        return Ok(BTreeMap::new());
+    }
+    let Some(base) = parse_csv_config(mapped_otext_value(corpus, "sectionFeatures")?.as_deref())
         .into_iter()
         .next()
     else {
         return Ok(BTreeMap::new());
     };
-    let nodes = corpus.nodes_of_type(&section_0_type)?;
+    let prefix = format!("{base}@");
     let mut features = BTreeMap::new();
     for feature in &corpus.metadata().node_features {
-        let Some(code) = feature.metadata_value("languageCode") else {
+        if feature.name != base && !feature.name.starts_with(&prefix) {
             continue;
-        };
-        let Some(view) = corpus.node_feature(&feature.name)? else {
-            continue;
-        };
-        if nodes
-            .iter()
-            .any(|node| view.v(*node).ok().flatten().is_some())
-        {
-            features.insert(code.to_string(), feature.name.clone());
         }
+        // Base feature usually has no `languageCode`; TF defaults its code to "".
+        let code = feature.metadata_value("languageCode").unwrap_or("").to_string();
+        features.insert(code, feature.name.clone());
     }
     Ok(features)
 }
@@ -633,58 +634,14 @@ impl PyText {
     #[pyo3(signature = (section, lang="en"))]
     fn nodeFromSection(&self, section: &Bound<'_, PyAny>, lang: &str) -> PyResult<Option<u32>> {
         let values = section_from_py(section)?;
-        let section_types = parse_csv_config(mapped_otext_value(&self.corpus, "sectionTypes")?.as_deref());
-        if values.is_empty() || values.len() > section_types.len() {
-            return Ok(None);
-        }
-        let target_type = &section_types[values.len() - 1];
-        let section_features =
-            parse_csv_config(mapped_otext_value(&self.corpus, "sectionFeatures")?.as_deref());
-        for node in self.corpus.nodes_of_type(target_type)? {
-            let options = SectionOptions {
-                fillup: true,
-                level: Some(values.len()),
-                ..SectionOptions::default()
-            };
-            let candidate = MappedSections::new(&self.corpus)?
-                .section_tuple(node, &options)?
-                .into_iter()
-                .enumerate()
-                .map(|(index, section_node)| {
-                    let Some(section_node) = section_node else {
-                        return Ok(None);
-                    };
-                    let feature_name = if index == 0 {
-                        mapped_section_0_feature_for_lang(&self.corpus, lang)?
-                            .or_else(|| section_features.get(index).cloned())
-                    } else {
-                        section_features.get(index).cloned()
-                    };
-                    let Some(feature_name) = feature_name else {
-                        return Ok(None);
-                    };
-                    self.corpus
-                        .node_feature(&feature_name)?
-                        .and_then(|feature| feature.v(section_node).transpose())
-                        .transpose()
-                        .map(|value| value.map(|value| match value {
-                            crate::compiled::MappedNodeValue::Str(value) => {
-                                FeatureValue::string(value)
-                            }
-                            crate::compiled::MappedNodeValue::Int(value) => FeatureValue::Int(value),
-                        }))
-                })
-                .collect::<Result<Vec<_>, crate::error::CfError>>()?;
-            if candidate
-                .iter()
-                .take(values.len())
-                .map(Option::as_ref)
-                .eq(values.iter().map(Some))
-            {
-                return Ok(Some(node));
-            }
-        }
-        Ok(None)
+        // Resolve the language-aware section-0 feature (e.g. `book@en`), then defer
+        // to the v3 CFRSECT1 index lookup, which is O(section-0 nodes) + O(log n)
+        // and returns `None` immediately on a miss. The previous implementation
+        // rescanned every node of the target type and re-derived each section
+        // tuple, an O(nodes * depth) walk that took tens of seconds on a miss.
+        let sec0_feature = mapped_section_0_feature_for_lang(&self.corpus, lang)?;
+        Ok(MappedSections::new(&self.corpus)?
+            .node_from_section_langed(&values, sec0_feature.as_deref())?)
     }
 
     #[allow(non_snake_case)]

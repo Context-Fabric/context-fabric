@@ -194,6 +194,18 @@ impl<'a> MappedSections<'a> {
     }
 
     pub fn node_from_section(&self, section: &[FeatureValue]) -> Result<Option<u32>> {
+        self.node_from_section_langed(section, None)
+    }
+
+    /// Like [`node_from_section`](Self::node_from_section), but resolves the
+    /// section-0 component with `sec0_feature` (a language-specific variant such
+    /// as `book@en`) when supplied, mirroring TF `nodeFromSection(lang=...)`.
+    /// Deeper levels always use the configured `sectionFeatures`.
+    pub fn node_from_section_langed(
+        &self,
+        section: &[FeatureValue],
+        sec0_feature: Option<&str>,
+    ) -> Result<Option<u32>> {
         if section.is_empty()
             || section.len() > self.section_types.len()
             || section.len() > self.section_features.len()
@@ -204,10 +216,12 @@ impl<'a> MappedSections<'a> {
         // v3 fast path: resolve the section-0 node by value, then index the
         // CFRSECT1 `sec1`/`sec2` lookup tables by heading key (mirrors TF
         // `text.py` `nodeFromSection`). O(section-0 nodes) + O(log n) map lookups
-        // instead of a linear scan over every node of the target type.
+        // instead of a linear scan over every node of the target type. When the
+        // index is present, a miss returns `None` immediately — no linear rescan
+        // (the slow fallback below is only for pre-v3 caches).
         if section.len() <= 3 {
             if let Some(sections) = self.corpus.sections_data()? {
-                let Some(sec0_node) = self.sec0_node(&section[0])? else {
+                let Some(sec0_node) = self.sec0_node_with_feature(&section[0], sec0_feature)? else {
                     return Ok(None);
                 };
                 return Ok(match section.len() {
@@ -658,11 +672,23 @@ impl<'a> MappedSections<'a> {
     /// Resolves the section-0 (e.g. book) node whose section-0 feature value
     /// equals `expected`. Section-0 nodes are few, so a direct scan is cheap and
     /// matches the linear `node_from_section` reference exactly.
-    fn sec0_node(&self, expected: &FeatureValue) -> Result<Option<u32>> {
-        let (Some(section_0_type), Some(feature_name)) =
-            (self.section_types.first(), self.section_features.first())
-        else {
+    /// Resolves the section-0 node whose section-0 feature value equals
+    /// `expected`, matching against `sec0_feature` when given (a language variant)
+    /// otherwise the configured `sectionFeatures[0]`.
+    fn sec0_node_with_feature(
+        &self,
+        expected: &FeatureValue,
+        sec0_feature: Option<&str>,
+    ) -> Result<Option<u32>> {
+        let Some(section_0_type) = self.section_types.first() else {
             return Ok(None);
+        };
+        let feature_name = match sec0_feature {
+            Some(feature) => feature,
+            None => match self.section_features.first() {
+                Some(feature) => feature.as_str(),
+                None => return Ok(None),
+            },
         };
         for node in self.otype.s(section_0_type)? {
             if self.node_feature_value(feature_name, node)?.as_ref() == Some(expected) {

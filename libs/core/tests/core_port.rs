@@ -275,7 +275,7 @@ fn public_config_constants_match_python_config_api_values() {
     assert_eq!(TRY_LIMIT_FROM, 40);
     assert_eq!(TRY_LIMIT_TO, 40);
     assert_eq!(SEARCH_FAIL_FACTOR, 4);
-    assert_eq!(CFM_VERSION, "1");
+    assert_eq!(CFM_VERSION, "2");
     assert_eq!(NODE_DTYPE, "uint32");
     assert_eq!(RANK_DTYPE, "uint32");
     assert_eq!(INDEX_DTYPE, "uint32");
@@ -761,6 +761,7 @@ fn public_precompute_helpers_match_corpus_levels_order_and_rank() {
         corpus.max_slot(),
         corpus.slot_type(),
         None,
+        None,
     );
     assert_eq!(
         levels,
@@ -961,6 +962,7 @@ fn public_precompute_helpers_match_corpus_levels_order_and_rank() {
         corpus.max_slot(),
         corpus.slot_type(),
         Some("phrase,sentence,word"),
+        None,
     );
     assert_eq!(configured[0].0, "phrase");
     assert_eq!(configured[1].0, "sentence");
@@ -3446,7 +3448,7 @@ fn fabric_load_all_creates_reuses_and_refreshes_mapped_cache() {
     let _ = fs::remove_dir_all(corpus_dir.join(".cfr"));
     let fabric = Fabric::new(&corpus_dir);
     let cache_path = fabric.cfr_cache_path();
-    assert_eq!(cache_path, corpus_dir.join(".cfr").join("2").join("corpus.cfr"));
+    assert_eq!(cache_path, corpus_dir.join(".cfr").join("3").join("corpus.cfr"));
     assert!(!cache_path.exists());
 
     let first = fabric.loadAll().unwrap();
@@ -6510,6 +6512,151 @@ p:phrase
         )
         .unwrap();
     assert_eq!(parent_ref_feature_relation, vec![vec![6]]);
+}
+
+// Mini corpus (see layout note above): words 1..5 are slots; phrase 6 = slots
+// 1-3, phrase 7 = slots 4-5, sentence 8 = slots 1-5. Edge `parent`: 1..3 -> 6,
+// 4..5 -> 7, 6/7 -> 8. Edge `relation` (valued): 1->6 subject, 2->6 predicate,
+// 3->6 object, 4->7 subject, 5->7 predicate.
+#[test]
+fn mapped_edge_relations_drive_from_edge_rows() {
+    let dir = tempfile::tempdir().unwrap();
+    let mapped = mapped_mini_corpus(&dir);
+    let search = MappedSearch::new(&mapped);
+
+    // Forward edge `-parent>`: word -> phrase via the `parent` edge.
+    let mut forward = search
+        .search("w:word\np:phrase\nw -parent> p", None)
+        .unwrap();
+    forward.sort_unstable();
+    assert_eq!(
+        forward,
+        vec![vec![1, 6], vec![2, 6], vec![3, 6], vec![4, 7], vec![5, 7]]
+    );
+
+    // Backward edge `<parent-`: phrase <- word (same pairs, reversed columns).
+    let mut backward = search
+        .search("p:phrase\nw:word\np <parent- w", None)
+        .unwrap();
+    backward.sort_unstable();
+    assert_eq!(
+        backward,
+        vec![vec![6, 1], vec![6, 2], vec![6, 3], vec![7, 4], vec![7, 5]]
+    );
+
+    // Valued forward edge `-relation=subject>`: only the `subject` edges.
+    let mut valued = search
+        .search("w:word\np:phrase\nw -relation=subject> p", None)
+        .unwrap();
+    valued.sort_unstable();
+    assert_eq!(valued, vec![vec![1, 6], vec![4, 7]]);
+}
+
+#[test]
+fn mapped_embedding_drives_both_directions() {
+    let dir = tempfile::tempdir().unwrap();
+    let mapped = mapped_mini_corpus(&dir);
+    let search = MappedSearch::new(&mapped);
+
+    // `[[` container relation: phrase embeds word. Exercises reverse-embedding
+    // driving (container found from a bound contained word) and the slot index.
+    let mut embeds = search.search("p:phrase\nw:word\np [[ w", None).unwrap();
+    embeds.sort_unstable();
+    assert_eq!(
+        embeds,
+        vec![vec![6, 1], vec![6, 2], vec![6, 3], vec![7, 4], vec![7, 5]]
+    );
+
+    // `]]` embedded-in: word embedded in phrase (reversed columns).
+    let mut embedded_in = search.search("w:word\np:phrase\nw ]] p", None).unwrap();
+    embedded_in.sort_unstable();
+    assert_eq!(
+        embedded_in,
+        vec![vec![1, 6], vec![2, 6], vec![3, 6], vec![4, 7], vec![5, 7]]
+    );
+
+    // A slot embeds nothing: a generic container `.` of a word must never match the
+    // word itself, only the genuine non-slot embedders.
+    let mut generic = search.search("p:.\nw:word\np [[ w", None).unwrap();
+    generic.sort_unstable();
+    assert_eq!(
+        generic,
+        vec![
+            vec![6, 1],
+            vec![6, 2],
+            vec![6, 3],
+            vec![7, 4],
+            vec![7, 5],
+            vec![8, 1],
+            vec![8, 2],
+            vec![8, 3],
+            vec![8, 4],
+            vec![8, 5],
+        ]
+    );
+}
+
+#[test]
+fn mapped_quantifier_attaches_to_preceding_atom_not_trailing_base() {
+    let dir = tempfile::tempdir().unwrap();
+    let mapped = mapped_mini_corpus(&dir);
+    let search = MappedSearch::new(&mapped);
+
+    // The quantifier modifies `sentence` (the atom before `/with/`), NOT the
+    // trailing base atom `phrase`. Sentence 8 contains the interjection word 1, so
+    // it qualifies, and the base then pairs it with each child phrase.
+    let mut result = search
+        .search(
+            "
+sentence
+/with/
+  word pos=interjection
+/-/
+  phrase
+",
+            None,
+        )
+        .unwrap();
+    result.sort_unstable();
+    assert_eq!(result, vec![vec![8, 6], vec![8, 7]]);
+}
+
+#[test]
+fn mapped_operator_prefixed_parent_reference_emits_relation() {
+    let dir = tempfile::tempdir().unwrap();
+    let mapped = mapped_mini_corpus(&dir);
+    let search = MappedSearch::new(&mapped);
+
+    // `&& ..` is an operator-prefixed reference to the quantifier's parent: the
+    // sibling phrase must overlap the sentence. Sentence 8 has overlapping phrases,
+    // so it is retained (this used to bind nothing and return empty).
+    let result = search
+        .search(
+            "
+sentence
+/with/
+phrase
+&& ..
+/-/
+",
+            None,
+        )
+        .unwrap();
+    assert_eq!(result, vec![vec![8]]);
+}
+
+#[test]
+fn mapped_different_slots_with_shared_start() {
+    let dir = tempfile::tempdir().unwrap();
+    let mapped = mapped_mini_corpus(&dir);
+    let search = MappedSearch::new(&mapped);
+
+    // `=:` shares the first slot (driveable window) and `##` requires different
+    // slot sets: sentence 8 (slots 1-5) and phrase 6 (slots 1-3) share slot 1.
+    let result = search
+        .search("s:sentence\n=: p:phrase\ns ## p", None)
+        .unwrap();
+    assert_eq!(result, vec![vec![8, 6]]);
 }
 
 #[test]

@@ -541,7 +541,17 @@ impl Corpus {
         for nodes in nodes_by_type.values_mut() {
             nodes.sort_unstable();
         }
-        let type_ranks = Self::compute_type_ranks(&slot_type, &nodes_by_type, &slot_counts);
+        let level_constraints = config_features
+            .get("otext")
+            .and_then(|otext| otext.get("levelConstraints"))
+            .and_then(Option::as_deref)
+            .map(str::to_string);
+        let type_ranks = Self::compute_type_ranks(
+            &slot_type,
+            &nodes_by_type,
+            &slot_counts,
+            level_constraints.as_deref(),
+        );
 
         Ok(Self {
             node_features,
@@ -650,6 +660,7 @@ impl Corpus {
         slot_type: &str,
         nodes_by_type: &HashMap<String, Vec<u32>>,
         slot_counts: &HashMap<String, usize>,
+        level_constraints: Option<&str>,
     ) -> HashMap<String, u32> {
         let mut levels: Vec<(String, f64)> = nodes_by_type
             .iter()
@@ -670,6 +681,12 @@ impl Corpus {
                 .then_with(|| left.0.cmp(&right.0))
         });
         levels.push((slot_type.to_string(), 1.0));
+
+        // Honor `@levelConstraints` (TF `prepare.py`): adjust the size-based order
+        // before deriving ranks, so co-extensive nodes break ties identically.
+        if let Some(spec) = level_constraints {
+            precompute::apply_level_constraints(&mut levels, spec, |level| level.0.as_str());
+        }
 
         let mut type_ranks = HashMap::new();
         for (rank, (node_type, _)) in levels.into_iter().rev().enumerate() {
@@ -1424,16 +1441,40 @@ impl Corpus {
             .split_once(':')
             .map(|(features, default)| (features, Some(default)))
             .unwrap_or((placeholder, None));
-        features
-            .split('/')
-            .find_map(|feature_name| {
-                let value = self
-                    .node_feature(feature_name)
-                    .and_then(|feature| feature.str_value(slot))
-                    .unwrap_or_default();
-                (!value.is_empty()).then(|| value.to_string())
+        let default_rendered = default.map(render_format_literal).unwrap_or_default();
+        let feature_names = features.split('/').collect::<Vec<_>>();
+        // Mirrors TF's format substitution (`tf/core/text.py:_makeFunc`): fall back
+        // to the next feature ONLY when the value is *absent* (`None`); a present
+        // empty string is a valid value and is emitted as-is.
+        match feature_names.as_slice() {
+            [single] => self
+                .placeholder_feature_value(single, slot)
+                .unwrap_or(default_rendered),
+            [first, second] => self
+                .placeholder_feature_value(first, slot)
+                .or_else(|| self.placeholder_feature_value(second, slot))
+                .unwrap_or(default_rendered),
+            _ => {
+                let found = feature_names
+                    .iter()
+                    .find_map(|feature_name| self.placeholder_feature_value(feature_name, slot));
+                match found {
+                    Some(value) if !value.is_empty() => value,
+                    _ => default_rendered,
+                }
+            }
+        }
+    }
+
+    /// Node feature value as text, preserving the absent (`None`) vs.
+    /// present-empty (`Some("")`) distinction TF relies on for `{a/b}` fallback.
+    fn placeholder_feature_value(&self, feature_name: &str, node: u32) -> Option<String> {
+        self.node_feature(feature_name)
+            .and_then(|feature| feature.v(node))
+            .map(|value| match value {
+                FeatureValue::Str(value) => value.to_string(),
+                FeatureValue::Int(value) => value.to_string(),
             })
-            .unwrap_or_else(|| default.map(render_format_literal).unwrap_or_default())
     }
 
     pub fn node_feature_types(&self, feature_name: &str) -> Vec<&str> {

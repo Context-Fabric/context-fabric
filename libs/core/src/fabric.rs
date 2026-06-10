@@ -242,11 +242,23 @@ impl Fabric {
     pub fn compile(&self, output_path: impl AsRef<Path>, features: impl FeatureSpec) -> Result<()> {
         let features = features.feature_names();
         let feature_refs = features.iter().map(String::as_str).collect::<Vec<_>>();
-        compile_features(
-            self.module_paths().last().unwrap_or(&self.path),
-            output_path,
-            &feature_refs,
-        )
+        let module_paths = self.module_paths();
+        // Multi-location compile: merge every location's warp + data features into
+        // one in-memory corpus before compiling (TF semantics: later locations add
+        // features and override same-named earlier ones). Compiling only the last
+        // location — as the single-location path does — drops `otype`/`oslots`
+        // when they live in an earlier location, raising "missing required
+        // feature: otype". Mirrors `load_mapped`'s multi-path branch.
+        if module_paths.len() > 1 {
+            let corpus = Corpus::load_paths(module_paths.clone())?.with_rank_arrays();
+            compile_loaded_corpus(&corpus, output_path.as_ref())
+        } else {
+            compile_features(
+                module_paths.last().unwrap_or(&self.path),
+                output_path,
+                &feature_refs,
+            )
+        }
     }
 
     pub fn open_mapped(&self, cache_path: impl AsRef<Path>) -> Result<MappedCompiledCorpus> {

@@ -353,23 +353,59 @@ impl<'a> MappedText<'a> {
             .split_once(':')
             .map(|(features, default)| (features, Some(default)))
             .unwrap_or((placeholder, None));
-        for feature_name in features.split('/') {
-            let value = self.node_value_as_text(feature_name, slot)?;
-            if !value.is_empty() {
-                return Ok(value);
+        let default_rendered = default.map(render_format_literal).unwrap_or_default();
+        let feature_names = features.split('/').collect::<Vec<_>>();
+        // Mirrors TF's format substitution (`tf/core/text.py:_makeFunc`): a feature
+        // value falls back to the next feature ONLY when it is *absent* for the
+        // node (`f.get(n)` is `None`). An empty string is a valid present value and
+        // must be emitted as-is — so we distinguish `None` (absent) from `Some("")`
+        // (present-empty) rather than treating both as missing.
+        match feature_names.as_slice() {
+            // Single feature: `f.get(n, default)`.
+            [single] => Ok(self
+                .node_value_opt(single, slot)?
+                .unwrap_or(default_rendered)),
+            // Two features: `f1.get(n, f2.get(n, default))`.
+            [first, second] => {
+                if let Some(value) = self.node_value_opt(first, slot)? {
+                    return Ok(value);
+                }
+                if let Some(value) = self.node_value_opt(second, slot)? {
+                    return Ok(value);
+                }
+                Ok(default_rendered)
+            }
+            // Three or more: first present value, then `v or default` — Python
+            // truthiness makes an empty present value fall through to the default.
+            _ => {
+                let mut found = None;
+                for feature_name in &feature_names {
+                    if let Some(value) = self.node_value_opt(feature_name, slot)? {
+                        found = Some(value);
+                        break;
+                    }
+                }
+                Ok(match found {
+                    Some(value) if !value.is_empty() => value,
+                    _ => default_rendered,
+                })
             }
         }
-        Ok(default.map(render_format_literal).unwrap_or_default())
     }
 
-    fn node_value_as_text(&self, feature_name: &str, node: u32) -> Result<String> {
+    /// Reads a node feature value as text, preserving the absent/present-empty
+    /// distinction: `None` means the feature has no value for `node`, `Some("")`
+    /// means it has an explicit empty value.
+    fn node_value_opt(&self, feature_name: &str, node: u32) -> Result<Option<String>> {
         if let Some(feature) = self.corpus.string_pool_node_feature(feature_name)? {
-            return Ok(feature.str_value(node)?.unwrap_or_default().to_string());
+            return Ok(feature.str_value(node)?.map(str::to_string));
         }
         if let Some(feature) = self.corpus.mixed_node_feature(feature_name)? {
-            return Ok(mapped_value_to_string(feature.value(node)?));
+            return Ok(feature
+                .value(node)?
+                .map(|value| mapped_value_to_string(Some(value))));
         }
-        Ok(String::new())
+        Ok(None)
     }
 
     /// `T.formats` — the map from each configured text format name to its
