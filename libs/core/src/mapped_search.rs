@@ -388,19 +388,28 @@ impl<'a> MappedSearch<'a> {
         // 4. Adjacency maps for any edge relations (driven from the sparse edge rows).
         let edge_adj = self.build_edge_adjacency(plan)?;
 
-        // 5. Connectivity-greedy evaluation order so every non-seed atom is driven
+        // 5. Slot -> container indexes for atoms that may be driven in the reverse
+        //    (container-from-contained) direction. Interval containment scans grow
+        //    O(candidates); a slot index keeps it O(1) and is exact even for
+        //    sparse-interval container types such as `lex`.
+        let container_index = self.build_container_indexes(plan, &candidates, &embeds, otype, oslots)?;
+
+        // 6. Connectivity-greedy evaluation order so every non-seed atom is driven
         //    from an already-bound neighbour rather than enumerated wholesale.
         let order = compute_join_order(plan, &candidates, &embeds, root);
 
-        // 6. Backtracking join driven by relations/embeddings.
+
+        // 7. Backtracking join driven by relations/embeddings.
         let mut results = Vec::new();
         let mut bound: Vec<Option<u32>> = vec![None; n];
         let mut slot_cache: HashMap<u32, Option<(u32, u32)>> = HashMap::new();
+        let mut slots_cache: HashMap<u32, Vec<u32>> = HashMap::new();
         self.join_recurse(
             plan,
             &candidates,
             &embeds,
             &edge_adj,
+            &container_index,
             &order,
             0,
             &mut bound,
@@ -410,8 +419,51 @@ impl<'a> MappedSearch<'a> {
             otype,
             oslots,
             &mut slot_cache,
+            &mut slots_cache,
         )?;
         Ok(results)
+    }
+
+    /// Build a `slot -> [container node]` index for every atom that may be driven as
+    /// a container (an embedding parent, or the container side of `[[` / `]]`).
+    fn build_container_indexes(
+        &self,
+        plan: &MappedRelationPlan,
+        candidates: &[CandidateSet],
+        embeds: &[Option<usize>],
+        otype: &StringPoolNodeFeatureView<'_>,
+        oslots: &EdgeFeatureView<'_>,
+    ) -> Result<HashMap<usize, HashMap<u32, Vec<u32>>>> {
+        let n = plan.atoms.len();
+        let mut needs = vec![false; n];
+        for parent in embeds.iter().flatten() {
+            needs[*parent] = true;
+        }
+        for relation in &plan.relations {
+            match (&relation.operator, &relation.left, &relation.right) {
+                (MappedRelationOperator::Embeds, MappedRelationEndpoint::Atom(left), _) => {
+                    needs[*left] = true;
+                }
+                (MappedRelationOperator::EmbeddedIn, _, MappedRelationEndpoint::Atom(right)) => {
+                    needs[*right] = true;
+                }
+                _ => {}
+            }
+        }
+        let mut indexes = HashMap::new();
+        for (atom, needed) in needs.into_iter().enumerate() {
+            if !needed {
+                continue;
+            }
+            let mut map: HashMap<u32, Vec<u32>> = HashMap::new();
+            for node in candidates[atom].nodes() {
+                for slot in self.node_slots(oslots, otype, node)? {
+                    map.entry(slot).or_default().push(node);
+                }
+            }
+            indexes.insert(atom, map);
+        }
+        Ok(indexes)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -421,6 +473,7 @@ impl<'a> MappedSearch<'a> {
         candidates: &[CandidateSet],
         embeds: &[Option<usize>],
         edge_adj: &HashMap<String, EdgeAdj>,
+        container_index: &HashMap<usize, HashMap<u32, Vec<u32>>>,
         order: &[usize],
         pos: usize,
         bound: &mut [Option<u32>],
@@ -430,6 +483,7 @@ impl<'a> MappedSearch<'a> {
         otype: &StringPoolNodeFeatureView<'_>,
         oslots: &EdgeFeatureView<'_>,
         slot_cache: &mut HashMap<u32, Option<(u32, u32)>>,
+        slots_cache: &mut HashMap<u32, Vec<u32>>,
     ) -> Result<()> {
         if limit.is_some_and(|limit| results.len() >= limit) {
             return Ok(());
@@ -442,14 +496,39 @@ impl<'a> MappedSearch<'a> {
         }
         let atom = order[pos];
         let cands = self.drive_candidates(
-            plan, candidates, embeds, edge_adj, atom, bound, root, otype, oslots, slot_cache,
+            plan,
+            candidates,
+            embeds,
+            edge_adj,
+            container_index,
+            atom,
+            bound,
+            root,
+            otype,
+            oslots,
+            slot_cache,
         )?;
         for node in cands {
             bound[atom] = Some(node);
-            if self.partial_constraints_ok(plan, embeds, atom, bound, root, otype, oslots)? {
+            if self
+                .partial_constraints_ok(plan, embeds, atom, bound, root, otype, oslots, slots_cache)?
+            {
                 self.join_recurse(
-                    plan, candidates, embeds, edge_adj, order, pos + 1, bound, results, limit,
-                    root, otype, oslots, slot_cache,
+                    plan,
+                    candidates,
+                    embeds,
+                    edge_adj,
+                    container_index,
+                    order,
+                    pos + 1,
+                    bound,
+                    results,
+                    limit,
+                    root,
+                    otype,
+                    oslots,
+                    slot_cache,
+                    slots_cache,
                 )?;
             }
             bound[atom] = None;
@@ -465,6 +544,7 @@ impl<'a> MappedSearch<'a> {
     /// and from any bound child. Each constraint is thus verified exactly once, when
     /// its last endpoint binds.
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     fn partial_constraints_ok(
         &self,
         plan: &MappedRelationPlan,
@@ -474,6 +554,7 @@ impl<'a> MappedSearch<'a> {
         root: Option<u32>,
         otype: &StringPoolNodeFeatureView<'_>,
         oslots: &EdgeFeatureView<'_>,
+        slots_cache: &mut HashMap<u32, Vec<u32>>,
     ) -> Result<bool> {
         let node = bound[atom].expect("atom just bound");
         for relation in &plan.relations {
@@ -488,13 +569,25 @@ impl<'a> MappedSearch<'a> {
             ) else {
                 continue;
             };
-            if !self.relation_holds(relation, left, right, otype, oslots) {
+            // Slot-containment verifications collect the (potentially huge) container
+            // slot list; route them through the cache so each container's slots are
+            // read once. Common with `lex` containers shared across many words.
+            let ok = match relation.operator {
+                MappedRelationOperator::Embeds => {
+                    self.contains_cached(slots_cache, oslots, otype, left, right)?
+                }
+                MappedRelationOperator::EmbeddedIn => {
+                    self.contains_cached(slots_cache, oslots, otype, right, left)?
+                }
+                _ => self.relation_holds(relation, left, right, otype, oslots),
+            };
+            if !ok {
                 return Ok(false);
             }
         }
         if let Some(parent) = embeds[atom] {
             if let Some(parent_node) = bound[parent] {
-                if !self.contains_by_slots(oslots, otype, parent_node, node) {
+                if !self.contains_cached(slots_cache, oslots, otype, parent_node, node)? {
                     return Ok(false);
                 }
             }
@@ -502,13 +595,55 @@ impl<'a> MappedSearch<'a> {
         for (child, child_parent) in embeds.iter().enumerate() {
             if *child_parent == Some(atom) {
                 if let Some(child_node) = bound[child] {
-                    if !self.contains_by_slots(oslots, otype, node, child_node) {
+                    if !self.contains_cached(slots_cache, oslots, otype, node, child_node)? {
                         return Ok(false);
                     }
                 }
             }
         }
         Ok(true)
+    }
+
+    /// Slot-containment check (`parent` embeds `child`), mirroring
+    /// `contains_by_slots` but caching the parent's (potentially huge) slot list so
+    /// it is materialized once per container — critical when many children share a
+    /// container such as `lex`. A slot embeds nothing: `oslots.targets` is empty for
+    /// slot parents (unlike `node_slots`, which returns slot-identity).
+    fn contains_cached(
+        &self,
+        slots_cache: &mut HashMap<u32, Vec<u32>>,
+        oslots: &EdgeFeatureView<'_>,
+        otype: &StringPoolNodeFeatureView<'_>,
+        parent: u32,
+        child: u32,
+    ) -> Result<bool> {
+        let child_slots = self.node_slots(oslots, otype, child)?;
+        if child_slots.is_empty() {
+            return Ok(false);
+        }
+        let parent_slots = self.cached_oslots_targets(slots_cache, oslots, parent)?;
+        if parent_slots.is_empty() {
+            return Ok(false);
+        }
+        Ok(child_slots
+            .iter()
+            .all(|slot| parent_slots.binary_search(slot).is_ok()))
+    }
+
+    fn cached_oslots_targets<'c>(
+        &self,
+        slots_cache: &'c mut HashMap<u32, Vec<u32>>,
+        oslots: &EdgeFeatureView<'_>,
+        node: u32,
+    ) -> Result<&'c Vec<u32>> {
+        if !slots_cache.contains_key(&node) {
+            let targets = match oslots.targets(node)? {
+                Some(targets) => targets.collect::<Result<Vec<_>>>()?,
+                None => Vec::new(),
+            };
+            slots_cache.insert(node, targets);
+        }
+        Ok(slots_cache.get(&node).expect("just inserted"))
     }
 
     /// Generate the candidate nodes for `atom` by intersecting every driver that a
@@ -522,6 +657,7 @@ impl<'a> MappedSearch<'a> {
         candidates: &[CandidateSet],
         embeds: &[Option<usize>],
         edge_adj: &HashMap<String, EdgeAdj>,
+        container_index: &HashMap<usize, HashMap<u32, Vec<u32>>>,
         atom: usize,
         bound: &[Option<u32>],
         root: Option<u32>,
@@ -530,6 +666,7 @@ impl<'a> MappedSearch<'a> {
         slot_cache: &mut HashMap<u32, Option<(u32, u32)>>,
     ) -> Result<Vec<u32>> {
         let cset = &candidates[atom];
+        let cmap = container_index.get(&atom);
         let mut drivers: Vec<Vec<u32>> = Vec::new();
 
         // Forward embedding: `atom` is contained in its bound parent.
@@ -550,7 +687,7 @@ impl<'a> MappedSearch<'a> {
                     else {
                         return Ok(Vec::new());
                     };
-                    drivers.push(cset.nodes_containing(cf, cl));
+                    drivers.push(containers_of(cmap, cset, cf, cl));
                 }
             }
         }
@@ -572,6 +709,7 @@ impl<'a> MappedSearch<'a> {
                 is_left,
                 other,
                 cset,
+                cmap,
                 edge_adj,
                 slot_cache,
                 otype,
@@ -608,6 +746,7 @@ impl<'a> MappedSearch<'a> {
         is_left: bool,
         other: u32,
         cset: &CandidateSet,
+        cmap: Option<&HashMap<u32, Vec<u32>>>,
         edge_adj: &HashMap<String, EdgeAdj>,
         slot_cache: &mut HashMap<u32, Option<(u32, u32)>>,
         otype: &StringPoolNodeFeatureView<'_>,
@@ -638,7 +777,7 @@ impl<'a> MappedSearch<'a> {
             }
             Embeds => {
                 if is_left {
-                    cset.nodes_containing(of, ol)
+                    containers_of(cmap, cset, of, ol)
                 } else {
                     cset.nodes_within_slot_interval(of, ol)
                 }
@@ -647,7 +786,7 @@ impl<'a> MappedSearch<'a> {
                 if is_left {
                     cset.nodes_within_slot_interval(of, ol)
                 } else {
-                    cset.nodes_containing(of, ol)
+                    containers_of(cmap, cset, of, ol)
                 }
             }
             Overlaps => cset.nodes_overlapping(of, ol),
@@ -658,25 +797,11 @@ impl<'a> MappedSearch<'a> {
                     add1(ol).map_or_else(Vec::new, |t| cset.nodes_with_first_in(t, t))
                 }
             }
-            SlotBefore => {
-                if is_left {
-                    sub1(of).map_or_else(Vec::new, |t| cset.nodes_with_last_in(0, t))
-                } else {
-                    add1(ol).map_or_else(Vec::new, |t| cset.nodes_with_first_in(t, u32::MAX))
-                }
-            }
             AdjacentAfter => {
                 if is_left {
                     add1(ol).map_or_else(Vec::new, |t| cset.nodes_with_first_in(t, t))
                 } else {
                     sub1(of).map_or_else(Vec::new, |t| cset.nodes_with_last_in(t, t))
-                }
-            }
-            SlotAfter => {
-                if is_left {
-                    add1(ol).map_or_else(Vec::new, |t| cset.nodes_with_first_in(t, u32::MAX))
-                } else {
-                    sub1(of).map_or_else(Vec::new, |t| cset.nodes_with_last_in(0, t))
                 }
             }
             NearBefore(k) => {
@@ -728,8 +853,11 @@ impl<'a> MappedSearch<'a> {
                 nodes.dedup();
                 nodes
             }
-            NotEqual | DifferentSlots | Disjoint | Before | After | FeatureCompare { .. }
-            | FeatureRegexCompare { .. } => return Ok(None),
+            // `<<` / `>>` produce open-ended ~half-corpus windows; intersecting such
+            // a large driver per seed is far more expensive than verifying the
+            // relation, so they drive nothing (verified incrementally instead).
+            SlotBefore | SlotAfter | NotEqual | DifferentSlots | Disjoint | Before | After
+            | FeatureCompare { .. } | FeatureRegexCompare { .. } => return Ok(None),
         };
         Ok(Some(driver))
     }
@@ -2062,20 +2190,38 @@ fn endpoint_node(
     }
 }
 
-/// Whether a relation operator can generate candidates (drive) given one bound
-/// endpoint. Pure verification operators (`#`, `##`, `||`, `<`, `>`, feature
-/// comparisons) cannot.
-fn operator_can_drive(operator: &MappedRelationOperator) -> bool {
-    !matches!(
-        operator,
-        MappedRelationOperator::NotEqual
-            | MappedRelationOperator::DifferentSlots
-            | MappedRelationOperator::Disjoint
-            | MappedRelationOperator::Before
-            | MappedRelationOperator::After
-            | MappedRelationOperator::FeatureCompare { .. }
-            | MappedRelationOperator::FeatureRegexCompare { .. }
-    )
+/// Driving selectivity of a relation operator: 0 = cannot drive (verify only),
+/// 1 = open-ended slot window (`<<`, `>>`, `&&` — yields a large half-corpus set),
+/// 2 = tightly bounded driver (edges, adjacency, same/near boundary, embedding).
+/// Used to order the join so a non-seed atom is reached by its most selective
+/// driver, never an open-ended one when a tight one exists.
+fn operator_drive_strength(operator: &MappedRelationOperator) -> u32 {
+    use MappedRelationOperator::*;
+    match operator {
+        NotEqual | DifferentSlots | Disjoint | Before | After | FeatureCompare { .. }
+        | FeatureRegexCompare { .. } => 0,
+        SlotBefore | SlotAfter | Overlaps => 1,
+        _ => 2,
+    }
+}
+
+/// Candidate container nodes for a child interval `[first, last]`. With a slot
+/// index (built for container atoms) this is an exact, O(1) lookup on the child's
+/// first slot followed by interval verification; otherwise it falls back to the
+/// interval scan.
+fn containers_of(
+    cmap: Option<&HashMap<u32, Vec<u32>>>,
+    cset: &CandidateSet,
+    first: u32,
+    last: u32,
+) -> Vec<u32> {
+    match cmap {
+        Some(map) => match map.get(&first) {
+            Some(nodes) => nodes.iter().copied().filter(|n| cset.contains(*n)).collect(),
+            None => Vec::new(),
+        },
+        None => cset.nodes_containing(first, last),
+    }
 }
 
 fn add1(value: u32) -> Option<u32> {
@@ -2096,27 +2242,30 @@ fn clamp_hi(target: i64, k: u32) -> u32 {
     (target + i64::from(k)).clamp(0, i64::from(u32::MAX)) as u32
 }
 
-/// Whether `i` can be driven from the already-placed atoms (or the bound parent
-/// reference). Used by the greedy ordering so every non-seed atom is reachable.
-fn is_atom_connected(
+/// Best driving strength for placing `i` given the already-placed atoms (and the
+/// bound parent reference). 0 means `i` is not yet reachable by any driver.
+/// Embedding (both directions) is a tight driver (strength 2).
+fn connection_strength(
     i: usize,
     placed: &[bool],
     plan: &MappedRelationPlan,
     embeds: &[Option<usize>],
     root: Option<u32>,
-) -> bool {
+) -> u32 {
+    let mut best = 0;
     if let Some(parent) = embeds[i] {
         if placed[parent] {
-            return true;
+            best = 2;
         }
     }
     for (child, child_parent) in embeds.iter().enumerate() {
         if *child_parent == Some(i) && placed[child] {
-            return true;
+            best = 2;
         }
     }
     for relation in &plan.relations {
-        if !operator_can_drive(&relation.operator) {
+        let strength = operator_drive_strength(&relation.operator);
+        if strength == 0 || strength <= best {
             continue;
         }
         let other = if matches!(relation.left, MappedRelationEndpoint::Atom(a) if a == i) {
@@ -2126,18 +2275,20 @@ fn is_atom_connected(
         } else {
             continue;
         };
-        match other {
-            MappedRelationEndpoint::Atom(o) if placed[*o] => return true,
-            MappedRelationEndpoint::Parent if root.is_some() => return true,
-            _ => {}
+        let reachable = match other {
+            MappedRelationEndpoint::Atom(o) => placed[*o],
+            MappedRelationEndpoint::Parent => root.is_some(),
+        };
+        if reachable {
+            best = best.max(strength);
         }
     }
-    false
+    best
 }
 
-/// Greedy connectivity-based evaluation order: repeatedly place the smallest
-/// candidate set among atoms reachable from the placed set; fall back to the
-/// smallest remaining set as a new seed (disconnected components).
+/// Greedy evaluation order: repeatedly place the atom reachable by the most
+/// selective driver (breaking ties by smallest candidate set); fall back to the
+/// smallest remaining set as a new seed for disconnected components.
 fn compute_join_order(
     plan: &MappedRelationPlan,
     candidates: &[CandidateSet],
@@ -2149,17 +2300,23 @@ fn compute_join_order(
     let mut placed = vec![false; n];
     let mut order = Vec::with_capacity(n);
     for _ in 0..n {
-        let mut best: Option<usize> = None;
+        let mut best: Option<(usize, u32)> = None;
         for i in 0..n {
-            if placed[i] || !is_atom_connected(i, &placed, plan, embeds, root) {
+            if placed[i] {
+                continue;
+            }
+            let strength = connection_strength(i, &placed, plan, embeds, root);
+            if strength == 0 {
                 continue;
             }
             best = Some(match best {
-                Some(b) if sizes[b] <= sizes[i] => b,
-                _ => i,
+                Some((b, bs)) if (bs, std::cmp::Reverse(sizes[b])) >= (strength, std::cmp::Reverse(sizes[i])) => {
+                    (b, bs)
+                }
+                _ => (i, strength),
             });
         }
-        let pick = best.unwrap_or_else(|| {
+        let pick = best.map(|(i, _)| i).unwrap_or_else(|| {
             (0..n)
                 .filter(|i| !placed[*i])
                 .min_by_key(|i| sizes[*i])
