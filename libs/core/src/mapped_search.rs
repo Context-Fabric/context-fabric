@@ -195,7 +195,7 @@ impl<'a> MappedSearch<'a> {
         sets: Option<&SearchSets<'_>>,
         limit: Option<usize>,
     ) -> Result<Vec<Vec<u32>>> {
-        let query = parse_mapped_query(template)?;
+        let plan = parse_mapped_plan(template)?;
         let otype = self
             .corpus
             .string_pool_node_feature("otype")?
@@ -205,12 +205,7 @@ impl<'a> MappedSearch<'a> {
             .edge_feature("oslots")?
             .ok_or_else(|| CfError::MissingFeature("oslots".to_string()))?;
 
-        match query {
-            MappedQuery::Plan(plan) => self.search_plan(&plan, &otype, &oslots, sets, limit),
-            MappedQuery::Quantified(quantified) => {
-                self.search_quantified(&quantified, &otype, &oslots, sets, limit)
-            }
-        }
+        self.search_plan(&plan, &otype, &oslots, sets, limit)
     }
 
     fn load_constraints<'query>(
@@ -313,7 +308,7 @@ impl<'a> MappedSearch<'a> {
         sets: Option<&SearchSets<'_>>,
         limit: Option<usize>,
     ) -> Result<Vec<Vec<u32>>> {
-        self.search_plan_with_root(plan, otype, oslots, sets, limit, None, None)
+        self.search_plan_with_root(plan, otype, oslots, sets, limit, None)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -324,69 +319,91 @@ impl<'a> MappedSearch<'a> {
         oslots: &EdgeFeatureView<'_>,
         sets: Option<&SearchSets<'_>>,
         limit: Option<usize>,
+        // Bound node for the `..` parent reference (`MappedRelationEndpoint::Parent`)
+        // when this plan is a sub-search; `None` for top-level plans.
         root: Option<u32>,
-        // Optional restriction of one atom's candidate set (the quantified atom),
-        // used by the quantifier engine to intersect the global yarn before the
-        // join. The tuple is `(atom_index, allowed_nodes)`.
-        root_filter: Option<(usize, &HashSet<u32>)>,
     ) -> Result<Vec<Vec<u32>>> {
-        if plan.relations.is_empty() && plan.atoms.len() == 1 && plan.atoms[0].indent == 0 {
-            let atom = &plan.atoms[0];
-            let constraints = self.load_constraints(atom)?;
-            let mut rows = self.search_atom(atom, otype, &constraints, sets, None)?;
-            if let Some((_, filter)) = root_filter {
-                rows.retain(|row| row.first().is_some_and(|node| filter.contains(node)));
+        let n = plan.atoms.len();
+
+        // 1. Base candidate node set per atom (feature/type filtered), then reduced
+        //    by the atom's quantifier blocks via global set algebra (TF _spinAtom +
+        //    _doQuantifier).
+        let mut candidate_row_cache: HashMap<String, Vec<u32>> = HashMap::new();
+        let mut candidate_nodes: Vec<Vec<u32>> = Vec::with_capacity(n);
+        for atom in &plan.atoms {
+            let cache_key = atom.candidate_cache_key();
+            let mut nodes = if let Some(nodes) = candidate_row_cache.get(&cache_key) {
+                nodes.clone()
+            } else {
+                let constraints = self.load_constraints(atom)?;
+                let nodes: Vec<u32> = self
+                    .search_atom(atom, otype, &constraints, sets, None)?
+                    .into_iter()
+                    .filter_map(|row| row.into_iter().next())
+                    .collect();
+                candidate_row_cache.insert(cache_key, nodes.clone());
+                nodes
+            };
+            if !atom.quantifiers.is_empty() {
+                let (clean, _) = atom.clean.as_ref().ok_or_else(|| {
+                    CfError::InvalidQuery("quantified atom missing clean line".to_string())
+                })?;
+                let mut yarn: HashSet<u32> = nodes.iter().copied().collect();
+                for block in &atom.quantifiers {
+                    yarn = self.apply_quantifier_block(clean, block, yarn, otype, oslots, sets)?;
+                    if yarn.is_empty() {
+                        break;
+                    }
+                }
+                nodes.retain(|node| yarn.contains(node));
             }
+            candidate_nodes.push(nodes);
+        }
+
+        // Single-atom fast path.
+        if plan.relations.is_empty() && n == 1 {
+            let mut rows: Vec<Vec<u32>> = candidate_nodes
+                .pop()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|node| vec![node])
+                .collect();
             if let Some(limit) = limit {
                 rows.truncate(limit);
             }
             return Ok(rows);
         }
-        let mut candidate_row_cache: HashMap<String, Vec<Vec<u32>>> = HashMap::new();
-        let candidate_rows = plan
-            .atoms
-            .iter()
-            .map(|atom| {
-                let cache_key = atom.candidate_cache_key();
-                if let Some(rows) = candidate_row_cache.get(&cache_key) {
-                    return Ok(rows.clone());
-                }
-                let constraints = self.load_constraints(atom)?;
-                let rows = self.search_atom(atom, otype, &constraints, sets, None)?;
-                candidate_row_cache.insert(cache_key, rows.clone());
-                Ok(rows)
-            })
-            .collect::<Result<Vec<_>>>()?;
-        let candidate_nodes = candidate_rows
-            .iter()
-            .enumerate()
-            .map(|(index, rows)| {
-                rows.iter()
-                    .map(|row| row[0])
-                    .filter(|node| match root_filter {
-                        Some((filter_index, filter)) if filter_index == index => {
-                            filter.contains(node)
-                        }
-                        _ => true,
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
-        let needs_intervals = atoms_needing_intervals(plan);
+
+        // 2. Candidate sets with slot intervals (always; driving needs them).
         let candidates = candidate_nodes
             .into_iter()
-            .enumerate()
-            .map(|(index, nodes)| {
-                self.build_candidate_set(nodes, needs_intervals[index], otype, oslots)
-            })
+            .map(|nodes| self.build_candidate_set(nodes, otype, oslots))
             .collect::<Result<Vec<_>>>()?;
+
+        // 3. Embedding parent per atom (nearest enclosing smaller indent).
+        let embeds: Vec<Option<usize>> = (0..n)
+            .map(|i| nearest_bound_parent_index(&plan.atoms, i))
+            .collect();
+
+        // 4. Adjacency maps for any edge relations (driven from the sparse edge rows).
+        let edge_adj = self.build_edge_adjacency(plan)?;
+
+        // 5. Connectivity-greedy evaluation order so every non-seed atom is driven
+        //    from an already-bound neighbour rather than enumerated wholesale.
+        let order = compute_join_order(plan, &candidates, &embeds, root);
+
+        // 6. Backtracking join driven by relations/embeddings.
         let mut results = Vec::new();
-        let mut slot_cache = HashMap::new();
-        self.extend_plan_matches(
+        let mut bound: Vec<Option<u32>> = vec![None; n];
+        let mut slot_cache: HashMap<u32, Option<(u32, u32)>> = HashMap::new();
+        self.join_recurse(
             plan,
             &candidates,
+            &embeds,
+            &edge_adj,
+            &order,
             0,
-            &mut Vec::new(),
+            &mut bound,
             &mut results,
             limit,
             root,
@@ -398,57 +415,44 @@ impl<'a> MappedSearch<'a> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn extend_plan_matches(
+    fn join_recurse(
         &self,
         plan: &MappedRelationPlan,
         candidates: &[CandidateSet],
-        index: usize,
-        current: &mut Vec<u32>,
+        embeds: &[Option<usize>],
+        edge_adj: &HashMap<String, EdgeAdj>,
+        order: &[usize],
+        pos: usize,
+        bound: &mut [Option<u32>],
         results: &mut Vec<Vec<u32>>,
         limit: Option<usize>,
         root: Option<u32>,
         otype: &StringPoolNodeFeatureView<'_>,
         oslots: &EdgeFeatureView<'_>,
-        slot_cache: &mut HashMap<u32, Vec<u32>>,
+        slot_cache: &mut HashMap<u32, Option<(u32, u32)>>,
     ) -> Result<()> {
         if limit.is_some_and(|limit| results.len() >= limit) {
             return Ok(());
         }
-        if index == candidates.len() {
-            if self.mapped_relations_hold(plan, current, root, otype, oslots) {
-                results.push(current.clone());
-            }
+        if pos == order.len() {
+            // Every constraint was verified incrementally as its second endpoint
+            // bound, so a fully-bound assignment is a match. Emit in atom order.
+            results.push(bound.iter().map(|node| node.expect("bound")).collect());
             return Ok(());
         }
-        for node in self.candidate_nodes_for_position(
-            plan, candidates, index, current, otype, oslots, slot_cache,
-        )? {
-            if self.parent_constraints_hold(
-                &plan.atoms,
-                index,
-                node,
-                current,
-                otype,
-                oslots,
-                slot_cache,
-            )? {
-                current.push(node);
-                if self.bound_mapped_relations_hold(plan, current, root, otype, oslots) {
-                    self.extend_plan_matches(
-                        plan,
-                        candidates,
-                        index + 1,
-                        current,
-                        results,
-                        limit,
-                        root,
-                        otype,
-                        oslots,
-                        slot_cache,
-                    )?;
-                }
-                current.pop();
+        let atom = order[pos];
+        let cands = self.drive_candidates(
+            plan, candidates, embeds, edge_adj, atom, bound, root, otype, oslots, slot_cache,
+        )?;
+        for node in cands {
+            bound[atom] = Some(node);
+            if self.partial_constraints_ok(plan, embeds, atom, bound, root, otype, oslots)? {
+                self.join_recurse(
+                    plan, candidates, embeds, edge_adj, order, pos + 1, bound, results, limit,
+                    root, otype, oslots, slot_cache,
+                )?;
             }
+            bound[atom] = None;
             if limit.is_some_and(|limit| results.len() >= limit) {
                 break;
             }
@@ -456,245 +460,373 @@ impl<'a> MappedSearch<'a> {
         Ok(())
     }
 
-    fn parent_constraints_hold(
+    /// Check every constraint that becomes fully bound by binding `atom`: relations
+    /// where both endpoints are now known, plus the embedding to its bound parent
+    /// and from any bound child. Each constraint is thus verified exactly once, when
+    /// its last endpoint binds.
+    #[allow(clippy::too_many_arguments)]
+    fn partial_constraints_ok(
         &self,
-        atoms: &[SimpleAtom],
-        index: usize,
-        node: u32,
-        current: &[u32],
+        plan: &MappedRelationPlan,
+        embeds: &[Option<usize>],
+        atom: usize,
+        bound: &[Option<u32>],
+        root: Option<u32>,
         otype: &StringPoolNodeFeatureView<'_>,
         oslots: &EdgeFeatureView<'_>,
-        _slot_cache: &mut HashMap<u32, Vec<u32>>,
     ) -> Result<bool> {
-        let indent = atoms[index].indent;
-        if indent == 0 {
-            return Ok(true);
+        let node = bound[atom].expect("atom just bound");
+        for relation in &plan.relations {
+            let involves = matches!(relation.left, MappedRelationEndpoint::Atom(a) if a == atom)
+                || matches!(relation.right, MappedRelationEndpoint::Atom(a) if a == atom);
+            if !involves {
+                continue;
+            }
+            let (Some(left), Some(right)) = (
+                endpoint_node(&relation.left, bound, root),
+                endpoint_node(&relation.right, bound, root),
+            ) else {
+                continue;
+            };
+            if !self.relation_holds(relation, left, right, otype, oslots) {
+                return Ok(false);
+            }
         }
-        for previous in (0..index).rev() {
-            if atoms[previous].indent < indent {
-                let Some(parent) = current.get(previous) else {
+        if let Some(parent) = embeds[atom] {
+            if let Some(parent_node) = bound[parent] {
+                if !self.contains_by_slots(oslots, otype, parent_node, node) {
                     return Ok(false);
-                };
-                // Indentation always denotes embedding (parent contains child);
-                // operator edges are carried separately as plan relations.
-                return Ok(self.relation_operator_holds(
-                    &MappedRelationOperator::Embeds,
-                    *parent,
-                    node,
-                    otype,
-                    oslots,
-                ));
+                }
+            }
+        }
+        for (child, child_parent) in embeds.iter().enumerate() {
+            if *child_parent == Some(atom) {
+                if let Some(child_node) = bound[child] {
+                    if !self.contains_by_slots(oslots, otype, node, child_node) {
+                        return Ok(false);
+                    }
+                }
             }
         }
         Ok(true)
     }
 
+    /// Generate the candidate nodes for `atom` by intersecting every driver that a
+    /// currently-bound neighbour provides (embedding both directions, edge rows,
+    /// slot-window relations). With no driver the full candidate set is returned
+    /// (only the seed atom hits this).
+    #[allow(clippy::too_many_arguments)]
+    fn drive_candidates(
+        &self,
+        plan: &MappedRelationPlan,
+        candidates: &[CandidateSet],
+        embeds: &[Option<usize>],
+        edge_adj: &HashMap<String, EdgeAdj>,
+        atom: usize,
+        bound: &[Option<u32>],
+        root: Option<u32>,
+        otype: &StringPoolNodeFeatureView<'_>,
+        oslots: &EdgeFeatureView<'_>,
+        slot_cache: &mut HashMap<u32, Option<(u32, u32)>>,
+    ) -> Result<Vec<u32>> {
+        let cset = &candidates[atom];
+        let mut drivers: Vec<Vec<u32>> = Vec::new();
+
+        // Forward embedding: `atom` is contained in its bound parent.
+        if let Some(parent) = embeds[atom] {
+            if let Some(parent_node) = bound[parent] {
+                let Some((pf, pl)) = self.node_interval(slot_cache, oslots, otype, parent_node)?
+                else {
+                    return Ok(Vec::new());
+                };
+                drivers.push(cset.nodes_within_slot_interval(pf, pl));
+            }
+        }
+        // Reverse embedding: `atom` contains a bound child.
+        for (child, child_parent) in embeds.iter().enumerate() {
+            if *child_parent == Some(atom) {
+                if let Some(child_node) = bound[child] {
+                    let Some((cf, cl)) = self.node_interval(slot_cache, oslots, otype, child_node)?
+                    else {
+                        return Ok(Vec::new());
+                    };
+                    drivers.push(cset.nodes_containing(cf, cl));
+                }
+            }
+        }
+        // Relations with a bound other endpoint.
+        for relation in &plan.relations {
+            let (is_left, other_ep) =
+                if matches!(relation.left, MappedRelationEndpoint::Atom(a) if a == atom) {
+                    (true, &relation.right)
+                } else if matches!(relation.right, MappedRelationEndpoint::Atom(a) if a == atom) {
+                    (false, &relation.left)
+                } else {
+                    continue;
+                };
+            let Some(other) = endpoint_node(other_ep, bound, root) else {
+                continue;
+            };
+            if let Some(driver) = self.relation_driver(
+                &relation.operator,
+                is_left,
+                other,
+                cset,
+                edge_adj,
+                slot_cache,
+                otype,
+                oslots,
+            )? {
+                drivers.push(driver);
+            }
+        }
+
+        if drivers.is_empty() {
+            return Ok(cset.nodes());
+        }
+        drivers.sort_by_key(Vec::len);
+        let mut acc: Vec<u32> = drivers.swap_remove(0);
+        for driver in &drivers {
+            let set: HashSet<u32> = driver.iter().copied().collect();
+            acc.retain(|node| set.contains(node));
+            if acc.is_empty() {
+                break;
+            }
+        }
+        Ok(acc)
+    }
+
+    /// Candidate nodes for `atom` implied by a single relation to a bound node
+    /// `other`. All slot-window / embedding drivers are drawn from `cset` (so they
+    /// are automatically type/feature-valid); edge and equality drivers are filtered
+    /// against `cset` membership. Returns `None` for relations that cannot drive
+    /// (verify-only: `#`, `##`, `||`, `<`, `>`, feature comparisons).
+    #[allow(clippy::too_many_arguments)]
+    fn relation_driver(
+        &self,
+        operator: &MappedRelationOperator,
+        is_left: bool,
+        other: u32,
+        cset: &CandidateSet,
+        edge_adj: &HashMap<String, EdgeAdj>,
+        slot_cache: &mut HashMap<u32, Option<(u32, u32)>>,
+        otype: &StringPoolNodeFeatureView<'_>,
+        oslots: &EdgeFeatureView<'_>,
+    ) -> Result<Option<Vec<u32>>> {
+        use MappedRelationOperator::*;
+        let interval = self.node_interval(slot_cache, oslots, otype, other)?;
+        let (of, ol) = match interval {
+            Some(value) => value,
+            None => match operator {
+                Equal
+                | EdgeForward(_)
+                | EdgeBackward(_)
+                | EdgeEither(_)
+                | EdgeForwardValue(..)
+                | EdgeBackwardValue(..)
+                | EdgeEitherValue(..) => (0, 0),
+                _ => return Ok(Some(Vec::new())),
+            },
+        };
+        let driver = match operator {
+            Equal => {
+                if cset.contains(other) {
+                    vec![other]
+                } else {
+                    vec![]
+                }
+            }
+            Embeds => {
+                if is_left {
+                    cset.nodes_containing(of, ol)
+                } else {
+                    cset.nodes_within_slot_interval(of, ol)
+                }
+            }
+            EmbeddedIn => {
+                if is_left {
+                    cset.nodes_within_slot_interval(of, ol)
+                } else {
+                    cset.nodes_containing(of, ol)
+                }
+            }
+            Overlaps => cset.nodes_overlapping(of, ol),
+            AdjacentBefore => {
+                if is_left {
+                    sub1(of).map_or_else(Vec::new, |t| cset.nodes_with_last_in(t, t))
+                } else {
+                    add1(ol).map_or_else(Vec::new, |t| cset.nodes_with_first_in(t, t))
+                }
+            }
+            SlotBefore => {
+                if is_left {
+                    sub1(of).map_or_else(Vec::new, |t| cset.nodes_with_last_in(0, t))
+                } else {
+                    add1(ol).map_or_else(Vec::new, |t| cset.nodes_with_first_in(t, u32::MAX))
+                }
+            }
+            AdjacentAfter => {
+                if is_left {
+                    add1(ol).map_or_else(Vec::new, |t| cset.nodes_with_first_in(t, t))
+                } else {
+                    sub1(of).map_or_else(Vec::new, |t| cset.nodes_with_last_in(t, t))
+                }
+            }
+            SlotAfter => {
+                if is_left {
+                    add1(ol).map_or_else(Vec::new, |t| cset.nodes_with_first_in(t, u32::MAX))
+                } else {
+                    sub1(of).map_or_else(Vec::new, |t| cset.nodes_with_last_in(0, t))
+                }
+            }
+            NearBefore(k) => {
+                if is_left {
+                    let t = i64::from(of) - 1;
+                    cset.nodes_with_last_in(clamp_lo(t, *k), clamp_hi(t, *k))
+                } else {
+                    let t = i64::from(ol) + 1;
+                    cset.nodes_with_first_in(clamp_lo(t, *k), clamp_hi(t, *k))
+                }
+            }
+            NearAfter(k) => {
+                if is_left {
+                    let t = i64::from(ol) + 1;
+                    cset.nodes_with_first_in(clamp_lo(t, *k), clamp_hi(t, *k))
+                } else {
+                    let t = i64::from(of) - 1;
+                    cset.nodes_with_last_in(clamp_lo(t, *k), clamp_hi(t, *k))
+                }
+            }
+            SameFirstSlot => cset.nodes_with_first_in(of, of),
+            SameLastSlot => cset.nodes_with_last_in(ol, ol),
+            NearFirstSlot(k) => {
+                cset.nodes_with_first_in(clamp_lo(i64::from(of), *k), clamp_hi(i64::from(of), *k))
+            }
+            NearLastSlot(k) => {
+                cset.nodes_with_last_in(clamp_lo(i64::from(ol), *k), clamp_hi(i64::from(ol), *k))
+            }
+            SameBoundary | SameSlots => cset.nodes_with_first_in(of, of),
+            NearBoundary(k) => {
+                cset.nodes_with_first_in(clamp_lo(i64::from(of), *k), clamp_hi(i64::from(of), *k))
+            }
+            // EdgeForward: edge runs left -> right. If `atom` is the right operand
+            // (is_left = false) it is a forward target of `other`; if it is the left
+            // operand it is a backward source of `other`.
+            EdgeForward(name) | EdgeForwardValue(name, _) => {
+                self.edge_driver(edge_adj, name, other, !is_left, cset)
+            }
+            // EdgeBackward: edge runs right -> left (the relation holds when an edge
+            // goes from the right operand to the left). If `atom` is the left operand
+            // it is a forward target of `other`; otherwise a backward source.
+            EdgeBackward(name) | EdgeBackwardValue(name, _) => {
+                self.edge_driver(edge_adj, name, other, is_left, cset)
+            }
+            EdgeEither(name) | EdgeEitherValue(name, _) => {
+                let mut nodes = self.edge_driver(edge_adj, name, other, is_left, cset);
+                nodes.extend(self.edge_driver(edge_adj, name, other, !is_left, cset));
+                nodes.sort_unstable();
+                nodes.dedup();
+                nodes
+            }
+            NotEqual | DifferentSlots | Disjoint | Before | After | FeatureCompare { .. }
+            | FeatureRegexCompare { .. } => return Ok(None),
+        };
+        Ok(Some(driver))
+    }
+
+    /// Drive one side of an edge relation: when `forward` is true the candidates are
+    /// the edge targets of `other` (binary-search rows), else the edge sources.
+    fn edge_driver(
+        &self,
+        edge_adj: &HashMap<String, EdgeAdj>,
+        name: &str,
+        other: u32,
+        forward: bool,
+        cset: &CandidateSet,
+    ) -> Vec<u32> {
+        let Some(adj) = edge_adj.get(name) else {
+            return Vec::new();
+        };
+        let map = if forward { &adj.fwd } else { &adj.bwd };
+        match map.get(&other) {
+            Some(nodes) => nodes.iter().copied().filter(|n| cset.contains(*n)).collect(),
+            None => Vec::new(),
+        }
+    }
+
+    fn node_interval(
+        &self,
+        slot_cache: &mut HashMap<u32, Option<(u32, u32)>>,
+        oslots: &EdgeFeatureView<'_>,
+        otype: &StringPoolNodeFeatureView<'_>,
+        node: u32,
+    ) -> Result<Option<(u32, u32)>> {
+        if let Some(value) = slot_cache.get(&node) {
+            return Ok(*value);
+        }
+        let slots = self.node_slots(oslots, otype, node)?;
+        let value = match (slots.first(), slots.last()) {
+            (Some(&first), Some(&last)) => Some((first, last)),
+            _ => None,
+        };
+        slot_cache.insert(node, value);
+        Ok(value)
+    }
+
     fn build_candidate_set(
         &self,
         nodes: Vec<u32>,
-        include_slot_intervals: bool,
         otype: &StringPoolNodeFeatureView<'_>,
         oslots: &EdgeFeatureView<'_>,
     ) -> Result<CandidateSet> {
         let entries = nodes
             .into_iter()
             .map(|node| {
-                let (first_slot, last_slot) = if include_slot_intervals {
-                    let slots = self.node_slots(oslots, otype, node)?;
-                    (slots.first().copied(), slots.last().copied())
-                } else {
-                    (None, None)
-                };
+                let slots = self.node_slots(oslots, otype, node)?;
                 Ok(CandidateEntry {
                     node,
-                    first_slot,
-                    last_slot,
+                    first_slot: slots.first().copied(),
+                    last_slot: slots.last().copied(),
                 })
             })
             .collect::<Result<Vec<_>>>()?;
         Ok(CandidateSet::new(entries))
     }
 
-    fn candidate_nodes_for_position(
+    fn build_edge_adjacency(
         &self,
         plan: &MappedRelationPlan,
-        candidates: &[CandidateSet],
-        index: usize,
-        current: &[u32],
-        otype: &StringPoolNodeFeatureView<'_>,
-        oslots: &EdgeFeatureView<'_>,
-        slot_cache: &mut HashMap<u32, Vec<u32>>,
-    ) -> Result<Vec<u32>> {
-        let Some(parent_index) = nearest_bound_parent_index(&plan.atoms, index) else {
-            return Ok(candidates[index].nodes());
-        };
-        let Some(parent) = current.get(parent_index).copied() else {
-            return Ok(Vec::new());
-        };
-        let parent_slots = self.cached_node_slots(slot_cache, oslots, otype, parent)?;
-        let Some(parent_first) = parent_slots.first().copied() else {
-            return Ok(Vec::new());
-        };
-        let Some(parent_last) = parent_slots.last().copied() else {
-            return Ok(Vec::new());
-        };
-        // Indentation is always embedding, so slot-interval pruning always applies.
-        // When the atom is also the right operand of an already-bound adjacency /
-        // before / k-near sibling relation, narrow the candidate set to the slot
-        // window implied by that relation via binary search on first_slot.
-        let window = self.first_slot_window(plan, index, current, otype, oslots, slot_cache)?;
-        Ok(match window {
-            Some((min_first, max_first)) => candidates[index]
-                .nodes_within_slot_interval_windowed(
-                    parent_first,
-                    parent_last,
-                    min_first,
-                    max_first,
-                ),
-            None => candidates[index].nodes_within_slot_interval(parent_first, parent_last),
-        })
-    }
-
-    /// If atom `index` is the right operand of a slot-window relation whose left
-    /// operand is already bound, compute the inclusive `[min_first, max_first]`
-    /// window for the candidate's first slot. Used purely to prune candidates; the
-    /// relation itself is still verified during the join, so a conservative window
-    /// is always safe.
-    fn first_slot_window(
-        &self,
-        plan: &MappedRelationPlan,
-        index: usize,
-        current: &[u32],
-        otype: &StringPoolNodeFeatureView<'_>,
-        oslots: &EdgeFeatureView<'_>,
-        slot_cache: &mut HashMap<u32, Vec<u32>>,
-    ) -> Result<Option<(u32, u32)>> {
+    ) -> Result<HashMap<String, EdgeAdj>> {
+        let mut names: HashSet<&str> = HashSet::new();
         for relation in &plan.relations {
-            let MappedRelationEndpoint::Atom(right) = relation.right else {
-                continue;
-            };
-            if right != index {
-                continue;
-            }
-            let MappedRelationEndpoint::Atom(left) = relation.left else {
-                continue;
-            };
-            let Some(&left_node) = current.get(left) else {
-                continue;
-            };
-            let left_slots = self.cached_node_slots(slot_cache, oslots, otype, left_node)?;
-            let Some(&left_last) = left_slots.last() else {
-                continue;
-            };
-            let window = match &relation.operator {
-                MappedRelationOperator::AdjacentBefore => {
-                    Some((left_last.saturating_add(1), left_last.saturating_add(1)))
+            match &relation.operator {
+                MappedRelationOperator::EdgeForward(name)
+                | MappedRelationOperator::EdgeBackward(name)
+                | MappedRelationOperator::EdgeEither(name)
+                | MappedRelationOperator::EdgeForwardValue(name, _)
+                | MappedRelationOperator::EdgeBackwardValue(name, _)
+                | MappedRelationOperator::EdgeEitherValue(name, _) => {
+                    names.insert(name.as_str());
                 }
-                MappedRelationOperator::SlotBefore => {
-                    Some((left_last.saturating_add(1), u32::MAX))
-                }
-                MappedRelationOperator::NearBefore(distance) => Some((
-                    // first(right) within [last(left)+1-k, last(left)+1+k]
-                    left_last.saturating_add(1).saturating_sub(*distance),
-                    left_last.saturating_add(1).saturating_add(*distance),
-                )),
-                _ => None,
-            };
-            if window.is_some() {
-                return Ok(window);
+                _ => {}
             }
         }
-        Ok(None)
-    }
-
-    fn mapped_relations_hold(
-        &self,
-        plan: &MappedRelationPlan,
-        current: &[u32],
-        root: Option<u32>,
-        otype: &StringPoolNodeFeatureView<'_>,
-        oslots: &EdgeFeatureView<'_>,
-    ) -> bool {
-        plan.relations.iter().all(|relation| {
-            self.bound_relation_nodes(current, relation, root)
-                .is_some_and(|(left, right)| {
-                    self.relation_holds(relation, left, right, otype, oslots)
-                })
-        })
-    }
-
-    fn bound_mapped_relations_hold(
-        &self,
-        plan: &MappedRelationPlan,
-        current: &[u32],
-        root: Option<u32>,
-        otype: &StringPoolNodeFeatureView<'_>,
-        oslots: &EdgeFeatureView<'_>,
-    ) -> bool {
-        plan.relations.iter().all(|relation| {
-            self.bound_relation_nodes(current, relation, root)
-                .is_none_or(|(left, right)| {
-                    self.relation_holds(relation, left, right, otype, oslots)
-                })
-        })
-    }
-
-    fn bound_relation_nodes(
-        &self,
-        current: &[u32],
-        relation: &MappedRelation,
-        root: Option<u32>,
-    ) -> Option<(u32, u32)> {
-        let left = mapped_relation_endpoint_node(current, &relation.left, root)?;
-        let right = mapped_relation_endpoint_node(current, &relation.right, root)?;
-        Some((left, right))
-    }
-
-    fn search_quantified(
-        &self,
-        quantified: &MappedQuantifiedQuery,
-        otype: &StringPoolNodeFeatureView<'_>,
-        oslots: &EdgeFeatureView<'_>,
-        sets: Option<&SearchSets<'_>>,
-        limit: Option<usize>,
-    ) -> Result<Vec<Vec<u32>>> {
-        // Universe = candidate nodes of the quantified (root) atom, matching its
-        // own type and feature constraints. Each quantifier block reduces this
-        // set via global set algebra (TF spin.py:_doQuantifier); the reduced
-        // "yarn" is then intersected into the root atom's candidates before the
-        // base join.
-        let root_atom = &quantified.base.atoms[quantified.root_atom_index];
-        let mut yarn: HashSet<u32> = {
-            let constraints = self.load_constraints(root_atom)?;
-            self.search_atom(root_atom, otype, &constraints, sets, None)?
-                .into_iter()
-                .filter_map(|row| row.first().copied())
-                .collect()
-        };
-
-        for block in &quantified.blocks {
-            yarn = self.apply_quantifier_block(
-                &quantified.clean_atom,
-                block,
-                yarn,
-                otype,
-                oslots,
-                sets,
-            )?;
-            if yarn.is_empty() {
-                break;
+        let mut out = HashMap::new();
+        for name in names {
+            let Some(edge) = self.corpus.edge_feature(name)? else {
+                continue;
+            };
+            let mut fwd: HashMap<u32, Vec<u32>> = HashMap::new();
+            let mut bwd: HashMap<u32, Vec<u32>> = HashMap::new();
+            for (source, targets) in edge.items()? {
+                for target in &targets {
+                    bwd.entry(*target).or_default().push(source);
+                }
+                fwd.insert(source, targets);
             }
+            out.insert(name.to_string(), EdgeAdj { fwd, bwd });
         }
-
-        self.search_plan_with_root(
-            &quantified.base,
-            otype,
-            oslots,
-            sets,
-            limit,
-            None,
-            Some((quantified.root_atom_index, &yarn)),
-        )
+        Ok(out)
     }
 
     fn apply_quantifier_block(
@@ -774,12 +906,8 @@ impl<'a> MappedSearch<'a> {
         sets: Option<&SearchSets<'_>>,
         limit: Option<usize>,
     ) -> Result<Vec<Vec<u32>>> {
-        match parse_mapped_query(template)? {
-            MappedQuery::Plan(plan) => self.search_plan(&plan, otype, oslots, sets, limit),
-            MappedQuery::Quantified(quantified) => {
-                self.search_quantified(&quantified, otype, oslots, sets, limit)
-            }
-        }
+        let plan = parse_mapped_plan(template)?;
+        self.search_plan(&plan, otype, oslots, sets, limit)
     }
 
     fn quantifier_subsearch_roots(
@@ -1202,20 +1330,6 @@ impl<'a> MappedSearch<'a> {
             .all(|slot| parent_slots.binary_search(slot).is_ok())
     }
 
-    fn cached_node_slots(
-        &self,
-        slot_cache: &mut HashMap<u32, Vec<u32>>,
-        oslots: &EdgeFeatureView<'_>,
-        otype: &StringPoolNodeFeatureView<'_>,
-        node: u32,
-    ) -> Result<Vec<u32>> {
-        if let Some(slots) = slot_cache.get(&node) {
-            return Ok(slots.clone());
-        }
-        let slots = self.node_slots(oslots, otype, node)?;
-        slot_cache.insert(node, slots.clone());
-        Ok(slots)
-    }
 }
 
 enum MappedNodeFeatureView<'a> {
@@ -1273,14 +1387,18 @@ impl<'a> MappedNodeFeatureView<'a> {
     }
 }
 
-enum MappedQuery {
-    Plan(MappedRelationPlan),
-    Quantified(MappedQuantifiedQuery),
+/// Forward/backward adjacency for an edge feature, used to drive a join from the
+/// (sparse) edge rows rather than verifying it over the candidate cross product.
+struct EdgeAdj {
+    fwd: HashMap<u32, Vec<u32>>,
+    bwd: HashMap<u32, Vec<u32>>,
 }
 
 struct CandidateSet {
     entries: Vec<CandidateEntry>,
     by_first_slot: Vec<usize>,
+    by_last_slot: Vec<usize>,
+    member: HashSet<u32>,
 }
 
 impl CandidateSet {
@@ -1293,64 +1411,127 @@ impl CandidateSet {
                 entries[*index].node,
             )
         });
+        let mut by_last_slot = (0..entries.len()).collect::<Vec<_>>();
+        by_last_slot.sort_by_key(|index| {
+            (
+                entries[*index].last_slot.unwrap_or(u32::MAX),
+                entries[*index].first_slot.unwrap_or(u32::MAX),
+                entries[*index].node,
+            )
+        });
+        let member = entries.iter().map(|entry| entry.node).collect();
         Self {
             entries,
             by_first_slot,
+            by_last_slot,
+            member,
         }
+    }
+
+    fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    fn contains(&self, node: u32) -> bool {
+        self.member.contains(&node)
     }
 
     fn nodes(&self) -> Vec<u32> {
         self.entries.iter().map(|entry| entry.node).collect()
     }
 
-    fn nodes_within_slot_interval(&self, first_slot: u32, last_slot: u32) -> Vec<u32> {
-        let end = self.by_first_slot.partition_point(|index| {
-            self.entries[*index]
-                .first_slot
-                .is_some_and(|candidate_first| candidate_first <= last_slot)
-        });
-        self.by_first_slot[..end]
-            .iter()
-            .filter_map(|index| {
-                let entry = &self.entries[*index];
-                let candidate_first = entry.first_slot?;
-                let candidate_last = entry.last_slot?;
-                (candidate_first >= first_slot && candidate_last <= last_slot).then_some(entry.node)
-            })
-            .collect()
-    }
-
-    /// Like `nodes_within_slot_interval`, but additionally restricts the
-    /// candidate's first slot to `[min_first, max_first]` (inclusive) using the
-    /// `by_first_slot` index.
-    fn nodes_within_slot_interval_windowed(
-        &self,
-        parent_first: u32,
-        parent_last: u32,
-        min_first: u32,
-        max_first: u32,
-    ) -> Vec<u32> {
-        let lo_first = parent_first.max(min_first);
-        let hi_first = parent_last.min(max_first);
-        if lo_first > hi_first {
+    /// Candidates with `first_slot` in `[lo, hi]` (binary search over the
+    /// first-slot index). Entries without a first slot are excluded.
+    fn nodes_with_first_in(&self, lo: u32, hi: u32) -> Vec<u32> {
+        if lo > hi {
             return Vec::new();
         }
         let start = self.by_first_slot.partition_point(|index| {
             self.entries[*index]
                 .first_slot
-                .is_some_and(|candidate_first| candidate_first < lo_first)
+                .is_some_and(|first| first < lo)
         });
         let end = self.by_first_slot.partition_point(|index| {
             self.entries[*index]
                 .first_slot
-                .is_some_and(|candidate_first| candidate_first <= hi_first)
+                .is_some_and(|first| first <= hi)
+        });
+        self.by_first_slot[start..end]
+            .iter()
+            .map(|index| self.entries[*index].node)
+            .collect()
+    }
+
+    /// Candidates with `last_slot` in `[lo, hi]` (binary search over the last-slot
+    /// index). Entries without a last slot are excluded.
+    fn nodes_with_last_in(&self, lo: u32, hi: u32) -> Vec<u32> {
+        if lo > hi {
+            return Vec::new();
+        }
+        let start = self
+            .by_last_slot
+            .partition_point(|index| self.entries[*index].last_slot.is_some_and(|last| last < lo));
+        let end = self
+            .by_last_slot
+            .partition_point(|index| self.entries[*index].last_slot.is_some_and(|last| last <= hi));
+        self.by_last_slot[start..end]
+            .iter()
+            .map(|index| self.entries[*index].node)
+            .collect()
+    }
+
+    /// Candidates contained in `[first_slot, last_slot]` (first >= first_slot and
+    /// last <= last_slot).
+    fn nodes_within_slot_interval(&self, first_slot: u32, last_slot: u32) -> Vec<u32> {
+        let start = self.by_first_slot.partition_point(|index| {
+            self.entries[*index]
+                .first_slot
+                .is_some_and(|first| first < first_slot)
+        });
+        let end = self.by_first_slot.partition_point(|index| {
+            self.entries[*index]
+                .first_slot
+                .is_some_and(|first| first <= last_slot)
         });
         self.by_first_slot[start..end]
             .iter()
             .filter_map(|index| {
                 let entry = &self.entries[*index];
-                let candidate_last = entry.last_slot?;
-                (candidate_last <= parent_last).then_some(entry.node)
+                (entry.last_slot? <= last_slot).then_some(entry.node)
+            })
+            .collect()
+    }
+
+    /// Candidates whose interval contains `[first, last]` (first_slot <= first and
+    /// last_slot >= last).
+    fn nodes_containing(&self, first: u32, last: u32) -> Vec<u32> {
+        let end = self.by_first_slot.partition_point(|index| {
+            self.entries[*index]
+                .first_slot
+                .is_some_and(|candidate_first| candidate_first <= first)
+        });
+        self.by_first_slot[..end]
+            .iter()
+            .filter_map(|index| {
+                let entry = &self.entries[*index];
+                (entry.last_slot? >= last).then_some(entry.node)
+            })
+            .collect()
+    }
+
+    /// Candidates whose interval overlaps `[first, last]` (first_slot <= last and
+    /// last_slot >= first).
+    fn nodes_overlapping(&self, first: u32, last: u32) -> Vec<u32> {
+        let end = self.by_first_slot.partition_point(|index| {
+            self.entries[*index]
+                .first_slot
+                .is_some_and(|candidate_first| candidate_first <= last)
+        });
+        self.by_first_slot[..end]
+            .iter()
+            .filter_map(|index| {
+                let entry = &self.entries[*index];
+                (entry.last_slot? >= first).then_some(entry.node)
             })
             .collect()
     }
@@ -1360,19 +1541,6 @@ struct CandidateEntry {
     node: u32,
     first_slot: Option<u32>,
     last_slot: Option<u32>,
-}
-
-#[derive(Clone)]
-struct MappedQuantifiedQuery {
-    base: MappedRelationPlan,
-    /// Index into `base.atoms` of the quantified atom (TF: the atom immediately
-    /// preceding the quantifier, i.e. the last base atom).
-    root_atom_index: usize,
-    /// The quantified atom as a self-contained, named atom line; quantifier
-    /// sub-templates are prepended with this line so `..` parent references resolve
-    /// to a concrete name in the global sub-searches.
-    clean_atom: String,
-    blocks: Vec<TextQuantifierBlock>,
 }
 
 #[derive(Clone)]
@@ -1480,6 +1648,13 @@ struct SimpleAtom {
     name: Option<String>,
     node_type: String,
     constraints: Vec<SimpleConstraint>,
+    /// Quantifier blocks attached to this atom (TF: an atom's `quantifiers` list).
+    /// Each reduces the atom's candidate yarn via global set algebra before the
+    /// join (TF spin.py:_doQuantifier).
+    quantifiers: Vec<TextQuantifierBlock>,
+    /// `(clean_atom_line, parent_name)` for this atom, used to build quantifier
+    /// sub-search templates. Set only when `quantifiers` is non-empty.
+    clean: Option<(String, String)>,
 }
 
 impl SimpleAtom {
@@ -1518,6 +1693,21 @@ struct SimpleConstraint {
 impl SimpleConstraint {
     fn cache_key(&self) -> String {
         format!("{}{}", self.feature, self.matcher.cache_key())
+    }
+
+    /// Re-serialize as a template token (inverse of `parse_simple_constraint`), used
+    /// to rebuild a host atom's clean line for quantifier sub-searches.
+    fn to_token(&self) -> String {
+        let feature = &self.feature;
+        match &self.matcher {
+            MappedMatcher::Eq(values) => format!("{feature}={}", values.join("|")),
+            MappedMatcher::Ne(values) => format!("{feature}#{}", values.join("|")),
+            MappedMatcher::Regex(regex) => format!("{feature}~{}", regex.as_str()),
+            MappedMatcher::Exists => feature.clone(),
+            MappedMatcher::Missing => format!("{feature}#"),
+            MappedMatcher::Lt(value) => format!("{feature}<{value}"),
+            MappedMatcher::Gt(value) => format!("{feature}>{value}"),
+        }
     }
 
     fn can_seed_candidates(&self) -> bool {
@@ -1577,20 +1767,6 @@ impl MappedMatcher {
 }
 
 
-fn parse_mapped_query(template: &str) -> Result<MappedQuery> {
-    if template.lines().any(|line| {
-        let token = line.trim();
-        matches!(
-            token,
-            "/where/" | "/have/" | "/with/" | "/without/" | "/or/"
-        )
-    }) {
-        return parse_mapped_quantified_query(template).map(MappedQuery::Quantified);
-    }
-
-    parse_mapped_plan(template).map(MappedQuery::Plan)
-}
-
 fn parse_mapped_plan(template: &str) -> Result<MappedRelationPlan> {
     let mut atoms: Vec<SimpleAtom> = Vec::new();
     let mut names: HashMap<String, usize> = HashMap::new();
@@ -1603,97 +1779,163 @@ fn parse_mapped_plan(template: &str) -> Result<MappedRelationPlan> {
     // illegal "lonely" relations.
     let mut atom_stack: std::collections::BTreeMap<usize, usize> = std::collections::BTreeMap::new();
 
-    for line in template
-        .lines()
-        .filter(|line| !line.trim().is_empty() && !line.trim_start().starts_with('%'))
-    {
+    // Index-based iteration so quantifier blocks can be consumed wholesale and
+    // attached to the most recently seen atom (TF: an atom's `quantifiers` list).
+    let all_lines: Vec<&str> = template.lines().collect();
+    let mut li = 0usize;
+    while li < all_lines.len() {
+        let line = all_lines[li];
         let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('%') {
+            li += 1;
+            continue;
+        }
         let indent = line.chars().take_while(|ch| ch.is_whitespace()).count();
+
+        // 0. Quantifier-init line: collect the whole block and attach it to the
+        //    most recently created atom (its host).
+        if is_quantifier_init_token(trimmed) {
+            let (block, next) = collect_quantifier_block(&all_lines, li, indent)?;
+            let host = atoms
+                .len()
+                .checked_sub(1)
+                .ok_or_else(|| CfError::InvalidQuery("quantifier without host atom".to_string()))?;
+            let (clean, parent_name) = clean_host_atom(&atoms[host]);
+            let block = TextQuantifierBlock {
+                kind: block.kind,
+                alternatives: block
+                    .alternatives
+                    .iter()
+                    .map(|t| substitute_parent_ref(t, &parent_name))
+                    .collect(),
+                consequents: block
+                    .consequents
+                    .iter()
+                    .map(|t| substitute_parent_ref(t, &parent_name))
+                    .collect(),
+            };
+            atoms[host].clean = Some((clean, parent_name));
+            atoms[host].quantifiers.push(block);
+            li = next;
+            continue;
+        }
+
         let parts = split_query_whitespace(trimmed);
 
-        // 1. Explicit relation line: `left OP right`.
-        if parts.len() == 3 {
-            if let Some(operator) = parse_mapped_relation_operator(&parts[1]) {
-                pending_relations.push(PendingMappedRelation {
-                    left: parts[0].clone(),
-                    operator,
-                    right: parts[2].clone(),
-                });
-                continue;
-            }
-        }
-
-        // 2. Lines whose first token is a relation operator: either a lonely
-        //    operator (single token) or an operator-prefixed atom. This is
-        //    detected BEFORE the feature-continuation branch so that lines such as
-        //    `:= word` are parsed as atoms rather than mis-read as constraints.
-        if let Some(first) = parts.first() {
-            if let Some(operator) = parse_mapped_atom_operator(first) {
-                if parts.len() == 1 {
-                    handle_lonely_operator(
-                        indent,
+        'line: {
+            // 1. Explicit relation line: `left OP right`.
+            if parts.len() == 3 {
+                if let Some(operator) = parse_mapped_relation_operator(&parts[1]) {
+                    pending_relations.push(PendingMappedRelation {
+                        left: parts[0].clone(),
                         operator,
-                        &atom_stack,
+                        right: parts[2].clone(),
+                    });
+                    break 'line;
+                }
+            }
+
+            // 2. Lines whose first token is a relation operator: either a lonely
+            //    operator (single token) or an operator-prefixed atom or an
+            //    operator-prefixed reference to an existing atom (`&& parent`).
+            if let Some(first) = parts.first() {
+                if let Some(operator) = parse_mapped_atom_operator(first) {
+                    if parts.len() == 1 {
+                        handle_lonely_operator(
+                            indent,
+                            operator,
+                            &atom_stack,
+                            &mut direct_relations,
+                        )?;
+                        break 'line;
+                    }
+                    // Operator-prefixed reference: `OP name` where `name` is an
+                    // already-defined atom (or a parent ref substituted to one).
+                    // TF treats this as an operator edge to the referenced node
+                    // without creating a new column.
+                    if parts.len() == 2 && !parts[1].contains(':') {
+                        if let Some(target) = names.get(&parts[1]).copied() {
+                            let other = sibling_or_parent(indent, &atom_stack)?;
+                            direct_relations.push(MappedRelation {
+                                left: MappedRelationEndpoint::Atom(other),
+                                operator,
+                                right: MappedRelationEndpoint::Atom(target),
+                            });
+                            break 'line;
+                        }
+                    }
+                    let atom = parse_simple_atom(line, indent, true)?;
+                    let q = atoms.len();
+                    if let Some(name) = &atom.name {
+                        names.insert(name.clone(), q);
+                    }
+                    atoms.push(atom);
+                    register_atom(
+                        indent,
+                        Some(operator),
+                        q,
+                        &mut atom_stack,
                         &mut direct_relations,
                     )?;
-                    continue;
-                }
-                let atom = parse_simple_atom(line, indent, true)?;
-                let q = atoms.len();
-                if let Some(name) = &atom.name {
-                    names.insert(name.clone(), q);
-                }
-                atoms.push(atom);
-                register_atom(indent, Some(operator), q, &mut atom_stack, &mut direct_relations)?;
-                continue;
-            }
-        }
-
-        // 3. Reference to a previously named atom (adds constraints + an equality).
-        if let Some(first) = parts.first() {
-            if !first.contains(':') {
-                if let Some(atom_index) = names.get(first).copied() {
-                    let constraints = parts[1..]
-                        .iter()
-                        .map(|part| parse_simple_constraint(part))
-                        .collect::<Result<Vec<_>>>()?;
-                    let node_type = atoms[atom_index].node_type.clone();
-                    let reference_index = atoms.len();
-                    atoms.push(SimpleAtom {
-                        indent,
-                        name: None,
-                        node_type,
-                        constraints,
-                    });
-                    pending_relations.push(PendingMappedRelation {
-                        left: format!("\0ref{reference_index}"),
-                        operator: MappedRelationOperator::Equal,
-                        right: first.clone(),
-                    });
-                    names.insert(format!("\0ref{reference_index}"), reference_index);
-                    register_atom(indent, None, reference_index, &mut atom_stack, &mut direct_relations)?;
-                    continue;
+                    break 'line;
                 }
             }
-        }
 
-        // 4. Feature-continuation line (every token is an explicit constraint).
-        if !atoms.is_empty() {
-            if let Some(constraints) = parse_mapped_feature_continuation_line(trimmed)? {
-                let last_index = atoms.len() - 1;
-                atoms[last_index].constraints.extend(constraints);
-                continue;
+            // 3. Reference to a previously named atom (adds constraints + an equality).
+            if let Some(first) = parts.first() {
+                if !first.contains(':') {
+                    if let Some(atom_index) = names.get(first).copied() {
+                        let constraints = parts[1..]
+                            .iter()
+                            .map(|part| parse_simple_constraint(part))
+                            .collect::<Result<Vec<_>>>()?;
+                        let node_type = atoms[atom_index].node_type.clone();
+                        let reference_index = atoms.len();
+                        atoms.push(SimpleAtom {
+                            indent,
+                            name: None,
+                            node_type,
+                            constraints,
+                            quantifiers: Vec::new(),
+                            clean: None,
+                        });
+                        pending_relations.push(PendingMappedRelation {
+                            left: format!("\0ref{reference_index}"),
+                            operator: MappedRelationOperator::Equal,
+                            right: first.clone(),
+                        });
+                        names.insert(format!("\0ref{reference_index}"), reference_index);
+                        register_atom(
+                            indent,
+                            None,
+                            reference_index,
+                            &mut atom_stack,
+                            &mut direct_relations,
+                        )?;
+                        break 'line;
+                    }
+                }
             }
-        }
 
-        // 5. Plain atom line.
-        let atom = parse_simple_atom(line, indent, false)?;
-        let q = atoms.len();
-        if let Some(name) = &atom.name {
-            names.insert(name.clone(), q);
+            // 4. Feature-continuation line (every token is an explicit constraint).
+            if !atoms.is_empty() {
+                if let Some(constraints) = parse_mapped_feature_continuation_line(trimmed)? {
+                    let last_index = atoms.len() - 1;
+                    atoms[last_index].constraints.extend(constraints);
+                    break 'line;
+                }
+            }
+
+            // 5. Plain atom line.
+            let atom = parse_simple_atom(line, indent, false)?;
+            let q = atoms.len();
+            if let Some(name) = &atom.name {
+                names.insert(name.clone(), q);
+            }
+            atoms.push(atom);
+            register_atom(indent, None, q, &mut atom_stack, &mut direct_relations)?;
         }
-        atoms.push(atom);
-        register_atom(indent, None, q, &mut atom_stack, &mut direct_relations)?;
+        li += 1;
     }
 
     if atoms.is_empty() {
@@ -1799,30 +2041,6 @@ fn mapped_relation_endpoint(
         .ok_or_else(|| CfError::InvalidQuery(format!("unknown mapped relation atom {endpoint:?}")))
 }
 
-/// Compute, per atom, whether its candidate set needs precomputed slot intervals.
-/// Indented atoms always do (for embedding pruning); additionally, the right
-/// operand of a first-slot windowing relation needs them for the binary-search
-/// narrowing in `first_slot_window`.
-fn atoms_needing_intervals(plan: &MappedRelationPlan) -> Vec<bool> {
-    let mut needs: Vec<bool> = plan.atoms.iter().map(|atom| atom.indent > 0).collect();
-    for relation in &plan.relations {
-        if !matches!(
-            relation.operator,
-            MappedRelationOperator::AdjacentBefore
-                | MappedRelationOperator::SlotBefore
-                | MappedRelationOperator::NearBefore(_)
-        ) {
-            continue;
-        }
-        if let MappedRelationEndpoint::Atom(right) = relation.right {
-            if right < needs.len() {
-                needs[right] = true;
-            }
-        }
-    }
-    needs
-}
-
 fn nearest_bound_parent_index(atoms: &[SimpleAtom], index: usize) -> Option<usize> {
     let indent = atoms[index].indent;
     if indent == 0 {
@@ -1833,88 +2051,268 @@ fn nearest_bound_parent_index(atoms: &[SimpleAtom], index: usize) -> Option<usiz
         .find(|previous| atoms[*previous].indent < indent)
 }
 
-fn mapped_relation_endpoint_node(
-    current: &[u32],
+fn endpoint_node(
     endpoint: &MappedRelationEndpoint,
+    bound: &[Option<u32>],
     root: Option<u32>,
 ) -> Option<u32> {
     match endpoint {
-        MappedRelationEndpoint::Atom(index) => current.get(*index).copied(),
+        MappedRelationEndpoint::Atom(index) => bound[*index],
         MappedRelationEndpoint::Parent => root,
     }
 }
 
-fn parse_mapped_quantified_query(template: &str) -> Result<MappedQuantifiedQuery> {
-    let parsed = parse_quantified_template(template)?;
-    let base = parse_mapped_plan(&parsed.base)?;
-    if base.atoms.is_empty() {
-        return Err(CfError::InvalidQuery(
-            "mapped quantified search requires at least one base atom".to_string(),
-        ));
-    }
-    let (clean_atom, parent_name) = clean_quantified_atom(&parsed.base)?;
-    let mut blocks = Vec::new();
-    for block in parsed.blocks {
-        let alternatives = block
-            .alternatives
-            .iter()
-            .map(|alternative| substitute_parent_ref(alternative, &parent_name))
-            .collect::<Vec<_>>();
-        let consequents = block
-            .consequents
-            .iter()
-            .map(|consequent| substitute_parent_ref(consequent, &parent_name))
-            .collect::<Vec<_>>();
-        blocks.push(TextQuantifierBlock {
-            kind: block.kind,
-            alternatives,
-            consequents,
-        });
-    }
-    Ok(MappedQuantifiedQuery {
-        root_atom_index: base.atoms.len() - 1,
-        base,
-        clean_atom,
-        blocks,
-    })
+/// Whether a relation operator can generate candidates (drive) given one bound
+/// endpoint. Pure verification operators (`#`, `##`, `||`, `<`, `>`, feature
+/// comparisons) cannot.
+fn operator_can_drive(operator: &MappedRelationOperator) -> bool {
+    !matches!(
+        operator,
+        MappedRelationOperator::NotEqual
+            | MappedRelationOperator::DifferentSlots
+            | MappedRelationOperator::Disjoint
+            | MappedRelationOperator::Before
+            | MappedRelationOperator::After
+            | MappedRelationOperator::FeatureCompare { .. }
+            | MappedRelationOperator::FeatureRegexCompare { .. }
+    )
 }
 
-/// Derive the quantified atom line from the base template (TF: the atom
-/// immediately preceding the quantifier, i.e. the last base atom), ensuring it has
-/// a name so `..` parent references can be rewritten to it. Returns the rewritten
-/// atom line and the parent name.
-fn clean_quantified_atom(base: &str) -> Result<(String, String)> {
-    let mut last_atom: Option<(String, String)> = None;
-    for line in base.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.starts_with('%') {
+fn add1(value: u32) -> Option<u32> {
+    value.checked_add(1)
+}
+
+fn sub1(value: u32) -> Option<u32> {
+    value.checked_sub(1)
+}
+
+/// Clamp `target - k` to a valid `u32` lower bound (≥ 0).
+fn clamp_lo(target: i64, k: u32) -> u32 {
+    (target - i64::from(k)).max(0) as u32
+}
+
+/// Clamp `target + k` to a valid `u32` upper bound.
+fn clamp_hi(target: i64, k: u32) -> u32 {
+    (target + i64::from(k)).clamp(0, i64::from(u32::MAX)) as u32
+}
+
+/// Whether `i` can be driven from the already-placed atoms (or the bound parent
+/// reference). Used by the greedy ordering so every non-seed atom is reachable.
+fn is_atom_connected(
+    i: usize,
+    placed: &[bool],
+    plan: &MappedRelationPlan,
+    embeds: &[Option<usize>],
+    root: Option<u32>,
+) -> bool {
+    if let Some(parent) = embeds[i] {
+        if placed[parent] {
+            return true;
+        }
+    }
+    for (child, child_parent) in embeds.iter().enumerate() {
+        if *child_parent == Some(i) && placed[child] {
+            return true;
+        }
+    }
+    for relation in &plan.relations {
+        if !operator_can_drive(&relation.operator) {
             continue;
         }
-        let parts = split_query_whitespace(trimmed);
-        // Skip relation lines and operator-led lines; they are not atom heads.
-        if parts.len() == 3 && parse_mapped_relation_operator(&parts[1]).is_some() {
-            continue;
-        }
-        let Some(first) = parts.first() else {
+        let other = if matches!(relation.left, MappedRelationEndpoint::Atom(a) if a == i) {
+            &relation.right
+        } else if matches!(relation.right, MappedRelationEndpoint::Atom(a) if a == i) {
+            &relation.left
+        } else {
             continue;
         };
-        if parse_mapped_atom_operator(first).is_some() {
+        match other {
+            MappedRelationEndpoint::Atom(o) if placed[*o] => return true,
+            MappedRelationEndpoint::Parent if root.is_some() => return true,
+            _ => {}
+        }
+    }
+    false
+}
+
+/// Greedy connectivity-based evaluation order: repeatedly place the smallest
+/// candidate set among atoms reachable from the placed set; fall back to the
+/// smallest remaining set as a new seed (disconnected components).
+fn compute_join_order(
+    plan: &MappedRelationPlan,
+    candidates: &[CandidateSet],
+    embeds: &[Option<usize>],
+    root: Option<u32>,
+) -> Vec<usize> {
+    let n = plan.atoms.len();
+    let sizes: Vec<usize> = candidates.iter().map(CandidateSet::len).collect();
+    let mut placed = vec![false; n];
+    let mut order = Vec::with_capacity(n);
+    for _ in 0..n {
+        let mut best: Option<usize> = None;
+        for i in 0..n {
+            if placed[i] || !is_atom_connected(i, &placed, plan, embeds, root) {
+                continue;
+            }
+            best = Some(match best {
+                Some(b) if sizes[b] <= sizes[i] => b,
+                _ => i,
+            });
+        }
+        let pick = best.unwrap_or_else(|| {
+            (0..n)
+                .filter(|i| !placed[*i])
+                .min_by_key(|i| sizes[*i])
+                .expect("an unplaced atom remains")
+        });
+        placed[pick] = true;
+        order.push(pick);
+    }
+    order
+}
+
+const PARENT_NAME: &str = "__cf_parent__";
+
+fn is_quantifier_init_token(token: &str) -> bool {
+    matches!(token, "/where/" | "/with/" | "/without/")
+}
+
+/// A clean, named atom line for `atom` (TF cleanParent), plus the name that `..`
+/// parent references inside its quantifier blocks resolve to.
+fn clean_host_atom(atom: &SimpleAtom) -> (String, String) {
+    let parent_name = atom
+        .name
+        .clone()
+        .unwrap_or_else(|| PARENT_NAME.to_string());
+    let mut line = format!("{parent_name}:{}", atom.node_type);
+    for constraint in &atom.constraints {
+        line.push(' ');
+        line.push_str(&constraint.to_token());
+    }
+    (line, parent_name)
+}
+
+/// Left operand of an operator-prefixed line: the previous sibling at this indent,
+/// else the nearest enclosing parent (TF semantics.py).
+fn sibling_or_parent(
+    indent: usize,
+    atom_stack: &std::collections::BTreeMap<usize, usize>,
+) -> Result<usize> {
+    atom_stack
+        .get(&indent)
+        .copied()
+        .or_else(|| atom_stack.range(..indent).next_back().map(|(_, idx)| *idx))
+        .ok_or_else(|| {
+            CfError::InvalidQuery("Lonely relation: not allowed at outermost level".to_string())
+        })
+}
+
+/// Read a quantifier block starting at `lines[start]` (the keyword) until its
+/// matching `/-/`, stripping `kw_indent` leading spaces from body lines (TF strips
+/// by the outermost quantifier keyword's indent). Returns the parsed block and the
+/// index just past the terminator.
+fn collect_quantifier_block(
+    lines: &[&str],
+    start: usize,
+    kw_indent: usize,
+) -> Result<(ParsedQuantifierBlock, usize)> {
+    let kind = match lines[start].trim() {
+        "/where/" => MappedQuantifierKind::Where,
+        "/without/" => MappedQuantifierKind::Without,
+        _ => MappedQuantifierKind::With,
+    };
+    let mut alternatives: Vec<String> = Vec::new();
+    let mut consequents: Vec<String> = Vec::new();
+    let mut cur: Vec<String> = Vec::new();
+    let mut collecting_consequents = false;
+    let mut depth = 0usize;
+    let mut i = start + 1;
+    while i < lines.len() {
+        let token = lines[i].trim();
+        if depth == 0 {
+            if token == "/-/" {
+                push_block_alternative(
+                    if collecting_consequents {
+                        &mut consequents
+                    } else {
+                        &mut alternatives
+                    },
+                    &cur,
+                );
+                if matches!(kind, MappedQuantifierKind::Where)
+                    && (alternatives.is_empty() || consequents.is_empty())
+                {
+                    return Err(CfError::InvalidQuery(
+                        "/where/ requires antecedent and /have/ consequent templates".to_string(),
+                    ));
+                }
+                return Ok((
+                    ParsedQuantifierBlock {
+                        kind,
+                        alternatives,
+                        consequents,
+                    },
+                    i + 1,
+                ));
+            }
+            if token == "/have/" {
+                push_block_alternative(
+                    if collecting_consequents {
+                        &mut consequents
+                    } else {
+                        &mut alternatives
+                    },
+                    &cur,
+                );
+                cur.clear();
+                collecting_consequents = true;
+                i += 1;
+                continue;
+            }
+            if token == "/or/" {
+                push_block_alternative(
+                    if collecting_consequents {
+                        &mut consequents
+                    } else {
+                        &mut alternatives
+                    },
+                    &cur,
+                );
+                cur.clear();
+                i += 1;
+                continue;
+            }
+            if is_quantifier_init_token(token) {
+                depth += 1;
+            }
+            cur.push(strip_indent(lines[i], kw_indent));
+            i += 1;
             continue;
         }
-        last_atom = Some(if let Some((name, _)) = first.split_once(':') {
-            (trimmed.to_string(), name.to_string())
-        } else {
-            let parent_name = "__cf_parent__".to_string();
-            let mut rewritten = parts.clone();
-            rewritten[0] = format!("{parent_name}:{first}");
-            (rewritten.join(" "), parent_name)
-        });
+        // Inside a nested quantifier: pass lines through verbatim (stripped by the
+        // outer keyword indent) and track nesting.
+        if is_quantifier_init_token(token) {
+            depth += 1;
+        } else if token == "/-/" {
+            depth -= 1;
+        }
+        cur.push(strip_indent(lines[i], kw_indent));
+        i += 1;
     }
-    last_atom.ok_or_else(|| {
-        CfError::InvalidQuery(
-            "mapped quantified search requires at least one base atom".to_string(),
-        )
-    })
+    Err(CfError::InvalidQuery(
+        "unterminated mapped quantified block".to_string(),
+    ))
+}
+
+fn push_block_alternative(target: &mut Vec<String>, lines: &[String]) {
+    if lines.iter().any(|line| !line.trim().is_empty()) {
+        target.push(lines.join("\n"));
+    }
+}
+
+fn strip_indent(line: &str, n: usize) -> String {
+    let lead = line.chars().take_while(|ch| ch.is_whitespace()).count();
+    line.chars().skip(lead.min(n)).collect()
 }
 
 /// Replace standalone `..` parent-reference tokens with `parent_name`, but only at
@@ -1959,164 +2357,24 @@ fn substitute_parent_ref(template: &str, parent_name: &str) -> String {
     out.join("\n")
 }
 
-/// Combine the clean root-atom line with a quantifier sub-template by indenting the
-/// sub-template two spaces so its atoms become children of the root atom.
+/// Combine the clean host-atom line (at indent 0) with a quantifier sub-template,
+/// preserving the sub-template's keyword-relative indentation (TF joins cleanAtom +
+/// quTemplates without re-indenting).
 fn combine_quantifier_subtemplate(clean_atom: &str, sub: &str) -> String {
     let mut lines = vec![clean_atom.to_string()];
     for line in sub.lines() {
         if line.trim().is_empty() {
             continue;
         }
-        lines.push(format!("  {line}"));
+        lines.push(line.to_string());
     }
     lines.join("\n")
-}
-
-struct ParsedQuantifiedTemplate {
-    base: String,
-    blocks: Vec<ParsedQuantifierBlock>,
 }
 
 struct ParsedQuantifierBlock {
     kind: MappedQuantifierKind,
     alternatives: Vec<String>,
     consequents: Vec<String>,
-}
-
-fn parse_quantified_template(template: &str) -> Result<ParsedQuantifiedTemplate> {
-    let mut base_lines = Vec::new();
-    let mut blocks = Vec::new();
-    let mut current_kind: Option<MappedQuantifierKind> = None;
-    let mut current_lines = Vec::new();
-    let mut current_alternatives = Vec::new();
-    let mut current_consequents = Vec::new();
-    let mut collecting_consequents = false;
-    let mut nested_depth = 0usize;
-
-    for line in template.lines() {
-        let token = line.trim();
-        match token {
-            "/where/" | "/with/" | "/without/" => {
-                if current_kind.is_some() {
-                    nested_depth += 1;
-                    current_lines.push(line.to_string());
-                    continue;
-                }
-                current_kind = Some(match token {
-                    "/where/" => MappedQuantifierKind::Where,
-                    "/without/" => MappedQuantifierKind::Without,
-                    _ => MappedQuantifierKind::With,
-                });
-                collecting_consequents = false;
-            }
-            "/have/" => {
-                if nested_depth > 0 {
-                    current_lines.push(line.to_string());
-                    continue;
-                }
-                let Some(kind) = current_kind else {
-                    return Err(CfError::InvalidQuery(
-                        "mapped quantifier continuation without quantifier".to_string(),
-                    ));
-                };
-                if !matches!(
-                    kind,
-                    MappedQuantifierKind::With | MappedQuantifierKind::Where
-                ) {
-                    return Err(CfError::InvalidQuery(
-                        "/have/ is only supported after /where/ or /with/".to_string(),
-                    ));
-                }
-                if matches!(kind, MappedQuantifierKind::Where) {
-                    push_quantifier_alternative(&mut current_alternatives, &current_lines);
-                    current_lines.clear();
-                    collecting_consequents = true;
-                } else {
-                    push_quantifier_alternative(&mut current_alternatives, &current_lines);
-                    blocks.push(ParsedQuantifierBlock {
-                        kind,
-                        alternatives: std::mem::take(&mut current_alternatives),
-                        consequents: Vec::new(),
-                    });
-                    current_lines.clear();
-                    current_kind = Some(MappedQuantifierKind::With);
-                }
-            }
-            "/or/" => {
-                if nested_depth > 0 {
-                    current_lines.push(line.to_string());
-                    continue;
-                }
-                if current_kind.is_none() {
-                    return Err(CfError::InvalidQuery(
-                        "mapped quantifier alternative without quantifier".to_string(),
-                    ));
-                }
-                if collecting_consequents {
-                    push_quantifier_alternative(&mut current_consequents, &current_lines);
-                } else {
-                    push_quantifier_alternative(&mut current_alternatives, &current_lines);
-                }
-                current_lines.clear();
-            }
-            "/-/" => {
-                if nested_depth > 0 {
-                    nested_depth -= 1;
-                    current_lines.push(line.to_string());
-                    continue;
-                }
-                let Some(kind) = current_kind.take() else {
-                    return Err(CfError::InvalidQuery(
-                        "mapped quantifier terminator without quantifier".to_string(),
-                    ));
-                };
-                if collecting_consequents {
-                    push_quantifier_alternative(&mut current_consequents, &current_lines);
-                } else {
-                    push_quantifier_alternative(&mut current_alternatives, &current_lines);
-                }
-                if matches!(kind, MappedQuantifierKind::Where)
-                    && (current_alternatives.is_empty() || current_consequents.is_empty())
-                {
-                    return Err(CfError::InvalidQuery(
-                        "/where/ requires antecedent and /have/ consequent templates".to_string(),
-                    ));
-                }
-                blocks.push(ParsedQuantifierBlock {
-                    kind,
-                    alternatives: std::mem::take(&mut current_alternatives),
-                    consequents: std::mem::take(&mut current_consequents),
-                });
-                current_lines.clear();
-                collecting_consequents = false;
-            }
-            _ => {
-                if current_kind.is_some() {
-                    current_lines.push(line.to_string());
-                } else {
-                    base_lines.push(line.to_string());
-                }
-            }
-        }
-    }
-
-    if current_kind.is_some() || nested_depth > 0 {
-        return Err(CfError::InvalidQuery(
-            "unterminated mapped quantified block".to_string(),
-        ));
-    }
-    Ok(ParsedQuantifiedTemplate {
-        base: base_lines.join("\n"),
-        blocks,
-    })
-}
-
-fn push_quantifier_alternative(alternatives: &mut Vec<String>, lines: &[String]) {
-    if lines.iter().any(|line| !line.trim().is_empty()) {
-        alternatives.push(normalize_parent_reference_relations(
-            &normalize_indentation(lines),
-        ));
-    }
 }
 
 fn combine_quantifier_templates(first: &str, second: &str) -> String {
@@ -2126,41 +2384,6 @@ fn combine_quantifier_templates(first: &str, second: &str) -> String {
         (false, true) => first.to_string(),
         (false, false) => format!("{first}\n{second}"),
     }
-}
-
-fn normalize_parent_reference_relations(template: &str) -> String {
-    template
-        .lines()
-        .filter(|line| !is_redundant_parent_containment_relation(line.trim()))
-        .map(str::to_string)
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-fn is_redundant_parent_containment_relation(line: &str) -> bool {
-    let parts = split_query_whitespace(line);
-    (parts.len() == 3 && parts[0] == ".." && parts[1] == "[[")
-        || (parts.len() == 3 && parts[1] == "]]" && parts[2] == "..")
-}
-
-fn normalize_indentation(lines: &[String]) -> String {
-    let min_indent = lines
-        .iter()
-        .filter(|line| !line.trim().is_empty())
-        .map(|line| line.chars().take_while(|ch| ch.is_whitespace()).count())
-        .min()
-        .unwrap_or(0);
-    lines
-        .iter()
-        .map(|line| {
-            if line.len() >= min_indent {
-                line[min_indent..].to_string()
-            } else {
-                line.to_string()
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 fn parse_simple_atom(line: &str, indent: usize, skip_operator: bool) -> Result<SimpleAtom> {
@@ -2195,6 +2418,8 @@ fn parse_simple_atom(line: &str, indent: usize, skip_operator: bool) -> Result<S
         name,
         node_type,
         constraints,
+        quantifiers: Vec::new(),
+        clean: None,
     })
 }
 
