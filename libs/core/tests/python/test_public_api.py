@@ -87,10 +87,13 @@ def test_text_fabric_compatibility_surface(mini_corpus_path, loaded_api):
     assert loaded_api.N.walk(events=True) == loaded_api.N.walk()
     assert loaded_api.T.sectionFeats == loaded_api.T.sectionFeatures
     assert loaded_api.T.sectionTuple(1) == loaded_api.T.sectionFromNode(1)
-    assert isinstance(loaded_api.T.formats, tuple)
+    assert loaded_api.T.formats == {"text-orig-full": "word"}
     assert isinstance(loaded_api.T.structureTypes, tuple)
     assert isinstance(loaded_api.T.structureFeats, tuple)
-    assert loaded_api.T.languages == ("en",)
+    assert loaded_api.T.languages == {
+        "": {"language": "default", "languageEnglish": "default"}
+    }
+    assert loaded_api.T.structureInfo() == "No structural elements configured"
     assert loaded_api.T.up(1) == loaded_api.L.u(1)
     assert loaded_api.T.down(8) == loaded_api.L.d(8)
 

@@ -371,6 +371,154 @@ impl<'a> MappedText<'a> {
         }
         Ok(String::new())
     }
+
+    /// `T.formats` — the map from each configured text format name to its
+    /// descend (target) node type, mirroring text-fabric's `T.formats`
+    /// (`tf/core/text.py:_compileFormats`, `formats[fmt] = descendType`).
+    ///
+    /// Format names come from the `fmt:<name>` keys of the `otext` config; the
+    /// descend type is `splitFormat(tpl)[0]` (the node-type prefix before `#`,
+    /// defaulting to the slot type).
+    pub fn formats(&self) -> Result<BTreeMap<String, String>> {
+        let Some(otext) = self.corpus.config_feature("otext")? else {
+            return Ok(BTreeMap::new());
+        };
+        let mut formats = BTreeMap::new();
+        for row in otext.items() {
+            let (key, value) = row?;
+            let Some(format_name) = key.strip_prefix("fmt:") else {
+                continue;
+            };
+            let spec = value.unwrap_or("");
+            let (descend_type, _tpl) = self.split_format(spec)?;
+            formats.insert(format_name.to_string(), descend_type);
+        }
+        Ok(formats)
+    }
+
+    /// `T.languages` — the map from language code to its
+    /// `{language, languageEnglish}` metadata, mirroring text-fabric
+    /// (`tf/core/text.py:432-444`).
+    ///
+    /// The relevant features are the first section feature (e.g. `book`) and all
+    /// its language variants (`book@<code>`); the code is each feature's
+    /// `languageCode` metadata (empty string for the base feature), and the two
+    /// inner values default to `"default"` when absent.
+    pub fn languages(&self) -> Result<BTreeMap<String, BTreeMap<String, String>>> {
+        let mut languages = BTreeMap::new();
+        let Some(otext) = self.corpus.config_feature("otext")? else {
+            return Ok(languages);
+        };
+        let section_feats = otext.get("sectionFeatures")?.flatten().unwrap_or("");
+        let section_types = otext.get("sectionTypes")?.flatten().unwrap_or("");
+        let first_section_feat = section_feats
+            .split(',')
+            .map(str::trim)
+            .find(|item| !item.is_empty());
+        // TF only populates languages when both sectionFeatures and
+        // sectionTypes are configured.
+        let (Some(base), false) = (
+            first_section_feat,
+            section_types.split(',').all(|item| item.trim().is_empty()),
+        ) else {
+            return Ok(languages);
+        };
+        let prefix = format!("{base}@");
+        for name in self.corpus.all_node_features(true) {
+            if name != base && !name.starts_with(&prefix) {
+                continue;
+            }
+            let Some(view) = self.corpus.node_feature(&name)? else {
+                continue;
+            };
+            let code = view.metadata_value("languageCode").unwrap_or("").to_string();
+            let mut info = BTreeMap::new();
+            for key in ["language", "languageEnglish"] {
+                info.insert(
+                    key.to_string(),
+                    view.metadata_value(key).unwrap_or("default").to_string(),
+                );
+            }
+            languages.insert(code, info);
+        }
+        Ok(languages)
+    }
+
+    /// `T.structureInfo()` — a human-readable summary of how structure is
+    /// configured, mirroring text-fabric's `T.structureInfo` (`tf/core/text.py:655`),
+    /// backed by `structure_data()`.
+    ///
+    /// TF prints this summary and returns `None`; here we return the formatted
+    /// string so callers can print it (or assert on it). When no structure is
+    /// configured we return TF's "No structural elements configured" line.
+    pub fn structure_info(&self) -> Result<String> {
+        let Some(data) = self.corpus.structure_data()? else {
+            return Ok("No structural elements configured".to_string());
+        };
+        let headings = self.structure_headings()?;
+        let n_structure = data.heading_from_node.len();
+        let mut out = String::new();
+        out.push_str("A heading is a tuple of pairs (node type, feature value)\n");
+        out.push_str(
+            "\tof node types and features that have been configured as structural elements\n",
+        );
+        out.push_str(&format!(
+            "These {} structural elements have been configured\n",
+            headings.len()
+        ));
+        for (node_type, feature) in &headings {
+            out.push_str(&format!(
+                "\tnode type {node_type:<10} with heading feature {feature}\n"
+            ));
+        }
+        out.push_str("You can get them as a tuple with T.headings.\n");
+        out.push_str(&format!(
+            "\nThere are {n_structure} structural elements in the dataset.\n"
+        ));
+        if !data.multiple.is_empty() {
+            let n_multiple = data.multiple.len();
+            let t_multiple: usize = data.multiple.values().map(Vec::len).sum();
+            out.push_str(&format!(
+                "WARNING: {n_multiple} structure headings with hdMult occurrences (total {t_multiple})\n"
+            ));
+            for (key, nodes) in data.multiple.iter().take(10) {
+                let key_rep = key
+                    .iter()
+                    .map(|part| format!("{}:{}", part.node_type, part.heading))
+                    .collect::<Vec<_>>()
+                    .join("-");
+                let n_nodes = nodes.len();
+                out.push_str(&format!("\t{key_rep} has {n_nodes} occurrences\n"));
+                let sample = nodes
+                    .iter()
+                    .take(5)
+                    .map(u32::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                out.push_str(&format!("\t\t{sample}\n"));
+                if n_nodes > 5 {
+                    out.push_str(&format!("\t\tand {} more\n", n_nodes - 5));
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    fn structure_headings(&self) -> Result<Vec<(String, String)>> {
+        let Some(otext) = self.corpus.config_feature("otext")? else {
+            return Ok(Vec::new());
+        };
+        let parse = |raw: &str| -> Vec<String> {
+            raw.split(',')
+                .map(str::trim)
+                .filter(|item| !item.is_empty())
+                .map(str::to_string)
+                .collect()
+        };
+        let types = parse(otext.get("structureTypes")?.flatten().unwrap_or(""));
+        let feats = parse(otext.get("structureFeatures")?.flatten().unwrap_or(""));
+        Ok(types.into_iter().zip(feats).collect())
+    }
 }
 
 fn mapped_value_to_string(value: Option<MappedNodeValue<'_>>) -> String {

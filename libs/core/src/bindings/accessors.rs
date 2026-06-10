@@ -429,9 +429,8 @@ impl PyText {
     }
 
     #[getter]
-    fn formats(&self, py: Python<'_>) -> PyResult<PyObject> {
-        let formats = Vec::<String>::new();
-        Ok(PyTuple::new(py, formats)?.into())
+    fn formats(&self) -> PyResult<std::collections::BTreeMap<String, String>> {
+        Ok(MappedText::new(&self.corpus)?.formats()?)
     }
 
     #[getter]
@@ -455,8 +454,16 @@ impl PyText {
     }
 
     #[getter]
-    fn languages(&self, py: Python<'_>) -> PyResult<PyObject> {
-        Ok(PyTuple::new(py, ["en"])?.into())
+    fn languages(
+        &self,
+    ) -> PyResult<std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>>
+    {
+        Ok(MappedText::new(&self.corpus)?.languages()?)
+    }
+
+    #[allow(non_snake_case)]
+    fn structureInfo(&self) -> PyResult<String> {
+        Ok(MappedText::new(&self.corpus)?.structure_info()?)
     }
 
     #[getter]
