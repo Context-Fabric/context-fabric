@@ -20,7 +20,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "context-fabric>=0.6.0",
+    "context-fabric>=0.6.0rc1",
     "text-fabric>=12.0",
     "pydantic>=2.0",
     "click>=8.0",
