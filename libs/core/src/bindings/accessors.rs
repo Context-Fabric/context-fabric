@@ -1,5 +1,5 @@
 use std::collections::{BTreeMap, HashMap};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -9,8 +9,8 @@ use crate::compiled::MappedCompiledCorpus;
 use crate::corpus::{SectionOptions, StructureTree, TextOptions, WalkEvent};
 use crate::feature::FeatureValue;
 use crate::mapped_search::MappedSearch;
-use crate::mapped_sections::MappedSections;
-use crate::mapped_text::MappedText;
+use crate::mapped_sections::{MappedSections, SectionsContext};
+use crate::mapped_text::{MappedText, TextContext};
 use crate::precompute::StructureHeading;
 use crate::search::SearchSets;
 
@@ -275,11 +275,30 @@ fn mapped_name_from_node(corpus: &MappedCompiledCorpus, lang: &str) -> crate::er
 #[pyclass(name = "Locality")]
 pub(crate) struct PyLocality {
     corpus: Arc<MappedCompiledCorpus>,
+    /// Fully-resolved sections context, built once on first locality call. After
+    /// that, `L.u/d/n/p/i` are pure CSR-slice + otype-filter + tuple-build with no
+    /// per-call view-cache lookup or `otext` re-parse.
+    context: OnceLock<SectionsContext>,
 }
 
 impl PyLocality {
     pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>) -> Self {
-        Self { corpus }
+        Self {
+            corpus,
+            context: OnceLock::new(),
+        }
+    }
+
+    fn context(&self) -> PyResult<&SectionsContext> {
+        if let Some(context) = self.context.get() {
+            return Ok(context);
+        }
+        let context = SectionsContext::new(&self.corpus)?;
+        let _ = self.context.set(context);
+        Ok(self
+            .context
+            .get()
+            .expect("sections context just initialized"))
     }
 }
 
@@ -289,10 +308,11 @@ impl PyLocality {
     fn u(&self, py: Python<'_>, node: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
+        let sections = self.context()?.sections();
         let nodes = match refs.as_deref() {
-            Some([single]) => MappedSections::new(&self.corpus)?.u(node, Some(single))?,
-            Some(values) => MappedSections::new(&self.corpus)?.up_types(node, Some(values))?,
-            None => MappedSections::new(&self.corpus)?.u(node, None)?,
+            Some([single]) => sections.u(node, Some(single))?,
+            Some(values) => sections.up_types(node, Some(values))?,
+            None => sections.u(node, None)?,
         };
         nodes_to_tuple(py, nodes)
     }
@@ -301,10 +321,11 @@ impl PyLocality {
     fn d(&self, py: Python<'_>, node: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
+        let sections = self.context()?.sections();
         let nodes = match refs.as_deref() {
-            Some([single]) => MappedSections::new(&self.corpus)?.d(node, Some(single))?,
-            Some(values) => MappedSections::new(&self.corpus)?.down_types(node, Some(values))?,
-            None => MappedSections::new(&self.corpus)?.d(node, None)?,
+            Some([single]) => sections.d(node, Some(single))?,
+            Some(values) => sections.down_types(node, Some(values))?,
+            None => sections.d(node, None)?,
         };
         nodes_to_tuple(py, nodes)
     }
@@ -313,10 +334,11 @@ impl PyLocality {
     fn n(&self, py: Python<'_>, node: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
+        let sections = self.context()?.sections();
         let nodes = match refs.as_deref() {
-            Some([single]) => MappedSections::new(&self.corpus)?.n(node, Some(single))?,
-            Some(values) => MappedSections::new(&self.corpus)?.next_types(node, Some(values))?,
-            None => MappedSections::new(&self.corpus)?.n(node, None)?,
+            Some([single]) => sections.n(node, Some(single))?,
+            Some(values) => sections.next_types(node, Some(values))?,
+            None => sections.n(node, None)?,
         };
         nodes_to_tuple(py, nodes)
     }
@@ -325,10 +347,11 @@ impl PyLocality {
     fn p(&self, py: Python<'_>, node: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
+        let sections = self.context()?.sections();
         let nodes = match refs.as_deref() {
-            Some([single]) => MappedSections::new(&self.corpus)?.p(node, Some(single))?,
-            Some(values) => MappedSections::new(&self.corpus)?.previous_types(node, Some(values))?,
-            None => MappedSections::new(&self.corpus)?.p(node, None)?,
+            Some([single]) => sections.p(node, Some(single))?,
+            Some(values) => sections.previous_types(node, Some(values))?,
+            None => sections.p(node, None)?,
         };
         nodes_to_tuple(py, nodes)
     }
@@ -337,10 +360,11 @@ impl PyLocality {
     fn i(&self, py: Python<'_>, node: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
+        let sections = self.context()?.sections();
         let nodes = match refs.as_deref() {
-            Some([single]) => MappedSections::new(&self.corpus)?.i(node, Some(single))?,
-            Some(values) => MappedSections::new(&self.corpus)?.intersecting_types(node, Some(values))?,
-            None => MappedSections::new(&self.corpus)?.i(node, None)?,
+            Some([single]) => sections.i(node, Some(single))?,
+            Some(values) => sections.intersecting_types(node, Some(values))?,
+            None => sections.i(node, None)?,
         };
         nodes_to_tuple(py, nodes)
     }
@@ -431,24 +455,43 @@ impl PyNodes {
 #[pyclass(name = "Text")]
 pub(crate) struct PyText {
     corpus: Arc<MappedCompiledCorpus>,
+    /// Fully-resolved sections context, built once on first section call. Powers
+    /// `T.sectionFromNode`/`T.sectionTuple` with no per-call view-cache lookup or
+    /// `otext` re-parse.
+    sections: OnceLock<SectionsContext>,
+    /// Fully-resolved text context (compiled `otext` formats + cached feature
+    /// handles), built once on first `T.text` call.
+    text: OnceLock<TextContext>,
 }
 
 impl PyText {
     pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>) -> Self {
-        Self { corpus }
+        Self {
+            corpus,
+            sections: OnceLock::new(),
+            text: OnceLock::new(),
+        }
     }
 
-    /// Compute the section heading values for `node` (TF `sectionFromNode`,
-    /// tf/core/text.py:555): the section-node tuple resolved to feature values,
-    /// using the language-aware feature for the level-0 (book) component and the
-    /// configured `sectionFeatures` for the deeper levels.
-    fn section_heading(
-        &self,
-        node: u32,
-        lang: &str,
-        options: &SectionOptions,
-    ) -> crate::error::Result<Vec<Option<FeatureValue>>> {
-        section_heading(&self.corpus, node, lang, options)
+    fn sections_context(&self) -> PyResult<&SectionsContext> {
+        if let Some(context) = self.sections.get() {
+            return Ok(context);
+        }
+        let context = SectionsContext::new(&self.corpus)?;
+        let _ = self.sections.set(context);
+        Ok(self
+            .sections
+            .get()
+            .expect("sections context just initialized"))
+    }
+
+    fn text_context(&self) -> PyResult<&TextContext> {
+        if let Some(context) = self.text.get() {
+            return Ok(context);
+        }
+        let context = TextContext::new(&self.corpus)?;
+        let _ = self.text.set(context);
+        Ok(self.text.get().expect("text context just initialized"))
     }
 }
 
@@ -567,7 +610,7 @@ impl PyText {
         // TF `T.text` (tf/core/text.py:972) accepts a single int OR an arbitrary
         // iterable of node ids; iterables are rendered per node and the pieces are
         // concatenated with no separator (`"".join(material)`, text.py:1182).
-        let engine = MappedText::new(&self.corpus)?;
+        let engine = self.text_context()?;
         let options = TextOptions::new(fmt.map(str::to_string), descend);
         if let Ok(single) = node.extract::<u32>() {
             return Ok(engine.text_with_options(single, &options)?);
@@ -596,7 +639,7 @@ impl PyText {
             fillup,
             level,
         };
-        let values = self.section_heading(node, lang, &options)?;
+        let values = self.sections_context()?.section_heading(node, lang, &options)?;
         let items = values
             .iter()
             .map(|value| option_feature_value_to_py(py, value.as_ref()))
@@ -619,7 +662,7 @@ impl PyText {
         // (not their feature values) that contain `node`, honoring `lastSlot` and
         // `fillup`. `lang` is irrelevant for node ids but kept for API symmetry.
         let _ = lang;
-        let nodes = MappedSections::new(&self.corpus)?.section_tuple(
+        let nodes = self.sections_context()?.sections().section_tuple(
             node,
             &SectionOptions {
                 last_slot: lastSlot,

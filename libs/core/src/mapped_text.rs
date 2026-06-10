@@ -1,7 +1,9 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::Arc;
 
 use crate::compiled::{
-    EdgeFeatureView, MappedCompiledCorpus, MappedNodeValue, StringPoolNodeFeatureView,
+    EdgeFeatureView, MappedCompiledCorpus, MappedNodeValue, OwnedEdgeFeature, OwnedMixedFeature,
+    OwnedStringPoolFeature, StringPoolNodeFeatureView,
 };
 use crate::corpus::{TextFormatInfo, TextFormatSample, TextOptions, TextRepresentationInfo};
 use crate::error::{CfError, Result};
@@ -554,6 +556,388 @@ impl<'a> MappedText<'a> {
         let types = parse(otext.get("structureTypes")?.flatten().unwrap_or(""));
         let feats = parse(otext.get("structureFeatures")?.flatten().unwrap_or(""));
         Ok(types.into_iter().zip(feats).collect())
+    }
+}
+
+/// A feature handle cached inside a [`TextContext`]. Resolved once per distinct
+/// feature name referenced by any compiled format, so rendering never re-touches
+/// the corpus view cache. Preserves the absent (`None`) vs present-empty
+/// (`Some("")`) distinction that the format fallback semantics depend on.
+enum TextFeatureHandle {
+    StringPool(OwnedStringPoolFeature),
+    Mixed(OwnedMixedFeature),
+    Absent,
+}
+
+impl TextFeatureHandle {
+    fn value(&self, node: u32) -> Result<Option<String>> {
+        match self {
+            Self::StringPool(handle) => Ok(handle.view().str_value(node)?.map(str::to_string)),
+            Self::Mixed(handle) => Ok(handle
+                .view()
+                .value(node)?
+                .map(|value| mapped_value_to_string(Some(value)))),
+            Self::Absent => Ok(None),
+        }
+    }
+}
+
+/// One step of a compiled `otext` format spec.
+enum TextOp {
+    /// A constant literal (escapes already expanded at compile time).
+    Literal(String),
+    /// A `{feat1/feat2/...:default}` placeholder. `features` holds indices into
+    /// the context handle table; `default` is the pre-rendered default literal.
+    Placeholder { features: Vec<usize>, default: String },
+}
+
+/// A single `otext` format compiled to a flat op-list plus its descend (target)
+/// node type and the feature handles its placeholders reference. Compiled lazily
+/// on the first `T.text` call that uses the format (see [`TextContext::format`]).
+struct CompiledFormat {
+    target_type: String,
+    ops: Vec<TextOp>,
+    handles: Vec<TextFeatureHandle>,
+}
+
+/// Long-lived text context. Built once by a binding object; holds the
+/// `otype`/`oslots` owned handles and the raw `otext` format specs. Each format
+/// is compiled to an op-list + resolved feature handles **lazily**, on the first
+/// `T.text` call that uses it, and cached. This keeps construction cheap (no
+/// eager parts-build for the ~30 features of every BHSA format — a corpus may
+/// define a dozen formats but a process typically renders one) while making
+/// steady-state `T.text` a loop over cached ops with no per-call `otext` parse
+/// or view-cache lookup.
+pub struct TextContext {
+    corpus: Arc<MappedCompiledCorpus>,
+    otype: OwnedStringPoolFeature,
+    oslots: OwnedEdgeFeature,
+    slot_type: String,
+    node_types: HashSet<String>,
+    /// Format name -> raw `otext` spec (the `fmt:` value verbatim). Cheap to
+    /// hold; compilation is deferred to [`TextContext::format`].
+    raw_formats: HashMap<String, String>,
+    has_text_orig_full: bool,
+    /// Lazily-compiled formats, keyed by format name.
+    compiled: std::sync::RwLock<HashMap<String, std::sync::Arc<CompiledFormat>>>,
+}
+
+impl TextContext {
+    pub fn new(corpus: &Arc<MappedCompiledCorpus>) -> Result<Self> {
+        let otype = corpus
+            .owned_string_pool_feature("otype")?
+            .ok_or_else(|| CfError::MissingFeature("otype".to_string()))?;
+        let oslots = corpus
+            .owned_edge_feature("oslots")?
+            .ok_or_else(|| CfError::MissingFeature("oslots".to_string()))?;
+        let slot_type = otype
+            .str_value(1)?
+            .ok_or_else(|| CfError::MissingFeature("otype slot type".to_string()))?;
+
+        // The set of node types (for the `type#tpl` split), read straight from
+        // the `otype` string pool — O(#types) with no per-node scan. (Both
+        // `otype_rank()`, which reads `oslots` for every one of the ~1.4M nodes,
+        // and a full `otype` row scan cost tens of ms on BHSA; the distinct
+        // values of the `otype` feature *are* the node types.)
+        let node_types: HashSet<String> = otype
+            .view()
+            .distinct_values()?
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+
+        // Record the raw format specs only; defer compilation (and the feature
+        // parts-build it triggers) to first use.
+        let mut raw_formats: HashMap<String, String> = HashMap::new();
+        if let Some(otext) = corpus.config_feature("otext")? {
+            for row in otext.items() {
+                let (key, value) = row?;
+                let Some(format_name) = key.strip_prefix("fmt:") else {
+                    continue;
+                };
+                raw_formats.insert(format_name.to_string(), value.unwrap_or("").to_string());
+            }
+        }
+
+        let has_text_orig_full = raw_formats.contains_key("text-orig-full");
+
+        Ok(Self {
+            corpus: Arc::clone(corpus),
+            otype,
+            oslots,
+            slot_type,
+            node_types,
+            raw_formats,
+            has_text_orig_full,
+            compiled: std::sync::RwLock::new(HashMap::new()),
+        })
+    }
+
+    /// Lazily compile (and cache) the named format. Returns `None` when the
+    /// format is not defined in `otext`. Compilation resolves only the feature
+    /// handles this format references, so the first render of a single format
+    /// never touches the other formats' (potentially large) features.
+    fn format(&self, name: &str) -> Result<Option<std::sync::Arc<CompiledFormat>>> {
+        if let Some(format) = self
+            .compiled
+            .read()
+            .expect("text format cache poisoned")
+            .get(name)
+        {
+            return Ok(Some(std::sync::Arc::clone(format)));
+        }
+        let Some(raw_spec) = self.raw_formats.get(name) else {
+            return Ok(None);
+        };
+        let (target_type, tpl) =
+            split_format_with_types(&self.node_types, &self.slot_type, raw_spec);
+        let mut handles: Vec<TextFeatureHandle> = Vec::new();
+        let mut handle_index: HashMap<String, usize> = HashMap::new();
+        let ops = compile_spec(&self.corpus, &tpl, &mut handles, &mut handle_index)?;
+        let format = std::sync::Arc::new(CompiledFormat {
+            target_type,
+            ops,
+            handles,
+        });
+        self.compiled
+            .write()
+            .expect("text format cache poisoned")
+            .insert(name.to_string(), std::sync::Arc::clone(&format));
+        Ok(Some(format))
+    }
+
+    pub fn text_with_options(&self, node: u32, options: &TextOptions) -> Result<String> {
+        let otype = self.otype.view();
+        let Some(node_type) = otype.str_value(node)? else {
+            return Ok(String::new());
+        };
+        // Resolve the format name and whether it is the implicit node-default.
+        let (format_name, implicit_node_default) = match options.format.as_deref() {
+            Some(format) => (
+                format.strip_prefix("fmt:").unwrap_or(format).to_string(),
+                false,
+            ),
+            None => {
+                let node_default = format!("{node_type}-default");
+                if self.raw_formats.contains_key(&node_default) {
+                    (node_default, true)
+                } else if self.has_text_orig_full {
+                    ("text-orig-full".to_string(), false)
+                } else {
+                    return Ok(String::new());
+                }
+            }
+        };
+        let Some(format) = self.format(&format_name)? else {
+            return Ok(String::new());
+        };
+
+        let down_type = match options.descend {
+            Some(true) => Some(format.target_type.as_str()),
+            Some(false) => None,
+            None => {
+                if implicit_node_default {
+                    None
+                } else {
+                    Some(format.target_type.as_str())
+                }
+            }
+        }
+        .filter(|down_type| *down_type != node_type);
+
+        let nodes = match down_type {
+            Some(down_type) if down_type == self.slot_type => self.slots(node)?,
+            Some(down_type) => self.descendants_of_type(node, down_type)?,
+            None => vec![node],
+        };
+
+        let mut rendered = String::new();
+        for text_node in nodes {
+            self.render_node(text_node, &format, &mut rendered)?;
+        }
+        Ok(rendered)
+    }
+
+    fn render_node(&self, node: u32, format: &CompiledFormat, out: &mut String) -> Result<()> {
+        for op in &format.ops {
+            match op {
+                TextOp::Literal(literal) => out.push_str(literal),
+                TextOp::Placeholder { features, default } => {
+                    out.push_str(&self.render_placeholder(&format.handles, node, features, default)?);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Mirrors `MappedText::placeholder_value` exactly, including the
+    /// absent/present-empty fallback semantics, but over cached handles.
+    fn render_placeholder(
+        &self,
+        handles: &[TextFeatureHandle],
+        node: u32,
+        features: &[usize],
+        default: &str,
+    ) -> Result<String> {
+        match features {
+            [single] => {
+                Ok(handles[*single].value(node)?.unwrap_or_else(|| default.to_string()))
+            }
+            [first, second] => {
+                if let Some(value) = handles[*first].value(node)? {
+                    return Ok(value);
+                }
+                if let Some(value) = handles[*second].value(node)? {
+                    return Ok(value);
+                }
+                Ok(default.to_string())
+            }
+            _ => {
+                let mut found = None;
+                for index in features {
+                    if let Some(value) = handles[*index].value(node)? {
+                        found = Some(value);
+                        break;
+                    }
+                }
+                Ok(match found {
+                    Some(value) if !value.is_empty() => value,
+                    _ => default.to_string(),
+                })
+            }
+        }
+    }
+
+    fn is_slot(&self, node: u32) -> Result<bool> {
+        Ok(self.otype.view().str_value(node)? == Some(self.slot_type.as_str()))
+    }
+
+    fn slots(&self, node: u32) -> Result<Vec<u32>> {
+        if self.is_slot(node)? {
+            return Ok(vec![node]);
+        }
+        self.oslots
+            .view()
+            .targets(node)?
+            .map(|targets| targets.collect())
+            .unwrap_or_else(|| Ok(Vec::new()))
+    }
+
+    fn descendants_of_type(&self, node: u32, node_type: &str) -> Result<Vec<u32>> {
+        let root_slots = self.slots(node)?;
+        let Some(root_first) = root_slots.first().copied() else {
+            return Ok(Vec::new());
+        };
+        let Some(root_last) = root_slots.last().copied() else {
+            return Ok(Vec::new());
+        };
+        let otype = self.otype.view();
+        let oslots = self.oslots.view();
+        let mut descendants = Vec::new();
+        for row in otype.rows() {
+            let (candidate, candidate_type) = row?;
+            if candidate_type != node_type {
+                continue;
+            }
+            let slots: Vec<u32> = oslots
+                .targets(candidate)?
+                .map(|targets| targets.collect())
+                .unwrap_or_else(|| Ok(Vec::new()))?;
+            if slots
+                .first()
+                .zip(slots.last())
+                .is_some_and(|(first, last)| root_first <= *first && *last <= root_last)
+            {
+                descendants.push(candidate);
+            }
+        }
+        Ok(descendants)
+    }
+}
+
+/// Compile a format template (the part after the `type#` split) into ops,
+/// registering each referenced feature handle in `handles`/`handle_index`.
+/// Mirrors `MappedText::text_for_node` + `placeholder_value` parsing exactly,
+/// but performed once: literal escapes and placeholder defaults are pre-rendered.
+fn compile_spec(
+    corpus: &Arc<MappedCompiledCorpus>,
+    spec: &str,
+    handles: &mut Vec<TextFeatureHandle>,
+    handle_index: &mut HashMap<String, usize>,
+) -> Result<Vec<TextOp>> {
+    let mut ops = Vec::new();
+    let mut rest = spec;
+    while let Some(start) = rest.find('{') {
+        if start > 0 {
+            ops.push(TextOp::Literal(render_format_literal(&rest[..start])));
+        }
+        let after_start = &rest[(start + 1)..];
+        let Some(end) = after_start.find('}') else {
+            // Unterminated placeholder: the rest is literal (matches the runtime
+            // fallback in `text_for_node`).
+            ops.push(TextOp::Literal(render_format_literal(&rest[start..])));
+            return Ok(ops);
+        };
+        let placeholder = &after_start[..end];
+        let (features, default) = placeholder
+            .split_once(':')
+            .map(|(features, default)| (features, Some(default)))
+            .unwrap_or((placeholder, None));
+        let default = default.map(render_format_literal).unwrap_or_default();
+        let feature_indices = features
+            .split('/')
+            .map(|name| resolve_handle(corpus, name, handles, handle_index))
+            .collect::<Result<Vec<usize>>>()?;
+        ops.push(TextOp::Placeholder {
+            features: feature_indices,
+            default,
+        });
+        rest = &after_start[(end + 1)..];
+    }
+    if !rest.is_empty() {
+        ops.push(TextOp::Literal(render_format_literal(rest)));
+    }
+    Ok(ops)
+}
+
+fn resolve_handle(
+    corpus: &Arc<MappedCompiledCorpus>,
+    name: &str,
+    handles: &mut Vec<TextFeatureHandle>,
+    handle_index: &mut HashMap<String, usize>,
+) -> Result<usize> {
+    if let Some(index) = handle_index.get(name) {
+        return Ok(*index);
+    }
+    let handle = if let Some(feature) = corpus.owned_string_pool_feature(name)? {
+        TextFeatureHandle::StringPool(feature)
+    } else if let Some(feature) = corpus.owned_mixed_feature(name)? {
+        TextFeatureHandle::Mixed(feature)
+    } else {
+        TextFeatureHandle::Absent
+    };
+    let index = handles.len();
+    handles.push(handle);
+    handle_index.insert(name.to_string(), index);
+    Ok(index)
+}
+
+/// Same split as `MappedText::split_format`, but against a pre-built node-type
+/// set so no per-call `otype` scan is needed.
+fn split_format_with_types(
+    node_types: &HashSet<String>,
+    slot_type: &str,
+    template: &str,
+) -> (String, String) {
+    let mut parts = template.splitn(2, '#');
+    let first = parts.next().unwrap_or_default();
+    let Some(rest) = parts.next() else {
+        return (slot_type.to_string(), template.to_string());
+    };
+    if node_types.contains(first) {
+        (first.to_string(), rest.to_string())
+    } else {
+        (slot_type.to_string(), template.to_string())
     }
 }
 

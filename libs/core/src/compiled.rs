@@ -1048,6 +1048,43 @@ impl MappedCompiledCorpus {
         self.edge_feature(name)
     }
 
+    /// Resolve a string-pool node feature into an *owned* handle that holds the
+    /// corpus `Arc` and the parsed `Arc<Parts>`. Long-lived binding objects can
+    /// cache the handle (e.g. in a `OnceLock`) and then call `view()` per access,
+    /// skipping the per-call `RwLock` + `HashMap` lookup + parts rebuild. The
+    /// thin `view()` only does an `Arc` pointer clone.
+    pub fn owned_string_pool_feature(
+        self: &Arc<Self>,
+        name: &str,
+    ) -> Result<Option<OwnedStringPoolFeature>> {
+        Ok(self.string_pool_parts(name)?.map(|parts| OwnedStringPoolFeature {
+            corpus: Arc::clone(self),
+            parts,
+        }))
+    }
+
+    /// Owned counterpart of [`mixed_node_feature`](Self::mixed_node_feature).
+    pub fn owned_mixed_feature(
+        self: &Arc<Self>,
+        name: &str,
+    ) -> Result<Option<OwnedMixedFeature>> {
+        Ok(self.mixed_parts(name)?.map(|parts| OwnedMixedFeature {
+            corpus: Arc::clone(self),
+            parts,
+        }))
+    }
+
+    /// Owned counterpart of [`edge_feature`](Self::edge_feature).
+    pub fn owned_edge_feature(
+        self: &Arc<Self>,
+        name: &str,
+    ) -> Result<Option<OwnedEdgeFeature>> {
+        Ok(self.edge_parts(name)?.map(|parts| OwnedEdgeFeature {
+            corpus: Arc::clone(self),
+            parts,
+        }))
+    }
+
     pub fn config_feature(&self, name: &str) -> Result<Option<ConfigFeatureView<'_>>> {
         let Some(feature) = self.metadata.config_feature(name) else {
             return Ok(None);
@@ -1612,6 +1649,90 @@ fn build_string_pool_parts(
     })
 }
 
+/// Owned, long-lived handle for a string-pool node feature. Holds the corpus
+/// `Arc` plus the parsed `Arc<StringPoolParts>` so a binding object can resolve
+/// the feature once and then build a thin borrowing `view()` per access without
+/// re-touching the corpus view cache (`RwLock` + `HashMap`). `view()` is an
+/// `Arc` pointer clone plus a few field copies.
+pub struct OwnedStringPoolFeature {
+    corpus: Arc<MappedCompiledCorpus>,
+    parts: Arc<StringPoolParts>,
+}
+
+impl OwnedStringPoolFeature {
+    pub fn corpus(&self) -> &MappedCompiledCorpus {
+        &self.corpus
+    }
+
+    pub fn view(&self) -> StringPoolNodeFeatureView<'_> {
+        StringPoolNodeFeatureView {
+            path: &self.corpus.path,
+            bytes: &self.corpus.mmap,
+            parts: Arc::clone(&self.parts),
+            rank_start: self.corpus.metadata.rank_start,
+            rank_len: self.corpus.metadata.rank_len,
+        }
+    }
+
+    /// Direct value read without an intermediate `view()` binding.
+    pub fn str_value(&self, node: u32) -> Result<Option<String>> {
+        Ok(self.view().str_value(node)?.map(str::to_string))
+    }
+
+    /// Direct `(pool_id, value)` read; see
+    /// [`StringPoolNodeFeatureView::str_value_id`].
+    pub fn str_value_id(&self, node: u32) -> Result<Option<(u32, String)>> {
+        Ok(self
+            .view()
+            .str_value_id(node)?
+            .map(|(id, value)| (id, value.to_string())))
+    }
+}
+
+/// Owned, long-lived handle for a mixed (string/int) node feature.
+pub struct OwnedMixedFeature {
+    corpus: Arc<MappedCompiledCorpus>,
+    parts: Arc<MixedParts>,
+}
+
+impl OwnedMixedFeature {
+    pub fn corpus(&self) -> &MappedCompiledCorpus {
+        &self.corpus
+    }
+
+    pub fn view(&self) -> MixedNodeFeatureView<'_> {
+        MixedNodeFeatureView {
+            path: &self.corpus.path,
+            bytes: &self.corpus.mmap,
+            parts: Arc::clone(&self.parts),
+            rank_start: self.corpus.metadata.rank_start,
+            rank_len: self.corpus.metadata.rank_len,
+        }
+    }
+}
+
+/// Owned, long-lived handle for an edge feature.
+pub struct OwnedEdgeFeature {
+    corpus: Arc<MappedCompiledCorpus>,
+    parts: Arc<EdgeParts>,
+}
+
+impl OwnedEdgeFeature {
+    pub fn corpus(&self) -> &MappedCompiledCorpus {
+        &self.corpus
+    }
+
+    pub fn view(&self) -> EdgeFeatureView<'_> {
+        EdgeFeatureView {
+            path: &self.corpus.path,
+            bytes: &self.corpus.mmap,
+            parts: Arc::clone(&self.parts),
+            rank_start: self.corpus.metadata.rank_start,
+            rank_len: self.corpus.metadata.rank_len,
+        }
+    }
+}
+
 pub struct StringPoolNodeFeatureView<'a> {
     path: &'a Path,
     bytes: &'a [u8],
@@ -1674,6 +1795,34 @@ impl<'a> StringPoolNodeFeatureView<'a> {
         Ok(None)
     }
 
+    /// Like [`str_value`](Self::str_value) but also returns the node's
+    /// string-pool id. The pool id is a stable, dense handle for the distinct
+    /// string value (callers can intern by id, group rows by id, or compare two
+    /// nodes' values without touching the bytes). Single mmap binary search.
+    pub fn str_value_id(&self, node: u32) -> Result<Option<(u32, &'a str)>> {
+        let mut low = 0_usize;
+        let mut high = self.parts.row_count;
+        while low < high {
+            let mid = (low + high) / 2;
+            let row_offset = self.parts.rows_start + (mid * 8);
+            let row_node = read_u32_from(self.path, self.bytes, row_offset)?;
+            match row_node.cmp(&node) {
+                std::cmp::Ordering::Less => low = mid + 1,
+                std::cmp::Ordering::Greater => high = mid,
+                std::cmp::Ordering::Equal => {
+                    let pool_id = read_u32_from(self.path, self.bytes, row_offset + 4)?;
+                    let Some(range) = self.parts.pool_ranges.get(pool_id as usize) else {
+                        return Err(invalid_compiled(self.path, "string pool id out of bounds"));
+                    };
+                    return std::str::from_utf8(&self.bytes[range.clone()])
+                        .map(|value| Some((pool_id, value)))
+                        .map_err(|_| invalid_compiled(self.path, "invalid utf-8 string"));
+                }
+            }
+        }
+        Ok(None)
+    }
+
     pub fn v(&self, node: u32) -> Result<Option<MappedNodeValue<'a>>> {
         self.str_value(node)
             .map(|value| value.map(MappedNodeValue::Str))
@@ -1690,6 +1839,22 @@ impl<'a> StringPoolNodeFeatureView<'a> {
         // Canonical (rank) order, matching the in-memory `NodeFeature::s`.
         self.sort_by_rank(&mut nodes);
         Ok(nodes)
+    }
+
+    /// The distinct values this feature can take, read straight from the string
+    /// pool (one entry per distinct value) — O(distinct) with no per-node scan.
+    /// For `otype` this is exactly the set of node types. Note a pooled value may
+    /// in principle be unreferenced by any row, so this is a *superset* of the
+    /// live values; for the warp `otype` feature the two coincide.
+    pub fn distinct_values(&self) -> Result<Vec<&'a str>> {
+        self.parts
+            .pool_ranges
+            .iter()
+            .map(|range| {
+                std::str::from_utf8(&self.bytes[range.clone()])
+                    .map_err(|_| invalid_compiled(self.path, "invalid utf-8 string"))
+            })
+            .collect()
     }
 
     pub fn nodes_with_value(&self, expected: &str) -> Result<Vec<u32>> {

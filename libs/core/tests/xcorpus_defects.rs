@@ -120,6 +120,31 @@ fn text_format_keeps_present_empty_value_instead_of_falling_back() {
     assert_eq!(corpus.text(2, None), "B.");
 }
 
+#[test]
+fn text_context_preserves_present_empty_fallback() {
+    // The cached `TextContext` (compiled op-lists + owned feature handles) is the
+    // path the Python `T.text` binding now uses; it must reproduce the BUG-2
+    // present-empty-vs-absent fallback byte-for-byte.
+    use std::sync::Arc;
+
+    use context_fabric_core::corpus::TextOptions;
+    use context_fabric_core::mapped_text::TextContext;
+
+    let temp = tempfile::tempdir().unwrap();
+    let source = temp.path().join("qere");
+    build_qere_corpus(&source);
+    let cache = temp.path().join("qere.cfr");
+    compile_features(&source, &cache, &[]).unwrap();
+    let mapped = Arc::new(MappedCompiledCorpus::open(&cache).unwrap());
+    let context = TextContext::new(&mapped).unwrap();
+    let none = TextOptions::new(None::<String>, None);
+
+    // Same three assertions as the MappedText path, via the cached context.
+    assert_eq!(context.text_with_options(1, &none).unwrap(), "A");
+    assert_eq!(context.text_with_options(2, &none).unwrap(), "B.");
+    assert_eq!(context.text_with_options(3, &none).unwrap(), "AB.");
+}
+
 // ---------------------------------------------------------------------------
 // BUG-3: @levelConstraints must override size-based otype ranking.
 // ---------------------------------------------------------------------------

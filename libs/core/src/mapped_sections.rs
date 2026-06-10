@@ -1,10 +1,229 @@
 use crate::compiled::{
-    EdgeFeatureView, MappedCompiledCorpus, MappedNodeValue, StringPoolNodeFeatureView,
+    EdgeFeatureView, MappedCompiledCorpus, MappedNodeValue, OwnedEdgeFeature, OwnedMixedFeature,
+    OwnedStringPoolFeature, StringPoolNodeFeatureView,
 };
 use crate::corpus::{Boundary, SectionOptions, WalkEvent};
 use crate::error::{CfError, Result};
 use crate::feature::FeatureValue;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+
+/// A node feature resolved once into an owned, long-lived handle, dispatched by
+/// the same encoding rule as [`MappedCompiledCorpus::node_feature`] (string-pool
+/// first, then mixed). `Absent` covers both "feature name not configured" and
+/// "feature not present in the corpus" — both of which the per-call section
+/// heading code path resolves to `None`. Used to cache the section-feature views
+/// referenced by `T.sectionFromNode` so each call is a single binary search per
+/// level with no view-cache (`RwLock` + `HashMap`) traffic or `otext` re-parse.
+enum SectionFeatureHandle {
+    StringPool(OwnedStringPoolFeature),
+    Mixed(OwnedMixedFeature),
+    Absent,
+}
+
+impl SectionFeatureHandle {
+    fn resolve(corpus: &Arc<MappedCompiledCorpus>, name: &str) -> Result<Self> {
+        if let Some(feature) = corpus.owned_string_pool_feature(name)? {
+            Ok(Self::StringPool(feature))
+        } else if let Some(feature) = corpus.owned_mixed_feature(name)? {
+            Ok(Self::Mixed(feature))
+        } else {
+            Ok(Self::Absent)
+        }
+    }
+
+    fn value(&self, node: u32) -> Result<Option<FeatureValue>> {
+        match self {
+            Self::StringPool(handle) => {
+                Ok(handle.view().str_value(node)?.map(FeatureValue::string))
+            }
+            Self::Mixed(handle) => Ok(handle.view().value(node)?.map(|value| match value {
+                MappedNodeValue::Str(value) => FeatureValue::string(value),
+                MappedNodeValue::Int(value) => FeatureValue::Int(value),
+            })),
+            Self::Absent => Ok(None),
+        }
+    }
+}
+
+/// Long-lived, fully-resolved sections context. A binding object builds this
+/// once (resolving the `otype`/`oslots` owned handles and parsing the `otext`
+/// section/structure config) and then calls [`sections`](Self::sections) per
+/// request to get a thin [`MappedSections`] view with no per-call `RwLock`,
+/// `HashMap`, or `otext` re-parse. Cloning the small config vectors per call is
+/// negligible next to the CSR reads.
+pub struct SectionsContext {
+    corpus: Arc<MappedCompiledCorpus>,
+    otype: OwnedStringPoolFeature,
+    oslots: OwnedEdgeFeature,
+    slot_type: String,
+    section_types: Vec<String>,
+    section_features: Vec<String>,
+    structure_types: Vec<String>,
+    structure_features: Vec<String>,
+    /// The section-feature handles used by `section_heading` (T.sectionFromNode),
+    /// resolved lazily on the first heading call. Building them eagerly would
+    /// resolve every `book@<lang>` variant (~20 on BHSA), wasted work for the
+    /// locality (`L.u/d/n/p/i`) callers that share this context but never need
+    /// feature *values*.
+    heading: std::sync::OnceLock<HeadingHandles>,
+}
+
+/// The section-feature handles backing `T.sectionFromNode`. Built once, lazily.
+struct HeadingHandles {
+    /// Owned handle for each level's section feature, parallel to
+    /// `section_types`. Index 0 is the *base* (non-language) section-0 feature;
+    /// language-aware variants live in `section0_lang_handles`.
+    section_feature_handles: Vec<SectionFeatureHandle>,
+    /// Language-code -> owned handle for the section-0 (book-level) feature, e.g.
+    /// `book@en`. Built from the same rule as TF `sectionFeatsWithLanguage`. The
+    /// empty-string code is the base feature's own code.
+    section0_lang_handles: HashMap<String, SectionFeatureHandle>,
+}
+
+impl SectionsContext {
+    pub fn new(corpus: &Arc<MappedCompiledCorpus>) -> Result<Self> {
+        let otype = corpus
+            .owned_string_pool_feature("otype")?
+            .ok_or_else(|| CfError::MissingFeature("otype".to_string()))?;
+        let oslots = corpus
+            .owned_edge_feature("oslots")?
+            .ok_or_else(|| CfError::MissingFeature("oslots".to_string()))?;
+        let slot_type = otype
+            .str_value(1)?
+            .ok_or_else(|| CfError::MissingFeature("otype slot type".to_string()))?;
+        let otext = corpus.config_feature("otext")?;
+        let config = |key: &str| -> Result<Vec<String>> {
+            Ok(otext
+                .as_ref()
+                .and_then(|metadata| metadata.get(key).transpose())
+                .transpose()?
+                .flatten()
+                .map(parse_csv_config)
+                .unwrap_or_default())
+        };
+        let section_types = config("sectionTypes")?;
+        let section_features = config("sectionFeatures")?;
+        let structure_types = config("structureTypes")?;
+        let structure_features = config("structureFeatures")?;
+
+        Ok(Self {
+            corpus: Arc::clone(corpus),
+            otype,
+            oslots,
+            slot_type,
+            section_types,
+            section_features,
+            structure_types,
+            structure_features,
+            heading: std::sync::OnceLock::new(),
+        })
+    }
+
+    /// Resolve (once, lazily) the section-feature handles used by section
+    /// headings. See [`HeadingHandles`].
+    fn heading_handles(&self) -> Result<&HeadingHandles> {
+        if let Some(handles) = self.heading.get() {
+            return Ok(handles);
+        }
+        let corpus = &self.corpus;
+
+        // Resolve one owned handle per configured level. Levels beyond the
+        // available `sectionFeatures` (or features absent from the corpus)
+        // resolve to `Absent`, matching the per-call `None` result.
+        let mut section_feature_handles = Vec::with_capacity(self.section_types.len());
+        for index in 0..self.section_types.len() {
+            section_feature_handles.push(match self.section_features.get(index) {
+                Some(name) => SectionFeatureHandle::resolve(corpus, name)?,
+                None => SectionFeatureHandle::Absent,
+            });
+        }
+
+        // Language-aware section-0 features: EXACTLY the first section feature and
+        // its `@<code>` variants (TF `sectionFeatsWithLanguage`,
+        // tf/core/fabric.py:364) — never arbitrary features that happen to carry
+        // a `languageCode`.
+        let mut section0_lang_handles: HashMap<String, SectionFeatureHandle> = HashMap::new();
+        if !self.section_types.is_empty() {
+            if let Some(base) = self.section_features.first() {
+                let prefix = format!("{base}@");
+                for feature in &corpus.metadata().node_features {
+                    if feature.name != *base && !feature.name.starts_with(&prefix) {
+                        continue;
+                    }
+                    let code = feature
+                        .metadata_value("languageCode")
+                        .unwrap_or("")
+                        .to_string();
+                    section0_lang_handles
+                        .insert(code, SectionFeatureHandle::resolve(corpus, &feature.name)?);
+                }
+            }
+        }
+
+        let _ = self.heading.set(HeadingHandles {
+            section_feature_handles,
+            section0_lang_handles,
+        });
+        Ok(self
+            .heading
+            .get()
+            .expect("heading handles just initialized"))
+    }
+
+    /// Section heading values for `node`, mirroring the free-standing
+    /// `section_heading` in the bindings (TF `sectionFromNode`,
+    /// tf/core/text.py:555) but over cached feature handles: the section tuple
+    /// resolved to feature values, with the language-aware feature for level 0
+    /// and the configured `sectionFeatures` for deeper levels.
+    pub fn section_heading(
+        &self,
+        node: u32,
+        lang: &str,
+        options: &SectionOptions,
+    ) -> Result<Vec<Option<FeatureValue>>> {
+        let tuple = self.sections().section_tuple(node, options)?;
+        let handles = self.heading_handles()?;
+        tuple
+            .into_iter()
+            .enumerate()
+            .map(|(index, section_node)| {
+                let Some(section_node) = section_node else {
+                    return Ok(None);
+                };
+                let handle = if index == 0 {
+                    handles
+                        .section0_lang_handles
+                        .get(lang)
+                        .or_else(|| handles.section0_lang_handles.get(""))
+                        .or_else(|| handles.section_feature_handles.first())
+                } else {
+                    handles.section_feature_handles.get(index)
+                };
+                match handle {
+                    Some(handle) => handle.value(section_node),
+                    None => Ok(None),
+                }
+            })
+            .collect()
+    }
+
+    /// Build a thin [`MappedSections`] borrowing the cached owned handles. No
+    /// corpus view-cache access; the config vectors are cloned (they hold a
+    /// handful of short strings).
+    pub fn sections(&self) -> MappedSections<'_> {
+        MappedSections {
+            corpus: self.otype.corpus(),
+            otype: self.otype.view(),
+            oslots: self.oslots.view(),
+            slot_type: self.slot_type.clone(),
+            section_types: self.section_types.clone(),
+            section_features: self.section_features.clone(),
+            structure_types: self.structure_types.clone(),
+            structure_features: self.structure_features.clone(),
+        }
+    }
+}
 
 pub struct MappedSections<'a> {
     corpus: &'a MappedCompiledCorpus,
@@ -127,10 +346,22 @@ impl<'a> MappedSections<'a> {
             *slot
         };
 
+        // v3 fast path: resolve every section-type embedder of `reference_slot`
+        // from its `levUp` CSR row in a single pass, instead of scanning all
+        // nodes of each section type (the previous `up_first` did
+        // `otype.s(section_type)` per level — an O(all-nodes) walk per call, the
+        // ~44 ms `T.sectionTuple`/`T.sectionFromNode` cost). `levUp` rows already
+        // hold exactly the nodes containing the slot; a slot is contained by at
+        // most one node of each section type. Returns `None` for pre-v3 caches,
+        // where we fall back to `up_first`.
+        let section_embedders = self.section_embedders(reference_slot)?;
+
         let mut sections = Vec::new();
         for (index, section_type) in self.section_types.iter().enumerate() {
             let section_node = if node_type == section_type {
                 Some(node)
+            } else if let Some(found) = &section_embedders {
+                found[index]
             } else {
                 self.up_first(reference_slot, section_type)?
             };
@@ -696,6 +927,33 @@ impl<'a> MappedSections<'a> {
             }
         }
         Ok(None)
+    }
+
+    /// For each configured section type, the embedder of `reference_slot` of that
+    /// type (or `None` if none), read from the slot's `levUp` CSR row. The
+    /// returned vector is parallel to `self.section_types`. Returns `Ok(None)`
+    /// when no `levUp` index is present (pre-v3 cache) so the caller can fall
+    /// back to the linear `up_first` scan.
+    fn section_embedders(&self, reference_slot: u32) -> Result<Option<Vec<Option<u32>>>> {
+        let Some(row) = self.corpus.lev_up_row(reference_slot)? else {
+            return Ok(None);
+        };
+        let mut found: Vec<Option<u32>> = vec![None; self.section_types.len()];
+        for embedder in row {
+            let Some(node_type) = self.node_type(embedder)? else {
+                continue;
+            };
+            if let Some(index) = self
+                .section_types
+                .iter()
+                .position(|section_type| section_type == node_type)
+            {
+                if found[index].is_none() {
+                    found[index] = Some(embedder);
+                }
+            }
+        }
+        Ok(Some(found))
     }
 
     fn up_first(&self, reference_slot: u32, section_type: &str) -> Result<Option<u32>> {
