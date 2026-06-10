@@ -76,16 +76,15 @@ pub use results::{
 pub use search::{
     AtomOperatorSyntax, AtomSyntax, ESCAPES, FeatureOperatorSyntax, FeaturePresenceSyntax,
     KNearnessSyntax, PARENT_REF, QCONT, QEND, QHAVE, QINIT, QOR, QTERM, QWHERE, QWITH, QWITHOUT,
-    QuantifierLineSyntax, RELATIONS_LEGEND, RelationSyntax, Search, SearchPerfValue,
-    SearchPlanSummary, SearchSession, SearchSets, SearchStudy, VAL_ESCAPES, atomOpRe, atomRe,
-    compRe, identRe, indentLineRe, is_quantifier_continuation, is_quantifier_init,
-    is_quantifier_line, is_quantifier_terminator, is_search_name, is_search_number,
-    is_search_white_line, kRe, nameRe, namesRe, noneRe, numRe, opLineRe, opStripRe,
-    parse_atom_operator_syntax, parse_atom_syntax, parse_comparison_syntax, parse_ident_syntax,
-    parse_k_nearness_syntax, parse_named_atom_prefix, parse_none_syntax,
+    QuantifierLineSyntax, RELATIONS_LEGEND, RelationSyntax, SearchPlanSummary, SearchSets,
+    SearchStudy, VAL_ESCAPES, atomOpRe, atomRe, compRe, identRe, indentLineRe,
+    is_quantifier_continuation, is_quantifier_init, is_quantifier_line, is_quantifier_terminator,
+    is_search_name, is_search_number, is_search_white_line, kRe, nameRe, namesRe, noneRe, numRe,
+    opLineRe, opStripRe, parse_atom_operator_syntax, parse_atom_syntax, parse_comparison_syntax,
+    parse_ident_syntax, parse_k_nearness_syntax, parse_named_atom_prefix, parse_none_syntax,
     parse_operator_line_syntax, parse_quantifier_line_syntax, parse_regex_feature_syntax,
     parse_relation_syntax, parse_true_syntax, quLineRe, reRe, relRe, relations_legend,
-    search_line_indent, search_perf_defaults, strip_operator_syntax, trueRe, whiteRe,
+    search_line_indent, strip_operator_syntax, trueRe, whiteRe,
 };
 pub use storage::{
     CSRArray, CSRArrayWithValues, CsrValue, IntFeatureArray, MISSING_STR_INDEX, MmapArray,

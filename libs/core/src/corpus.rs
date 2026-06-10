@@ -12,7 +12,6 @@ use crate::feature::{EdgeFeature, EdgeFrequency, FeatureValue, NodeFeature, TfFe
 use crate::io::{TfData, TfDataContent};
 use crate::parser::parse_tf_file;
 use crate::precompute::{self, StructureData, StructureHeading};
-use crate::search::Search;
 
 #[derive(Debug)]
 pub struct Corpus {
@@ -677,10 +676,6 @@ impl Corpus {
             type_ranks.insert(node_type, rank as u32);
         }
         type_ranks
-    }
-
-    pub fn search(&self) -> Search<'_> {
-        Search::new(self)
     }
 
     pub fn node_feature(&self, name: &str) -> Option<&NodeFeature> {

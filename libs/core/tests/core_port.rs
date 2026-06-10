@@ -28,7 +28,7 @@ use context_fabric_core::{
     MappedSearch, MappedSections, MappedText, MmapManager, NodeFeature, NodeFeatures, NodeInfo,
     NodeInfoOptions, NodeList, Nodes, OrderComputed, OslotsFeature, OtypeFeature, PARENT_REF,
     Projection, QCONT, QEND, QHAVE, QINIT, QOR, QTERM, QWHERE, QWITH, QWITHOUT, RankComputed,
-    SILENT_D, SearchPerfValue, SearchResult, SearchSession, SectionOptions, SetValue, SilentInput,
+    SILENT_D, SearchResult, SectionOptions, SetValue, SilentInput,
     StringPool, TERSE, Text, TextOptions, TfData, TfDataContent, TfFeature, TfFeatureKind,
     VAL_ESCAPES, VERBOSE, WARN32, WalkEvent, abspath, active_logging_level, api_refs, atomOpRe,
     atomRe, backendRep, camel, chDir, check32, clean_name, cleanName, collect_formats,
@@ -51,7 +51,7 @@ use context_fabric_core::{
     parse_regex_feature_syntax, parse_relation_syntax, parse_tf_file, parse_tf_file_metadata,
     parse_true_syntax, prefixSlash, project, quLineRe, ranges_from_list, ranges_from_set,
     rangesFromList, rangesFromSet, reRe, read_args, readJson, readYaml, relRe, replaceExt,
-    resolve_corpus_id, scanDir, search_line_indent, search_perf_defaults, set_from_spec,
+    resolve_corpus_id, scanDir, search_line_indent, set_from_spec,
     set_from_str, set_from_value, set_logging_level, setDir, setFromSpec, should_log,
     silentConvert, spec_from_ranges, spec_from_ranges_logical, specFromRanges,
     specFromRangesLogical, splitExt, splitPath, strip_operator_syntax, stripExt, tf_from_value,
@@ -729,84 +729,6 @@ fn public_search_syntax_recognizers_match_python_regex_examples() {
     );
     assert_eq!(search_line_indent("    content"), "    ");
     assert_eq!(search_line_indent("content"), "");
-}
-
-#[test]
-fn public_search_session_matches_python_stateful_search_wrapper_behaviors() {
-    let corpus = Corpus::load(repo_path("libs/core/tests/fixtures/mini_corpus")).unwrap();
-    let mut session = SearchSession::new(&corpus);
-
-    assert!(session.exe().is_none());
-    assert_eq!(session.perf_params(), &search_perf_defaults());
-    assert_eq!(
-        session.perf_params().get("yarnRatio"),
-        Some(&SearchPerfValue::Float(1.25))
-    );
-    assert_eq!(
-        session.perf_params().get("tryLimitFrom"),
-        Some(&SearchPerfValue::Int(40))
-    );
-    assert_eq!(
-        session.perfParams().get("tryLimitTo"),
-        Some(&SearchPerfValue::Int(40))
-    );
-
-    let errors = session.tweakPerformance([
-        ("tryLimitFrom", Some(SearchPerfValue::Int(99))),
-        ("tryLimitTo", None),
-        ("invalidParam", Some(SearchPerfValue::Int(100))),
-        ("tryLimitTo", Some(SearchPerfValue::Float(2.5))),
-    ]);
-    assert_eq!(
-        session.perf_params().get("tryLimitFrom"),
-        Some(&SearchPerfValue::Int(99))
-    );
-    assert_eq!(
-        session.perf_params().get("tryLimitTo"),
-        Some(&SearchPerfValue::Int(40))
-    );
-    assert_eq!(errors.len(), 2);
-    assert!(errors[0].contains("No such performance parameter"));
-    assert!(errors[1].contains("must be set to an integer"));
-
-    assert!(
-        session
-            .fetch(None)
-            .unwrap_err()
-            .to_string()
-            .contains("No previous study")
-    );
-    assert!(
-        session
-            .count(None)
-            .unwrap_err()
-            .to_string()
-            .contains("No previous study")
-    );
-    assert!(
-        session
-            .showPlan(false)
-            .unwrap_err()
-            .to_string()
-            .contains("No previous study")
-    );
-
-    let results = session.search("word", Some(2), false).unwrap();
-    assert_eq!(results, vec![vec![1], vec![2]]);
-    assert!(session.exe().is_none());
-
-    session.study("word", true).unwrap();
-    assert!(session.exe().is_some());
-    assert_eq!(session.fetch(Some(2)).unwrap(), vec![vec![1], vec![2]]);
-    assert_eq!(session.count(None).unwrap(), 5);
-    assert_eq!(session.count(Some(2)).unwrap(), 2);
-    assert_eq!(
-        session.showPlan(false).unwrap(),
-        "template: word\natoms: 1\nrelations: 0\nresults: 5\nquantifiers: false"
-    );
-    assert!(session.relationsLegend().contains("[[ embeds"));
-    assert_eq!(session.glean(&[]), "");
-    assert_eq!(session.glean(&[1]), "hello");
 }
 
 #[test]
@@ -3353,7 +3275,9 @@ fn loads_mini_corpus_and_queries_basic_types() {
     assert_eq!(score.v(3), None);
     assert_eq!(score.s(&FeatureValue::Int(0)), &[2, 5]);
 
-    let results = corpus.search().search("word", None).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mapped = mapped_mini_corpus(&dir);
+    let results = MappedSearch::new(&mapped).search("word", None).unwrap();
     assert_eq!(results.len(), 5);
     assert_eq!(results[0], vec![1]);
 }
@@ -3472,10 +3396,6 @@ fn fabric_facade_explores_loads_compiles_and_opens_mapped_corpora() {
     let loaded = fabric.load_all().unwrap();
     assert_eq!(loaded.max_node(), 8);
     assert_eq!(fabric.loadAll().unwrap().max_node(), loaded.max_node());
-    assert_eq!(
-        loaded.search().search("word word=hello", None).unwrap(),
-        vec![vec![1]]
-    );
 
     let selective = fabric.load("word, pos").unwrap();
     assert!(selective.node_feature("word").unwrap().is_some());
@@ -3487,13 +3407,6 @@ fn fabric_facade_explores_loads_compiles_and_opens_mapped_corpora() {
     assert!(additive.node_feature("word").unwrap().is_some());
     assert!(additive.node_feature("pos").unwrap().is_some());
     assert!(additive.node_feature("number").unwrap().is_some());
-    assert_eq!(
-        additive
-            .search()
-            .search("word pos=interjection", None)
-            .unwrap(),
-        vec![vec![1]]
-    );
     let selective_from_slice = fabric.load(["word", "number"]).unwrap();
     assert!(selective_from_slice.node_feature("word").unwrap().is_some());
     assert!(selective_from_slice.node_feature("number").unwrap().is_some());
@@ -3655,8 +3568,13 @@ fn fabric_save_round_trips_loaded_corpus_features_to_tf_files() {
         reloaded.config_feature("otext").unwrap(),
         source.config_feature("otext").unwrap()
     );
+    let cache_path = dir.path().join("reloaded.cfr");
+    compile_features(&output, &cache_path, &[]).unwrap();
+    let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
     assert_eq!(
-        reloaded.search().search("word word=hello", None).unwrap(),
+        MappedSearch::new(&mapped)
+            .search("word word=hello", None)
+            .unwrap(),
         vec![vec![1]]
     );
 }
@@ -3724,7 +3642,11 @@ fn selective_load_always_includes_warp_features_and_configs() {
     assert!(corpus.node_feature("pos").is_none());
     assert!(corpus.edge_feature("parent").is_none());
 
-    let results = corpus.search().search("word word=hello", None).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mapped = mapped_mini_corpus(&dir);
+    let results = MappedSearch::new(&mapped)
+        .search("word word=hello", None)
+        .unwrap();
     assert_eq!(results, vec![vec![1]]);
 
     let fabric = Fabric::new(&source);
@@ -5015,7 +4937,11 @@ fn wraps_nodes_and_search_results_for_serializable_result_shapes() {
     );
     assert_eq!(node_list.toJson(), node_list.to_json());
 
-    let raw_results = corpus.search().search("word word=hello", None).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mapped = mapped_mini_corpus(&dir);
+    let raw_results = MappedSearch::new(&mapped)
+        .search("word word=hello", None)
+        .unwrap();
     let result = SearchResult::from_search(
         &corpus,
         &raw_results,
@@ -5190,12 +5116,13 @@ fn node_info_omits_large_non_slot_text_by_default() {
 
 #[test]
 fn supports_feature_constraints_regex_limits_and_containment() {
-    let corpus = Corpus::load(repo_path("libs/core/tests/fixtures/mini_corpus")).unwrap();
-    let search = corpus.search();
+    let dir = tempfile::tempdir().unwrap();
+    let mapped = mapped_mini_corpus(&dir);
+    let search = MappedSearch::new(&mapped);
 
-    assert_eq!(search.glean(&[]), "");
-    assert_eq!(search.glean(&[1]), "hello");
-    assert_eq!(search.glean(&[1, 2, 3]), "hellobeautifulworld");
+    assert_eq!(search.glean(&[]).unwrap(), "");
+    assert_eq!(search.glean(&[1]).unwrap(), "hello");
+    assert_eq!(search.glean(&[1, 2, 3]).unwrap(), "hellobeautifulworld");
 
     let hello = search.search("word word=hello", None).unwrap();
     assert_eq!(hello, vec![vec![1]]);
@@ -5261,11 +5188,12 @@ word word=hello
     assert_eq!(phrase_words.len(), 5);
     assert!(phrase_words.contains(&vec![6, 1]));
     assert!(phrase_words.contains(&vec![7, 5]));
-    assert_eq!(
-        search.search("phrase\n  [[\n  word", None).unwrap(),
-        phrase_words
-    );
-    assert_eq!(
+    // A lonely operator as a first child is rejected by the mapped engine,
+    // mirroring TF ("Lonely relation: not allowed as first child"). The
+    // operator-prefixed atom form is the correct way to express containment.
+    assert!(search.search("phrase\n  [[\n  word", None).is_err());
+    assert_eq!(search.search("phrase\n  [[ word", None).unwrap(), phrase_words);
+    assert!(
         search
             .search(
                 "
@@ -5275,11 +5203,7 @@ word
 ",
                 None
             )
-            .unwrap(),
-        phrase_words
-            .iter()
-            .map(|row| vec![row[1], row[0]])
-            .collect::<Vec<_>>()
+            .is_err()
     );
 
     let all_nodes = search.search(".", None).unwrap();
@@ -5297,11 +5221,10 @@ word
         ]
     );
     assert_eq!(
-        corpus.search().search(". pos=noun", None).unwrap(),
+        search.search(". pos=noun", None).unwrap(),
         vec![vec![3], vec![5]]
     );
-    let generic_embedders = corpus
-        .search()
+    let generic_embedders = search
         .search(
             "
 p:.
@@ -5319,10 +5242,11 @@ p [[ w
 
 #[test]
 fn supports_feature_relation_operators_between_named_nodes() {
-    let corpus = Corpus::load(repo_path("libs/core/tests/fixtures/mini_corpus")).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mapped = mapped_mini_corpus(&dir);
+    let search = MappedSearch::new(&mapped);
 
-    let same_pos = corpus
-        .search()
+    let same_pos = search
         .search(
             "
 w1:word word=world
@@ -5334,8 +5258,7 @@ w1 .pos. w2
         .unwrap();
     assert_eq!(same_pos, vec![vec![3, 5]]);
 
-    let different_pos = corpus
-        .search()
+    let different_pos = search
         .search(
             "
 w1:word word=hello
@@ -5347,8 +5270,7 @@ w1 .pos#pos. w2
         .unwrap();
     assert_eq!(different_pos, vec![vec![1, 3]]);
 
-    let regex_normalized_words = corpus
-        .search()
+    let regex_normalized_words = search
         .search(
             "
 w1:word word=hello
@@ -5360,8 +5282,7 @@ w1 .word~.+~word. w2
         .unwrap();
     assert_eq!(regex_normalized_words, vec![vec![1, 3]]);
 
-    let regex_normalized_words_mismatch = corpus
-        .search()
+    let regex_normalized_words_mismatch = search
         .search(
             "
 w1:word word=hello
@@ -5373,8 +5294,7 @@ w1 .word~^h~word. w2
         .unwrap();
     assert!(regex_normalized_words_mismatch.is_empty());
 
-    let number_less_than = corpus
-        .search()
+    let number_less_than = search
         .search(
             "
 w1:word word=hello
@@ -5386,8 +5306,7 @@ w1 .number<number. w2
         .unwrap();
     assert_eq!(number_less_than, vec![vec![1, 3]]);
 
-    let number_greater_than = corpus
-        .search()
+    let number_greater_than = search
         .search(
             "
 w1:word word=world
@@ -5399,8 +5318,7 @@ w1 .number>number. w2
         .unwrap();
     assert_eq!(number_greater_than, vec![vec![3, 1]]);
 
-    let cross_feature = corpus
-        .search()
+    let cross_feature = search
         .search(
             "
 w1:word word=hello
@@ -5415,10 +5333,11 @@ w1 .number=score. w2
 
 #[test]
 fn supports_materialized_edge_relations_with_value_constraints() {
-    let corpus = Corpus::load(repo_path("libs/core/tests/fixtures/mini_corpus")).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mapped = mapped_mini_corpus(&dir);
+    let search = MappedSearch::new(&mapped);
 
-    let subject = corpus
-        .search()
+    let subject = search
         .search(
             "
 w:word
@@ -5430,8 +5349,7 @@ w -relation=subject> p
         .unwrap();
     assert_eq!(subject, vec![vec![1, 6], vec![4, 7]]);
 
-    let predicate_backward = corpus
-        .search()
+    let predicate_backward = search
         .search(
             "
 p:phrase
@@ -5443,8 +5361,7 @@ p <relation=predicate- w
         .unwrap();
     assert_eq!(predicate_backward, vec![vec![6, 2], vec![7, 5]]);
 
-    let zero_distance = corpus
-        .search()
+    let zero_distance = search
         .search(
             "
 w1:word
@@ -5456,8 +5373,7 @@ w1 -distance=0> w2
         .unwrap();
     assert_eq!(zero_distance, vec![vec![1, 2], vec![3, 4]]);
 
-    let missing_distance_value = corpus
-        .search()
+    let missing_distance_value = search
         .search(
             "
 w1:word
@@ -5494,34 +5410,6 @@ fn search_supports_python_style_escaped_spaces_in_values() {
         "@edge\n@edgeValues\n@valueType=str\n\n1\t3\tmain phrase\n",
     )
     .unwrap();
-
-    let corpus = Corpus::load(corpus_dir).unwrap();
-    let search = corpus.search();
-    assert_eq!(
-        search.search("word word=good\\ morning", None).unwrap(),
-        vec![vec![1]]
-    );
-    assert_eq!(
-        search.search("word\nword=good\\ morning", None).unwrap(),
-        vec![vec![1]]
-    );
-    assert_eq!(
-        search.search("word word~good\\ morning", None).unwrap(),
-        vec![vec![1]]
-    );
-    assert_eq!(
-        search
-            .search(
-                "
-w:word
-p:phrase
-w -relation=main\\ phrase> p
-",
-                None,
-            )
-            .unwrap(),
-        vec![vec![1, 3]]
-    );
 
     let cache_path = corpus_dir.join("escaped.cfr");
     compile_features(
@@ -5568,7 +5456,9 @@ w -relation=main\\ phrase> p
 #[test]
 fn supports_custom_search_sets() {
     let corpus = Corpus::load(repo_path("libs/core/tests/fixtures/mini_corpus")).unwrap();
-    let search = corpus.search();
+    let dir = tempfile::tempdir().unwrap();
+    let mapped = mapped_mini_corpus(&dir);
+    let search = MappedSearch::new(&mapped);
 
     let mut sets = HashMap::new();
     sets.insert("mywords", vec![1, 3]);
@@ -5619,8 +5509,9 @@ w ]] p
 
 #[test]
 fn supports_studied_search_fetch_and_count_workflow() {
-    let corpus = Corpus::load(repo_path("libs/core/tests/fixtures/mini_corpus")).unwrap();
-    let search = corpus.search();
+    let dir = tempfile::tempdir().unwrap();
+    let mapped = mapped_mini_corpus(&dir);
+    let search = MappedSearch::new(&mapped);
 
     let study = search.study("word").unwrap();
     assert_eq!(study.template(), "word");
@@ -5839,169 +5730,6 @@ fn supports_escaped_query_value_literals() {
     )
     .unwrap();
 
-    let corpus = Corpus::load(dir.path()).unwrap();
-    assert_eq!(
-        corpus.search().search(r"word word=a\|b", None).unwrap(),
-        vec![vec![1]]
-    );
-    assert_eq!(
-        corpus.search().search(r"word word=a\=b", None).unwrap(),
-        vec![vec![2]]
-    );
-    assert_eq!(
-        corpus.search().search(r"word word=a\\b", None).unwrap(),
-        vec![vec![3]]
-    );
-    assert_eq!(
-        corpus.search().search(r"word word=a\#b", None).unwrap(),
-        vec![vec![4]]
-    );
-    assert_eq!(
-        corpus.search().search(r"word word=a\<b", None).unwrap(),
-        vec![vec![5]]
-    );
-    assert_eq!(
-        corpus.search().search(r"word word=a\>b", None).unwrap(),
-        vec![vec![6]]
-    );
-    assert_eq!(
-        corpus.search().search(r"word word#a\#b", None).unwrap(),
-        vec![vec![1], vec![2], vec![3], vec![5], vec![6]]
-    );
-    assert_eq!(
-        corpus
-            .search()
-            .search(r"word word=missing|a\|b", None)
-            .unwrap(),
-        vec![vec![1]]
-    );
-    assert_eq!(
-        corpus
-            .search()
-            .search(
-                r"
-w:word
-p:phrase
-w -relation=a\|b> p
-",
-                None
-            )
-            .unwrap(),
-        vec![vec![1, 7]]
-    );
-    assert_eq!(
-        corpus
-            .search()
-            .search(
-                r"
-p:phrase
-w:word
-p <relation=a\=b- w
-",
-                None
-            )
-            .unwrap(),
-        vec![vec![7, 2]]
-    );
-    assert_eq!(
-        corpus
-            .search()
-            .search(
-                r"
-p:phrase
-w:word
-p <relation=a\\b> w
-",
-                None
-            )
-            .unwrap(),
-        vec![vec![7, 3]]
-    );
-    assert_eq!(
-        corpus
-            .search()
-            .search(
-                r"
-w:word
-p:phrase
-w -relation=a\#b> p
-",
-                None
-            )
-            .unwrap(),
-        vec![vec![4, 7]]
-    );
-    assert_eq!(
-        corpus
-            .search()
-            .search(
-                r"
-w:word
-p:phrase
-w -relation=a\<b> p
-",
-                None
-            )
-            .unwrap(),
-        vec![vec![5, 7]]
-    );
-    assert_eq!(
-        corpus
-            .search()
-            .search(
-                r"
-w:word
-p:phrase
-w -relation=a\>b> p
-",
-                None
-            )
-            .unwrap(),
-        vec![vec![6, 7]]
-    );
-    assert_eq!(
-        corpus
-            .search()
-            .search(
-                r"
-w:word
-p:phrase
-w -relation=missing|a\|b> p
-",
-                None
-            )
-            .unwrap(),
-        vec![vec![1, 7]]
-    );
-    assert_eq!(
-        corpus
-            .search()
-            .search(
-                r"
-w:word
-p:phrase
-w -relation#a\#b> p
-",
-                None
-            )
-            .unwrap(),
-        vec![vec![1, 7], vec![2, 7], vec![3, 7], vec![5, 7], vec![6, 7]]
-    );
-    assert_eq!(
-        corpus
-            .search()
-            .search(
-                r"
-w:word
-p:phrase
-w -relation~^a[<>]b$> p
-",
-                None
-            )
-            .unwrap(),
-        vec![vec![5, 7], vec![6, 7]]
-    );
-
     let cache_path = dir.path().join("escaped.cfr");
     compile_features(dir.path(), &cache_path, &[]).unwrap();
     let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
@@ -6181,30 +5909,6 @@ fn supports_negative_integer_query_values_like_python_syntax() {
     )
     .unwrap();
 
-    let corpus = Corpus::load(dir.path()).unwrap();
-    assert_eq!(
-        corpus.search().search("word score=-1", None).unwrap(),
-        vec![vec![1]]
-    );
-    assert_eq!(
-        corpus.search().search("word score<0", None).unwrap(),
-        vec![vec![1]]
-    );
-    assert_eq!(
-        corpus
-            .search()
-            .search(
-                "
-w1:word
-w2:word
-w1 -distance=-5> w2
-",
-                None
-            )
-            .unwrap(),
-        vec![vec![1, 2]]
-    );
-
     let cache_path = dir.path().join("negative.cfr");
     compile_features(dir.path(), &cache_path, &[]).unwrap();
     let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
@@ -6228,10 +5932,11 @@ w1 -distance=-5> w2
 
 #[test]
 fn supports_named_atom_constraints_and_basic_relations() {
-    let corpus = Corpus::load(repo_path("libs/core/tests/fixtures/mini_corpus")).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mapped = mapped_mini_corpus(&dir);
+    let search = MappedSearch::new(&mapped);
 
-    let before = corpus
-        .search()
+    let before = search
         .search(
             "
 w1:word
@@ -6245,8 +5950,7 @@ w2 word=world
         .unwrap();
     assert_eq!(before, vec![vec![1, 3, 1, 3]]);
 
-    let after = corpus
-        .search()
+    let after = search
         .search(
             "
 w1:word
@@ -6260,8 +5964,7 @@ w2 word=hello
         .unwrap();
     assert_eq!(after, vec![vec![3, 1, 3, 1]]);
 
-    let different_nouns = corpus
-        .search()
+    let different_nouns = search
         .search(
             "
 w1:word
@@ -6275,8 +5978,7 @@ w2 pos=noun
         .unwrap();
     assert_eq!(different_nouns, vec![vec![3, 5, 3, 5], vec![5, 3, 5, 3]]);
 
-    let same_nodes = corpus
-        .search()
+    let same_nodes = search
         .search(
             "
 p1:phrase
@@ -6288,8 +5990,7 @@ p1 = p2
         .unwrap();
     assert_eq!(same_nodes, vec![vec![6, 6], vec![7, 7]]);
 
-    let same_slots = corpus
-        .search()
+    let same_slots = search
         .search(
             "
 s:sentence
@@ -6301,8 +6002,7 @@ s == s2
         .unwrap();
     assert_eq!(same_slots, vec![vec![8, 8]]);
 
-    let different_slots = corpus
-        .search()
+    let different_slots = search
         .search(
             "
 p1:phrase
@@ -6316,8 +6016,7 @@ p1 ## p2
     assert!(different_slots.contains(&vec![7, 6]));
     assert!(!different_slots.contains(&vec![6, 6]));
 
-    let overlapping = corpus
-        .search()
+    let overlapping = search
         .search(
             "
 s:sentence
@@ -6329,8 +6028,7 @@ s && p
         .unwrap();
     assert_eq!(overlapping, vec![vec![8, 6], vec![8, 7]]);
 
-    let disjoint = corpus
-        .search()
+    let disjoint = search
         .search(
             "
 p1:phrase
@@ -6342,8 +6040,7 @@ p1 || p2
         .unwrap();
     assert_eq!(disjoint, vec![vec![6, 7], vec![7, 6]]);
 
-    let slot_before = corpus
-        .search()
+    let slot_before = search
         .search(
             "
 p1:phrase
@@ -6355,8 +6052,7 @@ p1 << p2
         .unwrap();
     assert_eq!(slot_before, vec![vec![6, 7]]);
 
-    let slot_after = corpus
-        .search()
+    let slot_after = search
         .search(
             "
 p1:phrase
@@ -6368,8 +6064,7 @@ p1 >> p2
         .unwrap();
     assert_eq!(slot_after, vec![vec![7, 6]]);
 
-    let adjacent_after = corpus
-        .search()
+    let adjacent_after = search
         .search(
             "
 p1:phrase
@@ -6381,8 +6076,7 @@ p1 :> p2
         .unwrap();
     assert_eq!(adjacent_after, vec![vec![7, 6]]);
 
-    let same_first_slot = corpus
-        .search()
+    let same_first_slot = search
         .search(
             "
 s:sentence
@@ -6394,8 +6088,7 @@ s =: p
         .unwrap();
     assert_eq!(same_first_slot, vec![vec![8, 6]]);
 
-    let same_last_slot = corpus
-        .search()
+    let same_last_slot = search
         .search(
             "
 s:sentence
@@ -6407,8 +6100,7 @@ s := p
         .unwrap();
     assert_eq!(same_last_slot, vec![vec![8, 7]]);
 
-    let same_boundary = corpus
-        .search()
+    let same_boundary = search
         .search(
             "
 p1:phrase
@@ -6420,8 +6112,7 @@ p1 :: p2
         .unwrap();
     assert_eq!(same_boundary, vec![vec![6, 6], vec![7, 7]]);
 
-    let near_first_slot = corpus
-        .search()
+    let near_first_slot = search
         .search(
             "
 w1:word word=hello
@@ -6433,8 +6124,7 @@ w1 =2: w2
         .unwrap();
     assert_eq!(near_first_slot, vec![vec![1, 3]]);
 
-    let not_near_first_slot = corpus
-        .search()
+    let not_near_first_slot = search
         .search(
             "
 w1:word word=hello
@@ -6446,8 +6136,7 @@ w1 =1: w2
         .unwrap();
     assert!(not_near_first_slot.is_empty());
 
-    let near_last_slot = corpus
-        .search()
+    let near_last_slot = search
         .search(
             "
 s:sentence
@@ -6459,8 +6148,7 @@ s :2= p
         .unwrap();
     assert_eq!(near_last_slot, vec![vec![8, 6]]);
 
-    let near_boundary = corpus
-        .search()
+    let near_boundary = search
         .search(
             "
 s:sentence
@@ -6472,8 +6160,7 @@ s :2: p
         .unwrap();
     assert_eq!(near_boundary, vec![vec![8, 6]]);
 
-    let near_before = corpus
-        .search()
+    let near_before = search
         .search(
             "
 p1:phrase phrase_id=1
@@ -6485,8 +6172,7 @@ p1 <0: p2
         .unwrap();
     assert_eq!(near_before, vec![vec![6, 7]]);
 
-    let near_after = corpus
-        .search()
+    let near_after = search
         .search(
             "
 p1:phrase phrase_id=2
@@ -6498,8 +6184,7 @@ p1 :0> p2
         .unwrap();
     assert_eq!(near_after, vec![vec![7, 6]]);
 
-    let phrase_contains_word = corpus
-        .search()
+    let phrase_contains_word = search
         .search(
             "
 p:phrase
@@ -6513,8 +6198,7 @@ p [[ w
     assert!(phrase_contains_word.contains(&vec![6, 1]));
     assert!(phrase_contains_word.contains(&vec![7, 5]));
 
-    let explicit_phrase_contains_word = corpus
-        .search()
+    let explicit_phrase_contains_word = search
         .search(
             "
 p:phrase
@@ -6525,8 +6209,7 @@ p:phrase
         .unwrap();
     assert_eq!(explicit_phrase_contains_word, phrase_contains_word);
 
-    let word_in_phrase = corpus
-        .search()
+    let word_in_phrase = search
         .search(
             "
 w:word
@@ -6540,8 +6223,11 @@ w ]] p
     assert!(word_in_phrase.contains(&vec![1, 6]));
     assert!(word_in_phrase.contains(&vec![5, 7]));
 
-    let explicit_word_in_phrase = corpus
-        .search()
+    // Under TF two-edge semantics the operator-prefixed `]] p:phrase` keeps the
+    // indentation embedding (phrase embedded in the single-slot word, which is
+    // impossible) alongside the operator edge, so it yields no results. The flat
+    // relation form `w ]] p` is the correct way to express "word in phrase".
+    let explicit_word_in_phrase = search
         .search(
             "
 w:word
@@ -6550,10 +6236,9 @@ w:word
             None,
         )
         .unwrap();
-    assert_eq!(explicit_word_in_phrase, word_in_phrase);
+    assert!(explicit_word_in_phrase.is_empty());
 
-    let adjacent_words = corpus
-        .search()
+    let adjacent_words = search
         .search(
             "
 w1:word
@@ -6567,9 +6252,10 @@ w1 <: w2
         adjacent_words,
         vec![vec![1, 2], vec![2, 3], vec![3, 4], vec![4, 5]]
     );
-    assert_eq!(
-        corpus
-            .search()
+    // A lonely `<:` operator as a first child is rejected, mirroring TF
+    // ("Lonely relation: not allowed as first child").
+    assert!(
+        search
             .search(
                 "
 w1:word
@@ -6578,12 +6264,10 @@ w1:word
 ",
                 None
             )
-            .unwrap(),
-        adjacent_words
+            .is_err()
     );
 
-    let parent_forward = corpus
-        .search()
+    let parent_forward = search
         .search(
             "
 w:word
@@ -6596,9 +6280,10 @@ w -parent> p
     assert_eq!(parent_forward.len(), 5);
     assert!(parent_forward.contains(&vec![1, 6]));
     assert!(parent_forward.contains(&vec![5, 7]));
-    assert_eq!(
-        corpus
-            .search()
+    // A lonely edge operator as a first child is rejected, mirroring TF
+    // ("Lonely relation: not allowed as first child").
+    assert!(
+        search
             .search(
                 "
 w:word
@@ -6607,12 +6292,10 @@ w:word
 ",
                 None
             )
-            .unwrap(),
-        parent_forward
+            .is_err()
     );
 
-    let parent_backward = corpus
-        .search()
+    let parent_backward = search
         .search(
             "
 p:phrase
@@ -6626,8 +6309,7 @@ p <parent- w
     assert!(parent_backward.contains(&vec![6, 1]));
     assert!(parent_backward.contains(&vec![7, 5]));
 
-    let parent_either = corpus
-        .search()
+    let parent_either = search
         .search(
             "
 p:phrase
@@ -6641,8 +6323,7 @@ p <parent> w
     assert!(parent_either.contains(&vec![6, 1]));
     assert!(parent_either.contains(&vec![7, 5]));
 
-    let valued_either = corpus
-        .search()
+    let valued_either = search
         .search(
             "
 p:phrase
@@ -6657,10 +6338,11 @@ p <relation=subject> w
 
 #[test]
 fn supports_with_and_without_quantified_blocks() {
-    let corpus = Corpus::load(repo_path("libs/core/tests/fixtures/mini_corpus")).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mapped = mapped_mini_corpus(&dir);
+    let search = MappedSearch::new(&mapped);
 
-    let with_interjection = corpus
-        .search()
+    let with_interjection = search
         .search(
             "
 phrase
@@ -6674,8 +6356,7 @@ phrase
         .unwrap();
     assert_eq!(with_interjection, vec![vec![6]]);
 
-    let without_interjection = corpus
-        .search()
+    let without_interjection = search
         .search(
             "
 phrase
@@ -6688,8 +6369,7 @@ phrase
         .unwrap();
     assert_eq!(without_interjection, vec![vec![7]]);
 
-    let with_two_top_level_children = corpus
-        .search()
+    let with_two_top_level_children = search
         .search(
             "
 sentence
@@ -6703,8 +6383,7 @@ sentence
         .unwrap();
     assert_eq!(with_two_top_level_children, vec![vec![8]]);
 
-    let where_have = corpus
-        .search()
+    let where_have = search
         .search(
             "
 sentence
@@ -6719,8 +6398,7 @@ sentence
         .unwrap();
     assert_eq!(where_have, vec![vec![8]]);
 
-    let where_have_is_universal_not_existential = corpus
-        .search()
+    let where_have_is_universal_not_existential = search
         .search(
             "
 phrase
@@ -6735,8 +6413,7 @@ phrase
         .unwrap();
     assert_eq!(where_have_is_universal_not_existential, vec![vec![7]]);
 
-    let with_or_alternatives = corpus
-        .search()
+    let with_or_alternatives = search
         .search(
             "
 phrase
@@ -6751,8 +6428,7 @@ phrase
         .unwrap();
     assert_eq!(with_or_alternatives, vec![vec![6], vec![7]]);
 
-    let parent_ref_embeds = corpus
-        .search()
+    let parent_ref_embeds = search
         .search(
             "
 p:phrase
@@ -6766,8 +6442,7 @@ p:phrase
         .unwrap();
     assert_eq!(parent_ref_embeds, vec![vec![6]]);
 
-    let parent_ref_embedded_in = corpus
-        .search()
+    let parent_ref_embedded_in = search
         .search(
             "
 p:phrase
@@ -6781,8 +6456,7 @@ p:phrase
         .unwrap();
     assert_eq!(parent_ref_embedded_in, vec![vec![6]]);
 
-    let parent_ref_atom_constraint = corpus
-        .search()
+    let parent_ref_atom_constraint = search
         .search(
             "
 phrase
@@ -6795,8 +6469,7 @@ phrase
         .unwrap();
     assert_eq!(parent_ref_atom_constraint, vec![vec![6]]);
 
-    let parent_ref_relation_before = corpus
-        .search()
+    let parent_ref_relation_before = search
         .search(
             "
 p:phrase
@@ -6810,8 +6483,7 @@ p:phrase
         .unwrap();
     assert_eq!(parent_ref_relation_before, vec![vec![6]]);
 
-    let parent_ref_relation_not_equal = corpus
-        .search()
+    let parent_ref_relation_not_equal = search
         .search(
             "
 p:phrase
@@ -6825,8 +6497,7 @@ p:phrase
         .unwrap();
     assert_eq!(parent_ref_relation_not_equal, vec![vec![6]]);
 
-    let parent_ref_feature_relation = corpus
-        .search()
+    let parent_ref_feature_relation = search
         .search(
             "
 p:phrase
@@ -7744,7 +7415,7 @@ fn mapped_result_wrappers_match_materialized_result_shapes() {
         .unwrap(),
         SearchResult::from_search(
             &parsed,
-            &parsed.search().search("word word=hello", None).unwrap(),
+            &raw_results,
             "word word=hello",
             Some(1),
             &NodeInfoOptions::default(),
@@ -9719,7 +9390,7 @@ fn loads_bhsa_and_runs_lexical_queries() {
     let Some(path) = bhsa_tf() else {
         return;
     };
-    let corpus = Corpus::load_features(path, &["otype", "oslots", "sp"]).unwrap();
+    let corpus = Corpus::load_features(&path, &["otype", "oslots", "sp"]).unwrap();
     assert_eq!(corpus.nodes_of_type("word").len(), 426_590);
     assert_eq!(corpus.nodes_of_type("book").len(), 39);
     assert_eq!(corpus.node_type(1), Some("word"));
@@ -9729,7 +9400,13 @@ fn loads_bhsa_and_runs_lexical_queries() {
     assert_eq!(corpus.sInterval("word"), Some((1, 426_590)));
     assert_eq!(corpus.node_type_interval("book"), Some((426_591, 426_629)));
 
-    let verbs = corpus.search().search("word sp=verb", Some(10)).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let cache_path = dir.path().join("bhsa-lexical.cfr");
+    compile_features(path, &cache_path, &["otype", "oslots", "sp"]).unwrap();
+    let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
+    let verbs = MappedSearch::new(&mapped)
+        .search("word sp=verb", Some(10))
+        .unwrap();
     assert_eq!(verbs.len(), 10);
     for row in verbs {
         let node = row[0];
@@ -9792,22 +9469,23 @@ fn runs_representative_bhsa_curated_query_shapes() {
     let Some(path) = bhsa_tf() else {
         return;
     };
-    let corpus = Corpus::load_features(
+    let dir = tempfile::tempdir().unwrap();
+    let cache_path = dir.path().join("bhsa-curated.cfr");
+    compile_features(
         path,
+        &cache_path,
         &[
             "otype", "oslots", "sp", "vt", "vs", "gn", "nu", "language", "function", "typ", "kind",
         ],
     )
     .unwrap();
+    let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
+    let search = MappedSearch::new(&mapped);
 
-    let lexical = corpus
-        .search()
-        .search("word sp=verb vt=perf", Some(5))
-        .unwrap();
+    let lexical = search.search("word sp=verb vt=perf", Some(5)).unwrap();
     assert_eq!(lexical.len(), 5);
 
-    let structural = corpus
-        .search()
+    let structural = search
         .search(
             "
 phrase typ=VP
@@ -9818,8 +9496,7 @@ phrase typ=VP
         .unwrap();
     assert_eq!(structural.len(), 5);
 
-    let quantified = corpus
-        .search()
+    let quantified = search
         .search(
             "
 phrase typ=NP
