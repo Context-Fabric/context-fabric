@@ -12,11 +12,12 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 default = []
-python = ["dep:pyo3", "dep:pyo3-stub-gen"]
+python = ["dep:pyo3", "dep:pyo3-stub-gen", "dep:numpy"]
 extension-module = ["pyo3/extension-module"]
 
 [dependencies]
 memmap2 = "0.9.10"
+numpy = { version = "0.25", optional = true }
 pyo3 = { version = "0.25", optional = true, features = ["abi3-py313"] }
 pyo3-stub-gen = { version = "0.13", optional = true }
 regex = "1.12"

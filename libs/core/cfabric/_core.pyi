@@ -1,3 +1,7 @@
+from collections.abc import Iterable
+
+import numpy as np
+
 VERSION: str
 NAME: str
 BANNER: str
@@ -102,6 +106,8 @@ class NodeFeature:
     all: tuple[str, ...]
 
     def v(self, node: int) -> str | int | None: ...
+    def vs(self, nodes: Iterable[int]) -> list[str | int | None]: ...
+    def vs_array(self, nodes: Iterable[int], fill: int = 0) -> np.ndarray: ...
     def s(self, value: str | int) -> tuple[int, ...]: ...
     def items(self) -> tuple[tuple[int, str | int], ...]: ...
     def freq_list(self, node_types: object | None = None) -> tuple[tuple[str | int, int], ...]: ...
@@ -141,6 +147,16 @@ class Locality:
     def n(self, node: int, otype: str | list[str] | tuple[str, ...] | set[str] | None = None) -> tuple[int, ...]: ...
     def p(self, node: int, otype: str | list[str] | tuple[str, ...] | set[str] | None = None) -> tuple[int, ...]: ...
     def i(self, node: int, otype: str | list[str] | tuple[str, ...] | set[str] | None = None) -> tuple[int, ...]: ...
+    def u_many(
+        self,
+        nodes: Iterable[int],
+        otype: str | list[str] | tuple[str, ...] | set[str] | None = None,
+    ) -> list[tuple[int, ...]]: ...
+    def d_many(
+        self,
+        nodes: Iterable[int],
+        otype: str | list[str] | tuple[str, ...] | set[str] | None = None,
+    ) -> list[tuple[int, ...]]: ...
 
 class Nodes:
     otypeRank: dict[str, int]
@@ -172,6 +188,12 @@ class Text:
         fmt: str | None = None,
         descend: bool | None = None,
     ) -> str: ...
+    def text_many(
+        self,
+        items: Iterable[int | Iterable[int]],
+        fmt: str | None = None,
+        descend: bool | None = None,
+    ) -> list[str]: ...
     def sectionFromNode(
         self,
         node: int,

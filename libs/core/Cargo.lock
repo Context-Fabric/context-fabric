@@ -78,6 +78,7 @@ name = "context_fabric_core"
 version = "0.6.0-rc.1"
 dependencies = [
  "memmap2",
+ "numpy",
  "pyo3",
  "pyo3-stub-gen",
  "regex",

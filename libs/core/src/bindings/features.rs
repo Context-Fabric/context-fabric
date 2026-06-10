@@ -2,10 +2,11 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 
+use numpy::IntoPyArray;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyAttributeError, PyTypeError};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyInt, PyString, PyTuple};
+use pyo3::types::{PyDict, PyInt, PyList, PyString, PyTuple};
 
 use crate::compiled::{MappedCompiledCorpus, MappedNodeValue, NodeFeatureEncoding};
 use crate::corpus::{Boundary, Chunk, ChunkLengthKey, ChunkPositionKey, ComputedFeatureData};
@@ -135,6 +136,32 @@ fn mapped_value_from_feature(value: &FeatureValue) -> MappedNodeValue<'_> {
         FeatureValue::Str(value) => MappedNodeValue::Str(value),
         FeatureValue::Int(value) => MappedNodeValue::Int(*value),
     }
+}
+
+/// Heuristic: for a large batch, one sequential pass over the (node-sorted)
+/// feature rows into a dense node-indexed table beats `n` random binary searches
+/// (sequential mmap reads are cache-friendly, and the per-row cost is paid once
+/// instead of `log2(rows)` times per query). The crossover is roughly
+/// `n_nodes * log2(rows) > rows`; the `* 8` factor keeps small/medium batches on
+/// the binary-search path (whose cost is `n * log2(rows)` with no `O(maxNode)`
+/// allocation).
+fn use_dense_gather(n_nodes: usize, row_count: usize) -> bool {
+    row_count > 0 && n_nodes.saturating_mul(8) >= row_count
+}
+
+/// Collects any Python iterable of node ids (`list` / `tuple` / `range` / `set`
+/// / numpy integer array) into an owned `Vec<u32>`. Shared by the additive batch
+/// APIs (`F.<feat>.vs`, `L.u_many`, `T.text_many`, ...) so the per-element
+/// Python<->Rust boundary crossing happens exactly once for the whole batch.
+pub(crate) fn collect_nodes(items: &Bound<'_, PyAny>) -> PyResult<Vec<u32>> {
+    let iter = items
+        .try_iter()
+        .map_err(|_| PyTypeError::new_err("expected an iterable of node ids (int)"))?;
+    let mut nodes = Vec::with_capacity(items.len().unwrap_or(0));
+    for item in iter {
+        nodes.push(item?.extract::<u32>()?);
+    }
+    Ok(nodes)
 }
 
 /// Cached encoding of a node feature, resolved lazily on the long-lived
@@ -366,6 +393,123 @@ impl PyNodeFeature {
             .flatten()
             .map(|value| mapped_value_to_py(py, value))
             .transpose()
+    }
+
+    /// Batch value lookup (ADDITIVE; W4). Accepts any iterable of node ids
+    /// (`list` / `tuple` / `range` / `set` / numpy array) and returns a `list`
+    /// whose elements match `.v()` per node: the interned/decoded value, or
+    /// `None` when the feature is absent on that node. The feature view (and the
+    /// string-pool intern cache) is resolved once for the whole batch, and large
+    /// batches switch to a single sequential row scan (see `use_dense_gather`)
+    /// instead of one binary search per node.
+    fn vs(&self, py: Python<'_>, nodes: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        let nodes = collect_nodes(nodes)?;
+        let max_node = self.corpus.max_node() as usize;
+        let values: Vec<PyObject> = match self.cached_kind() {
+            CachedKind::StringPool => match self.corpus.string_pool_node_feature(&self.name)? {
+                None => nodes.iter().map(|_| py.None()).collect(),
+                Some(view) if use_dense_gather(nodes.len(), view.row_count()) => {
+                    let mut table: Vec<Option<&str>> = vec![None; max_node + 1];
+                    for row in view.rows() {
+                        let (node, value) = row?;
+                        table[node as usize] = Some(value);
+                    }
+                    nodes
+                        .iter()
+                        .map(|&node| match table.get(node as usize).copied().flatten() {
+                            Some(value) => Ok(self.intern_str(py, value)),
+                            None => Ok(py.None()),
+                        })
+                        .collect::<PyResult<Vec<PyObject>>>()?
+                }
+                Some(view) => nodes
+                    .iter()
+                    .map(|&node| match view.str_value(node)? {
+                        Some(value) => Ok(self.intern_str(py, value)),
+                        None => Ok(py.None()),
+                    })
+                    .collect::<PyResult<Vec<PyObject>>>()?,
+            },
+            CachedKind::Mixed => match self.corpus.mixed_node_feature(&self.name)? {
+                None => nodes.iter().map(|_| py.None()).collect(),
+                Some(view) if use_dense_gather(nodes.len(), view.row_count()) => {
+                    let mut table: Vec<Option<MappedNodeValue<'_>>> = vec![None; max_node + 1];
+                    for row in view.rows() {
+                        let (node, value) = row?;
+                        table[node as usize] = Some(value);
+                    }
+                    nodes
+                        .iter()
+                        .map(|&node| match table.get(node as usize).copied().flatten() {
+                            Some(value) => mapped_value_to_py(py, value),
+                            None => Ok(py.None()),
+                        })
+                        .collect::<PyResult<Vec<PyObject>>>()?
+                }
+                Some(view) => nodes
+                    .iter()
+                    .map(|&node| match view.v(node)? {
+                        Some(value) => mapped_value_to_py(py, value),
+                        None => Ok(py.None()),
+                    })
+                    .collect::<PyResult<Vec<PyObject>>>()?,
+            },
+        };
+        Ok(PyList::new(py, values)?.into())
+    }
+
+    /// Batch lookup for int-valued features into a NumPy `int64` array (ADDITIVE;
+    /// W4). One boundary crossing and zero per-element Python objects.
+    ///
+    /// Contract: TF's per-node "absent => None" cannot live in a dense numeric
+    /// array, so absent nodes take `fill` (default `0`). Pass an explicit `fill`
+    /// (e.g. a sentinel) to detect gaps. `int64` is used so the full `i64` value
+    /// range and any chosen sentinel always fit. Raises `TypeError` if the
+    /// feature is not int-valued.
+    #[pyo3(signature = (nodes, fill=0))]
+    fn vs_array(
+        &self,
+        py: Python<'_>,
+        nodes: &Bound<'_, PyAny>,
+        fill: i64,
+    ) -> PyResult<PyObject> {
+        if self.valueType().as_deref() != Some("int") {
+            return Err(PyTypeError::new_err(format!(
+                "vs_array requires an int-valued feature; '{}' is not int-valued",
+                self.name
+            )));
+        }
+        let nodes = collect_nodes(nodes)?;
+        let mut out: Vec<i64> = Vec::with_capacity(nodes.len());
+        match self.corpus.mixed_node_feature(&self.name)? {
+            None => out.resize(nodes.len(), fill),
+            Some(view) if use_dense_gather(nodes.len(), view.row_count()) => {
+                // One sequential scan into a dense node-indexed table, then O(1)
+                // gather, instead of one binary search per node.
+                let max_node = self.corpus.max_node() as usize;
+                let mut table: Vec<i64> = vec![fill; max_node + 1];
+                for row in view.rows() {
+                    let (node, value) = row?;
+                    if let MappedNodeValue::Int(value) = value {
+                        table[node as usize] = value;
+                    }
+                }
+                out.extend(
+                    nodes
+                        .iter()
+                        .map(|&node| table.get(node as usize).copied().unwrap_or(fill)),
+                );
+            }
+            Some(view) => {
+                for &node in &nodes {
+                    out.push(match view.v(node)? {
+                        Some(MappedNodeValue::Int(value)) => value,
+                        _ => fill,
+                    });
+                }
+            }
+        }
+        Ok(out.into_pyarray(py).into_any().unbind())
     }
 
     fn s(&self, py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<PyObject> {

@@ -368,6 +368,62 @@ impl PyLocality {
         };
         nodes_to_tuple(py, nodes)
     }
+
+    /// Batch embedder lookup (ADDITIVE; W4): like `u` applied to each node in
+    /// `nodes`, but the `MappedSections` engine is built once and the whole loop
+    /// runs in Rust, so there is a single Python<->Rust boundary crossing for the
+    /// batch. Returns a `list` of tuples, one per input node, in input order.
+    #[pyo3(signature = (nodes, otype=None))]
+    fn u_many(
+        &self,
+        py: Python<'_>,
+        nodes: &Bound<'_, PyAny>,
+        otype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyObject> {
+        let nodes = super::features::collect_nodes(nodes)?;
+        let types = type_filter_from_py(otype)?;
+        let refs = type_filter_refs(&types);
+        let sections = MappedSections::new(&self.corpus)?;
+        let rows = nodes
+            .iter()
+            .map(|&node| {
+                let result = match refs.as_deref() {
+                    Some([single]) => sections.u(node, Some(single))?,
+                    Some(values) => sections.up_types(node, Some(values))?,
+                    None => sections.u(node, None)?,
+                };
+                PyTuple::new(py, result).map(Into::into)
+            })
+            .collect::<PyResult<Vec<PyObject>>>()?;
+        Ok(PyList::new(py, rows)?.into())
+    }
+
+    /// Batch embeddee lookup (ADDITIVE; W4): the `d` counterpart of
+    /// [`u_many`](Self::u_many). One boundary crossing for the whole batch.
+    #[pyo3(signature = (nodes, otype=None))]
+    fn d_many(
+        &self,
+        py: Python<'_>,
+        nodes: &Bound<'_, PyAny>,
+        otype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyObject> {
+        let nodes = super::features::collect_nodes(nodes)?;
+        let types = type_filter_from_py(otype)?;
+        let refs = type_filter_refs(&types);
+        let sections = MappedSections::new(&self.corpus)?;
+        let rows = nodes
+            .iter()
+            .map(|&node| {
+                let result = match refs.as_deref() {
+                    Some([single]) => sections.d(node, Some(single))?,
+                    Some(values) => sections.down_types(node, Some(values))?,
+                    None => sections.d(node, None)?,
+                };
+                PyTuple::new(py, result).map(Into::into)
+            })
+            .collect::<PyResult<Vec<PyObject>>>()?;
+        Ok(PyList::new(py, rows)?.into())
+    }
 }
 
 #[pyclass(name = "Nodes")]
@@ -621,6 +677,43 @@ impl PyText {
             .map(|node| engine.text_with_options(node, &options))
             .collect::<crate::error::Result<Vec<String>>>()?;
         Ok(parts.concat())
+    }
+
+    /// Batch text rendering (ADDITIVE; W4). `items` is an iterable whose elements
+    /// are each either a single node id (int) or an iterable of node ids; every
+    /// element is rendered exactly as the scalar `text` would render it (an
+    /// iterable element is rendered per-node and concatenated with no separator,
+    /// matching TF `"".join(material)`). Returns a `list[str]`, one string per
+    /// element, in input order. The `MappedText` engine and the parsed format are
+    /// resolved once for the whole batch.
+    #[pyo3(signature = (items, fmt=None, descend=None))]
+    fn text_many(
+        &self,
+        py: Python<'_>,
+        items: &Bound<'_, PyAny>,
+        fmt: Option<&str>,
+        descend: Option<bool>,
+    ) -> PyResult<PyObject> {
+        let engine = MappedText::new(&self.corpus)?;
+        let options = TextOptions::new(fmt.map(str::to_string), descend);
+        let iter = items.try_iter().map_err(|_| {
+            PyTypeError::new_err("text_many expects an iterable of nodes or node-iterables")
+        })?;
+        let mut out: Vec<String> = Vec::with_capacity(items.len().unwrap_or(0));
+        for item in iter {
+            let item = item?;
+            if let Ok(single) = item.extract::<u32>() {
+                out.push(engine.text_with_options(single, &options)?);
+                continue;
+            }
+            let nodes = super::features::collect_nodes(&item)?;
+            let parts = nodes
+                .into_iter()
+                .map(|node| engine.text_with_options(node, &options))
+                .collect::<crate::error::Result<Vec<String>>>()?;
+            out.push(parts.concat());
+        }
+        Ok(PyList::new(py, out)?.into())
     }
 
     #[allow(non_snake_case)]
