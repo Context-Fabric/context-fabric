@@ -17,6 +17,7 @@ extension-module = ["pyo3/extension-module"]
 
 [dependencies]
 memmap2 = "0.9.10"
+mimalloc = { version = "0.1", default-features = false }
 numpy = { version = "0.25", optional = true }
 pyo3 = { version = "0.25", optional = true, features = ["abi3-py313"] }
 pyo3-stub-gen = { version = "0.13", optional = true }

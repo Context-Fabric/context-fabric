@@ -10,13 +10,54 @@ use crate::error::{CfError, Result};
 use crate::mapped_text::MappedText;
 use crate::search::{SearchSets, SearchStudy, relations_legend};
 
+/// Where the backtracking join emits complete assignments: materialized rows
+/// for `search`/`fetch`, a bare counter for `count`. Counting skips the
+/// per-result `Vec` allocation entirely (424k rows on `q_feat_empty_qere`).
+enum JoinSink {
+    Rows(Vec<Vec<u32>>),
+    Count(usize),
+}
+
+impl JoinSink {
+    fn emit(&mut self, bound: &[Option<u32>]) {
+        match self {
+            Self::Rows(rows) => {
+                rows.push(bound.iter().map(|node| node.expect("bound")).collect());
+            }
+            Self::Count(count) => *count += 1,
+        }
+    }
+
+    fn emitted(&self) -> usize {
+        match self {
+            Self::Rows(rows) => rows.len(),
+            Self::Count(count) => *count,
+        }
+    }
+}
+
 pub struct MappedSearch<'a> {
     corpus: &'a MappedCompiledCorpus,
+    /// Resolved once per engine: slots are exactly `1..=max_slot` (TF node
+    /// numbering), so slot checks are a compare instead of an `otype` lookup.
+    max_slot: std::sync::OnceLock<u32>,
 }
 
 impl<'a> MappedSearch<'a> {
     pub fn new(corpus: &'a MappedCompiledCorpus) -> Self {
-        Self { corpus }
+        Self {
+            corpus,
+            max_slot: std::sync::OnceLock::new(),
+        }
+    }
+
+    fn cached_max_slot(&self) -> Result<u32> {
+        if let Some(max_slot) = self.max_slot.get() {
+            return Ok(*max_slot);
+        }
+        let max_slot = self.corpus.max_slot()?;
+        let _ = self.max_slot.set(max_slot);
+        Ok(max_slot)
     }
 
     pub fn search(&self, template: &str, limit: Option<usize>) -> Result<Vec<Vec<u32>>> {
@@ -28,7 +69,34 @@ impl<'a> MappedSearch<'a> {
     }
 
     pub fn count(&self, template: &str, limit: Option<usize>) -> Result<usize> {
-        Ok(self.study(template)?.count(limit))
+        self.count_inner(template, None, limit)
+    }
+
+    pub fn count_with_sets(
+        &self,
+        template: &str,
+        sets: &SearchSets<'_>,
+        limit: Option<usize>,
+    ) -> Result<usize> {
+        self.count_inner(template, Some(sets), limit)
+    }
+
+    fn count_inner(
+        &self,
+        template: &str,
+        sets: Option<&SearchSets<'_>>,
+        limit: Option<usize>,
+    ) -> Result<usize> {
+        let plan = parse_mapped_plan(template)?;
+        let otype = self
+            .corpus
+            .string_pool_node_feature("otype")?
+            .ok_or_else(|| CfError::MissingFeature("otype".to_string()))?;
+        let oslots = self
+            .corpus
+            .edge_feature("oslots")?
+            .ok_or_else(|| CfError::MissingFeature("oslots".to_string()))?;
+        self.count_plan(&plan, &otype, &oslots, sets, limit)
     }
 
     pub fn glean(&self, nodes: &[u32]) -> Result<String> {
@@ -63,15 +131,6 @@ impl<'a> MappedSearch<'a> {
         limit: Option<usize>,
     ) -> Result<Vec<Vec<u32>>> {
         Ok(self.study_with_sets(template, sets)?.fetch(limit))
-    }
-
-    pub fn count_with_sets(
-        &self,
-        template: &str,
-        sets: &SearchSets<'_>,
-        limit: Option<usize>,
-    ) -> Result<usize> {
-        Ok(self.study_with_sets(template, sets)?.count(limit))
     }
 
     pub fn search_first_nodes(&self, template: &str, limit: Option<usize>) -> Result<Vec<u32>> {
@@ -211,11 +270,11 @@ impl<'a> MappedSearch<'a> {
     fn load_constraints<'query>(
         &self,
         atom: &'query SimpleAtom,
-    ) -> Result<Vec<(&'query SimpleConstraint, MappedNodeFeatureView<'a>)>> {
+    ) -> Result<Vec<ResolvedConstraint<'a, 'query>>> {
         let mut constraints = Vec::new();
         for constraint in &atom.constraints {
             let feature = self.load_node_feature(&constraint.feature)?;
-            constraints.push((constraint, feature));
+            constraints.push(ResolvedConstraint::new(constraint, feature)?);
         }
         Ok(constraints)
     }
@@ -234,37 +293,77 @@ impl<'a> MappedSearch<'a> {
         &self,
         atom: &SimpleAtom,
         otype: &StringPoolNodeFeatureView<'_>,
-        constraints: &[(&SimpleConstraint, MappedNodeFeatureView<'_>)],
+        constraints: &[ResolvedConstraint<'_, '_>],
         sets: Option<&SearchSets<'_>>,
         limit: Option<usize>,
-    ) -> Result<Vec<Vec<u32>>> {
+    ) -> Result<Vec<u32>> {
         let mut results = Vec::new();
         if let Some(nodes) = custom_set_nodes(atom, sets) {
             let mut nodes = self.filter_candidate_nodes(nodes, constraints)?;
             if let Some(limit) = limit {
                 nodes.truncate(limit);
             }
-            results.extend(nodes.into_iter().map(|node| vec![node]));
-        } else if let Some((constraint, feature)) = constraints
+            results.extend(nodes);
+        } else if let Some(seed) = constraints
             .iter()
-            .find(|(constraint, _)| constraint.can_seed_candidates())
+            .find(|constraint| constraint.can_seed_candidates())
         {
-            feature.for_each_row(&mut |node, value| {
-                if constraint.matches(Some(value))
-                    && self.node_matches(node, atom, otype, constraints, sets)?
-                {
-                    results.push(vec![node]);
+            // Seed from the constraint's feature rows. For string-pool features
+            // this walks raw `(node, pool_id)` pairs against the precomputed
+            // bitmap — no string decode or matcher run per row.
+            match (&seed.pool_match, &seed.feature) {
+                (Some(pool_match), MappedNodeFeatureView::StringPool(view)) => {
+                    view.for_each_id_row(&mut |node, pool_id| {
+                        if pool_match.get(pool_id as usize).copied().unwrap_or(false)
+                            && self.node_matches(node, atom, otype, constraints, sets)?
+                        {
+                            results.push(node);
+                        }
+                        Ok(!limit.is_some_and(|limit| results.len() >= limit))
+                    })?;
                 }
-                Ok(!limit.is_some_and(|limit| results.len() >= limit))
-            })?;
+                _ => {
+                    seed.feature.for_each_row(&mut |node, value| {
+                        if seed.constraint.matches(Some(value))
+                            && self.node_matches(node, atom, otype, constraints, sets)?
+                        {
+                            results.push(node);
+                        }
+                        Ok(!limit.is_some_and(|limit| results.len() >= limit))
+                    })?;
+                }
+            }
         } else {
+            // No seedable constraint: seed from the (cached) per-type node list,
+            // which preserves the row order of a plain `otype` scan.
+            let typed_nodes = if atom.is_generic_node_type() {
+                None
+            } else {
+                self.corpus.typed_nodes(&atom.node_type)?
+            };
+            if let Some(typed_nodes) = typed_nodes {
+                // List membership already proves the node type; only the
+                // (non-seedable) constraints remain to check.
+                'nodes: for node in typed_nodes.iter() {
+                    for constraint in constraints {
+                        if !constraint.matches_node(*node)? {
+                            continue 'nodes;
+                        }
+                    }
+                    results.push(*node);
+                    if limit.is_some_and(|limit| results.len() >= limit) {
+                        break;
+                    }
+                }
+                return Ok(results);
+            }
             if limit.is_some() {
                 for row in otype.rows() {
                     let (node, node_type) = row?;
                     if (atom.is_generic_node_type() || node_type == atom.node_type)
                         && self.node_matches(node, atom, otype, constraints, sets)?
                     {
-                        results.push(vec![node]);
+                        results.push(node);
                         if limit.is_some_and(|limit| results.len() >= limit) {
                             break;
                         }
@@ -283,7 +382,7 @@ impl<'a> MappedSearch<'a> {
             if let Some(limit) = limit {
                 nodes.truncate(limit);
             }
-            results.extend(nodes.into_iter().map(|node| vec![node]));
+            results.extend(nodes);
         }
         Ok(results)
     }
@@ -291,11 +390,17 @@ impl<'a> MappedSearch<'a> {
     fn filter_candidate_nodes(
         &self,
         nodes: Vec<u32>,
-        constraints: &[(&SimpleConstraint, MappedNodeFeatureView<'_>)],
+        constraints: &[ResolvedConstraint<'_, '_>],
     ) -> Result<Vec<u32>> {
         let mut candidates = nodes;
-        for (constraint, feature) in constraints {
-            candidates = feature.filter_candidates(candidates, constraint)?;
+        for constraint in constraints {
+            let mut kept = Vec::with_capacity(candidates.len());
+            for node in candidates {
+                if constraint.matches_node(node)? {
+                    kept.push(node);
+                }
+            }
+            candidates = kept;
         }
         Ok(candidates)
     }
@@ -308,7 +413,27 @@ impl<'a> MappedSearch<'a> {
         sets: Option<&SearchSets<'_>>,
         limit: Option<usize>,
     ) -> Result<Vec<Vec<u32>>> {
-        self.search_plan_with_root(plan, otype, oslots, sets, limit, None)
+        match self.search_plan_with_root(plan, otype, oslots, sets, limit, None, false)? {
+            JoinSink::Rows(rows) => Ok(rows),
+            JoinSink::Count(_) => unreachable!("rows mode requested"),
+        }
+    }
+
+    /// Run the plan in count-only mode: the join executes identically but emits
+    /// a counter instead of materializing result rows. With `limit`, counting
+    /// stops early — `count(limit)` is `min(total, limit)` either way.
+    fn count_plan(
+        &self,
+        plan: &MappedRelationPlan,
+        otype: &StringPoolNodeFeatureView<'_>,
+        oslots: &EdgeFeatureView<'_>,
+        sets: Option<&SearchSets<'_>>,
+        limit: Option<usize>,
+    ) -> Result<usize> {
+        match self.search_plan_with_root(plan, otype, oslots, sets, limit, None, true)? {
+            JoinSink::Count(count) => Ok(count),
+            JoinSink::Rows(rows) => Ok(rows.len()),
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -322,7 +447,8 @@ impl<'a> MappedSearch<'a> {
         // Bound node for the `..` parent reference (`MappedRelationEndpoint::Parent`)
         // when this plan is a sub-search; `None` for top-level plans.
         root: Option<u32>,
-    ) -> Result<Vec<Vec<u32>>> {
+        count_only: bool,
+    ) -> Result<JoinSink> {
         let n = plan.atoms.len();
 
         // 1. Base candidate node set per atom (feature/type filtered), then reduced
@@ -336,11 +462,7 @@ impl<'a> MappedSearch<'a> {
                 nodes.clone()
             } else {
                 let constraints = self.load_constraints(atom)?;
-                let nodes: Vec<u32> = self
-                    .search_atom(atom, otype, &constraints, sets, None)?
-                    .into_iter()
-                    .filter_map(|row| row.into_iter().next())
-                    .collect();
+                let nodes = self.search_atom(atom, otype, &constraints, sets, None)?;
                 candidate_row_cache.insert(cache_key, nodes.clone());
                 nodes
             };
@@ -362,16 +484,18 @@ impl<'a> MappedSearch<'a> {
 
         // Single-atom fast path.
         if plan.relations.is_empty() && n == 1 {
-            let mut rows: Vec<Vec<u32>> = candidate_nodes
-                .pop()
-                .unwrap_or_default()
-                .into_iter()
-                .map(|node| vec![node])
-                .collect();
-            if let Some(limit) = limit {
-                rows.truncate(limit);
+            let nodes = candidate_nodes.pop().unwrap_or_default();
+            let capped = limit.unwrap_or(nodes.len()).min(nodes.len());
+            if count_only {
+                return Ok(JoinSink::Count(capped));
             }
-            return Ok(rows);
+            return Ok(JoinSink::Rows(
+                nodes
+                    .into_iter()
+                    .take(capped)
+                    .map(|node| vec![node])
+                    .collect(),
+            ));
         }
 
         // 2. Candidate sets with slot intervals (always; driving needs them).
@@ -400,7 +524,11 @@ impl<'a> MappedSearch<'a> {
 
 
         // 7. Backtracking join driven by relations/embeddings.
-        let mut results = Vec::new();
+        let mut results = if count_only {
+            JoinSink::Count(0)
+        } else {
+            JoinSink::Rows(Vec::new())
+        };
         let mut bound: Vec<Option<u32>> = vec![None; n];
         let mut slot_cache: HashMap<u32, Option<(u32, u32)>> = HashMap::new();
         let mut slots_cache: HashMap<u32, Vec<u32>> = HashMap::new();
@@ -434,6 +562,12 @@ impl<'a> MappedSearch<'a> {
         otype: &StringPoolNodeFeatureView<'_>,
         oslots: &EdgeFeatureView<'_>,
     ) -> Result<HashMap<usize, HashMap<u32, Vec<u32>>>> {
+        // With a v3 `levUp` CSR on disk, `containers_of` reads embedders straight
+        // from the mmap — no per-query slot index (which costs a full
+        // slots-of-every-candidate scan and a transient multi-MB map) is needed.
+        if self.corpus.metadata().lev_up_start.is_some() {
+            return Ok(HashMap::new());
+        }
         let n = plan.atoms.len();
         let mut needs = vec![false; n];
         for parent in embeds.iter().flatten() {
@@ -477,7 +611,7 @@ impl<'a> MappedSearch<'a> {
         order: &[usize],
         pos: usize,
         bound: &mut [Option<u32>],
-        results: &mut Vec<Vec<u32>>,
+        results: &mut JoinSink,
         limit: Option<usize>,
         root: Option<u32>,
         otype: &StringPoolNodeFeatureView<'_>,
@@ -485,13 +619,13 @@ impl<'a> MappedSearch<'a> {
         slot_cache: &mut HashMap<u32, Option<(u32, u32)>>,
         slots_cache: &mut HashMap<u32, Vec<u32>>,
     ) -> Result<()> {
-        if limit.is_some_and(|limit| results.len() >= limit) {
+        if limit.is_some_and(|limit| results.emitted() >= limit) {
             return Ok(());
         }
         if pos == order.len() {
             // Every constraint was verified incrementally as its second endpoint
             // bound, so a fully-bound assignment is a match. Emit in atom order.
-            results.push(bound.iter().map(|node| node.expect("bound")).collect());
+            results.emit(bound);
             return Ok(());
         }
         let atom = order[pos];
@@ -532,7 +666,7 @@ impl<'a> MappedSearch<'a> {
                 )?;
             }
             bound[atom] = None;
-            if limit.is_some_and(|limit| results.len() >= limit) {
+            if limit.is_some_and(|limit| results.emitted() >= limit) {
                 break;
             }
         }
@@ -687,7 +821,7 @@ impl<'a> MappedSearch<'a> {
                     else {
                         return Ok(Vec::new());
                     };
-                    drivers.push(containers_of(cmap, cset, cf, cl));
+                    drivers.push(containers_of(self.corpus, cmap, cset, cf, cl)?);
                 }
             }
         }
@@ -777,7 +911,7 @@ impl<'a> MappedSearch<'a> {
             }
             Embeds => {
                 if is_left {
-                    containers_of(cmap, cset, of, ol)
+                    containers_of(self.corpus, cmap, cset, of, ol)?
                 } else {
                     cset.nodes_within_slot_interval(of, ol)
                 }
@@ -786,7 +920,7 @@ impl<'a> MappedSearch<'a> {
                 if is_left {
                     cset.nodes_within_slot_interval(of, ol)
                 } else {
-                    containers_of(cmap, cset, of, ol)
+                    containers_of(self.corpus, cmap, cset, of, ol)?
                 }
             }
             Overlaps => cset.nodes_overlapping(of, ol),
@@ -889,16 +1023,27 @@ impl<'a> MappedSearch<'a> {
         otype: &StringPoolNodeFeatureView<'_>,
         node: u32,
     ) -> Result<Option<(u32, u32)>> {
-        if let Some(value) = slot_cache.get(&node) {
-            return Ok(*value);
+        // No memoization: `fast_interval` is a binary search plus three u32
+        // reads (~100ns), cheaper than sustaining a HashMap that grows to one
+        // entry per touched node (tens of MB on join-heavy queries).
+        let _ = (slot_cache, otype);
+        self.fast_interval(oslots, node)
+    }
+
+    /// The node's `(first_slot, last_slot)` without materializing its slot list:
+    /// identity for slots, two CSR reads after one binary search otherwise.
+    fn fast_interval(
+        &self,
+        oslots: &EdgeFeatureView<'_>,
+        node: u32,
+    ) -> Result<Option<(u32, u32)>> {
+        if node == 0 {
+            return Ok(None);
         }
-        let slots = self.node_slots(oslots, otype, node)?;
-        let value = match (slots.first(), slots.last()) {
-            (Some(&first), Some(&last)) => Some((first, last)),
-            _ => None,
-        };
-        slot_cache.insert(node, value);
-        Ok(value)
+        if node <= self.cached_max_slot()? {
+            return Ok(Some((node, node)));
+        }
+        oslots.first_last_targets(node)
     }
 
     fn build_candidate_set(
@@ -907,14 +1052,15 @@ impl<'a> MappedSearch<'a> {
         otype: &StringPoolNodeFeatureView<'_>,
         oslots: &EdgeFeatureView<'_>,
     ) -> Result<CandidateSet> {
+        let _ = otype;
         let entries = nodes
             .into_iter()
             .map(|node| {
-                let slots = self.node_slots(oslots, otype, node)?;
+                let interval = self.fast_interval(oslots, node)?;
                 Ok(CandidateEntry {
                     node,
-                    first_slot: slots.first().copied(),
-                    last_slot: slots.last().copied(),
+                    first_slot: interval.map(|(first, _)| first),
+                    last_slot: interval.map(|(_, last)| last),
                 })
             })
             .collect::<Result<Vec<_>>>()?;
@@ -1057,7 +1203,7 @@ impl<'a> MappedSearch<'a> {
         node: u32,
         atom: &SimpleAtom,
         otype: &StringPoolNodeFeatureView<'_>,
-        constraints: &[(&SimpleConstraint, MappedNodeFeatureView<'_>)],
+        constraints: &[ResolvedConstraint<'_, '_>],
         sets: Option<&SearchSets<'_>>,
     ) -> Result<bool> {
         if let Some(nodes) = custom_set_nodes(atom, sets) {
@@ -1070,8 +1216,8 @@ impl<'a> MappedSearch<'a> {
         {
             return Ok(false);
         }
-        for (constraint, feature) in constraints {
-            if !constraint.matches(feature.value(node)?) {
+        for constraint in constraints {
+            if !constraint.matches_node(node)? {
                 return Ok(false);
             }
         }
@@ -1407,10 +1553,11 @@ impl<'a> MappedSearch<'a> {
         otype: &StringPoolNodeFeatureView<'_>,
         node: u32,
     ) -> Result<Vec<u32>> {
-        let slot_type = otype
-            .str_value(1)?
-            .ok_or_else(|| CfError::MissingFeature("otype".to_string()))?;
-        if otype.str_value(node)? == Some(slot_type) {
+        let _ = otype;
+        if node == 0 {
+            return Ok(Vec::new());
+        }
+        if node <= self.cached_max_slot()? {
             return Ok(vec![node]);
         }
         let Some(targets) = oslots.targets(node)? else {
@@ -1465,6 +1612,62 @@ enum MappedNodeFeatureView<'a> {
     Mixed(MixedNodeFeatureView<'a>),
 }
 
+/// A constraint resolved against its feature for one query. For string-pool
+/// features the matcher is evaluated once per *distinct* pooled value into
+/// `pool_match`; every per-node test is then a binary search for the node's
+/// pool id plus a bitmap probe — no string decode, no regex run, no value
+/// parse. Semantics are identical by construction: `pool_match[id]` is exactly
+/// `constraint.matches(Some(Str(pool[id])))`.
+struct ResolvedConstraint<'a, 'query> {
+    constraint: &'query SimpleConstraint,
+    feature: MappedNodeFeatureView<'a>,
+    pool_match: Option<Vec<bool>>,
+    /// `constraint.matches(None)`: whether a node with no value satisfies.
+    missing_matches: bool,
+}
+
+impl<'a, 'query> ResolvedConstraint<'a, 'query> {
+    fn new(
+        constraint: &'query SimpleConstraint,
+        feature: MappedNodeFeatureView<'a>,
+    ) -> Result<Self> {
+        let pool_match = match &feature {
+            MappedNodeFeatureView::StringPool(view) => Some(
+                view.distinct_values()?
+                    .into_iter()
+                    .map(|value| constraint.matches(Some(MappedNodeValue::Str(value))))
+                    .collect(),
+            ),
+            MappedNodeFeatureView::Mixed(_) => None,
+        };
+        Ok(Self {
+            constraint,
+            feature,
+            pool_match,
+            missing_matches: constraint.matches(None),
+        })
+    }
+
+    fn can_seed_candidates(&self) -> bool {
+        self.constraint.can_seed_candidates()
+    }
+
+    fn matches_node(&self, node: u32) -> Result<bool> {
+        match (&self.pool_match, &self.feature) {
+            (Some(pool_match), MappedNodeFeatureView::StringPool(view)) => {
+                Ok(match view.pool_id(node)? {
+                    Some(pool_id) => pool_match
+                        .get(pool_id as usize)
+                        .copied()
+                        .unwrap_or(false),
+                    None => self.missing_matches,
+                })
+            }
+            _ => Ok(self.constraint.matches(self.feature.value(node)?)),
+        }
+    }
+}
+
 impl<'a> MappedNodeFeatureView<'a> {
     fn value(&self, node: u32) -> Result<Option<MappedNodeValue<'a>>> {
         match self {
@@ -1500,19 +1703,6 @@ impl<'a> MappedNodeFeatureView<'a> {
         Ok(())
     }
 
-    fn filter_candidates(
-        &self,
-        nodes: Vec<u32>,
-        constraint: &SimpleConstraint,
-    ) -> Result<Vec<u32>> {
-        let mut candidates = Vec::with_capacity(nodes.len());
-        for node in nodes {
-            if constraint.matches(self.value(node)?) {
-                candidates.push(node);
-            }
-        }
-        Ok(candidates)
-    }
 }
 
 /// Forward/backward adjacency for an edge feature, used to drive a join from the
@@ -1524,35 +1714,43 @@ struct EdgeAdj {
 
 struct CandidateSet {
     entries: Vec<CandidateEntry>,
-    by_first_slot: Vec<usize>,
-    by_last_slot: Vec<usize>,
-    member: HashSet<u32>,
+    // u32 indices into `entries`: candidate counts are node counts, far below
+    // u32::MAX, and the halved width matters — a corpus-wide `word` atom holds
+    // 400k+ entries, and several such sets can be live per query.
+    by_first_slot: Vec<u32>,
+    by_last_slot: Vec<u32>,
+    /// Node ids sorted ascending; membership is a binary search. ~7x smaller
+    /// than the `HashSet<u32>` it replaces at these sizes.
+    sorted_nodes: Vec<u32>,
 }
 
 impl CandidateSet {
     fn new(entries: Vec<CandidateEntry>) -> Self {
-        let mut by_first_slot = (0..entries.len()).collect::<Vec<_>>();
+        let mut by_first_slot = (0..entries.len() as u32).collect::<Vec<_>>();
         by_first_slot.sort_by_key(|index| {
+            let entry = &entries[*index as usize];
             (
-                entries[*index].first_slot.unwrap_or(u32::MAX),
-                entries[*index].last_slot.unwrap_or(u32::MAX),
-                entries[*index].node,
+                entry.first_slot.unwrap_or(u32::MAX),
+                entry.last_slot.unwrap_or(u32::MAX),
+                entry.node,
             )
         });
-        let mut by_last_slot = (0..entries.len()).collect::<Vec<_>>();
+        let mut by_last_slot = (0..entries.len() as u32).collect::<Vec<_>>();
         by_last_slot.sort_by_key(|index| {
+            let entry = &entries[*index as usize];
             (
-                entries[*index].last_slot.unwrap_or(u32::MAX),
-                entries[*index].first_slot.unwrap_or(u32::MAX),
-                entries[*index].node,
+                entry.last_slot.unwrap_or(u32::MAX),
+                entry.first_slot.unwrap_or(u32::MAX),
+                entry.node,
             )
         });
-        let member = entries.iter().map(|entry| entry.node).collect();
+        let mut sorted_nodes: Vec<u32> = entries.iter().map(|entry| entry.node).collect();
+        sorted_nodes.sort_unstable();
         Self {
             entries,
             by_first_slot,
             by_last_slot,
-            member,
+            sorted_nodes,
         }
     }
 
@@ -1561,7 +1759,7 @@ impl CandidateSet {
     }
 
     fn contains(&self, node: u32) -> bool {
-        self.member.contains(&node)
+        self.sorted_nodes.binary_search(&node).is_ok()
     }
 
     fn nodes(&self) -> Vec<u32> {
@@ -1575,18 +1773,18 @@ impl CandidateSet {
             return Vec::new();
         }
         let start = self.by_first_slot.partition_point(|index| {
-            self.entries[*index]
+            self.entries[*index as usize]
                 .first_slot
                 .is_some_and(|first| first < lo)
         });
         let end = self.by_first_slot.partition_point(|index| {
-            self.entries[*index]
+            self.entries[*index as usize]
                 .first_slot
                 .is_some_and(|first| first <= hi)
         });
         self.by_first_slot[start..end]
             .iter()
-            .map(|index| self.entries[*index].node)
+            .map(|index| self.entries[*index as usize].node)
             .collect()
     }
 
@@ -1598,13 +1796,13 @@ impl CandidateSet {
         }
         let start = self
             .by_last_slot
-            .partition_point(|index| self.entries[*index].last_slot.is_some_and(|last| last < lo));
+            .partition_point(|index| self.entries[*index as usize].last_slot.is_some_and(|last| last < lo));
         let end = self
             .by_last_slot
-            .partition_point(|index| self.entries[*index].last_slot.is_some_and(|last| last <= hi));
+            .partition_point(|index| self.entries[*index as usize].last_slot.is_some_and(|last| last <= hi));
         self.by_last_slot[start..end]
             .iter()
-            .map(|index| self.entries[*index].node)
+            .map(|index| self.entries[*index as usize].node)
             .collect()
     }
 
@@ -1612,19 +1810,19 @@ impl CandidateSet {
     /// last <= last_slot).
     fn nodes_within_slot_interval(&self, first_slot: u32, last_slot: u32) -> Vec<u32> {
         let start = self.by_first_slot.partition_point(|index| {
-            self.entries[*index]
+            self.entries[*index as usize]
                 .first_slot
                 .is_some_and(|first| first < first_slot)
         });
         let end = self.by_first_slot.partition_point(|index| {
-            self.entries[*index]
+            self.entries[*index as usize]
                 .first_slot
                 .is_some_and(|first| first <= last_slot)
         });
         self.by_first_slot[start..end]
             .iter()
             .filter_map(|index| {
-                let entry = &self.entries[*index];
+                let entry = &self.entries[*index as usize];
                 (entry.last_slot? <= last_slot).then_some(entry.node)
             })
             .collect()
@@ -1634,14 +1832,14 @@ impl CandidateSet {
     /// last_slot >= last).
     fn nodes_containing(&self, first: u32, last: u32) -> Vec<u32> {
         let end = self.by_first_slot.partition_point(|index| {
-            self.entries[*index]
+            self.entries[*index as usize]
                 .first_slot
                 .is_some_and(|candidate_first| candidate_first <= first)
         });
         self.by_first_slot[..end]
             .iter()
             .filter_map(|index| {
-                let entry = &self.entries[*index];
+                let entry = &self.entries[*index as usize];
                 (entry.last_slot? >= last).then_some(entry.node)
             })
             .collect()
@@ -1651,14 +1849,14 @@ impl CandidateSet {
     /// last_slot >= first).
     fn nodes_overlapping(&self, first: u32, last: u32) -> Vec<u32> {
         let end = self.by_first_slot.partition_point(|index| {
-            self.entries[*index]
+            self.entries[*index as usize]
                 .first_slot
                 .is_some_and(|candidate_first| candidate_first <= last)
         });
         self.by_first_slot[..end]
             .iter()
             .filter_map(|index| {
-                let entry = &self.entries[*index];
+                let entry = &self.entries[*index as usize];
                 (entry.last_slot? >= first).then_some(entry.node)
             })
             .collect()
@@ -2210,18 +2408,40 @@ fn operator_drive_strength(operator: &MappedRelationOperator) -> u32 {
 /// first slot followed by interval verification; otherwise it falls back to the
 /// interval scan.
 fn containers_of(
+    corpus: &MappedCompiledCorpus,
     cmap: Option<&HashMap<u32, Vec<u32>>>,
     cset: &CandidateSet,
     first: u32,
     last: u32,
-) -> Vec<u32> {
-    match cmap {
-        Some(map) => match map.get(&first) {
+) -> Result<Vec<u32>> {
+    if let Some(map) = cmap {
+        return Ok(match map.get(&first) {
             Some(nodes) => nodes.iter().copied().filter(|n| cset.contains(*n)).collect(),
             None => Vec::new(),
-        },
-        None => cset.nodes_containing(first, last),
+        });
     }
+    if let Some(nodes) = lev_up_containers(corpus, cset, first)? {
+        return Ok(nodes);
+    }
+    Ok(cset.nodes_containing(first, last))
+}
+
+/// Containers of the slot `first` drawn from the precomputed `levUp` CSR row
+/// (every embedder of that slot), filtered to the atom's candidates and sorted
+/// ascending — the same set, in the same order, as the per-query
+/// `build_container_indexes` map this replaces (which also keyed by first slot
+/// and held candidates in ascending node order).
+fn lev_up_containers(
+    corpus: &MappedCompiledCorpus,
+    cset: &CandidateSet,
+    first: u32,
+) -> Result<Option<Vec<u32>>> {
+    let Some(row) = corpus.lev_up_row(first)? else {
+        return Ok(None);
+    };
+    let mut nodes: Vec<u32> = row.into_iter().filter(|node| cset.contains(*node)).collect();
+    nodes.sort_unstable();
+    Ok(Some(nodes))
 }
 
 fn add1(value: u32) -> Option<u32> {

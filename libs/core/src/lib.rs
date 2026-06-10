@@ -1,3 +1,10 @@
+/// mimalloc returns freed pages to the OS (short purge delay), so RSS tracks
+/// the live set instead of the per-query high-water mark — large search
+/// transients (candidate sets, drivers, result rows) no longer pin hundreds of
+/// MB after they are dropped, which the macOS system allocator does.
+#[global_allocator]
+static GLOBAL_ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 pub mod api;
 #[cfg(feature = "python")]
 pub mod bindings;

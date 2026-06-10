@@ -183,6 +183,14 @@ pub struct MappedCompiledCorpus {
     metadata: CompiledMetadata,
     caches: RwLock<ViewCaches>,
     sections_cache: OnceLock<Option<SectionsData>>,
+    /// Computed once: `compute_mapped_levels` scans every `otype` row and reads
+    /// each non-slot node's `oslots` row (~1M edge reads on BHSA), far too slow
+    /// to repeat per `freqList`/`otypeRank` call.
+    levels_cache: OnceLock<Vec<MappedLevel>>,
+    /// Node ids per node type in ascending node order, built by one `otype` pass
+    /// on first use. Search atoms seed from these instead of re-scanning all
+    /// `otype` rows (with a string compare each) per query.
+    type_nodes_cache: OnceLock<HashMap<String, Arc<Vec<u32>>>>,
     v3_warned: Once,
 }
 
@@ -217,6 +225,7 @@ fn remove_value_type_metadata(metadata: &mut BTreeMap<String, Option<String>>) -
         .unwrap_or_default()
 }
 
+#[derive(Clone)]
 struct MappedLevel {
     node_type: String,
     average_slots: f64,
@@ -239,6 +248,8 @@ impl MappedCompiledCorpus {
             metadata,
             caches: RwLock::new(ViewCaches::default()),
             sections_cache: OnceLock::new(),
+            levels_cache: OnceLock::new(),
+            type_nodes_cache: OnceLock::new(),
             v3_warned: Once::new(),
         })
     }
@@ -406,6 +417,40 @@ impl MappedCompiledCorpus {
             .string_pool_node_feature("otype")?
             .ok_or_else(|| CfError::MissingFeature("otype".to_string()))?
             .s(node_type)?)
+    }
+
+    /// Node ids of one type in ascending node order, served from a cache built
+    /// by a single `otype` pass (u32 reads only) on first use. Unlike
+    /// [`nodes_of_type`](Self::nodes_of_type) (canonical rank order), this
+    /// preserves row order, matching a plain `otype.rows()` type scan.
+    pub fn typed_nodes(&self, node_type: &str) -> Result<Option<Arc<Vec<u32>>>> {
+        if let Some(by_type) = self.type_nodes_cache.get() {
+            return Ok(by_type.get(node_type).cloned());
+        }
+        let otype = self
+            .string_pool_node_feature("otype")?
+            .ok_or_else(|| CfError::MissingFeature("otype".to_string()))?;
+        let pool_values = otype.distinct_values()?;
+        let mut buckets: Vec<Vec<u32>> = vec![Vec::new(); pool_values.len()];
+        otype.for_each_id_row(&mut |node, pool_id| {
+            let Some(bucket) = buckets.get_mut(pool_id as usize) else {
+                return Err(invalid_compiled(&self.path, "string pool id out of bounds"));
+            };
+            bucket.push(node);
+            Ok(true)
+        })?;
+        let by_type: HashMap<String, Arc<Vec<u32>>> = pool_values
+            .into_iter()
+            .zip(buckets)
+            .map(|(value, bucket)| (value.to_string(), Arc::new(bucket)))
+            .collect();
+        let _ = self.type_nodes_cache.set(by_type);
+        Ok(self
+            .type_nodes_cache
+            .get()
+            .expect("type nodes just initialized")
+            .get(node_type)
+            .cloned())
     }
 
     pub fn text(&self, node: u32, format: Option<&str>) -> Result<String> {
@@ -797,18 +842,52 @@ impl MappedCompiledCorpus {
             .metadata
             .node_feature(feature_name)
             .ok_or_else(|| CfError::MissingFeature(feature_name.to_string()))?;
-        let levels = self.mapped_levels()?;
+        // Levels exist only to answer the `nodeTypes=` filter; the unfiltered
+        // call must not pay for the full-corpus scan behind `mapped_levels`.
+        let levels = match node_types {
+            Some(_) => Some(self.mapped_levels()?),
+            None => None,
+        };
+        let node_allowed = |node: u32| match &levels {
+            Some(levels) => mapped_node_type_allowed(node, node_types, levels),
+            None => true,
+        };
         let mut counts = HashMap::<FeatureValue, usize>::new();
         match feature.encoding {
             NodeFeatureEncoding::StringPool => {
                 let view = self
                     .string_pool_node_feature(feature_name)?
                     .expect("metadata existence checked above");
-                for row in view.rows() {
-                    let (node, value) = row?;
-                    if mapped_node_type_allowed(node, node_types, &levels) {
-                        *counts.entry(FeatureValue::string(value)).or_default() += 1;
+                // Count by pool id: one u32 read per row, no per-row string
+                // decode, hash, or allocation. Each distinct value materializes
+                // once at the end.
+                let mut histogram = vec![0_usize; view.parts.pool_ranges.len()];
+                for index in 0..view.parts.row_count {
+                    let row_offset = view.parts.rows_start + (index * 8);
+                    if levels.is_some() {
+                        let node = read_u32_from(&self.path, &self.mmap, row_offset)?;
+                        if !node_allowed(node) {
+                            continue;
+                        }
                     }
+                    let pool_id =
+                        read_u32_from(&self.path, &self.mmap, row_offset + 4)? as usize;
+                    let Some(slot) = histogram.get_mut(pool_id) else {
+                        return Err(invalid_compiled(
+                            &self.path,
+                            "string pool id out of bounds",
+                        ));
+                    };
+                    *slot += 1;
+                }
+                for (pool_id, count) in histogram.into_iter().enumerate() {
+                    if count == 0 {
+                        continue;
+                    }
+                    let range = view.parts.pool_ranges[pool_id].clone();
+                    let value = std::str::from_utf8(&self.mmap[range])
+                        .map_err(|_| invalid_compiled(&self.path, "invalid utf-8 string"))?;
+                    *counts.entry(FeatureValue::string(value)).or_default() += count;
                 }
             }
             NodeFeatureEncoding::Mixed => {
@@ -817,7 +896,7 @@ impl MappedCompiledCorpus {
                     .expect("metadata existence checked above");
                 for row in view.rows() {
                     let (node, value) = row?;
-                    if mapped_node_type_allowed(node, node_types, &levels) {
+                    if node_allowed(node) {
                         *counts
                             .entry(mapped_value_to_feature_value(value))
                             .or_default() += 1;
@@ -1186,7 +1265,18 @@ impl MappedCompiledCorpus {
         }
     }
 
+    /// Cached levels. The clone per call is ~a dozen small structs — negligible
+    /// next to the one-time full-corpus scan in `compute_mapped_levels`.
     fn mapped_levels(&self) -> Result<Vec<MappedLevel>> {
+        if let Some(levels) = self.levels_cache.get() {
+            return Ok(levels.clone());
+        }
+        let levels = self.compute_mapped_levels()?;
+        let _ = self.levels_cache.set(levels.clone());
+        Ok(levels)
+    }
+
+    fn compute_mapped_levels(&self) -> Result<Vec<MappedLevel>> {
         let otype = self
             .string_pool_node_feature("otype")?
             .ok_or_else(|| CfError::MissingFeature("otype".to_string()))?;
@@ -1841,6 +1931,43 @@ impl<'a> StringPoolNodeFeatureView<'a> {
         Ok(nodes)
     }
 
+    /// The node's pool id without decoding the pooled string: one binary search,
+    /// two u32 reads. `None` when the node has no value.
+    pub fn pool_id(&self, node: u32) -> Result<Option<u32>> {
+        let mut low = 0_usize;
+        let mut high = self.parts.row_count;
+        while low < high {
+            let mid = (low + high) / 2;
+            let row_offset = self.parts.rows_start + (mid * 8);
+            let row_node = read_u32_from(self.path, self.bytes, row_offset)?;
+            match row_node.cmp(&node) {
+                std::cmp::Ordering::Less => low = mid + 1,
+                std::cmp::Ordering::Greater => high = mid,
+                std::cmp::Ordering::Equal => {
+                    return Ok(Some(read_u32_from(self.path, self.bytes, row_offset + 4)?));
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    /// Visit every `(node, pool_id)` row without decoding the pooled strings —
+    /// two u32 reads per row. `visit` returns `false` to stop early.
+    pub fn for_each_id_row(
+        &self,
+        visit: &mut impl FnMut(u32, u32) -> Result<bool>,
+    ) -> Result<()> {
+        for index in 0..self.parts.row_count {
+            let row_offset = self.parts.rows_start + (index * 8);
+            let node = read_u32_from(self.path, self.bytes, row_offset)?;
+            let pool_id = read_u32_from(self.path, self.bytes, row_offset + 4)?;
+            if !visit(node, pool_id)? {
+                break;
+            }
+        }
+        Ok(())
+    }
+
     /// The distinct values this feature can take, read straight from the string
     /// pool (one entry per distinct value) — O(distinct) with no per-node scan.
     /// For `otype` this is exactly the set of node types. Note a pooled value may
@@ -2356,6 +2483,38 @@ impl<'a> EdgeFeatureView<'a> {
                         offset: targets_start,
                         remaining: target_count,
                     }));
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    /// First and last target of `source`'s row without materializing the list —
+    /// one binary search plus three u32 reads. Targets are stored ascending, so
+    /// for `oslots` this is the node's slot interval. `None` when the source has
+    /// no row (or an empty one).
+    pub fn first_last_targets(&self, source: u32) -> Result<Option<(u32, u32)>> {
+        let mut low = 0_usize;
+        let mut high = self.parts.row_count;
+        while low < high {
+            let mid = (low + high) / 2;
+            let row_offset = self.parts.row_offsets[mid];
+            let row_source = read_u32_from(self.path, self.bytes, row_offset)?;
+            match row_source.cmp(&source) {
+                std::cmp::Ordering::Less => low = mid + 1,
+                std::cmp::Ordering::Greater => high = mid,
+                std::cmp::Ordering::Equal => {
+                    let count = read_u32_from(self.path, self.bytes, row_offset + 4)? as usize;
+                    if count == 0 {
+                        return Ok(None);
+                    }
+                    let first = read_u32_from(self.path, self.bytes, row_offset + 8)?;
+                    let last = read_u32_from(
+                        self.path,
+                        self.bytes,
+                        row_offset + 8 + ((count - 1) * 4),
+                    )?;
+                    return Ok(Some((first, last)));
                 }
             }
         }
@@ -3035,7 +3194,10 @@ fn mapped_value_to_feature_value(value: MappedNodeValue<'_>) -> FeatureValue {
 
 fn sorted_feature_value_counts(counts: HashMap<FeatureValue, usize>) -> Vec<(FeatureValue, usize)> {
     let mut rows: Vec<_> = counts.into_iter().collect();
-    rows.sort_unstable_by_key(|(value, count)| (Reverse(*count), value.sort_token()));
+    // Cached key: `sort_token` formats a fresh String, far too expensive to
+    // recompute per comparison on high-cardinality features. Keys are distinct
+    // (one per distinct value), so ordering matches the uncached sort exactly.
+    rows.sort_by_cached_key(|(value, count)| (Reverse(*count), value.sort_token()));
     rows
 }
 
@@ -3043,7 +3205,7 @@ fn sorted_optional_feature_value_counts(
     counts: HashMap<Option<FeatureValue>, usize>,
 ) -> Vec<(Option<FeatureValue>, usize)> {
     let mut rows: Vec<_> = counts.into_iter().collect();
-    rows.sort_unstable_by_key(|(value, count)| {
+    rows.sort_by_cached_key(|(value, count)| {
         (Reverse(*count), optional_feature_value_sort_token(value))
     });
     rows

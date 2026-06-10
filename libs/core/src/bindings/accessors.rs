@@ -770,14 +770,13 @@ impl PyText {
     #[pyo3(signature = (section, lang="en"))]
     fn nodeFromSection(&self, section: &Bound<'_, PyAny>, lang: &str) -> PyResult<Option<u32>> {
         let values = section_from_py(section)?;
-        // Resolve the language-aware section-0 feature (e.g. `book@en`), then defer
-        // to the v3 CFRSECT1 index lookup, which is O(section-0 nodes) + O(log n)
-        // and returns `None` immediately on a miss. The previous implementation
-        // rescanned every node of the target type and re-derived each section
-        // tuple, an O(nodes * depth) walk that took tens of seconds on a miss.
-        let sec0_feature = mapped_section_0_feature_for_lang(&self.corpus, lang)?;
-        Ok(MappedSections::new(&self.corpus)?
-            .node_from_section_langed(&values, sec0_feature.as_deref())?)
+        // Resolve the language-aware section-0 feature (e.g. `book@en`) and the
+        // section-0 node through the cached sections context (lazily-built value
+        // index, O(1)); chapter/verse come from the CFRSECT1 `sec1`/`sec2` maps.
+        // A miss returns `None` immediately.
+        let context = self.sections_context()?;
+        let sec0_feature = context.sec0_feature_for_lang(lang).map(str::to_string);
+        Ok(context.node_from_section_langed(&values, sec0_feature.as_deref())?)
     }
 
     #[allow(non_snake_case)]
@@ -996,12 +995,19 @@ impl PySearch {
             pyo3::exceptions::PyRuntimeError::new_err("no search template has been studied")
         })?;
         let engine = MappedSearch::new(&self.corpus);
+        // Full-tuple counting runs the join in count-only mode (no row
+        // materialization); shallow counting needs the rows for dedup.
+        if self.shallow == 0 {
+            return Ok(match borrow_search_sets(&self.sets) {
+                Some(sets) => engine.count_with_sets(template, &sets, limit)?,
+                None => engine.count(template, limit)?,
+            });
+        }
         let study = match borrow_search_sets(&self.sets) {
             Some(sets) => engine.study_with_sets(template, &sets)?,
             None => engine.study(template)?,
         };
         Ok(match self.shallow {
-            0 => study.count(limit),
             1 => study.count_first_nodes(limit),
             width => study.count_prefixes(width, limit),
         })

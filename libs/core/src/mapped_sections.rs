@@ -6,7 +6,7 @@ use crate::corpus::{Boundary, SectionOptions, WalkEvent};
 use crate::error::{CfError, Result};
 use crate::feature::FeatureValue;
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 /// A node feature resolved once into an owned, long-lived handle, dispatched by
 /// the same encoding rule as [`MappedCompiledCorpus::node_feature`] (string-pool
@@ -67,6 +67,18 @@ pub struct SectionsContext {
     /// locality (`L.u/d/n/p/i`) callers that share this context but never need
     /// feature *values*.
     heading: std::sync::OnceLock<HeadingHandles>,
+    /// Section-0 nodes in canonical (`otype.s`) order, scanned once on the first
+    /// `nodeFromSection` call. The scan order matters: when two section-0 nodes
+    /// share a heading value, the first in canonical order must win, matching the
+    /// per-call linear scan this cache replaces.
+    sec0_nodes: std::sync::OnceLock<Vec<u32>>,
+    /// Per-feature section-0 lookup (`book@<lang>` value -> node), built lazily
+    /// from `sec0_nodes` per language feature actually used. A few dozen entries
+    /// per map.
+    sec0_index: RwLock<HashMap<String, Arc<HashMap<FeatureValue, u32>>>>,
+    /// Language code -> section-0 feature name (TF `sectionFeatsWithLanguage`:
+    /// the first section feature and its `@<code>` variants), built once.
+    sec0_lang_features: std::sync::OnceLock<HashMap<String, String>>,
 }
 
 /// The section-feature handles backing `T.sectionFromNode`. Built once, lazily.
@@ -117,6 +129,9 @@ impl SectionsContext {
             structure_types,
             structure_features,
             heading: std::sync::OnceLock::new(),
+            sec0_nodes: std::sync::OnceLock::new(),
+            sec0_index: RwLock::new(HashMap::new()),
+            sec0_lang_features: std::sync::OnceLock::new(),
         })
     }
 
@@ -206,6 +221,141 @@ impl SectionsContext {
                 }
             })
             .collect()
+    }
+
+    /// Resolve the section-0 feature name for a language code, mirroring the
+    /// bindings' `mapped_section_0_feature_for_lang` (TF
+    /// `sectionFeatsWithLanguage`): the `@<lang>` variant when present, else the
+    /// base-code feature, else the configured first section feature. Built once;
+    /// each call is two `HashMap` probes.
+    pub fn sec0_feature_for_lang(&self, lang: &str) -> Option<&str> {
+        let features = self.sec0_lang_features.get_or_init(|| {
+            let mut features = HashMap::new();
+            if self.section_types.is_empty() {
+                return features;
+            }
+            let Some(base) = self.section_features.first() else {
+                return features;
+            };
+            let prefix = format!("{base}@");
+            for feature in &self.corpus.metadata().node_features {
+                if feature.name != *base && !feature.name.starts_with(&prefix) {
+                    continue;
+                }
+                let code = feature.metadata_value("languageCode").unwrap_or("");
+                features.insert(code.to_string(), feature.name.clone());
+            }
+            features
+        });
+        features
+            .get(lang)
+            .or_else(|| features.get(""))
+            .map(String::as_str)
+            .or_else(|| self.section_features.first().map(String::as_str))
+    }
+
+    /// Section-0 nodes in canonical order, scanned from `otype` once.
+    fn sec0_nodes(&self) -> Result<&[u32]> {
+        if let Some(nodes) = self.sec0_nodes.get() {
+            return Ok(nodes);
+        }
+        let nodes = match self.section_types.first() {
+            Some(section_0_type) => self.otype.view().s(section_0_type)?,
+            None => Vec::new(),
+        };
+        let _ = self.sec0_nodes.set(nodes);
+        Ok(self
+            .sec0_nodes
+            .get()
+            .expect("section-0 nodes just initialized"))
+    }
+
+    /// The `value -> node` lookup for one section-0 feature (the base feature or
+    /// a `book@<lang>` variant), built once per feature. First occurrence in
+    /// canonical order wins, matching the linear scan it replaces.
+    fn sec0_value_index(&self, feature_name: &str) -> Result<Arc<HashMap<FeatureValue, u32>>> {
+        if let Some(index) = self
+            .sec0_index
+            .read()
+            .expect("sec0 index poisoned")
+            .get(feature_name)
+        {
+            return Ok(Arc::clone(index));
+        }
+        let sections = self.sections();
+        let mut index = HashMap::new();
+        for node in self.sec0_nodes()? {
+            if let Some(value) = sections.node_feature_value(feature_name, *node)? {
+                index.entry(value).or_insert(*node);
+            }
+        }
+        let index = Arc::new(index);
+        self.sec0_index
+            .write()
+            .expect("sec0 index poisoned")
+            .insert(feature_name.to_string(), Arc::clone(&index));
+        Ok(index)
+    }
+
+    /// Cached-handle version of [`MappedSections::node_from_section_langed`]:
+    /// the section-0 node resolves through the lazily-built value index (O(1))
+    /// instead of a per-call scan over every node of the section-0 type. The
+    /// `sec1`/`sec2` lookups and all fallback semantics are identical.
+    pub fn node_from_section_langed(
+        &self,
+        section: &[FeatureValue],
+        sec0_feature: Option<&str>,
+    ) -> Result<Option<u32>> {
+        if section.is_empty()
+            || section.len() > self.section_types.len()
+            || section.len() > self.section_features.len()
+        {
+            return Ok(None);
+        }
+
+        if section.len() <= 3 {
+            if let Some(sections_data) = self.corpus.sections_data()? {
+                let feature_name = match sec0_feature {
+                    Some(feature) => feature,
+                    None => match self.section_features.first() {
+                        Some(feature) => feature.as_str(),
+                        None => return Ok(None),
+                    },
+                };
+                let Some(sec0_node) = self
+                    .sec0_value_index(feature_name)?
+                    .get(&section[0])
+                    .copied()
+                else {
+                    return Ok(None);
+                };
+                return Ok(match section.len() {
+                    1 => Some(sec0_node),
+                    2 => sections_data
+                        .sec1
+                        .get(&sec0_node)
+                        .and_then(|headings| {
+                            headings.get(&section_value_to_string(section[1].clone()))
+                        })
+                        .copied(),
+                    _ => sections_data
+                        .sec2
+                        .get(&sec0_node)
+                        .and_then(|level1| {
+                            level1.get(&section_value_to_string(section[1].clone()))
+                        })
+                        .and_then(|level2| {
+                            level2.get(&section_value_to_string(section[2].clone()))
+                        })
+                        .copied(),
+                });
+            }
+        }
+
+        // Pre-v3 caches (or deeper-than-CFRSECT1 hierarchies): defer to the
+        // linear reference implementation.
+        self.sections()
+            .node_from_section_langed(section, sec0_feature)
     }
 
     /// Build a thin [`MappedSections`] borrowing the cached owned handles. No
