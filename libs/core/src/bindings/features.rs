@@ -1,12 +1,109 @@
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyAttributeError, PyTypeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyInt, PyString, PyTuple};
 
 use crate::compiled::{MappedCompiledCorpus, MappedNodeValue};
-use crate::corpus::{Boundary, ComputedFeatureData};
+use crate::corpus::{Boundary, Chunk, ChunkLengthKey, ChunkPositionKey, ComputedFeatureData};
 use crate::feature::{EdgeFrequency, FeatureValue};
+
+/// Parses a `nodeTypes` style argument (`None` / `str` / iterable of `str`)
+/// into an owned `Vec<String>`. Mirrors TF's `freqList(nodeTypes=...)` which
+/// accepts any iterable of node-type names (commonly a `set`).
+pub(crate) fn node_types_from_py(
+    arg: Option<&Bound<'_, PyAny>>,
+) -> PyResult<Option<Vec<String>>> {
+    let Some(arg) = arg else {
+        return Ok(None);
+    };
+    if arg.is_none() {
+        return Ok(None);
+    }
+    if let Ok(value) = arg.extract::<String>() {
+        return Ok(Some(vec![value]));
+    }
+    let iter = arg.try_iter().map_err(|_| {
+        PyTypeError::new_err("node type filter must be a str or an iterable of str")
+    })?;
+    let mut out = Vec::new();
+    for item in iter {
+        out.push(item?.extract::<String>()?);
+    }
+    Ok(Some(out))
+}
+
+fn as_str_refs(values: &Option<Vec<String>>) -> Option<Vec<&str>> {
+    values
+        .as_ref()
+        .map(|values| values.iter().map(String::as_str).collect())
+}
+
+/// Parses a TF chunk `(node, (begin, end))` into the core [`Chunk`] type.
+pub(crate) fn chunk_from_py(chunk: &Bound<'_, PyAny>) -> PyResult<Chunk> {
+    let node: u32 = chunk
+        .get_item(0)
+        .map_err(|_| PyTypeError::new_err("chunk must be a (node, (begin, end)) tuple"))?
+        .extract()?;
+    let slots = chunk
+        .get_item(1)
+        .map_err(|_| PyTypeError::new_err("chunk must be a (node, (begin, end)) tuple"))?;
+    let start: u32 = slots.get_item(0)?.extract()?;
+    let end: u32 = slots.get_item(1)?.extract()?;
+    Ok(Chunk { node, start, end })
+}
+
+/// Builds the canonical-position sort key for a chunk (`N.sortKeyChunk`).
+pub(crate) fn sort_key_chunk_py(
+    corpus: &MappedCompiledCorpus,
+    chunk: &Bound<'_, PyAny>,
+) -> PyResult<PyChunkPositionKey> {
+    let chunk = chunk_from_py(chunk)?;
+    Ok(PyChunkPositionKey {
+        key: corpus.sort_key_chunk(chunk)?,
+    })
+}
+
+/// Builds the canonical-length sort key for a chunk (`N.sortKeyChunkLength`).
+pub(crate) fn sort_key_chunk_length_py(
+    corpus: &MappedCompiledCorpus,
+    chunk: &Bound<'_, PyAny>,
+) -> PyResult<PyChunkLengthKey> {
+    let chunk = chunk_from_py(chunk)?;
+    Ok(PyChunkLengthKey {
+        key: corpus.sort_key_chunk_length(chunk)?,
+    })
+}
+
+/// Opaque, orderable key returned by `N.sortKeyChunk`. Comparisons delegate to
+/// the core `ChunkPositionKey` ordering so `sorted(chunks, key=N.sortKeyChunk)`
+/// produces TF's canonical chunk order.
+#[pyclass(name = "ChunkPositionKey")]
+pub(crate) struct PyChunkPositionKey {
+    key: ChunkPositionKey,
+}
+
+#[pymethods]
+impl PyChunkPositionKey {
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
+        op.matches(self.key.cmp(&other.key))
+    }
+}
+
+/// Opaque, orderable key returned by `N.sortKeyChunkLength`.
+#[pyclass(name = "ChunkLengthKey")]
+pub(crate) struct PyChunkLengthKey {
+    key: ChunkLengthKey,
+}
+
+#[pymethods]
+impl PyChunkLengthKey {
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
+        op.matches(self.key.cmp(&other.key))
+    }
+}
 
 pub(crate) fn feature_value_to_py(py: Python<'_>, value: &FeatureValue) -> PyResult<PyObject> {
     match value {
@@ -163,16 +260,35 @@ impl PyNodeFeature {
         Ok(PyTuple::new(py, rows)?.into())
     }
 
+    #[getter]
+    #[allow(non_snake_case)]
+    fn all(&self, py: Python<'_>) -> PyResult<PyObject> {
+        if self.name != "otype" {
+            return Err(PyAttributeError::new_err(format!(
+                "node feature {} has no attribute 'all'",
+                self.name
+            )));
+        }
+        let names: Vec<String> = match self.corpus.computed_feature("levels")? {
+            Some(ComputedFeatureData::Levels(rows)) => {
+                rows.into_iter().map(|(node_type, _, _, _)| node_type).collect()
+            }
+            _ => Vec::new(),
+        };
+        Ok(PyTuple::new(py, names)?.into())
+    }
+
     #[pyo3(signature = (node_types=None))]
     fn freq_list(
         &self,
         py: Python<'_>,
         node_types: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyObject> {
-        let _ = node_types;
+        let node_types = node_types_from_py(node_types)?;
+        let filter = as_str_refs(&node_types);
         let rows = self
             .corpus
-            .node_frequency_list(&self.name, None)?
+            .node_frequency_list(&self.name, filter.as_deref())?
             .into_iter()
             .map(|(value, count)| {
                 let row: Vec<PyObject> = vec![
@@ -186,13 +302,13 @@ impl PyNodeFeature {
     }
 
     #[allow(non_snake_case)]
-    #[pyo3(signature = (node_types=None))]
+    #[pyo3(signature = (nodeTypes=None))]
     fn freqList(
         &self,
         py: Python<'_>,
-        node_types: Option<&Bound<'_, PyAny>>,
+        nodeTypes: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyObject> {
-        self.freq_list(py, node_types)
+        self.freq_list(py, nodeTypes)
     }
 }
 
@@ -429,8 +545,15 @@ impl PyEdgeFeature {
         node_types_from: Option<&Bound<'_, PyAny>>,
         node_types_to: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyObject> {
-        let _ = (node_types_from, node_types_to);
-        match self.corpus.edge_frequency_list(&self.name, None, None)? {
+        let node_types_from = node_types_from_py(node_types_from)?;
+        let node_types_to = node_types_from_py(node_types_to)?;
+        let filter_from = as_str_refs(&node_types_from);
+        let filter_to = as_str_refs(&node_types_to);
+        match self.corpus.edge_frequency_list(
+            &self.name,
+            filter_from.as_deref(),
+            filter_to.as_deref(),
+        )? {
             EdgeFrequency::Count(count) => Ok(count.into_pyobject(py)?.into()),
             EdgeFrequency::Values(rows) => {
                 let rows = rows
@@ -451,14 +574,14 @@ impl PyEdgeFeature {
     }
 
     #[allow(non_snake_case)]
-    #[pyo3(signature = (node_types_from=None, node_types_to=None))]
+    #[pyo3(signature = (nodeTypesFrom=None, nodeTypesTo=None))]
     fn freqList(
         &self,
         py: Python<'_>,
-        node_types_from: Option<&Bound<'_, PyAny>>,
-        node_types_to: Option<&Bound<'_, PyAny>>,
+        nodeTypesFrom: Option<&Bound<'_, PyAny>>,
+        nodeTypesTo: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyObject> {
-        self.freq_list(py, node_types_from, node_types_to)
+        self.freq_list(py, nodeTypesFrom, nodeTypesTo)
     }
 
     fn has_edge_values(&self) -> bool {
@@ -503,6 +626,54 @@ impl PyEdgeFeatures {
 
     fn __dir__(&self) -> Vec<String> {
         self.corpus.all_edge_features(true)
+    }
+}
+
+/// Lazy mapping that backs `C.levUp.data` / `C.levDown.data`.
+///
+/// SHAPE DIVERGENCE FROM TF: in text-fabric `C.levUp.data` is a flat tuple of
+/// `maxNode` tuples where `data[n - 1]` are the embedders of node `n`, and
+/// `C.levDown.data[n - maxSlot - 1]` are the embeddees of non-slot node `n`.
+/// Materializing those (1.4M tuples on BHSA) eagerly defeats the mmap-first
+/// design, so we expose a lazy object instead: index it by the node id directly
+/// (`C.levUp.data[n]` -> embedders of `n`, `C.levDown.data[n]` -> embeddees of
+/// `n`). Rows are read on demand from the `CFRLEVU1` / `CFRLEVD1` mmap CSRs.
+#[pyclass(name = "LevView")]
+pub(crate) struct PyLevView {
+    corpus: Arc<MappedCompiledCorpus>,
+    down: bool,
+}
+
+#[pymethods]
+impl PyLevView {
+    fn __getitem__(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
+        // Bound-check by node id so default Python iteration terminates rather
+        // than looping forever (this is a mapping keyed by node, not a sequence).
+        if node < 1 || node > self.corpus.max_node() {
+            return Err(pyo3::exceptions::PyIndexError::new_err(format!(
+                "node {node} out of range"
+            )));
+        }
+        let row = if self.down {
+            self.corpus.lev_down_row(node)?
+        } else {
+            self.corpus.lev_up_row(node)?
+        }
+        .unwrap_or_default();
+        Ok(PyTuple::new(py, row)?.into())
+    }
+
+    /// Embedders (`levUp`) or embeddees (`levDown`) of `node` as a tuple.
+    fn row(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
+        self.__getitem__(py, node)
+    }
+
+    fn __len__(&self) -> usize {
+        self.corpus.max_node() as usize
+    }
+
+    fn __contains__(&self, node: u32) -> bool {
+        node >= 1 && node <= self.corpus.max_node()
     }
 }
 
@@ -552,11 +723,184 @@ impl PyComputeds {
             "order" => Ok(self.order(py)?.into_pyobject(py)?.into()),
             "rank" => Ok(self.rank(py)?.into_pyobject(py)?.into()),
             "boundary" => Ok(self.boundary(py)?.into_pyobject(py)?.into()),
+            "levUp" => Ok(self.levUp(py)?.into_pyobject(py)?.into()),
+            "levDown" => Ok(self.levDown(py)?.into_pyobject(py)?.into()),
+            "sections" => Ok(self.sections(py)?.into_pyobject(py)?.into()),
+            "characters" => Ok(self.characters(py)?.into_pyobject(py)?.into()),
             _ => Err(PyAttributeError::new_err(format!(
                 "no computed feature named {name}"
             ))),
         }
     }
+
+    fn lev_view(&self, py: Python<'_>, down: bool) -> PyResult<PyComputed> {
+        let view = Py::new(
+            py,
+            PyLevView {
+                corpus: Arc::clone(&self.corpus),
+                down,
+            },
+        )?;
+        Ok(PyComputed::new(view.into_any()))
+    }
+
+    fn sections_to_py(&self, py: Python<'_>) -> PyResult<PyObject> {
+        // TF C.sections.data shape: dict(sec1=, sec2=, seqFromNode=, nodeFromSeq=).
+        let data = PyDict::new(py);
+        let Some(sections) = self.corpus.sections_data()? else {
+            for key in ["sec1", "sec2", "seqFromNode", "nodeFromSeq"] {
+                data.set_item(key, PyDict::new(py))?;
+            }
+            return Ok(data.into());
+        };
+
+        let sec1 = PyDict::new(py);
+        for (node, inner) in &sections.sec1 {
+            let inner_dict = PyDict::new(py);
+            for (heading, target) in inner {
+                inner_dict.set_item(heading, *target)?;
+            }
+            sec1.set_item(node, inner_dict)?;
+        }
+
+        let sec2 = PyDict::new(py);
+        for (node, inner) in &sections.sec2 {
+            let inner_dict = PyDict::new(py);
+            for (heading1, inner2) in inner {
+                let inner2_dict = PyDict::new(py);
+                for (heading2, target) in inner2 {
+                    inner2_dict.set_item(heading2, *target)?;
+                }
+                inner_dict.set_item(heading1, inner2_dict)?;
+            }
+            sec2.set_item(node, inner_dict)?;
+        }
+
+        let seq_from_node = PyDict::new(py);
+        for (node, seq) in &sections.seq_from_node {
+            seq_from_node.set_item(node, PyTuple::new(py, seq.iter().copied())?)?;
+        }
+
+        let node_from_seq = PyDict::new(py);
+        for (seq, node) in &sections.node_from_seq {
+            node_from_seq.set_item(PyTuple::new(py, seq.iter().copied())?, *node)?;
+        }
+
+        data.set_item("sec1", sec1)?;
+        data.set_item("sec2", sec2)?;
+        data.set_item("seqFromNode", seq_from_node)?;
+        data.set_item("nodeFromSeq", node_from_seq)?;
+        Ok(data.into())
+    }
+
+    fn characters_to_py(&self, py: Python<'_>) -> PyResult<PyObject> {
+        // TF C.characters.data shape: dict{format: sorted [(char, count)]}.
+        //
+        // The mapped core exposes no `characters` accessor (it is not a
+        // `computed_feature` arm and `precompute::characters` needs the in-memory
+        // Corpus), so we reconstruct it here from the `otext` `fmt:` specs and the
+        // referenced node-feature values. The feature names in a format spec are
+        // extracted with a simplified `{...}` token scanner, which may diverge
+        // from TF's full format compiler on exotic specs; on plain `{feature}`
+        // specs (BHSA, mini fixtures) it matches.
+        let result = PyDict::new(py);
+        let Some(otext) = self.corpus.config_feature("otext")? else {
+            return Ok(result.into());
+        };
+        let meta = otext.metadata()?;
+
+        // format name -> feature list
+        let mut formats: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for (key, value) in &meta {
+            let Some(format_name) = key.strip_prefix("fmt:") else {
+                continue;
+            };
+            let Some(spec) = value else {
+                continue;
+            };
+            formats.insert(format_name.to_string(), extract_format_features(spec));
+        }
+
+        // char counts per feature (only computed once per feature)
+        let mut counts_by_feature: BTreeMap<String, BTreeMap<String, usize>> = BTreeMap::new();
+        for features in formats.values() {
+            for feature in features {
+                if counts_by_feature.contains_key(feature) {
+                    continue;
+                }
+                let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+                if let Some(view) = self.corpus.node_feature(feature)? {
+                    for row in view.items()? {
+                        let (_, value) = row;
+                        let text = match value {
+                            MappedNodeValue::Str(value) => value.to_string(),
+                            MappedNodeValue::Int(value) => value.to_string(),
+                        };
+                        for character in text.chars() {
+                            *counts.entry(character.to_string()).or_default() += 1;
+                        }
+                    }
+                }
+                counts_by_feature.insert(feature.clone(), counts);
+            }
+        }
+
+        for (format_name, features) in &formats {
+            let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+            for feature in features {
+                if let Some(feature_counts) = counts_by_feature.get(feature) {
+                    for (character, count) in feature_counts {
+                        *counts.entry(character.clone()).or_default() += count;
+                    }
+                }
+            }
+            let rows = counts
+                .into_iter()
+                .map(|(character, count)| {
+                    let row: Vec<PyObject> =
+                        vec![PyString::new(py, &character).into(), count.into_pyobject(py)?.into()];
+                    PyTuple::new(py, row).map(Into::into)
+                })
+                .collect::<PyResult<Vec<PyObject>>>()?;
+            result.set_item(format_name, PyTuple::new(py, rows)?)?;
+        }
+
+        Ok(result.into())
+    }
+}
+
+/// Extracts node-feature tokens from a TF `otext` format spec. Feature names are
+/// the identifier-like runs that appear inside `{...}` groups; literals outside
+/// braces (separators) are ignored. Tokens that are not real node features map
+/// to no value and contribute nothing.
+fn extract_format_features(spec: &str) -> Vec<String> {
+    let mut features: Vec<String> = Vec::new();
+    let mut depth: i32 = 0;
+    let mut current = String::new();
+    for ch in spec.chars() {
+        match ch {
+            '{' => {
+                depth += 1;
+            }
+            '}' => {
+                if !current.is_empty() && !features.contains(&current) {
+                    features.push(current.clone());
+                }
+                current.clear();
+                depth -= 1;
+            }
+            c if depth > 0 && (c.is_alphanumeric() || c == '_' || c == '@') => current.push(c),
+            _ => {
+                if depth > 0 && !current.is_empty() {
+                    if !features.contains(&current) {
+                        features.push(current.clone());
+                    }
+                    current.clear();
+                }
+            }
+        }
+    }
+    features
 }
 
 #[pymethods]
@@ -607,8 +951,39 @@ impl PyComputeds {
         Ok(PyComputed::new(Self::boundary_to_py(py, boundary)?))
     }
 
+    #[getter]
+    #[allow(non_snake_case)]
+    fn levUp(&self, py: Python<'_>) -> PyResult<PyComputed> {
+        self.lev_view(py, false)
+    }
+
+    #[getter]
+    #[allow(non_snake_case)]
+    fn levDown(&self, py: Python<'_>) -> PyResult<PyComputed> {
+        self.lev_view(py, true)
+    }
+
+    #[getter]
+    fn sections(&self, py: Python<'_>) -> PyResult<PyComputed> {
+        Ok(PyComputed::new(self.sections_to_py(py)?))
+    }
+
+    #[getter]
+    fn characters(&self, py: Python<'_>) -> PyResult<PyComputed> {
+        Ok(PyComputed::new(self.characters_to_py(py)?))
+    }
+
     fn __dir__(&self) -> Vec<&'static str> {
-        vec!["levels", "order", "rank", "boundary"]
+        vec![
+            "levels",
+            "order",
+            "rank",
+            "boundary",
+            "levUp",
+            "levDown",
+            "sections",
+            "characters",
+        ]
     }
 
     fn __getattr__(&self, py: Python<'_>, name: &str) -> PyResult<PyObject> {

@@ -99,12 +99,13 @@ class NodeFeature:
     slotType: str | None
     maxSlot: int | None
     maxNode: int | None
+    all: tuple[str, ...]
 
     def v(self, node: int) -> str | int | None: ...
     def s(self, value: str | int) -> tuple[int, ...]: ...
     def items(self) -> tuple[tuple[int, str | int], ...]: ...
     def freq_list(self, node_types: object | None = None) -> tuple[tuple[str | int, int], ...]: ...
-    def freqList(self, node_types: object | None = None) -> tuple[tuple[str | int, int], ...]: ...
+    def freqList(self, nodeTypes: object | None = None) -> tuple[tuple[str | int, int], ...]: ...
 
 class EdgeFeature:
     name: str
@@ -128,8 +129,8 @@ class EdgeFeature:
     ) -> int | tuple[tuple[str | int | None, int], ...]: ...
     def freqList(
         self,
-        node_types_from: object | None = None,
-        node_types_to: object | None = None,
+        nodeTypesFrom: object | None = None,
+        nodeTypesTo: object | None = None,
     ) -> int | tuple[tuple[str | int | None, int], ...]: ...
     def has_edge_values(self) -> bool: ...
     def hasEdgeValues(self) -> bool: ...
@@ -146,6 +147,8 @@ class Nodes:
 
     def sortKey(self, node: int) -> int: ...
     def sortKeyTuple(self, nodes: list[int] | tuple[int, ...] | set[int]) -> tuple[int, ...]: ...
+    def sortKeyChunk(self, chunk: tuple[int, tuple[int, int]]) -> ChunkPositionKey: ...
+    def sortKeyChunkLength(self, chunk: tuple[int, tuple[int, int]]) -> ChunkLengthKey: ...
     def sortNodes(self, nodes: list[int] | tuple[int, ...] | set[int]) -> tuple[int, ...]: ...
     def walk(
         self,
@@ -234,6 +237,26 @@ class SearchExe:
     badSyntax: list[tuple[int | None, str]]
     badSemantics: list[tuple[int | None, str]]
 
+class ChunkPositionKey:
+    """Opaque, orderable sort key returned by ``Nodes.sortKeyChunk``."""
+
+class ChunkLengthKey:
+    """Opaque, orderable sort key returned by ``Nodes.sortKeyChunkLength``."""
+
+class LevView:
+    """Lazy view backing ``C.levUp.data`` / ``C.levDown.data``.
+
+    Indexed by node id (1-based): ``C.levUp.data[n]`` are the embedders of node
+    ``n`` and ``C.levDown.data[n]`` are the embeddees of node ``n``. This differs
+    from text-fabric, where ``C.levUp.data`` is a flat 0-indexed tuple. Rows are
+    read on demand from the mmap to avoid materializing every node's tuple.
+    """
+
+    def __getitem__(self, node: int) -> tuple[int, ...]: ...
+    def row(self, node: int) -> tuple[int, ...]: ...
+    def __len__(self) -> int: ...
+    def __contains__(self, node: int) -> bool: ...
+
 class Computed:
     data: object
 
@@ -242,3 +265,7 @@ class Computeds:
     order: Computed
     rank: Computed
     boundary: Computed
+    levUp: Computed
+    levDown: Computed
+    sections: Computed
+    characters: Computed

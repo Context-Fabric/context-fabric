@@ -376,6 +376,22 @@ impl PyNodes {
     }
 
     #[allow(non_snake_case)]
+    fn sortKeyChunk(
+        &self,
+        chunk: &Bound<'_, PyAny>,
+    ) -> PyResult<super::features::PyChunkPositionKey> {
+        super::features::sort_key_chunk_py(&self.corpus, chunk)
+    }
+
+    #[allow(non_snake_case)]
+    fn sortKeyChunkLength(
+        &self,
+        chunk: &Bound<'_, PyAny>,
+    ) -> PyResult<super::features::PyChunkLengthKey> {
+        super::features::sort_key_chunk_length_py(&self.corpus, chunk)
+    }
+
+    #[allow(non_snake_case)]
     fn sortNodes(&self, py: Python<'_>, nodes: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         let nodes = nodes_from_py(Some(nodes))?.unwrap_or_default();
         let mut nodes = nodes;

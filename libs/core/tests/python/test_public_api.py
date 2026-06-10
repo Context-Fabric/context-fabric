@@ -77,12 +77,12 @@ def test_text_fabric_compatibility_surface(mini_corpus_path, loaded_api):
     assert api.Cs("order").data
     assert loaded_api.F.word.meta == loaded_api.F.word.metaData
     assert loaded_api.F.word.data[1] == "hello"
-    assert loaded_api.F.word.freqList(node_types=("word",))
+    assert loaded_api.F.word.freqList(nodeTypes=("word",))
     assert loaded_api.E.oslots.data[8] == (1, 2, 3, 4, 5)
     assert loaded_api.E.oslots.dataInv[1] == (6, 8)
     assert loaded_api.E.distance.data[1][3] == 5
     assert loaded_api.E.distance.dataInv[2][1] == 0
-    assert loaded_api.E.distance.freqList(node_types_from=("word",), node_types_to=("word",))
+    assert loaded_api.E.distance.freqList(nodeTypesFrom=("word",), nodeTypesTo=("word",))
 
     events = loaded_api.N.walk(events=True)
     assert all(isinstance(item, tuple) and len(item) == 2 for item in events)
