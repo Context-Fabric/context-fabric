@@ -1,0 +1,77 @@
+{
+ "engine": "tf",
+ "load_s": 8.583,
+ "rss_after_load_mb": 6227.6,
+ "F.sp.v": {
+  "total_s": 0.0038,
+  "per_call_us": 0.38,
+  "n": 10000
+ },
+ "F.g_word.v": {
+  "total_s": 0.0043,
+  "per_call_us": 0.43,
+  "n": 10000
+ },
+ "L.u": {
+  "total_s": 0.0,
+  "per_call_us": 0.79,
+  "n": 30
+ },
+ "L.d": {
+  "total_s": 0.0001,
+  "per_call_us": 4.36,
+  "n": 30
+ },
+ "E.mother.f": {
+  "total_s": 0.0001,
+  "per_call_us": 0.23,
+  "n": 500
+ },
+ "T.sectionFromNode": {
+  "total_s": 0.0019,
+  "per_call_us": 9.55,
+  "n": 200
+ },
+ "T.text.verse": {
+  "total_s": 0.0021,
+  "per_call_us": 21.02,
+  "n": 100
+ },
+ "F.sp.freqList_s": 0.0573,
+ "F.sp.v_full_sweep_s": 0.043,
+ "queries": {
+  "q_phrase_without_verb": {
+   "s": 0.4724,
+   "count": 62771
+  },
+  "q_regex_gcons": {
+   "s": 0.2225,
+   "count": 816
+  },
+  "q_regex_typ": {
+   "s": 0.2738,
+   "count": 3098
+  },
+  "q_regex_gloss_space": {
+   "s": 0.0073,
+   "count": 406
+  },
+  "q_feat_exists_qere": {
+   "s": 0.1245,
+   "count": 1892
+  },
+  "q_feat_empty_qere": {
+   "s": 0.1691,
+   "count": 424698
+  },
+  "q_multivalue_neg": {
+   "s": 0.4117,
+   "count": 271
+  },
+  "q_slot_equal": {
+   "s": 0.1369,
+   "count": 3583
+  }
+ },
+ "rss_final_mb": 6369.2
+}

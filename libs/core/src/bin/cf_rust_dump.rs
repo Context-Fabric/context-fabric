@@ -40,13 +40,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .map(String::as_str)
         .collect::<Vec<_>>();
     let corpus = Corpus::load_features(tf_path, &selected_feature_refs)?;
-    let mapped_corpus = if mapped {
-        let output = temp_compiled_path();
-        compile_features(tf_path, &output, &selected_feature_refs)?;
-        Some(MappedCompiledCorpus::open(&output)?)
-    } else {
-        None
-    };
+    // The search engine lives only on the mapped path now, so always compile a
+    // mapped corpus; it backs `search` probes in both modes.
+    let output = temp_compiled_path();
+    compile_features(tf_path, &output, &selected_feature_refs)?;
+    let mapped_corpus = MappedCompiledCorpus::open(&output)?;
     for probe in probes {
         let id = probe
             .get("id")
@@ -57,10 +55,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .and_then(Value::as_str)
             .ok_or("probe missing string kind")?;
         let args = probe.get("args").unwrap_or(&Value::Null);
-        let result = if let Some(mapped_corpus) = mapped_corpus.as_ref() {
-            run_mapped_probe(&corpus, mapped_corpus, kind, args)?
+        let result = if mapped {
+            run_mapped_probe(&corpus, &mapped_corpus, kind, args)?
         } else {
-            run_probe(&corpus, kind, args)?
+            run_probe(&corpus, &mapped_corpus, kind, args)?
         };
         println!(
             "{}",
@@ -129,6 +127,7 @@ fn unique_suffix() -> u128 {
 
 fn run_probe(
     corpus: &Corpus,
+    mapped: &MappedCompiledCorpus,
     kind: &str,
     args: &Value,
 ) -> Result<Value, Box<dyn std::error::Error>> {
@@ -219,7 +218,7 @@ fn run_probe(
                 .get("limit")
                 .and_then(Value::as_u64)
                 .map(|value| value as usize);
-            Ok(json!(corpus.search().search(template, limit)?))
+            Ok(json!(MappedSearch::new(mapped).search(template, limit)?))
         }
         _ => Err(format!("unsupported probe kind {kind:?}").into()),
     }
@@ -244,7 +243,7 @@ fn run_mapped_probe(
         "section_from_node" => {
             let node = required_u32(args, "node")?;
             if args.get("lang").is_some() {
-                return run_probe(corpus, kind, args);
+                return run_probe(corpus, mapped, kind, args);
             }
             Ok(json!(
                 MappedSections::new(mapped)?.section_from_node(node, &SectionOptions::default())?
@@ -252,7 +251,7 @@ fn run_mapped_probe(
         }
         "node_from_section" => {
             if args.get("lang").is_some() {
-                return run_probe(corpus, kind, args);
+                return run_probe(corpus, mapped, kind, args);
             }
             let section = args
                 .get("section")
@@ -265,7 +264,7 @@ fn run_mapped_probe(
                 MappedSections::new(mapped)?.node_from_section(&section)?
             ))
         }
-        "locality_up" => run_probe(corpus, kind, args),
+        "locality_up" => run_probe(corpus, mapped, kind, args),
         "search" => {
             let template = args
                 .get("template")
@@ -277,7 +276,7 @@ fn run_mapped_probe(
                 .map(|value| value as usize);
             Ok(json!(MappedSearch::new(mapped).search(template, limit)?))
         }
-        _ => run_probe(corpus, kind, args),
+        _ => run_probe(corpus, mapped, kind, args),
     }
 }
 

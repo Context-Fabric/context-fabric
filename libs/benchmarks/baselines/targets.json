@@ -1,0 +1,14 @@
+{
+  "_comment": "Phase 0 perf gate targets for the context-fabric mapped engine on BHSA. Per-call probes are microseconds/call; rss_final_mb is MB. Query times are not listed here as absolute numbers: every query in the recorded TF baseline (baselines/bhsa_tf.json) must run at or below the TF wall time. These targets are NOT enforced yet (current 0.6.0rc1 fails them by design); see Phase 2/3.",
+  "per_call_us": {
+    "F.sp.v": 2,
+    "F.g_word.v": 2,
+    "L.u": 10,
+    "L.d": 15,
+    "E.mother.f": 5,
+    "T.sectionFromNode": 20,
+    "T.text.verse": 50
+  },
+  "rss_final_mb": 80,
+  "queries_le_tf": true
+}

@@ -102,6 +102,73 @@ fn structured_mini_corpus(temp_dir: &tempfile::TempDir) -> PathBuf {
     structure_source
 }
 
+/// Compile the bundled mini corpus to a temporary `.cfr` and open it for the
+/// mapped search engine. The returned corpus borrows from `dir`, which must
+/// outlive it.
+fn mapped_mini_corpus(dir: &tempfile::TempDir) -> MappedCompiledCorpus {
+    let source = repo_path("libs/core/tests/fixtures/mini_corpus");
+    let cache = dir.path().join("mini.cfr");
+    compile_features(&source, &cache, &[]).unwrap();
+    MappedCompiledCorpus::open(&cache).unwrap()
+}
+
+// Mini corpus layout (used by the directional operator tests below):
+//   words 1..5 are slots; phrase 6 = slots 1-3, phrase 7 = slots 4-5,
+//   sentence 8 = slots 1-5.
+#[test]
+fn mapped_operator_prefixed_atoms_emit_directional_sibling_relations() {
+    let dir = tempfile::tempdir().unwrap();
+    let mapped = mapped_mini_corpus(&dir);
+    let search = MappedSearch::new(&mapped);
+
+    // `<: word` (AdjacentBefore) between the previous sibling (w1) and the
+    // operator atom (w2): w1 immediately before w2, both embedded in the sentence.
+    let mut adjacent_before = search.search("sentence\n  w1:word\n  <: w2:word", None).unwrap();
+    adjacent_before.sort_unstable();
+    assert_eq!(
+        adjacent_before,
+        vec![vec![8, 1, 2], vec![8, 2, 3], vec![8, 3, 4], vec![8, 4, 5]]
+    );
+
+    // Direction is load-bearing: `:> word` (AdjacentAfter) yields the reverse
+    // pairs, not the same set.
+    let mut adjacent_after = search.search("sentence\n  w1:word\n  :> w2:word", None).unwrap();
+    adjacent_after.sort_unstable();
+    assert_eq!(
+        adjacent_after,
+        vec![vec![8, 2, 1], vec![8, 3, 2], vec![8, 4, 3], vec![8, 5, 4]]
+    );
+
+    // `< word` (canonical before) between siblings: prevSibling < opAtom, never
+    // inverted; all strictly increasing word pairs inside the sentence.
+    let before = search.search("sentence\n  w1:word\n  < w2:word", None).unwrap();
+    assert_eq!(before.len(), 10);
+    assert!(before.iter().all(|row| row[1] < row[2]));
+    assert!(before.contains(&vec![8, 1, 5]));
+
+    // An operator-prefixed first child takes the PARENT as the left operand and
+    // keeps the embedding edge. `:= word` (SameLastSlot) under the sentence:
+    // the word whose last slot equals the sentence's last slot (slot 5).
+    let mut same_last = search.search("sentence\n  := word", None).unwrap();
+    same_last.sort_unstable();
+    assert_eq!(same_last, vec![vec![8, 5]]);
+
+    // `=: word` (SameFirstSlot) under the sentence -> word at slot 1.
+    let mut same_first = search.search("sentence\n  =: word", None).unwrap();
+    same_first.sort_unstable();
+    assert_eq!(same_first, vec![vec![8, 1]]);
+
+    // Embedding is still enforced alongside the operator edge: a `:= word` whose
+    // candidate is outside the parent never appears (sentence 8 is the only
+    // sentence, so all matches are contained).
+    assert!(search.search("sentence\n  := word", None).unwrap().iter().all(|row| row[0] == 8));
+
+    // Lonely operators: as a first child or at the outermost level they are
+    // rejected, mirroring TF.
+    assert!(search.search("sentence\n  <:\n  word", None).is_err());
+    assert!(search.search("<: word", None).is_err());
+}
+
 #[test]
 fn mapped_compiled_corpus_serializes_structure_data() {
     let temp_dir = tempfile::tempdir().unwrap();
@@ -8808,26 +8875,21 @@ w1 -distance=0> w2
     assert_eq!(phrase_words.len(), 5);
     assert!(phrase_words.contains(&vec![6, 1]));
     assert!(phrase_words.contains(&vec![7, 5]));
-    assert_eq!(
-        search.search("phrase\n  [[\n  word", None).unwrap(),
-        phrase_words
-    );
-    assert_eq!(
-        search
-            .search(
-                "
-word
-  ]]
-  phrase
-",
-                None
-            )
-            .unwrap(),
-        phrase_words
-            .iter()
-            .map(|row| vec![row[1], row[0]])
-            .collect::<Vec<_>>()
-    );
+    // A lonely operator as a first child is rejected, mirroring TF
+    // ("Lonely relation: not allowed as first child").
+    assert!(search.search("phrase\n  [[\n  word", None).is_err());
+    assert!(search.search("word\n  ]]\n  phrase", None).is_err());
+    // The operator-prefixed atom form embeds correctly (phrase contains word).
+    assert_eq!(search.search("phrase\n  [[ word", None).unwrap(), phrase_words);
+    // "word embedded in phrase" expressed as an explicit relation; the indented
+    // `]] phrase` form would contradict the indentation embedding under TF's
+    // two-edge semantics and is intentionally not equivalent.
+    let mut word_in_phrase = search.search("w:word\np:phrase\nw ]] p", None).unwrap();
+    word_in_phrase.sort_unstable();
+    let mut expected_word_in_phrase: Vec<Vec<u32>> =
+        phrase_words.iter().map(|row| vec![row[1], row[0]]).collect();
+    expected_word_in_phrase.sort_unstable();
+    assert_eq!(word_in_phrase, expected_word_in_phrase);
     assert_eq!(
         search.search("sentence\n  phrase", None).unwrap(),
         vec![vec![8, 6], vec![8, 7]]
@@ -8924,19 +8986,8 @@ w1 <: w2
             .unwrap(),
         vec![vec![1, 2], vec![2, 3], vec![3, 4], vec![4, 5]]
     );
-    assert_eq!(
-        search
-            .search(
-                "
-w1:word
-  <:
-  w2:word
-",
-                None
-            )
-            .unwrap(),
-        vec![vec![1, 2], vec![2, 3], vec![3, 4], vec![4, 5]]
-    );
+    // Lonely `<:` as a first child is rejected, mirroring TF ("Lonely relation").
+    assert!(search.search("w1:word\n  <:\n  w2:word", None).is_err());
     assert_eq!(
         search
             .search(
@@ -9241,17 +9292,15 @@ w ]] p
     assert_eq!(word_in_phrase.len(), 5);
     assert!(word_in_phrase.contains(&vec![1, 6]));
     assert!(word_in_phrase.contains(&vec![5, 7]));
-    assert_eq!(
+    // The indented `]] phrase` form requires the phrase to be embedded in the
+    // single-slot word via the indentation edge (impossible under TF two-edge
+    // semantics), so it yields no results. The flat relation form is the correct
+    // way to express "word embedded in phrase".
+    assert!(
         search
-            .search(
-                "
-w:word
-  ]] p:phrase
-",
-                None
-            )
-            .unwrap(),
-        word_in_phrase
+            .search("w:word\n  ]] p:phrase", None)
+            .unwrap()
+            .is_empty()
     );
     assert_eq!(
         search
@@ -9279,19 +9328,8 @@ w -parent> p
     assert_eq!(parent_forward.len(), 5);
     assert!(parent_forward.contains(&vec![1, 6]));
     assert!(parent_forward.contains(&vec![5, 7]));
-    assert_eq!(
-        search
-            .search(
-                "
-w:word
-  -parent>
-  p:phrase
-",
-                None,
-            )
-            .unwrap(),
-        parent_forward
-    );
+    // Lonely edge operator as a first child is rejected (TF "Lonely relation").
+    assert!(search.search("w:word\n  -parent>\n  p:phrase", None).is_err());
 
     let parent_backward = search
         .search(
@@ -9549,10 +9587,11 @@ sentence
             .unwrap(),
         vec![vec![8]]
     );
-    assert_eq!(
-        search
-            .search(
-                "
+    // The quantifier attaches to the last base atom (`p`, the phrase), per TF.
+    // Phrase 6 contains a word=hello, so all words embedded in phrase 6 match.
+    let mut multi_atom_quant = search
+        .search(
+            "
 w:word
 p:phrase
 w ]] p
@@ -9560,11 +9599,11 @@ w ]] p
   word word=hello
 /-/
 ",
-                None
-            )
-            .unwrap(),
-        vec![vec![1, 6]]
-    );
+            None,
+        )
+        .unwrap();
+    multi_atom_quant.sort_unstable();
+    assert_eq!(multi_atom_quant, vec![vec![1, 6], vec![2, 6], vec![3, 6]]);
 }
 
 #[test]
@@ -9790,4 +9829,41 @@ phrase typ=NP
         )
         .unwrap();
     assert_eq!(quantified.len(), 5);
+}
+
+#[test]
+fn bhsa_phase1_spot_checks() {
+    if std::env::var_os("CF_SPOTCHECK").is_none() {
+        eprintln!("skipping bhsa_phase1_spot_checks (set CF_SPOTCHECK=1 to run)");
+        return;
+    }
+    let Some(source) = optional_corpus_tf("bhsa") else {
+        return;
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let cache_path = dir.path().join("bhsa-spotcheck.cfr");
+    compile_features(&source, &cache_path, &[]).unwrap();
+    let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
+    let search = MappedSearch::new(&mapped);
+
+    let q31 = "sentence\n  := word rank_lex<100";
+    let n31 = search.count(q31, None).unwrap();
+    eprintln!("SPOT q31 (expect 28095): {n31}");
+
+    let q33 = "word vbe#H=";
+    let r33 = search.count(q33, None);
+    eprintln!("SPOT q33 (expect parses ok): {r33:?}");
+
+    let q25 = "verse verse=1 chapter=1 book=Genesis\n  sentence\n    word nu=sg\n    <: word nu=pl";
+    let n25 = search.count(q25, None).unwrap();
+    eprintln!("SPOT q25 (expect 1): {n25}");
+
+    let q11 = "chapter book=Genesis chapter=1\n  w1:word lex=>RY/\n  :30> w2:word lex=>RY/";
+    let n11 = search.count(q11, None).unwrap();
+    eprintln!("SPOT q11 (expect 50): {n11}");
+
+    assert_eq!(n31, 28095, "q31 sentence := word rank_lex<100");
+    assert!(r33.is_ok(), "q33 word vbe#H= must parse");
+    assert_eq!(n25, 1, "q25 nu=sg <: nu=pl in Genesis 1:1");
+    assert_eq!(n11, 50, "q11 lex=>RY/ :30> lex=>RY/ in Genesis 1");
 }

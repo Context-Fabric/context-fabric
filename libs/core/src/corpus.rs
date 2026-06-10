@@ -335,6 +335,8 @@ pub enum ComputedFeatureData {
     Order(Vec<u32>),
     Rank(Vec<u32>),
     Boundary(Boundary),
+    LevUp(Vec<Vec<u32>>),
+    LevDown(Vec<Vec<u32>>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

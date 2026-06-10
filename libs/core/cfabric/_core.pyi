@@ -197,17 +197,24 @@ class Search:
     perfParams: dict[str, object]
     api: bool
 
-    def study(self, template: str) -> None: ...
+    def study(
+        self,
+        template: str,
+        sets: dict[str, object] | None = None,
+        shallow: bool | int | None = None,
+    ) -> None: ...
     def search(
         self,
         template: str,
         limit: int | None = None,
-        sets: object | None = None,
-        shallow: bool = False,
+        sets: dict[str, object] | None = None,
+        shallow: bool | int | None = None,
         silent: str | None = None,
         here: bool = False,
-    ) -> tuple[tuple[int, ...], ...]: ...
-    def fetch(self, limit: int | None = None) -> tuple[tuple[int, ...], ...]: ...
+    ) -> tuple[tuple[int, ...], ...] | set[int] | set[tuple[int, ...]]: ...
+    def fetch(
+        self, limit: int | None = None
+    ) -> tuple[tuple[int, ...], ...] | set[int] | set[tuple[int, ...]]: ...
     def count(self, progress: int | None = None, limit: int | None = None) -> int: ...
     def showPlan(self, details: bool = False) -> str | None: ...
     def glean(self, tuples: object) -> tuple[object, ...]: ...

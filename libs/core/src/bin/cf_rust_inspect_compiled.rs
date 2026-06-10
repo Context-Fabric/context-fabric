@@ -34,6 +34,17 @@ fn main() -> Result<()> {
         );
     }
 
+    println!(
+        "v3 sections: present={} lev_up={:?} lev_down={:?} boundary_first={:?} boundary_last={:?} sections={:?} (v3_start={:?})",
+        metadata.v3_start.is_some(),
+        metadata.lev_up_start,
+        metadata.lev_down_start,
+        metadata.boundary_first_start,
+        metadata.boundary_last_start,
+        metadata.sections_start,
+        metadata.v3_start,
+    );
+
     if let Some(feature_name) = env::args().nth(2) {
         let mapped = MappedCompiledCorpus::open(&path)?;
         if let Some(feature) = mapped.string_pool_node_feature(&feature_name)? {

@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Once, OnceLock, RwLock};
 
 use memmap2::Mmap;
 
@@ -15,12 +15,17 @@ use crate::corpus::{
 };
 use crate::error::{CfError, Result};
 use crate::feature::{EdgeFeature, EdgeFrequency, FeatureValue, NodeFeature};
-use crate::precompute::{self, StructureData, StructureHeading};
+use crate::precompute::{self, SectionsData, StructureData, StructureHeading};
 
 const MAGIC: &[u8; 8] = b"CFRUST02";
 const FEATURE_METADATA_MAGIC: &[u8; 8] = b"CFRMETA1";
 const EDGE_VALUES_MAGIC: &[u8; 8] = b"CFREDGE1";
 const STRUCTURE_MAGIC: &[u8; 8] = b"CFRSTRC2";
+// `.cfr` v3 appended sections (precomputed CSR indexes, mmap-resident, 0 RSS).
+const LEV_UP_MAGIC: &[u8; 8] = b"CFRLEVU1";
+const LEV_DOWN_MAGIC: &[u8; 8] = b"CFRLEVD1";
+const BOUNDARY_MAGIC: &[u8; 8] = b"CFRBND1\0";
+const SECTIONS_MAGIC: &[u8; 8] = b"CFRSECT1";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompiledMetadata {
@@ -33,6 +38,16 @@ pub struct CompiledMetadata {
     pub order_start: Option<usize>,
     pub rank_start: Option<usize>,
     pub structure_start: Option<usize>,
+    /// Byte offset of the first `.cfr` v3 appended section magic (`CFRLEVU1`),
+    /// or `None` for pre-v3 caches. Marks where the appended index region begins.
+    pub v3_start: Option<usize>,
+    /// CSR payload starts (just after each section magic). `None` when the
+    /// corresponding section is absent (pre-v3 cache or no section data).
+    pub lev_up_start: Option<usize>,
+    pub lev_down_start: Option<usize>,
+    pub boundary_first_start: Option<usize>,
+    pub boundary_last_start: Option<usize>,
+    pub sections_start: Option<usize>,
 }
 
 impl CompiledMetadata {
@@ -119,12 +134,56 @@ pub struct CompiledConfigFeature {
     pub payload_end: usize,
 }
 
+/// Owned, parsed metadata for a string-pool node feature. Built once per
+/// feature and shared (behind an `Arc`) across every view, so repeated
+/// `string_pool_node_feature()` calls avoid re-scanning the mmap header.
+struct StringPoolParts {
+    metadata: BTreeMap<String, Option<String>>,
+    row_count: usize,
+    rows_start: usize,
+    pool_ranges: Vec<Range<usize>>,
+}
+
+/// Owned, parsed metadata for a mixed (string/int) node feature.
+struct MixedParts {
+    metadata: BTreeMap<String, Option<String>>,
+    row_count: usize,
+    row_offsets: Vec<usize>,
+}
+
+/// Owned, parsed metadata for an edge feature, including a lazily-built
+/// `(source, target) -> value offset` index for O(log n) `edge_value` lookups.
+struct EdgeParts {
+    metadata: BTreeMap<String, Option<String>>,
+    row_count: usize,
+    row_offsets: Vec<usize>,
+    edge_value_count: usize,
+    edge_values_start: Option<usize>,
+    is_oslots: bool,
+    /// Sorted `(source, target, value_payload_offset)` triples, built on first
+    /// `edge_value` call by a single scan of the edge-values section.
+    edge_value_index: OnceLock<Vec<(u32, u32, usize)>>,
+}
+
+/// Per-corpus cache of parsed feature parts, keyed by feature name. Holds
+/// `Arc`s so callers clone a pointer (cheap) under a short-lived lock and then
+/// build a thin view borrowing the mmap bytes.
+#[derive(Default)]
+struct ViewCaches {
+    string_pool: HashMap<String, Arc<StringPoolParts>>,
+    mixed: HashMap<String, Arc<MixedParts>>,
+    edge: HashMap<String, Arc<EdgeParts>>,
+}
+
 pub struct MappedCompiledCorpus {
     path: PathBuf,
     mmap: Mmap,
     #[cfg(target_os = "macos")]
     _shared_mmap_hint: Mmap,
     metadata: CompiledMetadata,
+    caches: RwLock<ViewCaches>,
+    sections_cache: OnceLock<Option<SectionsData>>,
+    v3_warned: Once,
 }
 
 impl std::fmt::Debug for MappedCompiledCorpus {
@@ -178,6 +237,9 @@ impl MappedCompiledCorpus {
             #[cfg(target_os = "macos")]
             _shared_mmap_hint: shared_mmap_hint,
             metadata,
+            caches: RwLock::new(ViewCaches::default()),
+            sections_cache: OnceLock::new(),
+            v3_warned: Once::new(),
         })
     }
 
@@ -246,11 +308,62 @@ impl MappedCompiledCorpus {
             "rank" => self
                 .rank()
                 .map(|rank| Some(ComputedFeatureData::Rank(rank))),
-            "boundary" => crate::mapped_sections::MappedSections::new(self)?
-                .boundary()
-                .map(|boundary| Some(ComputedFeatureData::Boundary(boundary))),
+            "boundary" => {
+                // Serve from the CFRBND1 CSRs when present; otherwise fall back
+                // to the (slow) scan path so pre-v3 caches keep working.
+                if let (Some(first_start), Some(last_start)) = (
+                    self.metadata.boundary_first_start,
+                    self.metadata.boundary_last_start,
+                ) {
+                    let first_slots = self.csr_all_rows(first_start)?;
+                    let last_slots = self.csr_all_rows(last_start)?;
+                    Ok(Some(ComputedFeatureData::Boundary(crate::corpus::Boundary {
+                        first_slots,
+                        last_slots,
+                    })))
+                } else {
+                    self.warn_missing_v3("CFRBND1");
+                    crate::mapped_sections::MappedSections::new(self)?
+                        .boundary()
+                        .map(|boundary| Some(ComputedFeatureData::Boundary(boundary)))
+                }
+            }
+            "levUp" => match self.metadata.lev_up_start {
+                Some(start) => Ok(Some(ComputedFeatureData::LevUp(
+                    self.csr_all_rows(start)?,
+                ))),
+                None => {
+                    self.warn_missing_v3("CFRLEVU1");
+                    Ok(None)
+                }
+            },
+            "levDown" => match self.metadata.lev_down_start {
+                // levDown is materialized for non-slot nodes only, matching
+                // `precompute::lev_down` (rows for `max_slot+1..=max_node`).
+                Some(start) => {
+                    let full = self.csr_all_rows(start)?;
+                    let max_slot = self.max_slot()? as usize;
+                    let rows = full.into_iter().skip(max_slot).collect();
+                    Ok(Some(ComputedFeatureData::LevDown(rows)))
+                }
+                None => {
+                    self.warn_missing_v3("CFRLEVD1");
+                    Ok(None)
+                }
+            },
             _ => Ok(None),
         }
+    }
+
+    /// Reads every row of a CSR section (starting at its `row_count` field) into
+    /// a `Vec<Vec<u32>>`.
+    fn csr_all_rows(&self, start: usize) -> Result<Vec<Vec<u32>>> {
+        let row_count = read_u32_from(&self.path, &self.mmap, start)? as usize;
+        let mut rows = Vec::with_capacity(row_count);
+        for index in 1..=row_count as u32 {
+            rows.push(read_csr_row(&self.path, &self.mmap, start, index)?.unwrap_or_default());
+        }
+        Ok(rows)
     }
 
     pub fn otype_rank(&self) -> Result<BTreeMap<String, u32>> {
@@ -462,7 +575,7 @@ impl MappedCompiledCorpus {
             return Ok(Vec::new());
         };
         let mut source_nodes = Vec::new();
-        for row_offset in &feature.row_offsets {
+        for row_offset in &feature.parts.row_offsets {
             source_nodes.push(read_u32_from(feature.path, feature.bytes, *row_offset)?);
         }
         let mut node_types = Vec::new();
@@ -482,7 +595,7 @@ impl MappedCompiledCorpus {
             return Ok(Vec::new());
         };
         let mut target_nodes = Vec::new();
-        for row_offset in &feature.row_offsets {
+        for row_offset in &feature.parts.row_offsets {
             let target_count = read_u32_from(feature.path, feature.bytes, row_offset + 4)? as usize;
             let targets_start = row_offset + 8;
             for index in 0..target_count {
@@ -747,7 +860,7 @@ impl MappedCompiledCorpus {
         let levels = self.mapped_levels()?;
         if feature_metadata.edge_value_count == 0 {
             let mut count = 0_usize;
-            for row_offset in &feature.row_offsets {
+            for row_offset in &feature.parts.row_offsets {
                 let source = read_u32_from(feature.path, feature.bytes, *row_offset)?;
                 if !mapped_node_type_allowed(source, node_types_from, &levels) {
                     continue;
@@ -767,7 +880,7 @@ impl MappedCompiledCorpus {
         }
 
         let mut counts = HashMap::<Option<FeatureValue>, usize>::new();
-        for row_offset in &feature.row_offsets {
+        for row_offset in &feature.parts.row_offsets {
             let source = read_u32_from(feature.path, feature.bytes, *row_offset)?;
             if !mapped_node_type_allowed(source, node_types_from, &levels) {
                 continue;
@@ -810,27 +923,95 @@ impl MappedCompiledCorpus {
         self.edge_frequency_list(feature_name, node_types_from, node_types_to)
     }
 
-    pub fn string_pool_node_feature(
-        &self,
-        name: &str,
-    ) -> Result<Option<StringPoolNodeFeatureView<'_>>> {
+    fn string_pool_parts(&self, name: &str) -> Result<Option<Arc<StringPoolParts>>> {
         let Some(feature) = self.metadata.node_feature(name) else {
             return Ok(None);
         };
         if feature.encoding != NodeFeatureEncoding::StringPool {
             return Ok(None);
         }
-        StringPoolNodeFeatureView::new(&self.path, &self.mmap, feature).map(Some)
+        if let Some(parts) = self
+            .caches
+            .read()
+            .expect("view cache poisoned")
+            .string_pool
+            .get(name)
+        {
+            return Ok(Some(Arc::clone(parts)));
+        }
+        let parts = Arc::new(build_string_pool_parts(&self.path, &self.mmap, feature)?);
+        self.caches
+            .write()
+            .expect("view cache poisoned")
+            .string_pool
+            .insert(name.to_string(), Arc::clone(&parts));
+        Ok(Some(parts))
     }
 
-    pub fn mixed_node_feature(&self, name: &str) -> Result<Option<MixedNodeFeatureView<'_>>> {
+    fn mixed_parts(&self, name: &str) -> Result<Option<Arc<MixedParts>>> {
         let Some(feature) = self.metadata.node_feature(name) else {
             return Ok(None);
         };
         if feature.encoding != NodeFeatureEncoding::Mixed {
             return Ok(None);
         }
-        MixedNodeFeatureView::new(&self.path, &self.mmap, feature).map(Some)
+        if let Some(parts) = self
+            .caches
+            .read()
+            .expect("view cache poisoned")
+            .mixed
+            .get(name)
+        {
+            return Ok(Some(Arc::clone(parts)));
+        }
+        let parts = Arc::new(build_mixed_parts(&self.path, &self.mmap, feature)?);
+        self.caches
+            .write()
+            .expect("view cache poisoned")
+            .mixed
+            .insert(name.to_string(), Arc::clone(&parts));
+        Ok(Some(parts))
+    }
+
+    fn edge_parts(&self, name: &str) -> Result<Option<Arc<EdgeParts>>> {
+        let Some(feature) = self.metadata.edge_feature(name) else {
+            return Ok(None);
+        };
+        if let Some(parts) = self.caches.read().expect("view cache poisoned").edge.get(name) {
+            return Ok(Some(Arc::clone(parts)));
+        }
+        let parts = Arc::new(build_edge_parts(&self.path, &self.mmap, feature)?);
+        self.caches
+            .write()
+            .expect("view cache poisoned")
+            .edge
+            .insert(name.to_string(), Arc::clone(&parts));
+        Ok(Some(parts))
+    }
+
+    pub fn string_pool_node_feature(
+        &self,
+        name: &str,
+    ) -> Result<Option<StringPoolNodeFeatureView<'_>>> {
+        Ok(self.string_pool_parts(name)?.map(|parts| {
+            StringPoolNodeFeatureView {
+                path: &self.path,
+                bytes: &self.mmap,
+                parts,
+                rank_start: self.metadata.rank_start,
+                rank_len: self.metadata.rank_len,
+            }
+        }))
+    }
+
+    pub fn mixed_node_feature(&self, name: &str) -> Result<Option<MixedNodeFeatureView<'_>>> {
+        Ok(self.mixed_parts(name)?.map(|parts| MixedNodeFeatureView {
+            path: &self.path,
+            bytes: &self.mmap,
+            parts,
+            rank_start: self.metadata.rank_start,
+            rank_len: self.metadata.rank_len,
+        }))
     }
 
     pub fn node_feature(&self, name: &str) -> Result<Option<MappedNodeFeatureView<'_>>> {
@@ -853,10 +1034,13 @@ impl MappedCompiledCorpus {
     }
 
     pub fn edge_feature(&self, name: &str) -> Result<Option<EdgeFeatureView<'_>>> {
-        let Some(feature) = self.metadata.edge_feature(name) else {
-            return Ok(None);
-        };
-        EdgeFeatureView::new(&self.path, &self.mmap, feature, self.rank()?).map(Some)
+        Ok(self.edge_parts(name)?.map(|parts| EdgeFeatureView {
+            path: &self.path,
+            bytes: &self.mmap,
+            parts,
+            rank_start: self.metadata.rank_start,
+            rank_len: self.metadata.rank_len,
+        }))
     }
 
     #[allow(non_snake_case)]
@@ -1028,6 +1212,86 @@ impl MappedCompiledCorpus {
         (0..self.metadata.rank_len)
             .map(|index| read_u32_from(&self.path, &self.mmap, rank_start + (index * 4)))
             .collect()
+    }
+
+    /// Emits a one-time warning when a v3 accessor is queried on a pre-v3 cache
+    /// (or one missing the requested section), suggesting a recompile.
+    fn warn_missing_v3(&self, section: &str) {
+        let path = self.path.clone();
+        self.v3_warned.call_once(|| {
+            eprintln!(
+                "context-fabric: compiled cache {} lacks v3 precomputed sections \
+                 (missing {section}); falling back to scan path. Recompile to enable \
+                 fast mmap locality indexes.",
+                path.display()
+            );
+        });
+    }
+
+    /// Embedders of `node` in descending rank order (`levUp` CSR row), read
+    /// directly from the mmap. Returns `None` for pre-v3 caches (caller should
+    /// fall back to the scan path).
+    pub fn lev_up_row(&self, node: u32) -> Result<Option<Vec<u32>>> {
+        let Some(start) = self.metadata.lev_up_start else {
+            self.warn_missing_v3("CFRLEVU1");
+            return Ok(None);
+        };
+        read_csr_row(&self.path, &self.mmap, start, node)
+    }
+
+    /// Embeddees of `node` (`levDown` CSR row), read directly from the mmap.
+    /// Returns `None` for pre-v3 caches.
+    pub fn lev_down_row(&self, node: u32) -> Result<Option<Vec<u32>>> {
+        let Some(start) = self.metadata.lev_down_start else {
+            self.warn_missing_v3("CFRLEVD1");
+            return Ok(None);
+        };
+        read_csr_row(&self.path, &self.mmap, start, node)
+    }
+
+    /// Nodes whose first slot is `slot` (`boundary` first CSR row).
+    /// Returns `None` for pre-v3 caches.
+    pub fn boundary_first(&self, slot: u32) -> Result<Option<Vec<u32>>> {
+        let Some(start) = self.metadata.boundary_first_start else {
+            self.warn_missing_v3("CFRBND1");
+            return Ok(None);
+        };
+        read_csr_row(&self.path, &self.mmap, start, slot)
+    }
+
+    /// Nodes whose last slot is `slot` (`boundary` last CSR row).
+    /// Returns `None` for pre-v3 caches.
+    pub fn boundary_last(&self, slot: u32) -> Result<Option<Vec<u32>>> {
+        let Some(start) = self.metadata.boundary_last_start else {
+            self.warn_missing_v3("CFRBND1");
+            return Ok(None);
+        };
+        read_csr_row(&self.path, &self.mmap, start, slot)
+    }
+
+    /// Lazily-loaded `CFRSECT1` sections lookup. Loaded once into RAM (< 2 MB on
+    /// BHSA) and cached. Returns `None` for caches without a sections section.
+    pub fn sections_data(&self) -> Result<Option<&SectionsData>> {
+        if let Some(cached) = self.sections_cache.get() {
+            return Ok(cached.as_ref());
+        }
+        let value = match self.metadata.sections_start {
+            Some(start) => {
+                let mut reader = Reader {
+                    path: &self.path,
+                    bytes: &self.mmap,
+                    offset: start,
+                };
+                Some(reader.read_sections_section()?)
+            }
+            None => None,
+        };
+        let _ = self.sections_cache.set(value);
+        Ok(self
+            .sections_cache
+            .get()
+            .expect("sections cache just initialized")
+            .as_ref())
     }
 
     pub fn sort_key(&self, node: u32) -> Result<Option<u32>> {
@@ -1310,50 +1574,55 @@ impl<'a> MappedNodeFeatureView<'a> {
     }
 }
 
+fn build_string_pool_parts(
+    path: &Path,
+    bytes: &[u8],
+    feature: &CompiledNodeFeature,
+) -> Result<StringPoolParts> {
+    let mut offset = feature.payload_start;
+    let pool_count = read_u32_at(path, bytes, &mut offset)? as usize;
+    let mut pool_ranges = Vec::with_capacity(pool_count);
+    for _ in 0..pool_count {
+        pool_ranges.push(read_string_range_at(path, bytes, &mut offset)?);
+    }
+    let row_count = read_u32_at(path, bytes, &mut offset)? as usize;
+    if row_count != feature.row_count {
+        return Err(invalid_compiled(
+            path,
+            "string-pool row count does not match metadata",
+        ));
+    }
+    Ok(StringPoolParts {
+        metadata: feature.metadata.clone(),
+        row_count,
+        rows_start: offset,
+        pool_ranges,
+    })
+}
+
 pub struct StringPoolNodeFeatureView<'a> {
     path: &'a Path,
     bytes: &'a [u8],
-    metadata: BTreeMap<String, Option<String>>,
-    row_count: usize,
-    rows_start: usize,
-    pool_ranges: Vec<Range<usize>>,
+    parts: Arc<StringPoolParts>,
+    rank_start: Option<usize>,
+    rank_len: usize,
 }
 
 impl<'a> StringPoolNodeFeatureView<'a> {
-    fn new(path: &'a Path, bytes: &'a [u8], feature: &CompiledNodeFeature) -> Result<Self> {
-        let mut offset = feature.payload_start;
-        let pool_count = read_u32_at(path, bytes, &mut offset)? as usize;
-        let mut pool_ranges = Vec::with_capacity(pool_count);
-        for _ in 0..pool_count {
-            pool_ranges.push(read_string_range_at(path, bytes, &mut offset)?);
-        }
-        let row_count = read_u32_at(path, bytes, &mut offset)? as usize;
-        if row_count != feature.row_count {
-            return Err(invalid_compiled(
-                path,
-                "string-pool row count does not match metadata",
-            ));
-        }
-        Ok(Self {
-            path,
-            bytes,
-            metadata: feature.metadata.clone(),
-            row_count,
-            rows_start: offset,
-            pool_ranges,
-        })
+    pub fn row_count(&self) -> usize {
+        self.parts.row_count
     }
 
-    pub fn row_count(&self) -> usize {
-        self.row_count
+    fn sort_by_rank(&self, nodes: &mut [u32]) {
+        sort_nodes_by_mmap_rank(self.path, self.bytes, self.rank_start, self.rank_len, nodes);
     }
 
     pub fn meta(&self) -> &BTreeMap<String, Option<String>> {
-        &self.metadata
+        &self.parts.metadata
     }
 
     pub fn metadata_value(&self, key: &str) -> Option<&str> {
-        metadata_value(&self.metadata, key)
+        metadata_value(&self.parts.metadata, key)
     }
 
     pub fn value_type(&self) -> Option<&str> {
@@ -1371,17 +1640,17 @@ impl<'a> StringPoolNodeFeatureView<'a> {
 
     pub fn str_value(&self, node: u32) -> Result<Option<&'a str>> {
         let mut low = 0_usize;
-        let mut high = self.row_count;
+        let mut high = self.parts.row_count;
         while low < high {
             let mid = (low + high) / 2;
-            let row_offset = self.rows_start + (mid * 8);
+            let row_offset = self.parts.rows_start + (mid * 8);
             let row_node = read_u32_from(self.path, self.bytes, row_offset)?;
             match row_node.cmp(&node) {
                 std::cmp::Ordering::Less => low = mid + 1,
                 std::cmp::Ordering::Greater => high = mid,
                 std::cmp::Ordering::Equal => {
                     let pool_id = read_u32_from(self.path, self.bytes, row_offset + 4)? as usize;
-                    let Some(range) = self.pool_ranges.get(pool_id) else {
+                    let Some(range) = self.parts.pool_ranges.get(pool_id) else {
                         return Err(invalid_compiled(self.path, "string pool id out of bounds"));
                     };
                     return std::str::from_utf8(&self.bytes[range.clone()])
@@ -1406,6 +1675,8 @@ impl<'a> StringPoolNodeFeatureView<'a> {
                 nodes.push(node);
             }
         }
+        // Canonical (rank) order, matching the in-memory `NodeFeature::s`.
+        self.sort_by_rank(&mut nodes);
         Ok(nodes)
     }
 
@@ -1521,48 +1792,54 @@ pub struct StringPoolNodeRows<'a, 'view> {
     index: usize,
 }
 
+fn build_mixed_parts(
+    path: &Path,
+    bytes: &[u8],
+    feature: &CompiledNodeFeature,
+) -> Result<MixedParts> {
+    let mut offset = feature.payload_start;
+    let row_count = read_u32_at(path, bytes, &mut offset)? as usize;
+    if row_count != feature.row_count {
+        return Err(invalid_compiled(
+            path,
+            "mixed row count does not match metadata",
+        ));
+    }
+    let mut row_offsets = Vec::with_capacity(row_count);
+    for _ in 0..row_count {
+        row_offsets.push(offset);
+        offset = skip_mixed_node_row(path, bytes, offset)?;
+    }
+    Ok(MixedParts {
+        metadata: feature.metadata.clone(),
+        row_count,
+        row_offsets,
+    })
+}
+
 pub struct MixedNodeFeatureView<'a> {
     path: &'a Path,
     bytes: &'a [u8],
-    metadata: BTreeMap<String, Option<String>>,
-    row_count: usize,
-    row_offsets: Vec<usize>,
+    parts: Arc<MixedParts>,
+    rank_start: Option<usize>,
+    rank_len: usize,
 }
 
 impl<'a> MixedNodeFeatureView<'a> {
-    fn new(path: &'a Path, bytes: &'a [u8], feature: &CompiledNodeFeature) -> Result<Self> {
-        let mut offset = feature.payload_start;
-        let row_count = read_u32_at(path, bytes, &mut offset)? as usize;
-        if row_count != feature.row_count {
-            return Err(invalid_compiled(
-                path,
-                "mixed row count does not match metadata",
-            ));
-        }
-        let mut row_offsets = Vec::with_capacity(row_count);
-        for _ in 0..row_count {
-            row_offsets.push(offset);
-            offset = skip_mixed_node_row(path, bytes, offset)?;
-        }
-        Ok(Self {
-            path,
-            bytes,
-            metadata: feature.metadata.clone(),
-            row_count,
-            row_offsets,
-        })
+    pub fn row_count(&self) -> usize {
+        self.parts.row_count
     }
 
-    pub fn row_count(&self) -> usize {
-        self.row_count
+    fn sort_by_rank(&self, nodes: &mut [u32]) {
+        sort_nodes_by_mmap_rank(self.path, self.bytes, self.rank_start, self.rank_len, nodes);
     }
 
     pub fn meta(&self) -> &BTreeMap<String, Option<String>> {
-        &self.metadata
+        &self.parts.metadata
     }
 
     pub fn metadata_value(&self, key: &str) -> Option<&str> {
-        metadata_value(&self.metadata, key)
+        metadata_value(&self.parts.metadata, key)
     }
 
     pub fn value_type(&self) -> Option<&str> {
@@ -1580,10 +1857,10 @@ impl<'a> MixedNodeFeatureView<'a> {
 
     pub fn value(&self, node: u32) -> Result<Option<MappedNodeValue<'a>>> {
         let mut low = 0_usize;
-        let mut high = self.row_count;
+        let mut high = self.parts.row_count;
         while low < high {
             let mid = (low + high) / 2;
-            let row_offset = self.row_offsets[mid];
+            let row_offset = self.parts.row_offsets[mid];
             let row_node = read_u32_from(self.path, self.bytes, row_offset)?;
             match row_node.cmp(&node) {
                 std::cmp::Ordering::Less => low = mid + 1,
@@ -1609,6 +1886,8 @@ impl<'a> MixedNodeFeatureView<'a> {
                 nodes.push(node);
             }
         }
+        // Canonical (rank) order, matching the in-memory `NodeFeature::s`.
+        self.sort_by_rank(&mut nodes);
         Ok(nodes)
     }
 
@@ -1754,7 +2033,7 @@ impl<'a> Iterator for MixedNodeRows<'a, '_> {
     type Item = Result<(u32, MappedNodeValue<'a>)>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let row_offset = *self.feature.row_offsets.get(self.index)?;
+        let row_offset = *self.feature.parts.row_offsets.get(self.index)?;
         self.index += 1;
         let node = match read_u32_from(self.feature.path, self.feature.bytes, row_offset) {
             Ok(node) => node,
@@ -1771,10 +2050,10 @@ impl<'a> Iterator for StringPoolNodeRows<'a, '_> {
     type Item = Result<(u32, &'a str)>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.feature.row_count {
+        if self.index >= self.feature.parts.row_count {
             return None;
         }
-        let row_offset = self.feature.rows_start + (self.index * 8);
+        let row_offset = self.feature.parts.rows_start + (self.index * 8);
         self.index += 1;
         let node = match read_u32_from(self.feature.path, self.feature.bytes, row_offset) {
             Ok(node) => node,
@@ -1784,7 +2063,7 @@ impl<'a> Iterator for StringPoolNodeRows<'a, '_> {
             Ok(pool_id) => pool_id as usize,
             Err(error) => return Some(Err(error)),
         };
-        let Some(range) = self.feature.pool_ranges.get(pool_id) else {
+        let Some(range) = self.feature.parts.pool_ranges.get(pool_id) else {
             return Some(Err(invalid_compiled(
                 self.feature.path,
                 "string pool id out of bounds",
@@ -1798,63 +2077,60 @@ impl<'a> Iterator for StringPoolNodeRows<'a, '_> {
     }
 }
 
+fn build_edge_parts(
+    path: &Path,
+    bytes: &[u8],
+    feature: &CompiledEdgeFeature,
+) -> Result<EdgeParts> {
+    let mut offset = feature.payload_start;
+    let row_count = read_u32_at(path, bytes, &mut offset)? as usize;
+    if row_count != feature.row_count {
+        return Err(invalid_compiled(
+            path,
+            "edge row count does not match metadata",
+        ));
+    }
+    let mut row_offsets = Vec::with_capacity(row_count);
+    for _ in 0..row_count {
+        row_offsets.push(offset);
+        offset = skip_edge_row(path, bytes, offset)?;
+    }
+    Ok(EdgeParts {
+        metadata: feature.metadata.clone(),
+        row_count,
+        row_offsets,
+        edge_value_count: feature.edge_value_count,
+        edge_values_start: feature.edge_values_start,
+        is_oslots: feature.name == "oslots",
+        edge_value_index: OnceLock::new(),
+    })
+}
+
 pub struct EdgeFeatureView<'a> {
     path: &'a Path,
     bytes: &'a [u8],
-    metadata: BTreeMap<String, Option<String>>,
-    row_count: usize,
-    row_offsets: Vec<usize>,
-    edge_value_count: usize,
-    edge_values_start: Option<usize>,
-    rank: Vec<u32>,
+    parts: Arc<EdgeParts>,
+    // Rank is read per-node from the mmap (`rank_start`/`rank_len`) instead of
+    // materializing the whole rank Vec on every `edge_feature()` call.
+    rank_start: Option<usize>,
+    rank_len: usize,
 }
 
 impl<'a> EdgeFeatureView<'a> {
-    fn new(
-        path: &'a Path,
-        bytes: &'a [u8],
-        feature: &CompiledEdgeFeature,
-        rank: Vec<u32>,
-    ) -> Result<Self> {
-        let mut offset = feature.payload_start;
-        let row_count = read_u32_at(path, bytes, &mut offset)? as usize;
-        if row_count != feature.row_count {
-            return Err(invalid_compiled(
-                path,
-                "edge row count does not match metadata",
-            ));
-        }
-        let mut row_offsets = Vec::with_capacity(row_count);
-        for _ in 0..row_count {
-            row_offsets.push(offset);
-            offset = skip_edge_row(path, bytes, offset)?;
-        }
-        Ok(Self {
-            path,
-            bytes,
-            metadata: feature.metadata.clone(),
-            row_count,
-            row_offsets,
-            edge_value_count: feature.edge_value_count,
-            edge_values_start: feature.edge_values_start,
-            rank,
-        })
-    }
-
     pub fn row_count(&self) -> usize {
-        self.row_count
+        self.parts.row_count
     }
 
     pub fn row_offset_count(&self) -> usize {
-        self.row_offsets.len()
+        self.parts.row_offsets.len()
     }
 
     pub fn meta(&self) -> &BTreeMap<String, Option<String>> {
-        &self.metadata
+        &self.parts.metadata
     }
 
     pub fn metadata_value(&self, key: &str) -> Option<&str> {
-        metadata_value(&self.metadata, key)
+        metadata_value(&self.parts.metadata, key)
     }
 
     pub fn value_type(&self) -> Option<&str> {
@@ -1871,11 +2147,11 @@ impl<'a> EdgeFeatureView<'a> {
     }
 
     pub fn edge_value_count(&self) -> usize {
-        self.edge_value_count
+        self.parts.edge_value_count
     }
 
     pub fn has_edge_values(&self) -> bool {
-        self.edge_value_count > 0
+        self.parts.edge_value_count > 0
     }
 
     #[allow(non_snake_case)]
@@ -1885,10 +2161,10 @@ impl<'a> EdgeFeatureView<'a> {
 
     pub fn targets(&self, source: u32) -> Result<Option<EdgeTargets<'a>>> {
         let mut low = 0_usize;
-        let mut high = self.row_count;
+        let mut high = self.parts.row_count;
         while low < high {
             let mid = (low + high) / 2;
-            let row_offset = self.row_offsets[mid];
+            let row_offset = self.parts.row_offsets[mid];
             let row_source = read_u32_from(self.path, self.bytes, row_offset)?;
             match row_source.cmp(&source) {
                 std::cmp::Ordering::Less => low = mid + 1,
@@ -1909,7 +2185,7 @@ impl<'a> EdgeFeatureView<'a> {
         Ok(None)
     }
 
-    pub fn s(&self, source: u32) -> Result<Vec<u32>> {
+    fn sorted_targets(&self, source: u32) -> Result<Vec<u32>> {
         let mut targets = self
             .targets(source)?
             .map(|targets| targets.collect::<Result<Vec<_>>>())
@@ -1918,12 +2194,23 @@ impl<'a> EdgeFeatureView<'a> {
         Ok(targets)
     }
 
+    pub fn s(&self, source: u32) -> Result<Vec<u32>> {
+        let targets = self.sorted_targets(source)?;
+        // `oslots` slot-identity: a slot is its own slot, mirroring
+        // `feature::EdgeFeature::s` (feature.rs:382-389). Only `s` applies this;
+        // `forward`/`f` return raw adjacency.
+        if targets.is_empty() && self.parts.is_oslots {
+            return Ok(vec![source]);
+        }
+        Ok(targets)
+    }
+
     pub fn f(&self, source: u32) -> Result<Vec<u32>> {
-        self.s(source)
+        self.sorted_targets(source)
     }
 
     pub fn forward(&self, source: u32) -> Result<Vec<u32>> {
-        self.s(source)
+        self.sorted_targets(source)
     }
 
     pub fn all_targets<I>(&self, sources: I) -> Result<BTreeSet<u32>>
@@ -1986,7 +2273,7 @@ impl<'a> EdgeFeatureView<'a> {
 
     pub fn t(&self, target: u32) -> Result<Vec<u32>> {
         let mut sources = Vec::new();
-        for row_offset in &self.row_offsets {
+        for row_offset in &self.parts.row_offsets {
             let source = read_u32_from(self.path, self.bytes, *row_offset)?;
             let target_count = read_u32_from(self.path, self.bytes, row_offset + 4)? as usize;
             let targets_start = row_offset + 8;
@@ -2052,15 +2339,15 @@ impl<'a> EdgeFeatureView<'a> {
 
     pub fn edge_count(&self) -> Result<usize> {
         let mut count = 0_usize;
-        for row_offset in &self.row_offsets {
+        for row_offset in &self.parts.row_offsets {
             count += read_u32_from(self.path, self.bytes, row_offset + 4)? as usize;
         }
         Ok(count)
     }
 
     pub fn items(&self) -> Result<Vec<(u32, Vec<u32>)>> {
-        let mut rows = Vec::with_capacity(self.row_count);
-        for row_offset in &self.row_offsets {
+        let mut rows = Vec::with_capacity(self.parts.row_count);
+        for row_offset in &self.parts.row_offsets {
             let source = read_u32_from(self.path, self.bytes, *row_offset)?;
             let target_count = read_u32_from(self.path, self.bytes, row_offset + 4)? as usize;
             let targets_start = row_offset + 8;
@@ -2085,12 +2372,36 @@ impl<'a> EdgeFeatureView<'a> {
     }
 
     fn rank_key(&self, node: u32) -> (u32, u32) {
-        let rank = self
-            .rank
-            .get(node.saturating_sub(1) as usize)
-            .copied()
+        let rank = mmap_rank(self.path, self.bytes, self.rank_start, self.rank_len, node)
             .unwrap_or(node);
         (rank, node)
+    }
+
+    /// Lazily-built, sorted `(source, target, value_offset)` index over the
+    /// edge-values section, shared via the cached `EdgeParts`.
+    fn edge_value_index(&self) -> Result<&[(u32, u32, usize)]> {
+        if let Some(index) = self.parts.edge_value_index.get() {
+            return Ok(index.as_slice());
+        }
+        let mut index = Vec::with_capacity(self.parts.edge_value_count);
+        if let Some(mut offset) = self.parts.edge_values_start {
+            for _ in 0..self.parts.edge_value_count {
+                let source = read_u32_from(self.path, self.bytes, offset)?;
+                let target = read_u32_from(self.path, self.bytes, offset + 4)?;
+                offset += 8;
+                index.push((source, target, offset));
+                offset = skip_mixed_value(self.path, self.bytes, offset)?;
+            }
+        }
+        // Values are written sorted by (source, target); keep the invariant so
+        // `edge_value` can binary-search.
+        let _ = self.parts.edge_value_index.set(index);
+        Ok(self
+            .parts
+            .edge_value_index
+            .get()
+            .expect("edge value index just initialized")
+            .as_slice())
     }
 
     pub fn edge_value(
@@ -2098,19 +2409,19 @@ impl<'a> EdgeFeatureView<'a> {
         expected_source: u32,
         expected_target: u32,
     ) -> Result<Option<MappedNodeValue<'a>>> {
-        let Some(mut offset) = self.edge_values_start else {
+        if self.parts.edge_values_start.is_none() || self.parts.edge_value_count == 0 {
             return Ok(None);
-        };
-        for _ in 0..self.edge_value_count {
-            let source = read_u32_from(self.path, self.bytes, offset)?;
-            let target = read_u32_from(self.path, self.bytes, offset + 4)?;
-            offset += 8;
-            if source == expected_source && target == expected_target {
-                return read_mixed_node_value_from(self.path, self.bytes, offset).map(Some);
-            }
-            offset = skip_mixed_value(self.path, self.bytes, offset)?;
         }
-        Ok(None)
+        let index = self.edge_value_index()?;
+        match index.binary_search_by(|(source, target, _)| {
+            (*source, *target).cmp(&(expected_source, expected_target))
+        }) {
+            Ok(position) => {
+                let (_, _, value_offset) = index[position];
+                read_mixed_node_value_from(self.path, self.bytes, value_offset).map(Some)
+            }
+            Err(_) => Ok(None),
+        }
     }
 }
 
@@ -2339,11 +2650,13 @@ fn inspect_compiled_bytes(path: &Path, bytes: &[u8]) -> Result<CompiledMetadata>
             }
         }
     }
-    let structure_start = if reader.is_done() {
-        None
-    } else {
+    let structure_start = if !reader.is_done() && reader.peek_magic(STRUCTURE_MAGIC) {
         reader.inspect_structure_section()?
+    } else {
+        None
     };
+
+    let v3 = reader.inspect_v3_sections()?;
 
     Ok(CompiledMetadata {
         byte_len: bytes.len(),
@@ -2355,7 +2668,23 @@ fn inspect_compiled_bytes(path: &Path, bytes: &[u8]) -> Result<CompiledMetadata>
         order_start,
         rank_start,
         structure_start,
+        v3_start: v3.v3_start,
+        lev_up_start: v3.lev_up_start,
+        lev_down_start: v3.lev_down_start,
+        boundary_first_start: v3.boundary_first_start,
+        boundary_last_start: v3.boundary_last_start,
+        sections_start: v3.sections_start,
     })
+}
+
+#[derive(Default)]
+struct V3SectionOffsets {
+    v3_start: Option<usize>,
+    lev_up_start: Option<usize>,
+    lev_down_start: Option<usize>,
+    boundary_first_start: Option<usize>,
+    boundary_last_start: Option<usize>,
+    sections_start: Option<usize>,
 }
 
 fn map_file(path: &Path) -> Result<Mmap> {
@@ -2425,6 +2754,59 @@ fn read_i64_from(path: &Path, bytes: &[u8], offset: usize) -> Result<i64> {
     let mut value = [0_u8; 8];
     value.copy_from_slice(raw);
     Ok(i64::from_le_bytes(value))
+}
+
+/// Reads one CSR row (1-based `index`) from a section starting at `start`
+/// (its `row_count` field). Layout: `row_count`, length-prefixed offsets vec
+/// (`row_count + 1` entries), length-prefixed data vec.
+fn read_csr_row(path: &Path, bytes: &[u8], start: usize, index: u32) -> Result<Option<Vec<u32>>> {
+    let row_count = read_u32_from(path, bytes, start)? as usize;
+    if index == 0 || index as usize > row_count {
+        return Ok(None);
+    }
+    let offsets_len = read_u32_from(path, bytes, start + 4)? as usize;
+    let offsets_base = start + 8;
+    let begin = read_u32_from(path, bytes, offsets_base + ((index as usize - 1) * 4))? as usize;
+    let end = read_u32_from(path, bytes, offsets_base + (index as usize * 4))? as usize;
+    let data_len_pos = offsets_base + (offsets_len * 4);
+    let data_base = data_len_pos + 4;
+    let mut row = Vec::with_capacity(end.saturating_sub(begin));
+    for cursor in begin..end {
+        row.push(read_u32_from(path, bytes, data_base + (cursor * 4))?);
+    }
+    Ok(Some(row))
+}
+
+/// Reads a single node's rank directly from the mmap'd rank array, avoiding
+/// materialization of the whole rank Vec.
+fn mmap_rank(
+    path: &Path,
+    bytes: &[u8],
+    rank_start: Option<usize>,
+    rank_len: usize,
+    node: u32,
+) -> Option<u32> {
+    let rank_start = rank_start?;
+    if node == 0 || node as usize > rank_len {
+        return None;
+    }
+    read_u32_from(path, bytes, rank_start + ((node as usize - 1) * 4)).ok()
+}
+
+/// Sorts nodes into canonical (rank) order using ranks read from the mmap.
+fn sort_nodes_by_mmap_rank(
+    path: &Path,
+    bytes: &[u8],
+    rank_start: Option<usize>,
+    rank_len: usize,
+    nodes: &mut [u32],
+) {
+    nodes.sort_unstable_by_key(|node| {
+        (
+            mmap_rank(path, bytes, rank_start, rank_len, *node).unwrap_or(*node),
+            *node,
+        )
+    });
 }
 
 fn read_mixed_node_value_from<'a>(
@@ -2659,10 +3041,136 @@ fn write_compiled(corpus: &Corpus, output_path: &Path) -> Result<()> {
     )?;
     write_edge_values_section(&mut writer, &corpus.edge_features, output_path)?;
     write_structure_section(&mut writer, corpus, output_path)?;
+    write_v3_sections(&mut writer, corpus, output_path)?;
     writer.flush().map_err(|source| CfError::Io {
         path: output_path.to_path_buf(),
         source,
     })
+}
+
+/// Builds a CSR `(offsets, data)` pair from per-row slices. `offsets` has
+/// `rows.len() + 1` entries; row `i` occupies `data[offsets[i]..offsets[i+1]]`.
+fn build_csr(rows: &[Vec<u32>]) -> (Vec<u32>, Vec<u32>) {
+    let mut offsets = Vec::with_capacity(rows.len() + 1);
+    let mut data = Vec::new();
+    offsets.push(0);
+    for row in rows {
+        data.extend_from_slice(row);
+        offsets.push(data.len() as u32);
+    }
+    (offsets, data)
+}
+
+fn write_csr<W: Write>(writer: &mut W, rows: &[Vec<u32>], path: &Path) -> Result<()> {
+    let (offsets, data) = build_csr(rows);
+    write_u32(writer, rows.len() as u32, path)?;
+    write_u32_vec(writer, &offsets, path)?;
+    write_u32_vec(writer, &data, path)?;
+    Ok(())
+}
+
+/// Appends the `.cfr` v3 precomputed CSR index sections (`CFRLEVU1`,
+/// `CFRLEVD1`, `CFRBND1`, `CFRSECT1`). Plain u32 LE, no varint, so accessors
+/// random-access individual rows out of the mmap with no decode pass.
+fn write_v3_sections<W: Write>(writer: &mut W, corpus: &Corpus, path: &Path) -> Result<()> {
+    let max_slot = corpus.max_slot();
+    let max_node = corpus.max_node();
+    if max_node == 0 {
+        return Ok(());
+    }
+    let slot_sets: BTreeMap<u32, Vec<u32>> = corpus.oslots_items().into_iter().collect();
+    let rank = corpus.rank();
+
+    let lev_up = precompute::lev_up(&slot_sets, &rank, max_slot, max_node);
+    writer.write_all(LEV_UP_MAGIC).map_err(|source| CfError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    write_csr(writer, &lev_up, path)?;
+
+    // levDown is indexed by non-slot nodes (`max_slot+1..=max_node`); store it
+    // as a full `1..=max_node` CSR with empty rows for slots so the accessor is
+    // uniform with levUp. The offsets overhead is ~max_slot u32 (negligible).
+    let lev_down = precompute::lev_down(&lev_up, &rank, max_slot, max_node);
+    let mut lev_down_full = vec![Vec::new(); max_node as usize];
+    for (index, row) in lev_down.into_iter().enumerate() {
+        let node = max_slot as usize + 1 + index;
+        if node >= 1 && node <= max_node as usize {
+            lev_down_full[node - 1] = row;
+        }
+    }
+    writer
+        .write_all(LEV_DOWN_MAGIC)
+        .map_err(|source| CfError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    write_csr(writer, &lev_down_full, path)?;
+
+    let boundary = precompute::boundary(&slot_sets, &rank, max_slot);
+    writer
+        .write_all(BOUNDARY_MAGIC)
+        .map_err(|source| CfError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    write_csr(writer, &boundary.first_slots, path)?;
+    write_csr(writer, &boundary.last_slots, path)?;
+
+    if let Some(sections) = precompute::sections(corpus) {
+        writer
+            .write_all(SECTIONS_MAGIC)
+            .map_err(|source| CfError::Io {
+                path: path.to_path_buf(),
+                source,
+            })?;
+        write_sections_section(writer, &sections, path)?;
+    }
+    Ok(())
+}
+
+fn write_sections_section<W: Write>(
+    writer: &mut W,
+    sections: &precompute::SectionsData,
+    path: &Path,
+) -> Result<()> {
+    // node_from_seq: BTreeMap<Vec<u32>, u32>
+    write_u32(writer, sections.node_from_seq.len() as u32, path)?;
+    for (seq, node) in &sections.node_from_seq {
+        write_u32_vec(writer, seq, path)?;
+        write_u32(writer, *node, path)?;
+    }
+    // seq_from_node: BTreeMap<u32, Vec<u32>>
+    write_u32(writer, sections.seq_from_node.len() as u32, path)?;
+    for (node, seq) in &sections.seq_from_node {
+        write_u32(writer, *node, path)?;
+        write_u32_vec(writer, seq, path)?;
+    }
+    // sec1: BTreeMap<u32, BTreeMap<String, u32>>
+    write_u32(writer, sections.sec1.len() as u32, path)?;
+    for (node, headings) in &sections.sec1 {
+        write_u32(writer, *node, path)?;
+        write_u32(writer, headings.len() as u32, path)?;
+        for (heading, target) in headings {
+            write_string(writer, heading, path)?;
+            write_u32(writer, *target, path)?;
+        }
+    }
+    // sec2: BTreeMap<u32, BTreeMap<String, BTreeMap<String, u32>>>
+    write_u32(writer, sections.sec2.len() as u32, path)?;
+    for (node, level1) in &sections.sec2 {
+        write_u32(writer, *node, path)?;
+        write_u32(writer, level1.len() as u32, path)?;
+        for (heading1, level2) in level1 {
+            write_string(writer, heading1, path)?;
+            write_u32(writer, level2.len() as u32, path)?;
+            for (heading2, target) in level2 {
+                write_string(writer, heading2, path)?;
+                write_u32(writer, *target, path)?;
+            }
+        }
+    }
+    Ok(())
 }
 
 fn write_config_features<W: Write>(
@@ -3107,6 +3615,114 @@ impl<'a> Reader<'a> {
         let start = self.offset;
         self.read_structure_section()?;
         Ok(Some(start))
+    }
+
+    fn peek_magic(&self, magic: &[u8; 8]) -> bool {
+        self.bytes
+            .get(self.offset..self.offset.saturating_add(magic.len()))
+            == Some(&magic[..])
+    }
+
+    /// Parses (skipping payloads) the optional v3 appended sections, recording
+    /// the byte offset of each section's payload. Absent sections (pre-v3 cache
+    /// or no section data) yield `None`.
+    fn inspect_v3_sections(&mut self) -> Result<V3SectionOffsets> {
+        let mut offsets = V3SectionOffsets::default();
+        if !self.is_done() && self.peek_magic(LEV_UP_MAGIC) {
+            offsets.v3_start = Some(self.offset);
+            self.take(LEV_UP_MAGIC.len())?;
+            offsets.lev_up_start = Some(self.inspect_csr()?);
+        }
+        if !self.is_done() && self.peek_magic(LEV_DOWN_MAGIC) {
+            self.take(LEV_DOWN_MAGIC.len())?;
+            offsets.lev_down_start = Some(self.inspect_csr()?);
+        }
+        if !self.is_done() && self.peek_magic(BOUNDARY_MAGIC) {
+            self.take(BOUNDARY_MAGIC.len())?;
+            offsets.boundary_first_start = Some(self.inspect_csr()?);
+            offsets.boundary_last_start = Some(self.inspect_csr()?);
+        }
+        if !self.is_done() && self.peek_magic(SECTIONS_MAGIC) {
+            self.take(SECTIONS_MAGIC.len())?;
+            offsets.sections_start = Some(self.offset);
+            self.read_sections_section()?;
+        }
+        Ok(offsets)
+    }
+
+    /// Advances past one CSR (`row_count`, offsets vec, data vec), returning the
+    /// offset of its `row_count` field (the start consumed by `read_csr_row`).
+    fn inspect_csr(&mut self) -> Result<usize> {
+        let start = self.offset;
+        let _row_count = self.read_u32()?;
+        let offsets_len = self.read_u32()? as usize;
+        self.skip_bytes(
+            offsets_len
+                .checked_mul(4)
+                .ok_or_else(|| self.invalid("compiled CSR offsets byte count overflow"))?,
+        )?;
+        let data_len = self.read_u32()? as usize;
+        self.skip_bytes(
+            data_len
+                .checked_mul(4)
+                .ok_or_else(|| self.invalid("compiled CSR data byte count overflow"))?,
+        )?;
+        Ok(start)
+    }
+
+    fn read_sections_section(&mut self) -> Result<SectionsData> {
+        let node_from_seq_count = self.read_u32()? as usize;
+        let mut node_from_seq = BTreeMap::new();
+        for _ in 0..node_from_seq_count {
+            let seq = self.read_u32_vec()?;
+            let node = self.read_u32()?;
+            node_from_seq.insert(seq, node);
+        }
+        let seq_from_node_count = self.read_u32()? as usize;
+        let mut seq_from_node = BTreeMap::new();
+        for _ in 0..seq_from_node_count {
+            let node = self.read_u32()?;
+            let seq = self.read_u32_vec()?;
+            seq_from_node.insert(node, seq);
+        }
+        let sec1_count = self.read_u32()? as usize;
+        let mut sec1 = BTreeMap::new();
+        for _ in 0..sec1_count {
+            let node = self.read_u32()?;
+            let heading_count = self.read_u32()? as usize;
+            let mut headings = BTreeMap::new();
+            for _ in 0..heading_count {
+                let heading = self.read_string()?;
+                let target = self.read_u32()?;
+                headings.insert(heading, target);
+            }
+            sec1.insert(node, headings);
+        }
+        let sec2_count = self.read_u32()? as usize;
+        let mut sec2 = BTreeMap::new();
+        for _ in 0..sec2_count {
+            let node = self.read_u32()?;
+            let level1_count = self.read_u32()? as usize;
+            let mut level1 = BTreeMap::new();
+            for _ in 0..level1_count {
+                let heading1 = self.read_string()?;
+                let level2_count = self.read_u32()? as usize;
+                let mut level2 = BTreeMap::new();
+                for _ in 0..level2_count {
+                    let heading2 = self.read_string()?;
+                    let target = self.read_u32()?;
+                    level2.insert(heading2, target);
+                }
+                level1.insert(heading1, level2);
+            }
+            sec2.insert(node, level1);
+        }
+        Ok(SectionsData {
+            sec1,
+            sec2,
+            seq_from_node,
+            node_from_seq,
+        })
     }
 
     fn read_structure_section(&mut self) -> Result<Option<StructureData>> {

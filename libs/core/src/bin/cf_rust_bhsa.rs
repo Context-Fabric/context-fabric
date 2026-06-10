@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use context_fabric_core::Corpus;
+use context_fabric_core::{Corpus, MappedCompiledCorpus, MappedSearch, compile_features};
 
 fn main() {
     let path = std::env::args()
@@ -14,9 +14,12 @@ fn main() {
     let corpus =
         Corpus::load_features(&path, &["otype", "oslots", "sp"]).expect("BHSA corpus should load");
     let load_ms = load_start.elapsed();
+    // Search runs on the mapped engine; compile the cache as one-time setup.
+    let cache = std::env::temp_dir().join("cf_rust_bhsa.cfr");
+    compile_features(&path, &cache, &["otype", "oslots", "sp"]).expect("compile BHSA cache");
+    let mapped = MappedCompiledCorpus::open(&cache).expect("open BHSA cache");
     let query_start = Instant::now();
-    let verbs = corpus
-        .search()
+    let verbs = MappedSearch::new(&mapped)
         .search("word sp=verb", None)
         .expect("query should run");
     let query_ms = query_start.elapsed();

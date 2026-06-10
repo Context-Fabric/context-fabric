@@ -1,8 +1,9 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyIterator, PyList, PyString, PyTuple};
+use pyo3::types::{PyBool, PyDict, PyIterator, PyList, PySet, PyString, PyTuple};
 
 use crate::compiled::MappedCompiledCorpus;
 use crate::corpus::{SectionOptions, StructureTree, TextOptions};
@@ -11,6 +12,7 @@ use crate::mapped_search::MappedSearch;
 use crate::mapped_sections::MappedSections;
 use crate::mapped_text::MappedText;
 use crate::precompute::StructureHeading;
+use crate::search::SearchSets;
 
 use super::features::feature_value_from_py;
 
@@ -45,6 +47,67 @@ fn type_filter_from_py(value: Option<&Bound<'_, PyAny>>) -> PyResult<Option<Vec<
     iter.map(|item| item?.extract::<String>())
         .collect::<PyResult<Vec<_>>>()
         .map(Some)
+}
+
+/// Convert the Python `sets=` argument (a dict mapping a set name to an
+/// iterable of node ids) into owned `(name, nodes)` pairs. The engine's
+/// `SearchSets` borrows the names, so the owned storage must outlive the call.
+fn search_sets_from_py(
+    sets: Option<&Bound<'_, PyAny>>,
+) -> PyResult<Option<Vec<(String, Vec<u32>)>>> {
+    let Some(sets) = sets else {
+        return Ok(None);
+    };
+    if sets.is_none() {
+        return Ok(None);
+    }
+    let dict = sets.downcast::<PyDict>().map_err(|_| {
+        PyTypeError::new_err("sets must be a dict mapping set names to iterables of node ids")
+    })?;
+    let mut owned = Vec::with_capacity(dict.len());
+    for (key, value) in dict.iter() {
+        let name = key.extract::<String>().map_err(|_| {
+            PyTypeError::new_err("sets keys must be strings (custom set names)")
+        })?;
+        let nodes = PyIterator::from_object(&value)?
+            .map(|item| item?.extract::<u32>())
+            .collect::<PyResult<Vec<_>>>()?;
+        owned.push((name, nodes));
+    }
+    Ok(Some(owned))
+}
+
+/// Borrow owned set storage as the engine's `SearchSets` view.
+fn borrow_search_sets(owned: &Option<Vec<(String, Vec<u32>)>>) -> Option<SearchSets<'_>> {
+    owned.as_ref().map(|pairs| {
+        pairs
+            .iter()
+            .map(|(name, nodes)| (name.as_str(), nodes.clone()))
+            .collect::<HashMap<_, _>>()
+    })
+}
+
+/// Normalize the Python `shallow=` argument to TF semantics
+/// (`tf/search/searchexe.py:55`): `0 if not shallow else 1 if shallow is True
+/// else shallow`. Returns the projection width: 0 = full tuples, 1 = first
+/// component only, k>1 = k-prefix tuples.
+fn normalize_shallow(shallow: Option<&Bound<'_, PyAny>>) -> PyResult<usize> {
+    let Some(obj) = shallow else {
+        return Ok(0);
+    };
+    if obj.is_none() {
+        return Ok(0);
+    }
+    // `bool` is a subclass of `int`, so it must be checked before integers.
+    if let Ok(flag) = obj.downcast::<PyBool>() {
+        return Ok(if flag.is_true() { 1 } else { 0 });
+    }
+    if let Ok(value) = obj.extract::<i64>() {
+        return Ok(if value <= 0 { 0 } else { value as usize });
+    }
+    Err(PyTypeError::new_err(
+        "shallow must be a bool, an int, or None",
+    ))
 }
 
 fn type_filter_refs(values: &Option<Vec<String>>) -> Option<Vec<&str>> {
@@ -631,6 +694,11 @@ pub(crate) struct PySearch {
     corpus: Arc<MappedCompiledCorpus>,
     exe: Option<PySearchExe>,
     template: Option<String>,
+    /// Owned custom sets registered via `study(..., sets=...)`, honored by
+    /// later `fetch`/`count` calls (TF stashes `sets` on the SearchExe).
+    sets: Option<Vec<(String, Vec<u32>)>>,
+    /// Projection width registered via `study(..., shallow=...)` (TF semantics).
+    shallow: usize,
 }
 
 impl PySearch {
@@ -639,6 +707,56 @@ impl PySearch {
             corpus,
             exe: None,
             template: None,
+            sets: None,
+            shallow: 0,
+        }
+    }
+
+    /// Run a search and shape the result per TF `shallow` semantics
+    /// (`tf/search/stitch.py:872-879`): width 0 -> tuple of full tuples,
+    /// width 1 -> set of first components, width k>1 -> set of k-prefix tuples.
+    fn run_search(
+        &self,
+        py: Python<'_>,
+        template: &str,
+        limit: Option<usize>,
+        owned_sets: &Option<Vec<(String, Vec<u32>)>>,
+        shallow: usize,
+    ) -> PyResult<PyObject> {
+        let engine = MappedSearch::new(&self.corpus);
+        let sets = borrow_search_sets(owned_sets);
+        match shallow {
+            0 => {
+                let rows = match sets.as_ref() {
+                    Some(sets) => engine.search_with_sets(template, sets, limit)?,
+                    None => engine.search(template, limit)?,
+                };
+                let tuples = rows
+                    .into_iter()
+                    .map(|row| PyTuple::new(py, row).map(Into::into))
+                    .collect::<PyResult<Vec<PyObject>>>()?;
+                Ok(PyTuple::new(py, tuples)?.into())
+            }
+            1 => {
+                let nodes = match sets.as_ref() {
+                    Some(sets) => engine.search_first_nodes_with_sets(template, sets, limit)?,
+                    None => engine.search_first_nodes(template, limit)?,
+                };
+                Ok(PySet::new(py, &nodes)?.into())
+            }
+            width => {
+                let rows = match sets.as_ref() {
+                    Some(sets) => {
+                        engine.search_prefixes_with_sets(template, sets, width, limit)?
+                    }
+                    None => engine.search_prefixes(template, width, limit)?,
+                };
+                let tuples = rows
+                    .into_iter()
+                    .map(|row| PyTuple::new(py, row).map(Into::into))
+                    .collect::<PyResult<Vec<PyObject>>>()?;
+                Ok(PySet::new(py, &tuples)?.into())
+            }
         }
     }
 }
@@ -650,42 +768,56 @@ impl PySearch {
         self.exe.clone()
     }
 
-    #[pyo3(signature = (template))]
-    fn study(&mut self, template: &str) {
-        let result = MappedSearch::new(&self.corpus).search(template, Some(1));
+    #[pyo3(signature = (template, sets=None, shallow=None))]
+    fn study(
+        &mut self,
+        template: &str,
+        sets: Option<&Bound<'_, PyAny>>,
+        shallow: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        let owned_sets = search_sets_from_py(sets)?;
+        let shallow = normalize_shallow(shallow)?;
+        let engine = MappedSearch::new(&self.corpus);
+        let result = match borrow_search_sets(&owned_sets) {
+            Some(sets) => engine.search_with_sets(template, &sets, Some(1)),
+            None => engine.search(template, Some(1)),
+        };
         self.template = Some(template.to_string());
+        self.sets = owned_sets;
+        self.shallow = shallow;
         self.exe = Some(match result {
             Ok(_) => PySearchExe::good(),
             Err(error) => PySearchExe::bad(error.to_string()),
         });
+        Ok(())
     }
 
-    #[pyo3(signature = (template, limit=None, sets=None, shallow=false, silent=None, here=false))]
+    // `silent` and `here` are accepted for TF API compatibility but have no
+    // effect here: progress reporting is handled by the Python layer (`silent`)
+    // and CF has no notebook-display side channel (`here`).
+    #[pyo3(signature = (template, limit=None, sets=None, shallow=None, silent=None, here=false))]
     fn search(
         &self,
         py: Python<'_>,
         template: &str,
         limit: Option<usize>,
         sets: Option<&Bound<'_, PyAny>>,
-        shallow: bool,
+        shallow: Option<&Bound<'_, PyAny>>,
         silent: Option<&str>,
         here: bool,
     ) -> PyResult<PyObject> {
-        let _ = (sets, shallow, silent, here);
-        let rows = MappedSearch::new(&self.corpus)
-            .search(template, limit)?
-            .into_iter()
-            .map(|row| PyTuple::new(py, row).map(Into::into))
-            .collect::<PyResult<Vec<PyObject>>>()?;
-        Ok(PyTuple::new(py, rows)?.into())
+        let _ = (silent, here);
+        let owned_sets = search_sets_from_py(sets)?;
+        let shallow = normalize_shallow(shallow)?;
+        self.run_search(py, template, limit, &owned_sets, shallow)
     }
 
     #[pyo3(signature = (limit=None))]
     fn fetch(&self, py: Python<'_>, limit: Option<usize>) -> PyResult<PyObject> {
-        let template = self.template.as_deref().ok_or_else(|| {
+        let template = self.template.clone().ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err("no search template has been studied")
         })?;
-        self.search(py, template, limit, None, false, None, false)
+        self.run_search(py, &template, limit, &self.sets, self.shallow)
     }
 
     #[pyo3(signature = (progress=None, limit=None))]
@@ -694,7 +826,16 @@ impl PySearch {
         let template = self.template.as_deref().ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err("no search template has been studied")
         })?;
-        Ok(MappedSearch::new(&self.corpus).count(template, limit)?)
+        let engine = MappedSearch::new(&self.corpus);
+        let study = match borrow_search_sets(&self.sets) {
+            Some(sets) => engine.study_with_sets(template, &sets)?,
+            None => engine.study(template)?,
+        };
+        Ok(match self.shallow {
+            0 => study.count(limit),
+            1 => study.count_first_nodes(limit),
+            width => study.count_prefixes(width, limit),
+        })
     }
 
     #[allow(non_snake_case)]

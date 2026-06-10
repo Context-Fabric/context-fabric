@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use context_fabric_core::Corpus;
+use context_fabric_core::{Corpus, MappedCompiledCorpus, MappedSearch, compile_features};
 
 fn main() {
     let root = std::env::args()
@@ -28,16 +28,21 @@ fn main() {
         match Corpus::load_features(&tf_path, &["otype", "oslots"]) {
             Ok(corpus) => {
                 let query = corpus.slot_type.clone();
-                let results = corpus
-                    .search()
+                let max_node = corpus.max_node;
+                let max_slot = corpus.max_slot;
+                let cache = std::env::temp_dir().join(format!("cf_validate_{name}.cfr"));
+                compile_features(&tf_path, &cache, &["otype", "oslots"])
+                    .expect("compile corpus to .cfr");
+                let mapped = MappedCompiledCorpus::open(&cache).expect("open .cfr");
+                let results = MappedSearch::new(&mapped)
                     .search(&query, Some(5))
                     .expect("slot-type query should run");
                 println!(
                     "ok corpus={} load_ms={:.3} nodes={} slots={} query={} results={}",
                     name,
                     start.elapsed().as_secs_f64() * 1000.0,
-                    corpus.max_node,
-                    corpus.max_slot,
+                    max_node,
+                    max_slot,
                     query,
                     results.len()
                 );
