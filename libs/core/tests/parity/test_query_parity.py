@@ -14,10 +14,8 @@ The suite is gated behind ``CONTEXT_FABRIC_RUN_PARITY=1`` (mirroring
 ``test_tf_oracle_parity.py``) and skipped if the compiled ``.cfr`` cache is
 missing.
 
-Currently-failing queries are marked ``xfail`` with a ``bug:`` reason tag so the
-suite runs green today and ratchets as Phase 1-3 fixes land. ``strict=False`` is
-used so that an unexpected pass surfaces as ``xpass`` (visible) rather than a
-failure.
+All queries now pass against the mapped engine, so the formerly-``xfail``
+markers (Phase 1-3 defects) have been removed and every case is a plain pass.
 
 Environment overrides:
 
@@ -52,48 +50,6 @@ TF_DIR = Path(
 )
 CACHE = Path(os.environ.get("CFABRIC_BHSA_CFR", "/tmp/cf_bhsa.cfr"))
 TIMEOUT = float(os.environ.get("CFQ_TIMEOUT", "60"))
-
-# ---------------------------------------------------------------------------
-# Known current outcomes (June 2026 evaluation, cfabric 0.6.0rc1 on BHSA).
-# Mapped engine baseline from /tmp/cf_query_parity/mapped_progress.jsonl.
-# Reason tags map each defect to its Phase 1 remediation task.
-#   bug:quantifier-perf      -> T1.4 quantifier set-algebra rewrite (timeouts)
-#   bug:edge-relation-perf   -> T1.3/T1.5 edge-relation cross-products (timeouts)
-#   bug:op-prefix-embedding  -> T1.3 operator-prefixed atom two-edge semantics
-#   bug:knear-zero           -> T1.5 k-near sibling adjacency (wrong-zero)
-#   bug:overlap-parent-zero  -> T1.3/T1.4 && overlap vs parent in /with/ (zero)
-#   bug:tokenizer-trailing-eq-> T1.1 constraint tokenizer (vbe#H= parse crash)
-# Indices not listed here are expected to PASS today.
-# ---------------------------------------------------------------------------
-XFAIL_REASONS: dict[int, str] = {
-    0: "bug:quantifier-perf",        # /with//or/ + <:        TIMEOUT
-    1: "bug:quantifier-perf",        # /where//have//without/ TIMEOUT
-    2: "bug:quantifier-perf",        # /where//have/ + ..     TIMEOUT
-    4: "bug:edge-relation-perf",     # -mother>               TIMEOUT
-    5: "bug:edge-relation-perf",     # -mother> named/#       TIMEOUT
-    6: "bug:edge-relation-perf",     # <mother-               TIMEOUT
-    7: "bug:op-prefix-embedding",    # =: := + .nu.           TIMEOUT
-    8: "bug:op-prefix-embedding",    # =: := + .nu#nu.        TIMEOUT
-    9: "bug:op-prefix-embedding",    # := =: <: .lex.         CRASH
-    10: "bug:op-prefix-embedding",   # <20: + <               TIMEOUT
-    11: "bug:knear-zero",            # :30>                   WRONG-ZERO
-    18: "bug:op-prefix-embedding",   # =: :=                  TIMEOUT
-    20: "bug:op-prefix-embedding",   # =: + ##                TIMEOUT
-    21: "bug:op-prefix-embedding",   # < subphrase + ||       TIMEOUT
-    22: "bug:overlap-parent-zero",   # /with/ && ..           WRONG-ZERO
-    23: "bug:op-prefix-embedding",   # <:                     TIMEOUT
-    24: "bug:op-prefix-embedding",   # :>                     TIMEOUT
-    25: "bug:op-prefix-embedding",   # deep nest + <:         WRONG-ZERO
-    26: "bug:op-prefix-embedding",   # =: :=                  TIMEOUT
-    27: "bug:op-prefix-embedding",   # <: < ||                TIMEOUT
-    28: "bug:op-prefix-embedding",   # =: < > || [[           TIMEOUT
-    29: "bug:op-prefix-embedding",   # << + <:                WRONG-ZERO
-    30: "bug:quantifier-perf",       # /without/ + <<         TIMEOUT
-    31: "bug:op-prefix-embedding",   # := word + numeric      CRASH
-    32: "bug:quantifier-perf",       # /without/ + ]]         TIMEOUT
-    33: "bug:tokenizer-trailing-eq", # vbe#H=                 CRASH
-}
-
 
 def _load_queries() -> list[dict[str, Any]]:
     with open(QUERIES_JSON) as handle:
@@ -177,15 +133,10 @@ def _require_cache() -> None:
 
 
 def _query_params() -> list[Any]:
-    params = []
-    for idx, query in enumerate(QUERIES):
-        marks = []
-        if idx in XFAIL_REASONS:
-            marks.append(
-                pytest.mark.xfail(reason=XFAIL_REASONS[idx], strict=False)
-            )
-        params.append(pytest.param(idx, query, marks=marks, id=query["id"]))
-    return params
+    return [
+        pytest.param(idx, query, id=query["id"])
+        for idx, query in enumerate(QUERIES)
+    ]
 
 
 @pytest.mark.parametrize("idx,query", _query_params())

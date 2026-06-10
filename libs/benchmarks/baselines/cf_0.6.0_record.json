@@ -1,0 +1,86 @@
+{
+ "engine": "cf",
+ "load_s": 0.018,
+ "rss_after_load_mb": 30.3,
+ "F.sp.v": {
+  "total_s": 0.0035,
+  "per_call_us": 0.35,
+  "n": 10000
+ },
+ "F.g_word.v": {
+  "total_s": 0.0047,
+  "per_call_us": 0.47,
+  "n": 10000
+ },
+ "L.u": {
+  "total_s": 0.0068,
+  "per_call_us": 227.6,
+  "n": 30
+ },
+ "L.d": {
+  "total_s": 0.0002,
+  "per_call_us": 6.87,
+  "n": 30
+ },
+ "E.mother.f": {
+  "total_s": 0.0011,
+  "per_call_us": 2.2,
+  "n": 500
+ },
+ "T.sectionFromNode": {
+  "total_s": 0.0019,
+  "per_call_us": 9.51,
+  "n": 200
+ },
+ "T.text.verse": {
+  "total_s": 0.0019,
+  "per_call_us": 18.66,
+  "n": 100
+ },
+ "F.sp.freqList_s": 0.2169,
+ "F.sp.v_full_sweep_s": 0.079,
+ "queries": {
+  "q_phrase_without_verb": {
+   "s": 0.2575,
+   "count": 62771
+  },
+  "q_regex_gcons": {
+   "s": 0.1042,
+   "count": 816
+  },
+  "q_regex_typ": {
+   "s": 0.0656,
+   "count": 3098
+  },
+  "q_regex_gloss_space": {
+   "s": 0.0175,
+   "count": 406
+  },
+  "q_feat_exists_qere": {
+   "s": 0.0005,
+   "count": 1892
+  },
+  "q_feat_empty_qere": {
+   "s": 0.0637,
+   "count": 424698
+  },
+  "q_multivalue_neg": {
+   "s": 0.0396,
+   "count": 271
+  },
+  "q_slot_equal": {
+   "s": 0.1348,
+   "count": 3583
+  }
+ },
+ "rss_final_mb": 236.1,
+ "steady_state_us": {
+  "L.u": 0.62,
+  "L.d": 0.75,
+  "E.mother.f": 0.14,
+  "T.sectionFromNode": 3.17,
+  "T.text.verse": 7.12,
+  "F.g_word.v": 0.33
+ },
+ "note": "steady_state_us measured with warmup, 50k calls, idle machine, 2026-06-10; per-call gate numbers include one-time index builds over tiny n"
+}
