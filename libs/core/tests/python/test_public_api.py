@@ -84,9 +84,14 @@ def test_text_fabric_compatibility_surface(mini_corpus_path, loaded_api):
     assert loaded_api.E.distance.dataInv[2][1] == 0
     assert loaded_api.E.distance.freqList(node_types_from=("word",), node_types_to=("word",))
 
-    assert loaded_api.N.walk(events=True) == loaded_api.N.walk()
+    events = loaded_api.N.walk(events=True)
+    assert all(isinstance(item, tuple) and len(item) == 2 for item in events)
+    # The non-end events (slots and container starts) replay walk() order.
+    assert loaded_api.N.walk() == tuple(node for (node, kind) in events if kind is not True)
     assert loaded_api.T.sectionFeats == loaded_api.T.sectionFeatures
-    assert loaded_api.T.sectionTuple(1) == loaded_api.T.sectionFromNode(1)
+    # sectionTuple returns section NODE ids; sectionFromNode returns their values.
+    assert loaded_api.T.sectionTuple(1) == (8, 6)
+    assert loaded_api.T.sectionFromNode(1) == ("S1", 1)
     assert loaded_api.T.formats == {"text-orig-full": "word"}
     assert isinstance(loaded_api.T.structureTypes, tuple)
     assert isinstance(loaded_api.T.structureFeats, tuple)
@@ -102,7 +107,8 @@ def test_text_fabric_compatibility_surface(mini_corpus_path, loaded_api):
     assert search.fetch(limit=1) == ((1,),)
     assert search.count(limit=2) == 2
     assert "word" in search.showPlan(False)
-    assert search.glean(((1,),)) == ((1,),)
+    assert search.glean((1,)) == "hello"
+    assert search.glean((1, 2)) == "hello beautiful"
     assert search.tweakPerformance()
     assert isinstance(search.relationsLegend(), str)
     assert search.perfParams == {}

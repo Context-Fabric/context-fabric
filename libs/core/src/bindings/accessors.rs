@@ -6,7 +6,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyIterator, PyList, PySet, PyString, PyTuple};
 
 use crate::compiled::MappedCompiledCorpus;
-use crate::corpus::{SectionOptions, StructureTree, TextOptions};
+use crate::corpus::{SectionOptions, StructureTree, TextOptions, WalkEvent};
 use crate::feature::FeatureValue;
 use crate::mapped_search::MappedSearch;
 use crate::mapped_sections::MappedSections;
@@ -390,10 +390,24 @@ impl PyNodes {
         nodes: Option<&Bound<'_, PyAny>>,
         events: bool,
     ) -> PyResult<PyObject> {
-        let _ = events;
         let nodes = nodes_from_py(nodes)?;
-        let _ = events;
-        nodes_to_tuple(py, MappedSections::new(&self.corpus)?.walk(nodes.as_deref())?)
+        let sections = MappedSections::new(&self.corpus)?;
+        if !events {
+            return nodes_to_tuple(py, sections.walk(nodes.as_deref())?);
+        }
+        // TF `N.walk(events=True)` (tf/core/nodes.py:278-292) yields event pairs:
+        // slot -> `(n, None)`, container start -> `(n, False)`, container end ->
+        // `(n, True)`. `WalkEvent` already models exactly these three cases.
+        let rows: Vec<(u32, Option<bool>)> = sections
+            .walk_events(nodes.as_deref())?
+            .into_iter()
+            .map(|event| match event {
+                WalkEvent::Slot(node) => (node, None),
+                WalkEvent::Start(node) => (node, Some(false)),
+                WalkEvent::End(node) => (node, Some(true)),
+            })
+            .collect();
+        Ok(PyTuple::new(py, rows)?.into())
     }
 }
 
@@ -406,6 +420,60 @@ impl PyText {
     pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>) -> Self {
         Self { corpus }
     }
+
+    /// Compute the section heading values for `node` (TF `sectionFromNode`,
+    /// tf/core/text.py:555): the section-node tuple resolved to feature values,
+    /// using the language-aware feature for the level-0 (book) component and the
+    /// configured `sectionFeatures` for the deeper levels.
+    fn section_heading(
+        &self,
+        node: u32,
+        lang: &str,
+        options: &SectionOptions,
+    ) -> crate::error::Result<Vec<Option<FeatureValue>>> {
+        section_heading(&self.corpus, node, lang, options)
+    }
+}
+
+/// Free-standing version of [`PyText::section_heading`] so other binding classes
+/// (e.g. `Search::glean`) can reuse the language-aware section resolution.
+fn section_heading(
+    corpus: &MappedCompiledCorpus,
+    node: u32,
+    lang: &str,
+    options: &SectionOptions,
+) -> crate::error::Result<Vec<Option<FeatureValue>>> {
+    let section_features =
+        parse_csv_config(mapped_otext_value(corpus, "sectionFeatures")?.as_deref());
+    MappedSections::new(corpus)?
+        .section_tuple(node, options)?
+        .into_iter()
+        .enumerate()
+        .map(|(index, section_node)| {
+            let Some(section_node) = section_node else {
+                return Ok(None);
+            };
+            let feature_name = if index == 0 {
+                mapped_section_0_feature_for_lang(corpus, lang)?
+                    .or_else(|| section_features.get(index).cloned())
+            } else {
+                section_features.get(index).cloned()
+            };
+            let Some(feature_name) = feature_name else {
+                return Ok(None);
+            };
+            corpus
+                .node_feature(&feature_name)?
+                .and_then(|feature| feature.v(section_node).transpose())
+                .transpose()
+                .map(|value| {
+                    value.map(|value| match value {
+                        crate::compiled::MappedNodeValue::Str(value) => FeatureValue::string(value),
+                        crate::compiled::MappedNodeValue::Int(value) => FeatureValue::Int(value),
+                    })
+                })
+        })
+        .collect()
 }
 
 #[pymethods]
@@ -473,13 +541,26 @@ impl PyText {
     }
 
     #[pyo3(signature = (node, fmt=None, descend=None))]
-    fn text(&self, node: u32, fmt: Option<&str>, descend: Option<bool>) -> PyResult<String> {
-        Ok(if descend.is_some() {
-            MappedText::new(&self.corpus)?
-                .text_with_options(node, &TextOptions::new(fmt.map(str::to_string), descend))?
-        } else {
-            MappedText::new(&self.corpus)?.text(node, fmt)?
-        })
+    fn text(
+        &self,
+        node: &Bound<'_, PyAny>,
+        fmt: Option<&str>,
+        descend: Option<bool>,
+    ) -> PyResult<String> {
+        // TF `T.text` (tf/core/text.py:972) accepts a single int OR an arbitrary
+        // iterable of node ids; iterables are rendered per node and the pieces are
+        // concatenated with no separator (`"".join(material)`, text.py:1182).
+        let engine = MappedText::new(&self.corpus)?;
+        let options = TextOptions::new(fmt.map(str::to_string), descend);
+        if let Ok(single) = node.extract::<u32>() {
+            return Ok(engine.text_with_options(single, &options)?);
+        }
+        let nodes = nodes_from_py(Some(node))?.unwrap_or_default();
+        let parts = nodes
+            .into_iter()
+            .map(|node| engine.text_with_options(node, &options))
+            .collect::<crate::error::Result<Vec<String>>>()?;
+        Ok(parts.concat())
     }
 
     #[allow(non_snake_case)]
@@ -493,52 +574,12 @@ impl PyText {
         level: Option<usize>,
         lang: &str,
     ) -> PyResult<PyObject> {
-        let _ = lastSlot;
-        let values = MappedSections::new(&self.corpus)?
-            .section_tuple(
-                node,
-                &SectionOptions {
-                    fillup,
-                    level,
-                    ..SectionOptions::default()
-                },
-            )?
-            .into_iter()
-            .enumerate()
-            .map(|(index, section_node)| {
-                let Some(section_node) = section_node else {
-                    return Ok(None);
-                };
-                let feature_name = if index == 0 {
-                    mapped_section_0_feature_for_lang(&self.corpus, lang)?
-                        .or_else(|| {
-                            parse_csv_config(
-                                mapped_otext_value(&self.corpus, "sectionFeatures")
-                                    .ok()
-                                    .flatten()
-                                    .as_deref(),
-                            )
-                            .get(index)
-                            .cloned()
-                        })
-                } else {
-                    parse_csv_config(mapped_otext_value(&self.corpus, "sectionFeatures")?.as_deref())
-                        .get(index)
-                        .cloned()
-                };
-                let Some(feature_name) = feature_name else {
-                    return Ok(None);
-                };
-                self.corpus
-                    .node_feature(&feature_name)?
-                    .and_then(|feature| feature.v(section_node).transpose())
-                    .transpose()
-                    .map(|value| value.map(|value| match value {
-                        crate::compiled::MappedNodeValue::Str(value) => FeatureValue::string(value),
-                        crate::compiled::MappedNodeValue::Int(value) => FeatureValue::Int(value),
-                    }))
-            })
-            .collect::<Result<Vec<_>, crate::error::CfError>>()?;
+        let options = SectionOptions {
+            last_slot: lastSlot,
+            fillup,
+            level,
+        };
+        let values = self.section_heading(node, lang, &options)?;
         let items = values
             .iter()
             .map(|value| option_feature_value_to_py(py, value.as_ref()))
@@ -557,7 +598,19 @@ impl PyText {
         level: Option<usize>,
         lang: &str,
     ) -> PyResult<PyObject> {
-        self.sectionFromNode(py, node, lastSlot, fillup, level, lang)
+        // TF `T.sectionTuple` (tf/core/text.py:461) returns the *section node ids*
+        // (not their feature values) that contain `node`, honoring `lastSlot` and
+        // `fillup`. `lang` is irrelevant for node ids but kept for API symmetry.
+        let _ = lang;
+        let nodes = MappedSections::new(&self.corpus)?.section_tuple(
+            node,
+            &SectionOptions {
+                last_slot: lastSlot,
+                fillup,
+                level,
+            },
+        )?;
+        Ok(PyTuple::new(py, nodes)?.into())
     }
 
     #[allow(non_snake_case)]
@@ -846,16 +899,70 @@ impl PySearch {
     }
 
     #[allow(non_snake_case)]
-    fn showPlan(&self, details: bool) -> Option<String> {
-        let _ = details;
-        self.template.as_ref().map(|template| template.to_string())
+    fn showPlan(&self, details: bool) -> PyResult<Option<String>> {
+        // Emit the engine's real study/plan summary rather than echoing the
+        // template (TF `S.showPlan`, tf/search/search.py).
+        let Some(template) = self.template.as_deref() else {
+            return Ok(None);
+        };
+        let engine = MappedSearch::new(&self.corpus);
+        let plan = match borrow_search_sets(&self.sets) {
+            Some(sets) => engine.show_plan_with_sets(template, &sets, details)?,
+            None => engine.show_plan(template, details)?,
+        };
+        Ok(Some(plan))
     }
 
-    fn glean(&self, py: Python<'_>, tuples: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-        let rows = PyIterator::from_object(tuples)?
-            .map(|item| item.map(Into::into))
-            .collect::<PyResult<Vec<PyObject>>>()?;
-        Ok(PyTuple::new(py, rows)?.into())
+    /// Render a single result tuple into a human-readable string per TF
+    /// `S.glean` (tf/search/search.py:475-542): for each node, a level-2 (verse)
+    /// section node becomes `"book ch:vs"`, a slot becomes its text, a level-0/1
+    /// section node becomes empty, and any other node becomes
+    /// `"otype[<text of first 5 slots>...]"`. Fields are joined with a space.
+    fn glean(&self, tup: &Bound<'_, PyAny>) -> PyResult<String> {
+        let nodes = nodes_from_py(Some(tup))?.unwrap_or_default();
+        if nodes.is_empty() {
+            return Ok(String::new());
+        }
+        let sections = MappedSections::new(&self.corpus)?;
+        let text = MappedText::new(&self.corpus)?;
+        let section_types = sections.section_types().to_vec();
+        let level2_type = section_types.get(2).cloned();
+        let upper_section_types: std::collections::HashSet<&str> =
+            section_types.iter().take(2).map(String::as_str).collect();
+
+        let value_to_string = |value: &FeatureValue| -> String {
+            match value {
+                FeatureValue::Str(value) => value.to_string(),
+                FeatureValue::Int(value) => value.to_string(),
+            }
+        };
+
+        let mut fields = Vec::with_capacity(nodes.len());
+        for node in nodes {
+            let otype = sections.node_type(node)?.map(str::to_string).unwrap_or_default();
+            let field = if level2_type.as_deref() == Some(otype.as_str()) {
+                let heading = section_heading(&self.corpus, node, "en", &SectionOptions::default())?;
+                let part = |index: usize| {
+                    heading
+                        .get(index)
+                        .and_then(Option::as_ref)
+                        .map(&value_to_string)
+                        .unwrap_or_default()
+                };
+                format!("{} {}:{}", part(0), part(1), part(2))
+            } else if sections.is_slot(node)? {
+                text.text(node, None)?
+            } else if upper_section_types.contains(otype.as_str()) {
+                String::new()
+            } else {
+                let words = sections.slots(node)?;
+                let head: Vec<u32> = words.iter().take(5).copied().collect();
+                let ellipsis = if words.len() > 5 { "..." } else { "" };
+                format!("{}[{}{}]", otype, text.text_nodes(&head, None)?, ellipsis)
+            };
+            fields.push(field);
+        }
+        Ok(fields.join(" "))
     }
 
     #[allow(non_snake_case)]
