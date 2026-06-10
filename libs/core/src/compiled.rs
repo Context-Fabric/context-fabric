@@ -3078,10 +3078,26 @@ fn write_v3_sections<W: Write>(writer: &mut W, corpus: &Corpus, path: &Path) -> 
     if max_node == 0 {
         return Ok(());
     }
-    let slot_sets: BTreeMap<u32, Vec<u32>> = corpus.oslots_items().into_iter().collect();
-    let rank = corpus.rank();
+    let timing = std::env::var_os("CF_V3_TIMING").is_some();
+    macro_rules! phase {
+        ($label:expr, $body:expr) => {{
+            let __start = std::time::Instant::now();
+            let __result = $body;
+            if timing {
+                eprintln!("[v3] {} took {} ms", $label, __start.elapsed().as_millis());
+            }
+            __result
+        }};
+    }
 
-    let lev_up = precompute::lev_up(&slot_sets, &rank, max_slot, max_node);
+    let slot_sets: BTreeMap<u32, Vec<u32>> =
+        phase!("oslots_items", corpus.oslots_items().into_iter().collect());
+    let rank = phase!("rank", corpus.rank());
+
+    let lev_up = phase!(
+        "lev_up",
+        precompute::lev_up(&slot_sets, &rank, max_slot, max_node)
+    );
     writer.write_all(LEV_UP_MAGIC).map_err(|source| CfError::Io {
         path: path.to_path_buf(),
         source,
@@ -3091,12 +3107,15 @@ fn write_v3_sections<W: Write>(writer: &mut W, corpus: &Corpus, path: &Path) -> 
     // levDown is indexed by non-slot nodes (`max_slot+1..=max_node`); store it
     // as a full `1..=max_node` CSR with empty rows for slots so the accessor is
     // uniform with levUp. The offsets overhead is ~max_slot u32 (negligible).
-    let lev_down = precompute::lev_down(&lev_up, &rank, max_slot, max_node);
+    let lev_down = phase!(
+        "lev_down",
+        precompute::lev_down(&lev_up, &rank, max_slot, max_node)
+    );
     let mut lev_down_full = vec![Vec::new(); max_node as usize];
-    for (index, row) in lev_down.into_iter().enumerate() {
+    for (index, row) in lev_down.iter().enumerate() {
         let node = max_slot as usize + 1 + index;
         if node >= 1 && node <= max_node as usize {
-            lev_down_full[node - 1] = row;
+            lev_down_full[node - 1] = row.clone();
         }
     }
     writer
@@ -3107,7 +3126,7 @@ fn write_v3_sections<W: Write>(writer: &mut W, corpus: &Corpus, path: &Path) -> 
         })?;
     write_csr(writer, &lev_down_full, path)?;
 
-    let boundary = precompute::boundary(&slot_sets, &rank, max_slot);
+    let boundary = phase!("boundary", precompute::boundary(&slot_sets, &rank, max_slot));
     writer
         .write_all(BOUNDARY_MAGIC)
         .map_err(|source| CfError::Io {
@@ -3117,7 +3136,10 @@ fn write_v3_sections<W: Write>(writer: &mut W, corpus: &Corpus, path: &Path) -> 
     write_csr(writer, &boundary.first_slots, path)?;
     write_csr(writer, &boundary.last_slots, path)?;
 
-    if let Some(sections) = precompute::sections(corpus) {
+    if let Some(sections) = phase!(
+        "sections",
+        precompute::sections_with(corpus, &lev_up, &lev_down)
+    ) {
         writer
             .write_all(SECTIONS_MAGIC)
             .map_err(|source| CfError::Io {

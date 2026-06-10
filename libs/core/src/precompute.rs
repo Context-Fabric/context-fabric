@@ -146,45 +146,38 @@ pub fn rank(max_node: u32, order: &[u32]) -> RankData {
     ranks
 }
 
+/// Computes the embedders of every node (the `levUp` precompute step).
+///
+/// Mirrors Text-Fabric's `prepare.levUp`: a node `A` embeds node `n` iff every
+/// slot of `n` is also a slot of `A` (`slots(n) ⊆ slots(A)`); embedder rows are
+/// returned in descending canonical rank (closest embedder first).
+///
+/// Rather than intersecting the per-slot embedder sets across *every* slot of a
+/// node (which is quadratic for large nodes such as books with tens of thousands
+/// of slots), this derives the embedders from a tiny candidate set: any embedder
+/// of `n` must also contain `n`'s first slot, so the candidates are exactly
+/// `inverse[firstSlot]` (≈10 entries in practice). Each candidate is then
+/// verified with a length-rejected subset test, which is O(|slots(n)| · log) for
+/// the few candidates that are large enough to possibly contain `n`.
 pub fn lev_up(
     oslots: &BTreeMap<u32, Vec<u32>>,
     rank: &[u32],
     max_slot: u32,
     max_node: u32,
 ) -> LevUpData {
-    let mut inverse: BTreeMap<u32, Vec<u32>> = BTreeMap::new();
+    // inverse[slot] = non-slot nodes that contain `slot`, in ascending node
+    // order (BTreeMap iterates keys ascending). Indexed directly by slot id for
+    // O(1) lookup and no per-slot allocation.
+    let mut inverse: Vec<Vec<u32>> = vec![Vec::new(); max_slot as usize + 1];
     for (node, slots) in oslots {
-        for slot in slots {
-            inverse.entry(*slot).or_default().push(*node);
+        for &slot in slots {
+            if let Some(bucket) = inverse.get_mut(slot as usize) {
+                bucket.push(*node);
+            }
         }
     }
 
-    let mut embedders = Vec::with_capacity(max_node as usize);
-    for node in 1..=max_node {
-        let slots = node_slots(node, oslots, max_slot);
-        if slots.is_empty() {
-            embedders.push(Vec::new());
-            continue;
-        }
-        let mut common = inverse
-            .get(&slots[0])
-            .cloned()
-            .unwrap_or_default()
-            .into_iter()
-            .collect::<std::collections::BTreeSet<_>>();
-        for slot in slots.iter().skip(1) {
-            let slot_embedders = inverse
-                .get(slot)
-                .cloned()
-                .unwrap_or_default()
-                .into_iter()
-                .collect::<std::collections::BTreeSet<_>>();
-            common = common.intersection(&slot_embedders).copied().collect();
-        }
-        let mut row = common
-            .into_iter()
-            .filter(|embedder| *embedder != node)
-            .collect::<Vec<_>>();
+    let sort_by_rank_desc = |row: &mut Vec<u32>| {
         row.sort_unstable_by_key(|embedder| {
             std::cmp::Reverse(
                 rank.get((*embedder).saturating_sub(1) as usize)
@@ -192,6 +185,43 @@ pub fn lev_up(
                     .unwrap_or_default(),
             )
         });
+    };
+
+    let mut embedders = Vec::with_capacity(max_node as usize);
+    for node in 1..=max_node {
+        if node <= max_slot {
+            // Slot nodes: their embedders are exactly the nodes containing them.
+            // `inverse` only holds non-slot nodes, so no self-filter is needed.
+            let mut row = inverse[node as usize].clone();
+            sort_by_rank_desc(&mut row);
+            embedders.push(row);
+            continue;
+        }
+        let Some(slots) = oslots.get(&node) else {
+            embedders.push(Vec::new());
+            continue;
+        };
+        let Some(&first_slot) = slots.first() else {
+            embedders.push(Vec::new());
+            continue;
+        };
+        let mut row = Vec::new();
+        for &candidate in &inverse[first_slot as usize] {
+            if candidate == node {
+                continue;
+            }
+            let Some(candidate_slots) = oslots.get(&candidate) else {
+                continue;
+            };
+            // A candidate that has fewer slots than `node` cannot contain it.
+            if candidate_slots.len() < slots.len() {
+                continue;
+            }
+            if is_superset(candidate_slots, slots) {
+                row.push(candidate);
+            }
+        }
+        sort_by_rank_desc(&mut row);
         embedders.push(row);
     }
     embedders
@@ -277,11 +307,62 @@ pub fn boundary(oslots: &BTreeMap<u32, Vec<u32>>, rank: &[u32], max_slot: u32) -
 }
 
 pub fn sections(corpus: &Corpus) -> Option<SectionsData> {
+    let max_slot = corpus.max_slot();
+    let max_node = corpus.max_node();
+    let slot_sets: BTreeMap<u32, Vec<u32>> = corpus.oslots_items().into_iter().collect();
+    let rank = corpus.rank();
+    let lev_up = lev_up(&slot_sets, &rank, max_slot, max_node);
+    let lev_down = lev_down(&lev_up, &rank, max_slot, max_node);
+    sections_with(corpus, &lev_up, &lev_down)
+}
+
+/// Same as [`sections`], but reuses already-computed `levUp`/`levDown` data so
+/// the v3 writer does not recompute them. `lev_up` is indexed by `node - 1` over
+/// `1..=max_node`; `lev_down` is indexed by `node - max_slot - 1` over
+/// `max_slot+1..=max_node` (matching [`lev_down`]'s output).
+///
+/// This replaces the previous implementation's `corpus.u`/`corpus.d` calls,
+/// each of which scanned all non-slot nodes (`O(max_node)`) and were invoked
+/// once per section node — quadratic on large corpora. Embedder/embeddee lookups
+/// now read directly from the precomputed rows.
+pub fn sections_with(
+    corpus: &Corpus,
+    lev_up: &[Vec<u32>],
+    lev_down: &[Vec<u32>],
+) -> Option<SectionsData> {
+    let max_slot = corpus.max_slot();
     let section_types = corpus.section_types();
     let section_features = corpus.section_features();
     if section_types.len() < 2 || section_features.len() < 2 {
         return None;
     }
+
+    // First embedder of `node` whose type is `node_type`, taken from the
+    // descending-rank `levUp` row (closest embedder first) — matching the
+    // semantics of `corpus.u(node, None).find(...)`.
+    let first_embedder_of_type = |node: u32, node_type: &str| -> Option<u32> {
+        lev_up
+            .get((node.saturating_sub(1)) as usize)?
+            .iter()
+            .copied()
+            .find(|embedder| corpus.node_type(*embedder) == Some(node_type))
+    };
+    // Embeddees of `node` of the given type, in ascending-rank order, taken from
+    // the `levDown` row — matching `corpus.d(node, Some(node_type))`.
+    let embeddees_of_type = |node: u32, node_type: &str| -> Vec<u32> {
+        if node <= max_slot {
+            return Vec::new();
+        }
+        lev_down
+            .get((node - max_slot - 1) as usize)
+            .map(|row| {
+                row.iter()
+                    .copied()
+                    .filter(|embeddee| corpus.node_type(*embeddee) == Some(node_type))
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
 
     let mut sec1: BTreeMap<u32, BTreeMap<String, u32>> = BTreeMap::new();
     let mut sec2: BTreeMap<u32, BTreeMap<String, BTreeMap<String, u32>>> = BTreeMap::new();
@@ -301,8 +382,7 @@ pub fn sections(corpus: &Corpus) -> Option<SectionsData> {
         .and_then(|feature_name| corpus.node_feature(feature_name));
 
     for &level_1_node in corpus.nodes_of_type(&section_types[1]) {
-        let Some(level_0_node) = first_embedder_of_type(corpus, level_1_node, &section_types[0])
-        else {
+        let Some(level_0_node) = first_embedder_of_type(level_1_node, &section_types[0]) else {
             continue;
         };
         let heading_1 = level_1_feature
@@ -319,12 +399,12 @@ pub fn sections(corpus: &Corpus) -> Option<SectionsData> {
         if let Some(level_2_feature) = level_2_feature {
             for &level_2_node in corpus.nodes_of_type(&section_types[2]) {
                 let Some(level_0_node) =
-                    first_embedder_of_type(corpus, level_2_node, &section_types[0])
+                    first_embedder_of_type(level_2_node, &section_types[0])
                 else {
                     continue;
                 };
                 let Some(level_1_node) =
-                    first_embedder_of_type(corpus, level_2_node, &section_types[1])
+                    first_embedder_of_type(level_2_node, &section_types[1])
                 else {
                     continue;
                 };
@@ -353,13 +433,13 @@ pub fn sections(corpus: &Corpus) -> Option<SectionsData> {
             node_from_seq.insert(vec![seq_0], level_0_node);
 
             let mut seq_1 = 0;
-            for level_1_node in corpus.d(level_0_node, Some(&section_types[1])) {
+            for level_1_node in embeddees_of_type(level_0_node, &section_types[1]) {
                 seq_1 += 1;
                 seq_from_node.insert(level_1_node, vec![seq_0, seq_1]);
                 node_from_seq.insert(vec![seq_0, seq_1], level_1_node);
 
                 let mut seq_2 = 0;
-                for level_2_node in corpus.d(level_1_node, Some(&section_types[2])) {
+                for level_2_node in embeddees_of_type(level_1_node, &section_types[2]) {
                     seq_2 += 1;
                     seq_from_node.insert(level_2_node, vec![seq_0, seq_1, seq_2]);
                     node_from_seq.insert(vec![seq_0, seq_1, seq_2], level_2_node);
@@ -529,13 +609,6 @@ pub fn characters(
     }
 
     character_counts_by_format
-}
-
-fn first_embedder_of_type(corpus: &Corpus, node: u32, node_type: &str) -> Option<u32> {
-    corpus
-        .u(node, None)
-        .into_iter()
-        .find(|embedder| corpus.node_type(*embedder) == Some(node_type))
 }
 
 fn section_heading_key(value: &FeatureValue) -> String {
