@@ -384,6 +384,15 @@ impl TfData {
             }
             Some(TfDataContent::Edge(feature)) => {
                 output.push_str("@edge\n");
+                // Emit the standalone `@edgeValues` flag (TF convention) when the
+                // feature carries values, whether signalled by the `edge_values`
+                // flag, by the metadata `edgeValues` key, or by actual edge values.
+                if self.edge_values
+                    || feature.has_edge_values()
+                    || !feature.edge_values.is_empty()
+                {
+                    output.push_str("@edgeValues\n");
+                }
                 write_metadata(&mut output, &feature.metadata);
                 output.push('\n');
                 for (source, targets) in feature.items() {
@@ -417,6 +426,11 @@ impl TfData {
                 };
                 output.push_str(header);
                 output.push('\n');
+                if self.is_edge == Some(true)
+                    && (self.edge_values || self.metadata.contains_key("edgeValues"))
+                {
+                    output.push_str("@edgeValues\n");
+                }
                 write_metadata(&mut output, &self.metadata);
                 output.push('\n');
             }
@@ -428,6 +442,12 @@ impl TfData {
 
 fn write_metadata(output: &mut String, metadata: &BTreeMap<String, Option<String>>) {
     for (key, value) in metadata {
+        // `edgeValues` is emitted as a standalone `@edgeValues` flag line (TF
+        // convention), never as a metadata key, so skip it here to avoid
+        // duplicating it when it is present in the metadata map.
+        if key == "edgeValues" {
+            continue;
+        }
         match value {
             Some(value) => output.push_str(&format!("@{key}={value}\n")),
             None => output.push_str(&format!("@{key}\n")),

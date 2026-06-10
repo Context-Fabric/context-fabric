@@ -42,7 +42,15 @@ class Fabric:
         path: bool = False,
         meta: str = "description",
     ) -> bool: ...
-    def save(self, node_features: bool = True, edge_features: bool = True) -> bool: ...
+    def save(
+        self,
+        nodeFeatures: dict[str, dict[int, object]] | None = None,
+        edgeFeatures: dict[str, dict[int, object]] | None = None,
+        metaData: dict[str, dict[str, object]] | None = None,
+        location: str | None = None,
+        module: str | None = None,
+        silent: str | None = None,
+    ) -> bool: ...
     def openMapped(self, cache_path: str) -> Corpus: ...
     def open_mapped(self, cache_path: str) -> Corpus: ...
 
