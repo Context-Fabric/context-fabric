@@ -35,7 +35,7 @@
 }
 \lstset{style=mystyle}
 
-\title{Introducing Context-Fabric\\[0.5em]
+\title{Introducing Context-Fabric:\\[0.5em]
 \large Scalable Corpus Analysis for the Agentic Era}
 \author{Cody Kingham}
 \date{Aug 2026}
@@ -45,13 +45,13 @@
 \maketitle
 
 \begin{abstract}
-For nearly ten years, Text-Fabric (TF) has served as a powerful tool for the analysis of classical corpora.
-It has propelled an entire generation of linguistic and exegetical researchers. However, TF has
-always been burdened by two problems: 1) it is resource intensive, consuming large amounts of RAM,
-and 2) it requires knowledge of Python or the query language to use it. These frictions have
-limited TF's usefulness to the philological community, which is not known for its computational prowess!
-Agentic AI, however, now makes it possible to solve the skill-gap. In order to do so, TF must become light and agile,
-capable of running on resource-constrained systems, with the ability to scale to many corpora at once.
+For nearly ten years, Text-Fabric (TF) has served an entire generation of linguistic and exegetical
+researchers as a powerful tool for corpus analysis. However, TF has always been burdened by two problems:
+1) it is resource intensive, consuming large amounts of RAM, and 2) it requires knowledge of Python or
+the query language to use it. These frictions have limited its usefulness to the philological community,
+which is not known for its computational prowess!
+Agentic AI, however, now makes it possible to solve the skill-gap. To maximize this opportunity,
+TF must become light and agile, capable of running on resource-constrained systems, with the ability to scale to many corpora at once.
 To address this, I introduce Context-Fabric (CF), a memory-efficient re-write of TF designed for the agentic era.
 Using memory-mapped arrays to store the corpus graph, CF achieves up to a 92\% reduction in RAM consumption,
 with as much as 5.3$\times$ more efficient scaling for multi-corpus loads. This is accomplished without sacrificing
@@ -63,28 +63,51 @@ high-level research without knowing a jot or tittle of Python.
 \section{The Legacy of Text-Fabric}
 
 In 1977, Eep Talstra founded the Werkgroep Informatica at the Vrije Universiteit Amsterdam
-(today the Eep Talstra Centre for Bible and Computer, ETCBC) with the purpose of using
+(today the Eep Talstra Centre for Bible and Computer, or ``ETCBC'') with the purpose of using
 computers to analyze the Hebrew Bible.
-Over the next fifty years, those efforts yielded a rich and advanced grammatical database
-of Biblical Hebrew. For most of this period, the dataset was kept privately in the Werkgroep's
-internal server. It was not until 2014 that Dirk Roorda, a researcher on the [†?] project,
+Over the next fifty years, those efforts yielded a rich grammatical database
+of Biblical Hebrew. For most of this period, the dataset was kept privately on the Werkgroep's
+internal server.\footnote{
+    It was also integrated into several paid software tools such as [†...CITE].
+}
+It was not until 2014 that Dirk Roorda, a research scientist on the [†?] project,
 published the dataset online as an XML dump in the Linguistic Annotation Framework (LAF) [†cite].
-LAF modeled texts as graphs, with the various linguistic units like clauses and phrases being captured
+LAF modeled texts as graphs. The various linguistic units like clauses and phrases were captured
 as nodes with features, and their relations as edges [†cite https://link.springer.com/article/10.1007/s10579-014-9268-1].
 Alongside the XML dump, Roorda published a Python package called LAF-Fabric, which had an API capable
-of walking the LAF nodes and edges and querying their features [†Roorda]. This package carried Biblical
-Hebrew research into the ecosystem of Data Science and Machine Learning, which had begun to embrace Python as the
-default scripting language. LAF-Fabric was soon picked up by enthusiasic researchers, who used
-it for a host of statistical analyses [† Synvar, Kalkan, Kingham]. In 2016, Roorda improved again
-on the idea by releasing Text-Fabric [†Roorda].
+of walking the nodes and edges to query their features [†Roorda]. By choosing Python, Roorda 
+simultaneously introduced Biblical Hebrew to the bourgeoning fields of Data Science
+and Machine Learning, which had begun to widely adopt Python as the default scripting language.
+It made it easy to, within the same program, collect statistics on a given grammatical pattern and
+then analyze them with tools like Numpy, Pandas, Scikit Learn, and others [†cite].
+These new capabilities were soon picked up by enthusiasic researchers who leveraged them for a whole host
+of studies, placing new emphasis on data-driven, reproducible results [† Synvar, Kalkan, Kingham, Naaijer, Jacobs, Erwich,
+Glanz and team, etc. etc.].
 
-which depended on a stand-off data model rather than in-line XML. This 
+In 2016, Roorda improved on the idea by releasing Text-Fabric (TF) [†Roorda]. TF
+dramatically reduced the disk storage needed for the graph data by replacing in-line XML
+with a stand-off plain-text format, the \texttt{.tf} file. It made the text graph modular: each \texttt{.tf}
+file contributed a single feature annotation or edge relationship. So, if one only wanted to analyze
+verb tense, for instance, he could choose to load only the \texttt{vt} feature.\footnote{
+    Plus some required node type and slot edge relations.
+}
+The \texttt{.tf} format was a single column of data, with each row indexed by its node identifier.
+This dramatically reduced both storage requirements and corpus load times because it stripped away the
+syntactic overhead required by the XML format. Roorda envisioned that this new nimble format,
+along with a host of user-friendly visualization tools, would catalyze a whole new category of scholar,
+the ``programming theologian''.
 
-Annotated text corpora form the foundation of computational linguistics, digital humanities, and biblical scholarship. Text-Fabric \cite{textfabric} pioneered a graph-based data model for representing hierarchical text structures with arbitrary annotations, enabling researchers to query and analyze corpora ranging from ancient manuscripts to modern linguistic datasets.
+The vision of the theologian who programs was certainly ambitious, and it dovetailed well with
+the ETCBC's heritage; but its success was always hampered by one minor problem: learning to code
+is hard. And that difficulty was compounded by the right-brained tendencies of humanities students
+who were more comfortable writing exegetical summaries than loops and conditions. That is not
+to say the idea failed. Indeed, the study of syntax is closely aligned to left-brained tendencies,
+and many enterprising scholars followed the Roordian path. But the dream's true fulfillment---of a humanities
+field radically transformed by a \textit{scientific} approach---simply could not be realized given the
+skill gap.
 
-Text-Fabric's achievements are substantial. It provided a unified framework for accessing complex annotated corpora like the BHSA (Biblia Hebraica Stuttgartensia Amstelodamensis), making sophisticated linguistic analysis accessible to researchers worldwide. Its Python-native design enabled integration with the broader scientific computing ecosystem.
-
-However, working with Text-Fabric required mastering Python programming and a specialized query syntax. This limited accessibility to technically-skilled researchers willing to invest in learning the tooling.
+Such was the state of things until 2022, when OpenAI announced on Twitter its release of a new
+public demo of its Large Language Model, ChatGPT [†cite].
 
 \subsection{The AI Transformation}
 
