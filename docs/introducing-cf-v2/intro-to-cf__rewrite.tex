@@ -45,10 +45,10 @@
 \maketitle
 
 \begin{abstract}
-For nearly ten years, Text-Fabric (TF) has served an entire generation of linguistic and exegetical
-researchers as a powerful tool for corpus analysis. However, TF has always been burdened by two problems:
-1) it is resource intensive, consuming large amounts of RAM, and 2) it requires knowledge of Python or
-the query language to use it. These frictions have limited its usefulness to the philological community,
+For ten years, Text-Fabric (TF) has served as a powerful tool for corpus analysis, underlying 
+an entire generation of linguistic and exegetical research. However, TF has always been burdened by two problems:
+1) it is resource intensive, consuming large amounts of RAM; and 2) it requires knowledge of Python or
+a query language to use it. These frictions have limited its usefulness to the philological community,
 which is not known for its computational prowess!
 Agentic AI, however, now makes it possible to solve the skill-gap. To maximize this opportunity,
 TF must become light and agile, capable of running on resource-constrained systems, with the ability to scale to many corpora at once.
@@ -78,7 +78,7 @@ Alongside the XML dump, Roorda published a Python package called LAF-Fabric, whi
 of walking the nodes and edges to query their features [†Roorda]. By choosing Python, Roorda 
 simultaneously introduced Biblical Hebrew to the bourgeoning fields of Data Science
 and Machine Learning, which had begun to widely adopt Python as the default scripting language.
-It made it easy to, within the same program, collect statistics on a given grammatical pattern and
+One could, within the same program, collect statistics on a given grammatical pattern and
 then analyze them with tools like Numpy, Pandas, Scikit Learn, and others [†cite].
 These new capabilities were soon picked up by enthusiasic researchers who leveraged them for a whole host
 of studies, placing new emphasis on data-driven, reproducible results [† Synvar, Kalkan, Kingham, Naaijer, Jacobs, Erwich,
@@ -86,18 +86,18 @@ Glanz and team, etc. etc.].
 
 In 2016, Roorda improved on the idea by releasing Text-Fabric (TF) [†Roorda]. TF
 dramatically reduced the disk storage needed for the graph data by replacing in-line XML
-with a stand-off plain-text format, the \texttt{.tf} file. It made the text graph modular: each \texttt{.tf}
-file contributed a single feature annotation or edge relationship. So, if one only wanted to analyze
+with a stand-off plain-text format, the \texttt{.tf} file. It made the graph data modular so that
+each \texttt{.tf} file contributed a single node feature or edge relationship. So, if one only wanted to analyze
 verb tense, for instance, he could choose to load only the \texttt{vt} feature.\footnote{
     Plus some required node type and slot edge relations.
 }
 The \texttt{.tf} format was a single column of data, with each row indexed by its node identifier.
 This dramatically reduced both storage requirements and corpus load times because it stripped away the
 syntactic overhead required by the XML format. Roorda envisioned that this new nimble format,
-along with a host of user-friendly visualization tools, would catalyze a whole new category of scholar,
+along with a host of user-friendly visualization tools, would catalyze a new category of scholar,
 the ``programming theologian''.
 
-The vision of the theologian who programs was certainly ambitious, and it dovetailed well with
+The vision of the computational theologian was certainly ambitious, and it dovetailed well with
 the ETCBC's heritage; but its success was always hampered by one minor problem: learning to code
 is hard. And that difficulty was compounded by the right-brained tendencies of humanities students
 who were more comfortable writing exegetical summaries than loops and conditions. That is not
@@ -106,8 +106,42 @@ and many enterprising scholars followed the Roordian path. But the dream's true 
 field radically transformed by a \textit{scientific} approach---simply could not be realized given the
 skill gap.
 
-Such was the state of things until 2022, when OpenAI announced on Twitter its release of a new
-public demo of its Large Language Model, ChatGPT [†cite].
+Such was the state of things until 2022, when OpenAI announced on Twitter the release of a new
+public demo of its Large Language Model (LLM), ChatGPT [†cite]. This is the ``AD'' moment that will,
+most likely, come to separate the eras of manually-written code and machine-generated code.
+The first beachhead was autocomplete, which could generate entire functions, fit for purpose, on the fly.
+Yet, most code continued to be written by hand within closely-supervised IDEs. For many engineers, the
+true moment of surrender came around December 2025, when Anthropic released its \texttt{Opus 4.5} model alongside
+its \textit{Claude Code} tool. Here was a tool which could generate entire packages in one go, complete
+with unit tests and documentation. The ongoing expansion of this trend with tools like
+\textit{Codex} and \texit{Grok Build} leave little doubt that software engineering will never be the same.
+
+The AI revolution now makes it possible for humanities scholars to close the technical skill gap,
+potentially furthering Roorda's vision of scientific transformation. To maximize this opportunity,
+several transformations to Text-Fabric are required. Firstly, corpus search must become \textit{deployable}
+to a production environment. This means the ability to serve search from a persistent web server for
+thousands of requests at a time. This will enable AI agents to search remotely from any sandbox environment
+they happen to be running in. This requires a change to the way TF accesses the text graph. The current
+approach loads all nodes and edges into RAM, consuming a significant amount of memory. In production,
+especially under high traffic loads, this is undesirable. Memory mapping offers an alternative approach
+where the graph data could be stored on disk and accessed only when needed. This method is already used
+by a number of performance-sensitive machine learning tools like Pytorch and Tensorflow. Secondly,
+endpoints have to be designed that can return the information agents need to navigate and search various
+corpora. Corpus description should ideally be generated dynamically, so that the endpoints work out-of-the-box
+with any corpus. This involves giving the agent a way to query available nodes, edges, and features along with
+illustrative examples. For search, Text-Fabric already has a template-based query language. By giving the agent
+a syntax guide, they can dynamically compose queries which address the user's needs.
+
+guide agents in the navigation of a given corpus 
+
+Non-technical users will not have development environments installed on their
+personal computers. And while AI agents can now create these environments, they also .
+
+Because we want to move coding responsibility from the researcher to an AI agent, we need to 
+
+
+Fabric should be made capable of
+serving 
 
 \subsection{The AI Transformation}
 
