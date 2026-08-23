@@ -35,6 +35,7 @@ Issues = "https://github.com/Context-Fabric/context-fabric/issues"
 dev = [
     "pytest>=7.0",
     "pytest-asyncio",
+    "requests>=2.32",
 ]
 docs = [
     "griffe>=1.0",
