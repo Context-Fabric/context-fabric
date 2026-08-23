@@ -5,9 +5,13 @@
 \usepackage{amsmath}
 \usepackage{booktabs}
 \usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
+\usepackage{float}
 \usepackage{hyperref}
 \usepackage{listings}
-\usepackage{xcolor}
+\usepackage{cjhebrew}
 \usepackage[margin=1in]{geometry}
 
 \definecolor{codegreen}{rgb}{0,0.6,0}
@@ -68,23 +72,27 @@ computers to analyze the Hebrew Bible.
 Over the next fifty years, those efforts yielded a rich grammatical database
 of Biblical Hebrew. For most of this period, the dataset was stored privately on the Werkgroep's
 internal server.\footnote{
-    It was also integrated into several paid software tools such as [†...CITE].
+    It was also integrated into several paid software tools such as Quest and its successor,
+    the Stuttgart Electronic Study Bible (SESB) \cite{oosting2016}.
 }
-It was not until 2014 that Dirk Roorda, a research scientist on the [†?] project,
-published the dataset online as an XML dump in Linguistic Annotation Framework (LAF) [†cite].
+It was not until 2014 that Dirk Roorda, a research scientist on the SynVar project
+(\textit{Does Syntactic Variation Reflect Language Change? Tracing Syntactic Diversity in Biblical Hebrew Texts}),
+supervised by Janet Dyk and Wido van Peursen \cite{oosting2016},
+published the dataset online as an XML dump in Linguistic Annotation Framework (LAF) \cite{roorda2014laf}.
 LAF models texts as graphs. The various linguistic units like clauses and phrases can be captured
-as nodes with features, and their relations as edges [†cite https://link.springer.com/article/10.1007/s10579-014-9268-1].
+as nodes with features, and their relations as edges \cite{ide2014laf}.
 Alongside the XML dump, Roorda published a Python package called LAF-Fabric, which could
-walk the nodes and edges to query their features [†Roorda]. By choosing Python, Roorda 
-simultaneously introduced Biblical Hebrew to the bourgeoning fields of Data Science
+walk the nodes and edges to query their features \cite{roorda2014laf}. By choosing Python, Roorda
+simultaneously introduced Biblical Hebrew to the burgeoning fields of Data Science
 and Machine Learning, which had begun to widely adopt Python as the default scripting language.
 One could, within the same program, collect statistics on a given grammatical pattern and
-then apply complex statistical algorithms with tools like Numpy, Pandas, Scikit Learn, and others [†cite].
-These new capabilities were soon picked up by enthusiasic researchers who leveraged them for a whole host
-of studies. And they brought new emphasis on data-driven, reproducible results [† Synvar, Kalkan, Kingham, Naaijer, Jacobs, Erwich,
-Glanz and team, etc. etc.].
+then apply complex statistical algorithms with tools like NumPy, Pandas, Scikit Learn, and others
+\cite{harris2020numpy,mckinney2010pandas,pedregosa2011scikit}.
+These new capabilities were soon picked up by enthusiastic researchers who leveraged them for a whole host
+of studies. And they brought new emphasis on data-driven, reproducible results
+\cite{roorda2014laf,naaijer2016parallel,erwichkingham2017,vanpeursen2019}.
 
-In 2016, Roorda improved on the idea by releasing Text-Fabric (TF) [†Roorda]. TF
+In 2016, Roorda improved on the idea by releasing Text-Fabric (TF) \cite{textfabricsoftware}. TF
 dramatically reduced the disk storage needed for the graph data by replacing in-line XML
 with a stand-off plain-text format, the \texttt{.tf} file. It made the graph data modular so that
 each \texttt{.tf} file contributed a single node feature or edge relationship. If one only wanted to analyze
@@ -106,7 +114,7 @@ field radically transformed by a \textit{scientific} approach---simply could not
 skill gap.
 
 Such was the state of things until 2022, when OpenAI announced on Twitter the release of a new
-public demo of its Large Language Model (LLM), ChatGPT [†cite]. This is the ``AD'' moment that will,
+public demo of its Large Language Model (LLM), ChatGPT \cite{openai2022chatgpt}. This is the ``AD'' moment that will,
 most likely, come to separate the eras of manually-written and machine-generated code.
 The first beachhead was autocomplete, which could generate entire functions, fit for purpose, on the fly.
 Yet, most code continued to be written by hand within closely-supervised IDEs. For many engineers, the
@@ -123,9 +131,9 @@ This means the ability to serve search from a persistent web server for
 thousands of requests at a time. This will enable AI agents to search remotely from any sandbox environment
 they happen to be running in. This requires a change to the way TF accesses the text graph. The current
 approach loads all nodes and edges into RAM, consuming a significant amount of memory. In production,
-especially under high loads, this is untennable. Memory mapping offers an alternative where graph data can
+especially under high loads, this is untenable. Memory mapping offers an alternative where graph data can
 be stored on disk and accessed only when needed. This method is already used
-by a number of performance-sensitive machine learning tools like Pytorch and Tensorflow [†cite].
+by a number of performance-sensitive machine learning tools like PyTorch and TensorFlow \cite{pytorchmmap,tensorflowmmap}.
 Second, Text-Fabric must be enhanced to automatically build and return corpora descriptions that can
 be consumed by AI agents. These descriptions are crucial for agents to know what nodes, edges, and features
 are available for searching. Ideally, these descriptions would be completely corpus-agnostic so that they
@@ -137,10 +145,10 @@ These requirements reach deep into Text-Fabric's data model and radically transf
 For this reason, and in the spirit of TF's previous evolution from LAF-Fabric, I have chosen to rename
 and re-release this tool as Context-Fabric (CF). The name is a nod to the critical role of context engineering
 in agentic applications. The package is released under the same MIT license under a new shared organization,
-open for pull requests. CF implements a memory mapped data model using Numpy's \texttt{memmap} function with
+open for pull requests. CF implements a memory mapped data model using NumPy's \texttt{memmap} function with
 \texttt{.npy} files, replacing TF's in-memory Python dictionaries. Several optimizations are applied to ensure
 that the latency penalty of disk streaming is compensated for. In the end, CF pulls slightly ahead of TF for
-search speeds. Meanwhile, RAM usage drops sharply, and load times go from several seconds to nearly isntantaneous.
+search speeds. Meanwhile, RAM usage drops sharply, and load times go from several seconds to nearly instantaneous.
 For corpus description and search syntax, CF provides a set of API methods which automatically analyze and sample
 the text graph, giving the agent a full map along with illustrative examples. This works even with various transcription
 formats. The search guide is implemented with different ``menus'', allowing the agent to drill down to specific
@@ -153,18 +161,23 @@ CF.
 
 Text-Fabric's data model is the ``text as graph''. A corpus is conceived of
 as a collection of nodes (objects of interest), which may have edges (relationships). Different
-types of attributes, or features, can be stored on nodes and edges. Figure †TODO illustrates the
+types of attributes, or features, can be stored on nodes and edges. Figure~\ref{fig:text_graph} illustrates the
 organization. All nodes in the graph have an object type feature, \texttt{otype}. The only obligatory
 \texttt{otype} is the slot, which defines the atomic units (e.g.~words, letters) which comprise the text.
 There is a corresponding, obligatory edge value from slots to other nodes, which is called \texttt{oslots}.
 This edge defines the containment relationship between a given node and its slots. For example, node
-\texttt{503201} in Figure~[†TODO] \textit{contains} slots \texttt{1} and \texttt{2}, and therefore has
+\texttt{503201} in Figure~\ref{fig:text_graph} \textit{contains} slots \texttt{1} and \texttt{2}, and therefore has
 an \texttt{oslots} edge extending to both nodes. Containment between non-slot nodes (e.g. phrase in clause)
 is automatically inferred from slot intersection, and need not be encoded separately.\footnote{
-    The arrows in the figure, in this sense, do not represent directly represent edge relations.
+    The arrows in the figure, in this sense, do not directly represent edge relations.
 }
 
-% INSERT figure: file:///Users/cody/github/context-fabric/context-fabric/site/public/docs/images/containment-hierarchy.svg
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.8\textwidth]{fig_containment_hierarchy.pdf}
+\caption{A text-as-graph containment hierarchy. Non-slot containment is inferred from the slots shared by each object.}
+\label{fig:text_graph}
+\end{figure}
 
 Descriptive attributes, or features, can be stored on both nodes and edges. For example, the first phrase
 node can have a \texttt{typ} feature with a value of \texttt{PP}, for ``prepositional phrase type''.
@@ -174,7 +187,7 @@ of nodes and edges a corpus encodes, with the exception of the aforementioned ob
 The text-as-graph model is powerful in its flexibility and expressiveness. For this reason, it is
 desirable to retain it.
 
-\subsection{TF's Python Dictionaries}
+\subsection{Text-Fabric's Python Dictionaries}
 
 In Python, dictionaries are container classes that provide interactions with a hash table.
 In plain terms, they efficiently route a given key to a given value, and are used for storing 
@@ -183,110 +196,104 @@ one can use a node number to very quickly look up the corresponding
 slot values. This architecture underlies Text-Fabric's corpus loading algorithm, which populates
 a collection of dictionaries into memory. The approach has the advantage of being very fast, with
 the tradeoff of massive memory consumption. Large corpora can consume gigabytes. The ETCBC's 
-\texttt{.tf} Hebrew Bible, for example, takes up to [†TODO] GB of RAM when fully unfolded. 
+\texttt{.tf} Hebrew Bible, for example, takes approximately 6.3 GB of RAM when fully unfolded.
 The in-memory dictionary based storage is the critical component that needs to be changed to make
 loading and usage efficient.
 
 % TODO: insert illustrative code block here
 
-\subsection{Adapting to Memory Mapped Arrays}
+\subsection{Memory Mapped Arrays}
 
-An alternative way to store key-value pairs is with linked arrays. 
-
-Memory-mapped I/O (\texttt{mmap}) maps file contents directly into a process's virtual address space \cite{wikipediammap}. Rather than explicitly reading data into buffers, the program accesses file contents through pointers, and the OS transparently pages data in and out as needed.
-
-NumPy's \texttt{memmap} function provides a Python interface for memory-mapping array data \cite{numpymemmap}. Context-Fabric stores all corpus data as \texttt{.npy} files and loads them with \texttt{mmap\_mode='r'} (read-only), enabling safe multi-process sharing.
-
-
-The challenge is converting Text-Fabric's Python-native data structures to memory-mappable formats while preserving the same Python interface that existing code expects.
-
-\subsubsection{Dense Arrays for Node Features}
-
-Node features with single values per node map directly to numpy arrays. The storage format depends on the feature's value type:
-
-\textbf{Integer features} (verse numbers, word positions) store values directly in appropriately-sized dtypes (\texttt{uint8}, \texttt{uint16}, \texttt{uint32}).
-
-\textbf{Categorical features} with small value sets use index encoding. The node type feature (\texttt{otype}), for example, maps each node to one of a handful of type names (``word'', ``verse'', ``chapter'', etc.). Since corpora typically have fewer than 256 node types, these indices fit in a \texttt{uint8} array:
-
-\begin{lstlisting}[language=Python, caption=Categorical feature storage]
-# Type names: ["word", "verse", "chapter", ...]
-# otype[node_id] = index into type_names
-otype = np.array([0, 0, 0, ..., 1, 1, 2, ...], dtype=np.uint8)
-
-# Lookup: O(1)
-node_type = type_names[otype[node_id]]  # -> "word"
-\end{lstlisting}
-
-This is conceptually similar to the string pool pattern (described next), but optimized for small, fixed value sets.
-
-\subsubsection{String Pools for Text Features}
-
-String-valued features (glosses, lexemes, morphological tags) present two challenges. First, Python strings cannot be memory-mapped directly. Second, not every node has a value for every feature---Text-Fabric represents these as \texttt{None}, but NumPy integer arrays have no native missing-value representation (unlike floats, which have \texttt{NaN}).\footnote{While float arrays could use \texttt{NaN} for missing values, storing indices as floats wastes memory (float64 is 8 bytes vs.\ uint16's 2 bytes for most features), requires type conversion on every lookup, and is semantically misleading since indices are inherently integers.}
-
-Context-Fabric addresses both with a string pool pattern. Unique strings are stored once in an array, with a separate index array mapping each node to its string's position. For missing values, we reserve a sentinel index: \texttt{0xFFFFFFFF} (the maximum \texttt{uint32} value, $2^{32}-1$). This value cannot be a valid index---it would require over 4 billion unique strings---so encountering it unambiguously signals ``no value.'' This preserves the distinction between an empty string (a valid value at some index) and a truly absent value.
+An alternative way to store key-value pairs is with an associative array using integer or ordinal
+encoding. For string-based values, this requires two arrays: one to store all of the unique strings
+for a given feature, and one to store ids corresponding to a given string value, at a given index
+position.\footnote{
+    For integer-based values, CF can simply store the integer value directly in the \texttt{indices} array.
+}
+The index position thus corresponds with a node id:
 
 \begin{lstlisting}[language=Python, caption=String pool structure]
 MISSING = 0xFFFFFFFF  # Sentinel for "no value" (max uint32)
-
-# Feature "gloss" for 5 nodes: ["king", "the", "king", None, "house"]
-strings = np.array(["king", "the", "house"], dtype=object)  # Unique values
-indices = np.array([0, 1, 0, MISSING, 2], dtype=np.uint32)  # Per-node index
+gloss_strings = np.array(["king", "the", "house"], dtype=object)  # Unique values
+gloss = np.array([0, 1, 0, MISSING, 2], dtype=np.uint32)  # Per-node index
 
 def lookup(node):
-    idx = indices[node]
-    return None if idx == MISSING else strings[idx]
+    idx = gloss[node]
+    return None if idx == MISSING else gloss_strings[idx]
 
 lookup(2)  # -> "king"
 lookup(3)  # -> None (missing value)
 \end{lstlisting}
 
-The \texttt{indices} array is memory-mapped (\texttt{uint32}, one entry per node). The \texttt{strings} array is small---most features have far fewer unique values than nodes---and loads into memory. For BHSA's \texttt{gloss} feature, 426,590 words map to roughly 9,000 unique glosses.
+The benefits of using associative arrays are two-fold. First, it allows CF to take advantage of NumPy's
+\texttt{memmap} function for reading memory-mapped files. This process enables a file's contents to be
+directly mapped into a process's virtual address space \cite{numpymemmap}. CF stores these arrays as
+\texttt{.npy} files and loads them with \texttt{mmap\_mode=`r'} (read-only) for safe multi-process access.
+Second, as discussed further below, it allows CF to take advantage of fast, vectorized lookup operations
+for bulk search, a feature TF lacks.
 
-\subsubsection{Compressed Sparse Row Format}
+Because python strings cannot be memory-mapped, CF loads string pools into memory. Since strings are deduplicated,
+the footprint is negligible. For example, BHSA's \texttt{gloss} feature reduces 426,590 words to about 9,000 unique glosses.
+For nodes which lack the feature in question, a sentinel value is used in place of \texttt{NaN}: \texttt{0xFFFFFFFF}.
+This is the maximum \texttt{uint32} value, $2^{32}-1$. A collision with this value would require over four billion
+unique strings, which is unlikely.
 
-Some corpus data involves variable-length sequences. Consider \texttt{oslots}, which maps each non-slot node to the word positions it contains: a 3-word phrase contains slots \texttt{[5, 6, 7]}, while a 20-word verse contains \texttt{[100, 101, ..., 119]}. In Python, Text-Fabric stores this as a tuple of tuples---but Python tuples are pointers to objects scattered across memory, which cannot be memory-mapped.
+\subsubsection{One-to-Many Edge Relations}
 
-Context-Fabric solves this with Compressed Sparse Row (CSR) format: concatenate all sequences into one flat \texttt{data} array, and use a separate \texttt{indptr} (index pointer) array to record where each sequence begins and ends:
+A unique challenge is posed by edge relations, which can be one-to-many. \texttt{oslots} is the
+most prominent example, and critical for the \texttt{.tf} data model. Consider a three-word
+phrase which contains slots \texttt{[5, 6, 7]}. TF stores this data as a tuple value in the dictionary. However, tuples cannot be memory mapped. CF solves this problem using
+Compressed Sparse Row (CSR) format using a separate index pointer array (\texttt{indptr}):
 
 \begin{lstlisting}[language=Python, caption=CSR format for oslots]
-# oslots for 3 nodes: phrase contains [5,6,7], clause contains [5,6,7,8], verse contains [5..12]
-# Concatenate all slots into one array:
-data   = [5, 6, 7, 5, 6, 7, 8, 5, 6, 7, 8, 9, 10, 11, 12]
+# step 1: Concatenate oslot spans for all nodes
+oslots = np.array([
+    5, 6, 7,                     # phrase: node 1
+    5, 6, 7, 8,                  # clause: node 2
+    5, 6, 7, 8, 9, 10, 11, 12    # sentence: node 3
+], dtype=np.uint32)
 
-# Record boundaries (one entry per node, plus final endpoint):
-indptr = [0, 3, 7, 15]
+# step 2: record index slice boundaries (exclusive) per node
+#     and N+1 final slice boundary
+oslots_indptr = np.array([0, 3, 7, 15], dtype=np.uint32)
 
-# Lookup: node i's slots are data[indptr[i] : indptr[i+1]]
-phrase_slots = data[0:3]   # -> [5, 6, 7]
-clause_slots = data[3:7]   # -> [5, 6, 7, 8]
-verse_slots  = data[7:15]  # -> [5, 6, 7, 8, 9, 10, 11, 12]
+# step 3: use indptr to look up boundaries
+def get_oslots(node):
+    start = oslots_indptr[node]
+    end = oslots_indptr[node + 1]
+    node_oslots = oslots[start:end]
+    return node_oslots
+
+phrase_slots = get_oslots(0)  # -> [5, 6, 7]
+clause_slots = get_oslots(1)  # -> [5, 6, 7, 8]
+verse_slots = get_oslots(2)   # -> [5, 6, 7, 8, 9, 10, 11, 12]
 \end{lstlisting}
 
-Both arrays are flat numpy arrays that can be memory-mapped. The \texttt{indptr} array has length $N+1$ (one boundary per node, plus the final endpoint). Empty sequences cost nothing: when \texttt{indptr[i] == indptr[i+1]}, the slice is empty.
-
-For edge features with associated values (e.g., linguistic dependency weights), \texttt{CSRArrayWithValues} adds a parallel values array:
+For edges with values, CF adds a parallel values array:
 
 \begin{lstlisting}[language=Python, caption=CSR with values]
-# Edge feature "distance": node 0 -> {10: 100, 20: 200}, node 1 -> {}, node 2 -> {30: 300}
-# (node 0 connects to nodes 10 and 20 with distances 100 and 200)
-indptr  = [0, 2, 2, 3]      # Boundaries
-indices = [10, 20, 30]      # Target nodes
-values  = [100, 200, 300]   # Associated values (e.g., distances)
+...
+# separate array for edges with values
+values  = np.array(["Adju", "Attr", "Spec"])
 
-def get_edges(node):
-    start, end = indptr[node], indptr[node + 1]
-    return indices[start:end], values[start:end]
-
-get_edges(0)  # -> ([10, 20], [100, 200])  node 0's targets and distances
-get_edges(1)  # -> ([], [])                node 1 has no edges
-get_edges(2)  # -> ([30], [300])           node 2 connects to 30
+def get_edges_with_values(source_node):
+    start, end = indptr[source_node], indptr[source_node + 1]
+    target_nodes = edges[start:end]
+    edge_values = values[start:end]
+    return target_nodes, edge_values
 \end{lstlisting}
 
-All arrays use \texttt{uint32} dtype and load via \texttt{mmap\_mode='r'} (read-only), enabling safe multi-process sharing without copy-on-write overhead.
+\subsection{File Formats}
 
-\subsubsection{The \texttt{.cfm} Format}
+Context-Fabric uses the exact same \texttt{.tf} files as input for corpus data.
+However, this data must be indexed and saved to disk as a cache to take advantage of memory
+mapping. This mirrors Text-Fabric's \texttt{.tfx} cache, which pickles and saves the
+optimized dictionaries.
 
-Context-Fabric's compiled format (\texttt{.cfm}) organizes data into a directory structure:
+This cache is built when first loading a \texttt{.tf} corpus for the first time and is persisted
+with the \texttt{.tf} data in a hidden directory called \texttt{.cfm} (``compiled format'').
+The cache contains the required memory-mapped \texttt{.npy} files along with some helper
+data such as \texttt{meta.json} (corpus metadata).
 
 \begin{lstlisting}[language=bash, caption=.cfm directory structure]
 corpus/                   # Corpus directory (e.g., bhsa/)
@@ -310,12 +317,19 @@ corpus/                   # Corpus directory (e.g., bhsa/)
       mother_data.npy
 \end{lstlisting}
 
-\subsubsection{Optimizing Search Performance}
+\subsection{Overcoming Page-Fault Latency}
 
-The problem: paging into on-disk storage is slow. To compensate, Context-Fabric must
-improve on Text-Fabric's search algorithm. As it turns out, memory-mapping with vectors
-also makes possible vectorized lookup, with major speed gains on certain operations.
-In TF search, feature-based lookup is linear (O(n) time complexity):
+There is an unavoidable tradeoff between memory-efficiency and speed. After all, the whole
+point of RAM is to provide fast lookup. Memory mapping allows file data to be loaded into RAM
+when used, and dropped when that RAM is required elsewhere \cite{pytorchmmap}. This prevents large files
+from blocking swaths of memory. The cost for this behavior is called a page-fault:
+if a page is not already loaded into memory, it must be read from disk, which is slower
+than RAM. For performance-sensitive operations like search, this can amount to compounded
+milliseconds, leading to considerable latency.
+
+To compensate for page faults, CF must improve on TF's search algorithm.
+As it turns out, the vectorized storage also provides the needed advantage.
+In TF search, feature matches are found through linear search, i.e.~$O(n)$ time complexity:
 
 \begin{lstlisting}[language=Python, caption=Per-node iteration (original)]
 for node in candidate_nodes:
@@ -323,7 +337,8 @@ for node in candidate_nodes:
         result.add(node)
 \end{lstlisting}
 
-Instead of linear search we use vectorized lookup, which is O(1):
+\noindent Using vectorized lookup, CF can obtain $O(1)$, significantly
+decreasing latency for these kinds of operations:
 
 \begin{lstlisting}[language=Python, caption=Vectorized filtering]
 node_array = np.array(list(candidate_nodes))
@@ -332,38 +347,48 @@ mask = values == target_index
 result = set(node_array[mask])
 \end{lstlisting}
 
-The vectorized strategy yields nearly an order of magnitude lower latency (8.2$\times$),
-translating to 26\% faster feature lookups in real-world benchmarks.
+\noindent The vectorized strategy yields nearly an order of magnitude lower
+latency (8.2$\times$), translating to 26\% faster feature lookups in
+real-world benchmarks.
 
-However, tests continued to show significant slowdowns on searches involving containment of node types.
-For example, looking for a phrase which occurs within a particular clause resulted in substantially increased
-search latency, due to page faults while accessing the disk. Thus, the decision was made to include an optional
-in-memory load for pre-calculated node containment features (i.e.~LevUp and LevDown [†check spelling] from Text-Fabric).
-For the BHSA, this costs \texttt{100 MB} but yields a 1.7$\times$ speedup for containment search. This offsets
-the page-fault penalty and brings CF to parity with TF for containment search.
+Containment search poses a more difficult problem. Because \texttt{oslot} containment concerns one-to-many edge
+relations, the algorithm must perform a random walk, necessarily requiring several lookup operations
+per node rather than one (as with feature lookup). Because each lookup operation potentially pays the page-fault
+price, containment search is significantly slower. Text-Fabric already optimizes for containment search by
+pre-computing containment solutions and storing them in-memory via \texttt{levUp} and \texttt{levDown} dictionaries.
+For the largest TF corpus, the BHSA, these dictionaries amount to only \texttt{100 MB}. This is a small price
+for CF to pay in exchange for significantly reduced latency. Therefore, by default CF retains these precomputed
+values in RAM, offsetting the page-fault penalty.
 
-\subsection{Benchmarking and Results}
+In summary, with vectorization, combined with a compromise for \texttt{levUp} and \texttt{levDown} RAM storage,
+CF compensates for the page-fault penalty, and reaches parity with TF for complex searches.
+For simple feature-based searches, CF becomes 26\% faster due to the $O(1)$ candidate feature
+lookup gain.
 
-To quantify Context-Fabric's improvements, I conducted systematic benchmarks across memory efficiency,
-multi-corpus scaling, and query latency. This section describes the methodology; results follow in
-Section~\ref{sec:results}.
+\section{Benchmarking and Results}
 
-All benchmarks were conducted on:
+The benchmarks target two main areas: memory consumption, especially under multi-corpora scenarios,
+and query latency. The tests were conducted with a MacBook Pro with the following specifications:
 
-\begin{itemize}
-    \item \textbf{Hardware}: Apple M1 Pro, 8 cores, 32 GB RAM, NVMe SSD
-    \item \textbf{OS}: macOS Darwin 24.5.0 (arm64)
-    \item \textbf{Python}: 3.13.11
-    \item \textbf{NumPy}: 2.4.0
-    \item \textbf{Text-Fabric}: 13.0.19
-    \item \textbf{Context-Fabric}: 0.5.0
-\end{itemize}
+\begin{table}[htbp]
+\centering
+\caption{Benchmark environment.}
+\label{tab:benchmark_environment}
+\begin{tabular}{ll}
+\toprule
+\textbf{Component} & \textbf{Specification} \\
+\midrule
+Hardware & Apple M1 Pro, 8 cores, 32 GB RAM, NVMe SSD \\
+OS & macOS Darwin 24.5.0 (arm64) \\
+Python & 3.13.11 \\
+NumPy & 2.4.0 \\
+Text-Fabric & 13.0.19 \\
+Context-Fabric & 0.5.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-Production Linux deployments may show different absolute numbers but similar relative performance characteristics.
-
-\subsection{Test Corpora}
-
-Benchmarks span 10 corpora representing three orders of magnitude in size, from 1.6 MB to 1.1 GB. Table~\ref{tab:test_corpora} lists the corpora in order of increasing size.
+\noindent The tests spanned ten corpora with various ranges of on-disk footprints:
 
 \begin{table}[htbp]
 \centering
@@ -387,25 +412,22 @@ BHSA \cite{bhsa} & Biblia Hebraica (ETCBC) & 1.1 GB \\
 \end{tabular}
 \end{table}
 
-This diversity enables analysis of how memory efficiency scales with corpus size. The BHSA (largest corpus) provides richly annotated linguistic data for the Hebrew Bible, containing 1,446,831 total nodes, 426,590 word-level nodes, 13 node types, 109 node features, and 6 edge features.
+\noindent All benchmark code is provided as a modular Python package and is published
+in the Context-Fabric repository alongside the production code.\footnote{
+    See \url{https://github.com/Context-Fabric/context-fabric/tree/master/libs/benchmarks}.
+}
 
-% \subsection{Measurement Protocol}
+\subsection{Memory Consumption}
 
-Each benchmark configuration runs 10 independent measurement runs following 2 warmup runs (excluded from statistics). Measurements use subprocess isolation via \texttt{multiprocessing.spawn} to ensure clean memory state, with explicit \texttt{gc.collect()} before measurement.\footnote{Load time refers to the time from initiating corpus load to having a usable API handle, measured using Python's \texttt{time.perf\_counter()}.}
-
-% \subsection{Memory Metrics}
-
-Operating systems provide several metrics for quantifying process memory \cite{beyer2019reliable}. \textbf{Resident Set Size (RSS)} measures physical memory pages mapped to a process, including private allocations and shared pages \cite{wikipediarss}. \textbf{Unique Set Size (USS)} counts only pages unique to a process, excluding shared memory. \textbf{Proportional Set Size (PSS)} divides shared pages proportionally among processes \cite{baeldunglinuxmem}.
-
-We use RSS for all measurements. While RSS double-counts shared pages in multi-process scenarios, this ``worst case'' view provides transparency: the numbers represent actual memory pressure on the system. USS would dramatically undercount Context-Fabric's memory-mapped data (potentially showing near-zero for file-backed pages), while PSS is unavailable on macOS and fluctuates as processes start and stop.
-
-% \subsection{Measurement Isolation}
-
-To ensure accurate measurements uncontaminated by prior allocations, each scenario runs in an isolated subprocess:
+There are several approaches to measuring memory consumption \cite{beyer2019reliable}. For these tests,
+I selected Resident Set Size (RSS) to capture the actual physical memory usage of a specific process \cite{psutil}.
+Subprocess isolation is used with \texttt{multiprocessing.spawn} to prevent cross contamination. \texttt{gc.collect()} is called
+before each measurement:
 
 \begin{lstlisting}[language=Python, caption=Subprocess isolation pattern]
 def _measure_cache_load(source: str, result_queue):
     """Runs in a clean spawned subprocess."""
+
     # Load corpus from cache
     fabric = Fabric(locations=source)
     api = fabric.load()
@@ -421,63 +443,21 @@ p = ctx.Process(target=_measure_cache_load, args=(source, queue))
 p.start()
 \end{lstlisting}
 
-This pattern ensures:
-\begin{enumerate}
-    \item No residual memory from compilation or prior measurements
-    \item Consistent baseline across Text-Fabric and Context-Fabric
-    \item Reproducible results across runs
-\end{enumerate}
+Memory consumption is tested under three different deployment scenarios. Single process measures local
+use on a researcher's machine or single-threaded batch processing. Spawn mode tests the multi-processing
+approach most common on Macs and PCs. Fork mode simulates multi-processing in production environments on
+Linux machines. On both multi-processing tests, the number of workers is set to four.
 
-\subsection{Deployment Scenarios}
+\subsubsection{Results}
 
-We evaluate three scenarios representing common deployment patterns:
-
-\subsubsection{Single Process}
-
-A single Python process loads the corpus from cache and serves requests. This represents interactive research use or single-threaded batch processing.
-
-\textbf{Measurement}: Total RSS of subprocess after cache load.
-
-\subsubsection{Spawn Mode (4 Workers)}
-
-Four independent worker processes, each loading the corpus from scratch. This simulates \texttt{multiprocessing} with \texttt{spawn} context---the default on macOS and the only option on Windows.\footnote{Windows lacks a \texttt{fork()} system call entirely. On macOS, \texttt{fork()} is available but Python 3.8+ defaults to \texttt{spawn} because forking processes that use certain Apple frameworks (Cocoa, Core Foundation) can cause crashes. Production deployments can explicitly use \texttt{fork} via \texttt{multiprocessing.get\_context('fork')} when the application avoids these frameworks.}
-
-\textbf{Measurement}: Sum of RSS across all 4 worker processes.
-
-\subsubsection{Fork Mode (4 Workers)}
-
-A main process pre-loads the corpus, then forks 4 worker processes. Workers inherit the loaded corpus via copy-on-write semantics. This simulates production deployments like \texttt{gunicorn --preload}. Fork mode is the default on Linux systems in Python 3.13 and earlier.\footnote{Python 3.14 (October 2025) changed the default to \texttt{forkserver} on Linux. Applications requiring fork must explicitly request it via \texttt{multiprocessing.get\_context('fork')}.}
-
-\textbf{Measurement}: Main process RSS + sum of worker RSS.
-
-Note: For fork mode, summing RSS across processes may double-count shared copy-on-write pages. This is intentional---we report the ``worst case'' RSS sum rather than attempting to deduplicate shared pages, which would require USS and reintroduce the transparency issues discussed above.
-
-\subsection{Query Performance Methodology}
-
-Query latency was measured using 100 curated search templates on the BHSA corpus, categorized into four types:
-
-\begin{itemize}
-    \item \textbf{Lexical queries} (30): Feature-based filtering (e.g., find all verbs, filter by part of speech)
-    \item \textbf{Structural queries} (30): Pattern matching across hierarchical structures
-    \item \textbf{Quantified queries} (20): Queries using quantifiers (\texttt{<}, \texttt{>}, \texttt{..})
-    \item \textbf{Complex queries} (20): Multi-constraint queries combining relations and features
-\end{itemize}
-
-Each query executes 50 times (5 runs $\times$ 10 iterations per run), with warmup iterations excluded. We report mean latency, standard deviation, and 95\% confidence intervals.
-
-\subsection{Statistical Analysis}
-
-Results report mean values with 95\% confidence intervals computed from 10 measurement runs per configuration. Linear regression models characterize scaling behavior, reporting slope, intercept, and $R^2$ values. Memory reduction percentages are computed as $(M_{\text{TF}} - M_{\text{CF}}) / M_{\text{TF}} \times 100$.
-
-\section{Results}
-\label{sec:results}
-
-The benchmark suite covers three dimensions of performance: memory efficiency across 10 diverse corpora, multi-corpus scaling behavior, and query latency across 100 representative queries. This section presents each dimension in turn.
-
-\subsection{Memory Efficiency Across Corpora}
-\label{sec:results-memory}
-
-Table~\ref{tab:memory_multicorpus} presents memory consumption for single-process corpus loading across all 10 benchmarked corpora, ordered by size. The results demonstrate a clear relationship between corpus size and memory reduction: smaller corpora exhibit modest reductions (20\% for CUC at 1.6 MB), while larger corpora show dramatic improvements (92\% for BHSA at 1.1 GB). The average memory reduction across all corpora is 65\% ($\pm$21\%).
+Table~\ref{tab:memory_multicorpus} and Figure~\ref{fig:memory_multicorpus}
+show memory consumption results for single-process corpus loads for all ten test corpora.\footnote{
+    The figures are averaged across ten runs with 95\% confidence intervals per configuration.
+    The reduction percentages are calculated as $(M_{\text{TF}} - M_{\text{CF}}) / M_{\text{TF}} \times 100$.
+}
+Smaller corpora benefit less from CF's memory mapping (20\% reduction for CUC).
+However, large corpora such as BHSA and DSS (Dead Sea Scrolls) show a >90\% reduction. On average, the total
+memory consumption is reduced 65\% ($\pm$21\%).
 
 \begin{table}[htbp]
 \centering
@@ -503,8 +483,6 @@ BHSA           &  6,292 &    524 &  92\% & 12.91$\times$ \\
 \end{tabular}
 \end{table}
 
-The distribution shows that memory reduction scales approximately with corpus size. For the smallest corpus (CUC), Context-Fabric achieves only 20\% reduction because the baseline overhead of Python's runtime and library imports dominates the measurement. For the largest corpus (BHSA), reduction reaches 92\%---a 12-fold decrease in memory footprint. Figure~\ref{fig:memory_multicorpus} visualizes this relationship.
-
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.9\textwidth]{fig_memory_multicorpus.pdf}
@@ -512,12 +490,12 @@ The distribution shows that memory reduction scales approximately with corpus si
 \label{fig:memory_multicorpus}
 \end{figure}
 
-The load time results exhibit more variance. Context-Fabric achieves substantial speedups for larger corpora (12.9$\times$ for BHSA, 6.2$\times$ for DSS), but shows neutral or slightly slower load times for smaller corpora. This pattern reflects a fundamental tradeoff: Context-Fabric's memory-mapped architecture incurs fixed initialization costs that dominate for small datasets but amortize effectively as corpus size grows.
+Load times also show marked improvement, though with more variability. For BHSA, CF shows 12.9$\times$ faster
+load speeds, and 6.2$\times$ for DSS. But for smaller corpora the difference is negligible.
 
-\subsection{Multi-Corpus Scaling Analysis}
-\label{sec:results-scaling}
-
-A key advantage of memory-mapped architecture emerges when loading multiple corpora simultaneously---a common requirement for comparative linguistic analysis. Table~\ref{tab:progressive} summarizes the progressive loading results, where corpora are loaded incrementally in order of increasing size.
+Next, I tested multi-corpus scaling effects under a progressive loading scenario, where an additional
+corpus is loaded into CF / TF at each interval. Corpora are loaded in ascending order of size.
+The results are presented in Table~\ref{tab:progressive} and Figure~\ref{fig:scaling_progressive}.
 
 \begin{table}[htbp]
 \centering
@@ -541,10 +519,6 @@ A key advantage of memory-mapped architecture emerges when loading multiple corp
 \end{tabular}
 \end{table}
 
-Note that the step 10 TF mean (5,529 MB) is anomalously lower than step 9 (6,088 MB). This probably results from Python's garbage collector triggering non-deterministically at high memory: two of five runs showed $\sim$1,750 MB drops mid-measurement, while others showed expected growth. The resulting variance ($\pm$949 MB for TF vs. $\pm$7 MB for CF) reflects this unpredictability rather than true memory reduction.
-
-Polynomial regression reveals distinct scaling characteristics. Both implementations fit quadratic models better than linear ($R^2$ improves from $\sim$0.83 to $\sim$0.98), but the critical difference is the quadratic coefficient: TF grows as 126$n^2$ MB while CF grows as only 19$n^2$---a 6.5$\times$ difference in compounding overhead. For practical corpus counts ($\leq$20), CF's weak quadratic term is negligible; TF's is not. The linear approximation (TF: 677 MB/corpus, CF: 127 MB/corpus) captures first-order behavior but understates TF's compounding overhead at scale.
-
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.9\textwidth]{fig_scaling_progressive.pdf}
@@ -552,14 +526,34 @@ Polynomial regression reveals distinct scaling characteristics. Both implementat
 \label{fig:scaling_progressive}
 \end{figure}
 
-The extrapolated predictions are telling. At 10 corpora, the model predicts TF memory of 5,344 MB versus CF memory of 1,057 MB. At 50 corpora (a realistic scenario for comprehensive cross-linguistic research), the gap widens dramatically: 32,443 MB for TF versus 6,137 MB for CF. What appears as a 4--5$\times$ advantage at small scale compounds to an architectural necessity at large scale.
+The data reveal supralinear scaling effects in TF, likely due to the compounding memory overhead of
+Python's object storage.\footnote{
+    The anomalous dip at step ten is likely attributable to Python's garbage collection program
+    getting triggered. Two of five runs showed $\sim$1,750 MB drops at this step, while others
+    remained consistent on the curve.
+}
+Technically speaking, both TF and CF's growth fit a quadratic line better than a linear one:
+TF grows as 126$n^2$ MB while CF grows at only 19$n^2$. The gap, however, is significant, with
+TF's rate being 6.5$\times$ faster. The model predicts that at 50 corpora, TF would hold $\sim$32,443 MB
+in memory versus only $\sim$6,137 MB for CF. For production scenarios where hundreds of corpora might be required,
+these compounding effects are untenable. CF therefore considerably improves over TF on memory consumption,
+making this usecase possible.
 
-A major limitation of Text-Fabric's architecture is its reliance on Python's native data structures. While these provide flexibility for interactive research, they impose substantial memory overhead in multi-corpus deployments. Each dictionary resize, each reference count update, each garbage collection tracking entry contributes to compounding overhead. The effect is superlinear scaling---each additional corpus adds not only its own data but also contributes to fragmentation and memory management overhead across the entire process.
+\subsection{Query Latency}
 
-\subsection{Query Latency Performance}
-\label{sec:results-latency}
+Query latency is measured using 100 curated search templates, stratified into four
+different types, and executed against the BHSA:
 
-Query performance was evaluated across 100 queries spanning four categories: lexical lookups (30 queries), structural pattern matching (30 queries), quantified searches (20 queries), and complex multi-constraint queries (20 queries). Table~\ref{tab:latency_categories} summarizes performance by category.\footnote{All query benchmarks were run with CF's embedding preloading enabled (the default). See Section~\ref{sec:discussion} for discussion of the preloading trade-off.}
+\begin{itemize}
+    \item \textbf{Feature-based queries} (30): Filtering based on a single feature (e.g., find all verbs, filter by part of speech)
+    \item \textbf{Structural queries} (30): Pattern matching across hierarchical structures
+    \item \textbf{Comparative queries} (20): Queries using node comparisons (\texttt{<}, \texttt{>}, \texttt{..})
+    \item \textbf{Complex queries} (20): Multi-constraint queries combining relations and features
+\end{itemize}
+
+The runner executes each query 50 times, with 5 runs $\times$ 10, excluding warmup iterations.
+Results are reported using mean latency, standard deviation, and 95\% confidence intervals. The results
+are shown in Table~\ref{tab:latency_categories} and Figure~\ref{fig:latency_distribution}.
 
 \begin{table}[htbp]
 \centering
@@ -569,17 +563,15 @@ Query performance was evaluated across 100 queries spanning four categories: lex
 \toprule
 \textbf{Category} & \textbf{Queries} & \textbf{TF (ms)} & \textbf{CF (ms)} & \textbf{Speedup} \\
 \midrule
-Lexical      & 30 & 221.5 & 164.0 & +26\% \\
+Feature      & 30 & 221.5 & 164.0 & +26\% \\
 Structural   & 30 & 179.2 & 190.5 & $-$6\% \\
-Quantified   & 20 & 297.3 & 286.1 & +4\% \\
+Comparative   & 20 & 297.3 & 286.1 & +4\% \\
 Complex      & 20 & 534.5 & 554.9 & $-$4\% \\
 \midrule
 \textbf{Overall} & 100 & 286.0 & 278.2 & +3\% \\
 \bottomrule
 \end{tabular}
 \end{table}
-
-The results reveal a nuanced performance profile. Context-Fabric demonstrates a 26\% speedup on lexical queries, where memory-mapped access to indexed data structures provides direct benefits. However, CF shows 4--6\% slower performance on structural and complex queries that require traversing hierarchical relationships or evaluating multiple constraints.
 
 \begin{figure}[htbp]
 \centering
@@ -588,87 +580,399 @@ The results reveal a nuanced performance profile. Context-Fabric demonstrates a 
 \label{fig:latency_distribution}
 \end{figure}
 
-Figure~\ref{fig:latency_percentiles} shows the cumulative distribution of query latencies across all 100 queries. At the median (p50), both implementations perform similarly. At the 95th percentile, TF shows higher latency on lexical queries while CF shows higher latency on complex structural queries. This tradeoff reflects fundamental architectural differences: Text-Fabric's in-memory Python objects enable fast pointer traversal for structural queries, while Context-Fabric's memory-mapped arrays require additional indirection for hierarchical navigation.
+Across feature-based lookups, CF attains a 26\% speed-up, owing to its vectorized lookup for simultaneous
+nodes. On structural / complex queries, CF lags TF by 4--6\% due to the memory mapping page-fault penalty.
+Averaging across all query types gives CF a negligible 3\% gain over TF. Given the tradeoffs documented
+above, this is a positive result for CF.
 
-\begin{figure}[htbp]
+\clearpage
+\section{Model Context Protocol (MCP)}
+
+To enable AI agents to interact with CF, it needs to provide functions they can call for discovering and
+searching corpora. A common agentic framework is Model Context Protocol (MCP), which exposes
+self-describing endpoints to an agent's context window, which it can invoke using structured arguments
+\cite{modelcontextprotocol}.
+Typically, these functions would be optimized for ``progressive discovery'', allowing the agent to
+route to the most specific tool it needs for its task.
+
+Context-Fabric ships with a dedicated MCP server which automatically describes corpora and the
+available features. It is multi-corpora by design. Every agent begins with CF's server description
+``screen'', which shows the text found in Listing~\ref{lst:mcp_connection_instructions}. This view
+orients the agent and provides it with a suitable entry point. The typical tool-call flow for an agent
+with CF's MCP server is illustrated in Figure~\ref{fig:mcp_agent_experience}.
+
+\begin{lstlisting}[
+    caption=Full connection-time instructions supplied to the agent,
+    label={lst:mcp_connection_instructions},
+    numbers=none,
+    basicstyle=\ttfamily\scriptsize
+]
+Context-Fabric exposes corpora for structured analysis. Corpora contain hierarchical
+objects (e.g., words, sentences, documents) with arbitrary annotations. A corpus can
+be annotated for almost anything: linguistics, music, manuscripts, DNA sequences,
+legal documents, etc.
+
+## Capabilities
+- Search for patterns using structural templates
+- Filter by any annotated feature on any object type
+- Analyze feature distributions across search results
+- Retrieve passages by section reference
+- Explore hierarchical relationships between objects
+
+## Workflows
+
+### Explore corpus structure
+Understand what's in the corpus before searching:
+1. describe_corpus() - Get node types and section structure
+2. list_features(node_types=[...]) - See features for a node type
+3. describe_feature('feature_name') - Get sample values for a feature
+
+### Understand text encoding
+Learn how text is encoded before lexical searches
+(critical for lex=... or surface text queries):
+1. get_text_formats() - See original script and transliteration samples
+2. Use samples to construct accurate search patterns
+
+### Search for patterns
+Find patterns matching structural templates:
+1. search_syntax_guide() - Learn search template syntax
+2. search(template, return_type='count') - Check result count
+3. search(template) - Get actual results
+   (validation errors returned automatically)
+
+### Analyze distributions
+Understand feature patterns across results:
+- search(template, return_type='statistics', aggregate_features=[...])
+
+### Read passages
+Retrieve text by section reference:
+- get_passages([[section_ref], ...])
+
+## Tips
+- Start with describe_corpus() to understand the structure
+- Use list_features(node_types=[...]) to find relevant features
+- Call get_text_formats() before lexical/surface text searches
+- Use search(..., return_type='count') before fetching full results
+- Invalid templates return detailed error messages automatically
+
+## Next Step
+Call describe_corpus() to see node types and section structure.
+\end{lstlisting}
+
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.9\textwidth]{fig_latency_percentiles.pdf}
-\caption{Query latency percentiles (p50, p95, p99) across all 100 benchmark queries.}
-\label{fig:latency_percentiles}
+\caption{The agent's progressive view through the MCP server.}
+\label{fig:mcp_agent_experience}
+\vspace{0.5em}
+\begin{tikzpicture}[
+    node distance=3.5mm,
+    stage/.style={
+        draw=codegray,
+        rounded corners=2pt,
+        fill=backcolour,
+        very thick,
+        text width=0.82\textwidth,
+        align=left,
+        inner xsep=10pt,
+        inner ysep=5pt,
+        font=\small
+    },
+    outcome/.style={
+        draw=codegray,
+        rounded corners=2pt,
+        fill=backcolour,
+        very thick,
+        text width=0.36\textwidth,
+        align=left,
+        inner xsep=8pt,
+        inner ysep=5pt,
+        font=\small
+    },
+    flow/.style={-{Latex[length=2.5mm]}, very thick, draw=codegray}
+]
+
+\node[stage] (connection) {
+    \textbf{1. MCP connection}\\[-1pt]
+    \textit{Context supplied automatically by the server}\\[2pt]
+    Capabilities and recommended workflows\\
+    \textbf{Next step:} \texttt{describe\_corpus()}
+};
+
+\node[stage, below=of connection] (corpus) {
+    \textbf{2. Corpus structure}\\[-1pt]
+    \texttt{describe\_corpus()}\\[2pt]
+    \textbf{Objects:} \texttt{word} (426,590), \texttt{phrase} (253,203), \texttt{clause} (88,131)\\
+    \textbf{Sections:} book $\rightarrow$ chapter $\rightarrow$ verse
+};
+
+\node[stage, below=of corpus] (features) {
+    \textbf{3. Annotation vocabulary}\\[-1pt]
+    \texttt{list\_features()} $\rightarrow$ \texttt{describe\_feature()}\\[2pt]
+    \textbf{Word features:} \texttt{sp}, \texttt{lex}, \texttt{vt}, \texttt{vs}, \ldots\\
+    \textbf{Observed \texttt{sp} values:} \texttt{subs}, \texttt{verb}, \texttt{prep}, \ldots
+};
+
+\node[stage, below=of features] (encoding) {
+    \textbf{4. Text encoding}\\[-1pt]
+    \texttt{get\_text\_formats()}\\[2pt]
+    \textbf{Paired sample:} \cjRL{rE'+siyt} $\leftrightarrow$ \texttt{R;>CIJT}\\
+    \textbf{Result:} the agent learns the corpus transcription before lexical search
+};
+
+\node[stage, below=of encoding] (guide) {
+    \textbf{5. Search help on demand}\\[-1pt]
+    \texttt{search\_syntax\_guide()}\\[2pt]
+    \textbf{Menu:} \texttt{basics} $|$ \texttt{structure} $|$ \texttt{relations} $|$
+    \texttt{quantifiers} $|$ \texttt{examples}\\
+    \textbf{Drill-down:} selecting \texttt{relations} adds only that topic to context
+};
+
+\node[stage, below=of guide] (search) {
+    \textbf{6. Query validation}\\[-1pt]
+    \texttt{search(template, return\_type="count")}\\[2pt]
+    Syntax and semantics checked before execution
+};
+
+\node[outcome, below left=5mm and 4mm of search.south] (invalid) {
+    \textbf{Invalid template}\\[2pt]
+    Line-specific errors\\Revise and resubmit
+};
+
+\node[outcome, below right=5mm and 4mm of search.south] (valid) {
+    \textbf{Valid template}\\[2pt]
+    Results $|$ passages $|$ statistics\\Pagination via cursor
+};
+
+\draw[flow] (connection) -- (corpus);
+\draw[flow] (corpus) -- (features);
+\draw[flow] (features) -- (encoding);
+\draw[flow] (encoding) -- (guide);
+\draw[flow] (guide) -- (search);
+\draw[flow] (search.south) -- ++(0,-2mm) -| (invalid.north);
+\draw[flow] (search.south) -- ++(0,-2mm) -| (valid.north);
+
+\end{tikzpicture}
 \end{figure}
-
-Overall, Context-Fabric achieves a 3\% speedup across all queries while maintaining the dramatic memory advantages documented above. For workloads dominated by lexical queries (common in corpus linguistics), the speedup reaches 26\%. For workloads requiring extensive structural traversal, users may observe modest latency increases that are typically acceptable given the memory savings.
-
-\subsection{Summary of Results}
-\label{sec:results-summary}
-
-Table~\ref{tab:results_summary} consolidates the key findings.
-
-\begin{table}[htbp]
-\centering
-\caption{Summary of benchmark results comparing Text-Fabric and Context-Fabric.}
-\label{tab:results_summary}
-\begin{tabular}{lll}
-\toprule
-\textbf{Metric} & \textbf{Result} & \textbf{Interpretation} \\
-\midrule
-Single-corpus memory & 65\% reduction (mean) & 20--92\% range by corpus size \\
-Multi-corpus scaling & 127 vs 677 MB/corpus & 5.3$\times$ scaling advantage \\
-10-corpus deployment & 1,348 vs 5,529 MB & 76\% total reduction \\
-Load time (large corpora) & Up to 12.9$\times$ faster & BHSA loads in 0.55s vs 7.1s \\
-Lexical query latency & 26\% faster & Memory-mapped index access \\
-Structural query latency & 6\% slower & Indirection overhead \\
-Overall query latency & 3\% faster & Balanced workload \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The results demonstrate that Context-Fabric achieves its primary design goal: enabling multi-corpus research within constrained memory environments without sacrificing query performance. The 65\% average memory reduction, combined with 5.3$\times$ better scaling characteristics, makes previously impractical research configurations feasible. A researcher with 16 GB of RAM can now work with corpora that would have required 40+ GB under the traditional architecture.
-
-\section{Populating Agentic Context}
 
 \subsection{Automatic Corpus Description}
 
+One challenge with designing the CF MCP server is that TF corpora documentation is sporadic.
+Ideally, the server should work well regardless of documentation coverage.
+Furthermore, it should work out-of-the-box without extensive configuration. To do this, CF needs to
+dynamically conduct a graph analysis on every corpus it loads. This is done by analyzing the
+obligatory metadata such as \texttt{slotType}, \texttt{otype} (object type of nodes), as well
+as making statistical counts of node and edge features. Additionally, \texttt{.tf} files contain
+optional metadata which provide human-readable descriptions for features. These are used if available.
+
+Four critical tools expose the relevant information to the agent. \texttt{describe\_corpus}
+provides a breakdown of the node types and sectional hierarchy. \texttt{list\_features}
+returns a feature catalogue with optional filters for node \texttt{otype}.
+\texttt{describe\_feature} provides illustrative values for a given feature, sorted by frequency,
+along with any description metadata. \texttt{get\_text\_formats}. The agent's interactions with these
+three is illustrated in Listing~\ref{lst:mcp_corpus_description_tools}.
+
+\begin{lstlisting}[
+    caption={Agent view of corpus description tools},
+    label={lst:mcp_corpus_description_tools}
+]
+describe_corpus() -> {
+  "node_types": [
+    {"type": "clause", "count": 88131, "is_slot_type": false},
+    {"type": "phrase", "count": 253203, "is_slot_type": false},
+    {"type": "word", "count": 426590, "is_slot_type": true}
+  ],
+  "sections": {"levels": ["book", "chapter", "verse"]}
+}
+
+list_features(node_types=["word"]) -> {  # selected entries
+  "features": [
+    {"name": "lex", "kind": "node", "value_type": "str"},
+    {"name": "sp", "kind": "node", "value_type": "str"},
+    {"name": "vs", "kind": "node", "value_type": "str"},
+    {"name": "vt", "kind": "node", "value_type": "str"}
+  ],
+  "node_types": ["word"]
+}
+
+describe_feature("sp") -> {
+  "node_types": ["lex", "word"],
+  "unique_values": 14,
+  "sample_values": [
+    {"value": "subs", "count": 125583},
+    {"value": "verb", "count": 75451},
+    {"value": "prep", "count": 73298}
+  ]
+}
+
+\end{lstlisting}
+
+The fourth tool is the \texttt{get\_text\_formats} tool. It addresses a particularly tricky
+problem: how to enable an agent to understand a variety of transcription formats without
+a transcription table? The BHSA, for example, has a detailed table available online,
+but it is not stored within the \texttt{.tf} data. However, the \texttt{.tf} format \textit{does}
+reserve special metadata for identifying transcription features, which powers TF's \texttt{Text}
+API. In this format, the tag \texttt{orig} (``original'') designates one feature as the reference script,
+while others are described as \texttt{trans} (``transcription''). Using the \texttt{orig}, the CF
+MCP loader scans all slots in the corpus and saves each one containing a novel UTF-8 character,
+until it exhausts all novel characters. This typically results in a few dozen sampled slots,
+with their original text. Then, for any given transcription format, the \texttt{get\_text\_formats} tool
+can show an exhaustive side-by-side, with all original characters on one side, and all transcriptions
+on the other. This approach cleanly handles cases where the transcription format does not match one-for-one
+the original text. Agents are then able to reason and infer over this sample when crafting their search strings.
+A sampling of the agent view for this tool is shown in Listing~\ref{lst:mcp_text_formats}.
+
+\begin{lstlisting}[
+    caption={Agent view of the \texttt{get\_text\_formats} output},
+    label={lst:mcp_text_formats},
+    escapeinside={(*@}{@*)}
+]
+get_text_formats() -> {
+  "formats": [{
+    "name": "lex-full",
+    "original_script": "{g_lex_utf8} ",
+    "transliteration": "{g_lex} ",
+    "samples": [  # selected subset; 4 of 28 shown
+      {"original": "(*@\cjRL{b*:}@*)", "transliterated": "B.:-"},
+      {"original": "(*@\cjRL{rE'+siyt}@*)", "transliterated": "R;>CIJT"},
+      {"original": "(*@\cjRL{b*ArA'}@*)", "transliterated": "B.@R@>"},
+      {"original": "(*@\cjRL{'E:loh}@*)", "transliterated": ">:ELOH"}
+    ],
+    "unique_characters": 43,
+    "total_samples": 28
+  }]
+}
+\end{lstlisting}
+
 \subsection{Search Guide}
 
-\section{Using Context-Fabric}
+The TF query language is how agents execute searches with CF's MCP server.
+In order to onboard agents to the query language, a set of tools provides the necessary
+syntax guides. \texttt{search\_syntax\_guide()} returns a brief summary along with a menu
+of options for further exploration: basics, structure, relations, quantifiers, and examples.
+The agent can then call \texttt{search\_syntax\_guide(section=...)} to retrieve one of these
+topics. Frontier model agents are surprisingly adept at mastering the query language.
+Syntax errors in the execution engine return an informative remediation message indicating
+the specific offending line. Agents can then resubmit the corrected query string. Results are
+returned as paginated views, which the agent can progressively scroll through.
+Samples of the search guide are shown in Listing~\ref{lst:mcp_search_syntax_guide}.
 
-\subsection{Installation}
+\begin{lstlisting}[
+    caption=Agent view of the progressive search guide,
+    label={lst:mcp_search_syntax_guide},
+    numbers=none,
+    basicstyle=\ttfamily\scriptsize
+]
+search_syntax_guide() -> {
+  "summary": "Templates: node_type feature=value. Indentation=containment.
+              Relations: < > <: >: for ordering.",
+  "sections": ["basics", "structure", "relations", "quantifiers", "examples"],
+  "hint": "Call with section='relations' to get detailed info on a specific section"
+}
 
-Context-Fabric is available on PyPI:
+search_syntax_guide(section="relations") ->
 
-\begin{lstlisting}[language=bash]
-pip install context-fabric
+## Relations
+
+### Default Relations
+- Indented items are contained by their parent (`:` relation)
+- Items at same level follow each other in order
+
+### Explicit Relations
+clause
+  word sp=verb
+  < word sp=noun             # noun comes BEFORE verb
+  > word sp=adj              # adjective comes AFTER verb
+  <: word sp=prep            # preposition immediately before verb
+  :> word sp=adv             # adverb immediately after verb
+
+### Relation Operators
+- `<`  - comes before (canonical node ordering)
+- `>`  - comes after (canonical node ordering)
+- `<:` - immediately before (adjacent)
+- `:>` - immediately after (adjacent)
+- `<<` - completely before (slot ordering)
+- `>>` - completely after (slot ordering)
+- `[[` - left embeds right
+- `]]` - left embedded in right
+- `=:` - start at same slot
+- `:=` - end at same slot
+- `::` - start and end at same slot (co-extensive)
+- `==` - occupy same slots
 \end{lstlisting}
 
-Source code and documentation are available at \url{https://github.com/Context-Fabric/context-fabric}.
+\section{Conclusion}
 
-\subsection{Reproducibility}
-
-All benchmarks can be reproduced using the \texttt{cfabric-benchmarks} package:
+Context-Fabric is open source and freely available on GitHub or PyPI.\footnote{
+    See \url{https://github.com/Context-Fabric/context-fabric} and
+    \url{https://pypi.org/project/context-fabric/}.
+}
+It can be installed with the following command:
 
 \begin{lstlisting}[language=bash]
-# Install and download corpora
-pip install cfabric-benchmarks
-python -m cfabric_benchmarks.corpora.download
-
-# Run full benchmark suite
-cfabric-bench full --corpora-dir .corpora
+pip install context-fabric[mcp]
 \end{lstlisting}
 
-Results are saved to \texttt{benchmark\_results/} with timestamps. Configuration, environment metadata, and raw measurements are preserved for reproducibility.
+Future optimizations of Context-Fabric are already in the works. An experimental re-write in Rust
+(with Python bindings) is showing promising, further performance gains.\footnote{
+    See \url{https://github.com/Context-Fabric/context-fabric/tree/cf-rust}.
+}
+There is also work underway to improve the agentic ergonomics of the MCP server. Interested
+readers may follow the CF GitHub organization, at \url{https://github.com/Context-Fabric/},
+or visit the CF website at \url{https://context-fabric.ai}.
 
-\subsection{Usecases}
+It is my hope that CF can help further Roorda's vision, of a Biblical Studies and Humanities
+(more broadly) that is transformed by statistical science. If LLMs can teach us anything,
+it is that the patterns of language are, surprisingly, recoverable and objective---at least in their public, conventionalized
+setting. That is to say nothing of human beings' penchant for \textit{unpredictability}, something
+I personally doubt will ever be captured by a statistical model. Therein lies the optimism for
+an AI-saturated future. Not one where humans become irrelevant, but where their existing
+creativity is amplified and extended. The skill premium will undoubtedly shift towards curiosity,
+challenging in a time where machines can do all the work for you. Those who continue to exercise
+this muscle will reap the benefits.
 
-\section{Future Direction}
-
-Context-Fabric is being re-written in Rust, which will bring an even further step-change in performance.
-
-% Needs to be updated and audited
 \begin{thebibliography}{99}
 
-\bibitem{textfabric}
-Roorda, D. (2018). Text-Fabric: Text representation for linguistic annotation. \textit{Research Data Journal for the Humanities and Social Sciences}, 3(1), 1--23.
+\bibitem{oosting2016}
+Oosting, R. (2016). Computer-assisted analysis of Old Testament texts: The contribution of the WIVU to Old Testament scholarship. In K. Spronk (Ed.), \textit{The Present State of Old Testament Studies in the Low Countries} (pp. 192--209). Brill. \url{https://doi.org/10.1163/9789004326255}
+
+\bibitem{roorda2014laf}
+Roorda, D., Kalkman, G., Naaijer, M., \& van Cranenburgh, A. (2014). LAF-Fabric: A data analysis tool for Linguistic Annotation Framework with an application to the Hebrew Bible. \textit{Computational Linguistics in the Netherlands Journal}, 4, 105--120. \url{https://clinjournal.org/clinj/article/view/44}
+
+\bibitem{ide2014laf}
+Ide, N., \& Suderman, K. (2014). The Linguistic Annotation Framework: A standard for annotation interchange and merging. \textit{Language Resources and Evaluation}, 48, 395--418. \url{https://doi.org/10.1007/s10579-014-9268-1}
+
+\bibitem{harris2020numpy}
+Harris, C. R., Millman, K. J., van der Walt, S. J., et al. (2020). Array programming with NumPy. \textit{Nature}, 585, 357--362. \url{https://doi.org/10.1038/s41586-020-2649-2}
+
+\bibitem{mckinney2010pandas}
+McKinney, W. (2010). Data structures for statistical computing in Python. In \textit{Proceedings of the 9th Python in Science Conference} (pp. 56--61). \url{https://doi.org/10.25080/Majora-92bf1922-00a}
+
+\bibitem{pedregosa2011scikit}
+Pedregosa, F., Varoquaux, G., Gramfort, A., et al. (2011). Scikit-learn: Machine learning in Python. \textit{Journal of Machine Learning Research}, 12, 2825--2830. \url{https://jmlr.org/papers/v12/pedregosa11a.html}
+
+\bibitem{naaijer2016parallel}
+Naaijer, M., \& Roorda, D. (2016). Parallel texts in the Hebrew Bible: New methods and visualizations. \textit{arXiv preprint arXiv:1603.01541}. \url{https://arxiv.org/abs/1603.01541}
+
+\bibitem{erwichkingham2017}
+Erwich, C. M., \& Kingham, C. (2017). Text Fabric: What, how, and why. Paper presented at the SBL International Meeting, Berlin. \url{https://research.vu.nl/en/publications/text-fabric-what-how-and-why/}
+
+\bibitem{vanpeursen2019}
+van Peursen, W. (2019). A computational approach to syntactic diversity in the Hebrew Bible. \textit{Journal of Biblical Text Research}, 44, 237--253. \url{https://doi.org/10.28977/jbtr.2019.4.44.237}
+
+\bibitem{textfabricsoftware}
+Roorda, D. (2016). \textit{Text-Fabric} [Computer software]. GitHub. \url{https://pure.knaw.nl/portal/en/publications/text-fabric/}
+
+\bibitem{openai2022chatgpt}
+OpenAI. (2022, November 30). Introducing ChatGPT. \url{https://openai.com/index/chatgpt/}
+
+\bibitem{pytorchmmap}
+PyTorch Contributors. (n.d.). Tips for loading an \texttt{nn.Module} from a checkpoint. \textit{PyTorch Tutorials}. \url{https://docs.pytorch.org/tutorials/recipes/recipes/module_load_state_dict_tips.html}
+
+\bibitem{tensorflowmmap}
+Google AI Edge. (n.d.). Build LiteRT with CMake. \textit{LiteRT Documentation}. \url{https://developers.google.com/edge/litert/build/cmake}
+
+\bibitem{numpymemmap}
+NumPy Developers. (n.d.). \texttt{numpy.memmap}. \textit{NumPy Documentation}. \url{https://numpy.org/doc/stable/reference/generated/numpy.memmap.html}
 
 \bibitem{bhsa}
 van Peursen, W. Th., Sikkel, C., \& Roorda, D. (2015). Hebrew Text Database BHSA. DANS. \url{https://doi.org/10.17026/dans-z6y-skyh}. Data curated by the Eep Talstra Centre for Bible and Computer, Vrije Universiteit Amsterdam.
@@ -700,41 +1004,14 @@ van Lit, C. \& Roorda, D. (2017). Quranic Arabic Corpus in Text-Fabric. Source d
 \bibitem{cuc}
 Højgaard, C. C., Naaijer, M., Ehrensv{\"a}rd, M., et al. (2020). Copenhagen Ugaritic Corpus in Text-Fabric. Developed as part of the CACCHT project. GitHub: \url{https://github.com/DT-UCPH/cuc}
 
-\bibitem{wikipediarss}
-Wikipedia contributors. (2024). Resident set size. \textit{Wikipedia, The Free Encyclopedia}. Retrieved from \url{https://en.wikipedia.org/wiki/Resident_set_size}
-
-\bibitem{wikipediammap}
-Wikipedia contributors. (2024). Memory-mapped file. \textit{Wikipedia, The Free Encyclopedia}. Retrieved from \url{https://en.wikipedia.org/wiki/Memory-mapped_file}
-
-\bibitem{baeldunglinuxmem}
-Baeldung. (2024). Understanding memory usage in Linux. \textit{Baeldung on Linux}. Retrieved from \url{https://www.baeldung.com/linux/resident-set-vs-virtual-memory-size}
-
 \bibitem{beyer2019reliable}
-Beyer, D., L{\"o}we, S., \& Wendler, P. (2019). Reliable benchmarking: requirements and solutions. \textit{International Journal on Software Tools for Technology Transfer}, 21(1), 1--29.
+Beyer, D., L{\"o}we, S., \& Wendler, P. (2019). Reliable benchmarking: Requirements and solutions. \textit{International Journal on Software Tools and Technology Transfer}, 21, 1--29. \url{https://doi.org/10.1007/s10009-017-0469-y}
 
-\bibitem{langner2021mess}
-Langner, T., \& Beyer, D. (2021). Mess: Memory consumption benchmarking made easy. \textit{arXiv preprint arXiv:2106.08235}. Retrieved from \url{https://arxiv.org/abs/2106.08235}
+\bibitem{psutil}
+Psutil Contributors. (n.d.). Process memory information. \textit{psutil Documentation}. \url{https://psutil.readthedocs.io/stable/index.html#psutil.Process.memory_info}
 
-\bibitem{sqlitemmap}
-SQLite Consortium. (2024). Memory-Mapped I/O. \textit{SQLite Documentation}. Retrieved from \url{https://sqlite.org/mmap.html}
-
-\bibitem{cmummap}
-Crotty, A., Leis, V., \& Pavlo, A. (2022). Are You Sure You Want to Use MMAP in Your Database Management System? \textit{Proceedings of the 12th Annual Conference on Innovative Data Systems Research (CIDR)}. Retrieved from \url{https://db.cs.cmu.edu/mmap-cidr2022/}
-
-\bibitem{numpymemmap}
-NumPy Developers. (2024). numpy.memmap. \textit{NumPy Documentation}. Retrieved from \url{https://numpy.org/doc/stable/reference/generated/numpy.memmap.html}
-
-\bibitem{ipythonmemmap}
-Rossant, C. (2018). Processing large NumPy arrays with memory mapping. \textit{IPython Cookbook, 2nd Edition}. Retrieved from \url{https://ipython-books.github.io/48-processing-large-numpy-arrays-with-memory-mapping/}
-
-\bibitem{colibricore}
-van Gompel, M. \& van den Bosch, A. (2016). Efficient n-gram, skipgram and flexgram modelling with Colibri Core. \textit{Journal of Open Research Software}, 4(1), e30. \url{https://doi.org/10.5334/jors.105}
-
-\bibitem{cqpweb}
-Hardie, A. (2012). CQPweb---combining power, flexibility and usability in a corpus analysis tool. \textit{International Journal of Corpus Linguistics}, 17(3), 380--409.
-
-\bibitem{sketchengine}
-Kilgarriff, A., Baisa, V., Bu\v{s}ta, J., Jakub\'{i}\v{c}ek, M., Kov\'{a}\v{r}, V., Michelfeit, J., Rychl\'{y}, P., \& Suchomel, V. (2014). The Sketch Engine: ten years on. \textit{Lexicography}, 1(1), 7--36.
+\bibitem{modelcontextprotocol}
+Model Context Protocol Contributors. (2025). \textit{Model Context Protocol Specification}, revision 2025-11-25. \url{https://modelcontextprotocol.io/specification/2025-11-25}
 
 \end{thebibliography}
 
