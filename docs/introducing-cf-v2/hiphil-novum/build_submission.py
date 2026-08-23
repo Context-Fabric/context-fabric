@@ -281,6 +281,9 @@ def prepare_latex() -> Path:
     text = text.replace(
         "\\begin{thebibliography}{99}",
         "\\section*{Acknowledgements}\n\n"
+        "I would like to acknowledge the scholarship, influence, and friendship of Dirk Roorda, "
+        "whose creativity and rebelliousness have always inspired me. "
+        "May his contributions continue to bear fruit into the distant future.\n\n"
         "During the preparation of this manuscript, the author used Anthropic Claude Opus 4.5 "
         "for the analysis code, and OpenAI Codex (GPT-5.6 Sol) for reference verification, "
         "preparation of visual elements, and document formatting. "
