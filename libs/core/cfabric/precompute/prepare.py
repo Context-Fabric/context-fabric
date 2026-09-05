@@ -45,6 +45,15 @@ StructureResult = tuple[
     dict[int, int],
     dict[int, tuple[int, ...]],
 ]
+"""Returned by `structure` when the configured structure is unusable.
+
+Mirrors the arity of `StructureResult` so callers can always unpack six
+values; `None` is the sentinel the `Text` API already tests for.
+"""
+NoStructureResult = tuple[None, None, None, None, None, None]
+
+NO_STRUCTURE: NoStructureResult = (None, None, None, None, None, None)
+
 CharactersResult = dict[str, list[tuple[str, int]]]
 
 
@@ -848,7 +857,7 @@ def structure(
     rank: RankData,
     levUp: LevUpData,
     *sFeats: dict[int, Any],
-) -> StructureResult | tuple[dict[Any, Any], dict[Any, Any]]:
+) -> StructureResult | NoStructureResult:
     """Computes structure data.
 
     If the corpus has a rich section structure, it is possible to define
@@ -893,6 +902,12 @@ def structure(
         *   `up`
         *   `down`
 
+        If the configured structure is unusable - the number of structure
+        levels and features disagree, or a level occurs more than once - a
+        warning is issued and `NO_STRUCTURE` is returned instead: six `None`
+        values, the sentinel that the `Text` API already interprets as
+        "no structural elements configured".
+
     Notes
     -----
     A section key of a structural node is obtained by going a level up from
@@ -911,12 +926,12 @@ def structure(
         error(
             f"WARNING: {nsTypes} structure levels but {nsFeats} corresponding features"
         )
-        return ({}, {})
+        return NO_STRUCTURE
 
     sTypes = set(sTypeList)
     if len(sTypes) != nsTypes:
         error("WARNING: duplicate structure levels")
-        return ({}, {})
+        return NO_STRUCTURE
 
     higherTypes: dict[str, set[str]] = collections.defaultdict(set)
     for i, highType in enumerate(sTypeList):
