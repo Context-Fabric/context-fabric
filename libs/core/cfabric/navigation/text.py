@@ -987,6 +987,7 @@ There are {len(hdFromNd)} structural elements in the dataset.
         ndFromHd = self.ndFromHd
         if ndFromHd is None:
             logger.error("structure types are not configured")
+            return None
         n = ndFromHd.get(head, None)
         if n is None:
             logger.error(f"no structure node with heading {head}")
