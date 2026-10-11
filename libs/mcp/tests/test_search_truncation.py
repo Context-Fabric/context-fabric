@@ -1,5 +1,6 @@
 """Exact totals must not depend on the number of retained cursor results."""
 
+import csv
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -126,3 +127,34 @@ def test_empty_pages_report_no_cache_truncation(bounded_search, return_type):
     assert result["total_count"] == 0
     assert result["cached_count"] == 0
     assert result["results_truncated"] is False
+
+
+@pytest.mark.parametrize("warm", [False, True])
+@pytest.mark.parametrize("limit", [2, 5])
+def test_csv_export_uses_full_matches_when_needed(
+    bounded_search, tmp_path, warm, limit
+):
+    cache, search_api = bounded_search
+    tools.set_transport("stdio")
+    if warm:
+        tools.search("word", return_type="count", corpus="test")
+    path = tmp_path / "matches.csv"
+    result = tools.search_csv("word", str(path), limit=limit, corpus="test")
+    assert result["total_count"] == 5
+    assert result["rows_written"] == limit
+    with path.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert [int(row["node0_node"]) for row in rows] == list(range(1, limit + 1))
+    assert search_api.search.call_count == (2 if warm and limit > 3 else 1)
+    assert cache.stats()["total_results_cached"] == 3
+
+
+def test_csv_reexecution_error_does_not_write_partial_export(bounded_search, tmp_path):
+    _, search_api = bounded_search
+    tools.set_transport("stdio")
+    tools.search("word", return_type="count", corpus="test")
+    search_api.search.side_effect = RuntimeError("query failed")
+    path = tmp_path / "matches.csv"
+    result = tools.search_csv("word", str(path), limit=5, corpus="test")
+    assert "query failed" in result["error"]
+    assert not path.exists()

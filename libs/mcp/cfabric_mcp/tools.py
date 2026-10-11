@@ -643,22 +643,32 @@ def search_csv(
 
     # Execute search (uses cache)
     cache = get_cache()
+    uncached_results: list[tuple[int, ...]] | None = None
 
     def execute_search() -> list[tuple[int, ...]]:
+        nonlocal uncached_results
         try:
             results = S.search(template)
             if results is None:
                 return []
-            if isinstance(results, tuple):
-                return list(results)
-            return list(results)
+            uncached_results = list(results)
+            return uncached_results
         except Exception as e:
             logger.error("search_csv: execution failed: %s", e)
             return []
 
     cached = cache.get_or_execute(corpus_name, template, execute_search)
     results = cached.results
-    total_count = len(results)
+    total_count = cached.total_count
+    if cached.is_truncated and limit > len(results):
+        if uncached_results is not None:
+            results = sorted(uncached_results)
+        else:
+            try:
+                results = sorted(S.search(template))
+            except Exception as e:  # noqa: BLE001 - do not write an incomplete export
+                return {"error": f"CSV search failed: {e}", "template": template}
+        total_count = len(results)
 
     if total_count == 0:
         # Write empty file
