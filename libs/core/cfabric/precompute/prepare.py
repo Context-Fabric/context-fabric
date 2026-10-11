@@ -791,6 +791,9 @@ def sectionsFromApi(
     dict
         Same structure as sections(): {sec1, sec2, seqFromNode, nodeFromSeq}
     """
+    if len(sectionTypes) == len(sectionFeats) == 1:
+        # Root-only lookup still expects a sections computed with empty children.
+        return dict(sec1={}, sec2={}, seqFromNode={}, nodeFromSeq={})
     if len(sectionTypes) < 2 or len(sectionFeats) < 2:
         return None
 
