@@ -287,22 +287,23 @@ def search(
 
     # Use cache for search execution
     cache = get_cache()
+    uncached_results: list[tuple[int, ...]] | None = None
 
     def execute_search() -> list[tuple[int, ...]]:
+        nonlocal uncached_results
         try:
             results = S.search(template)
             if results is None:
                 return []
-            if isinstance(results, tuple):
-                return list(results)
-            return list(results)
+            uncached_results = list(results)
+            return uncached_results
         except Exception as e:
             logger.error("search: execution failed: %s", e)
             return []
 
     cached = cache.get_or_execute(corpus_name, template, execute_search)
     results = cached.results  # Already sorted by cache
-    total_count = len(results)
+    total_count = cached.total_count
 
     if total_count == 0:
         # Return appropriate empty response for each return_type
@@ -311,24 +312,42 @@ def search(
         elif return_type == "statistics":
             return {"total_count": 0, "template": template, "nodes": {}}
         elif return_type == "passages":
-            return {"total_count": 0, "template": template, "passages": [], "has_more": False}
+            return {
+                "total_count": 0, "template": template, "passages": [],
+                "has_more": False, "cached_count": 0, "results_truncated": False,
+            }
         else:  # "results"
-            return {"total_count": 0, "template": template, "results": []}
+            return {
+                "total_count": 0, "template": template, "results": [],
+                "cached_count": 0, "results_truncated": False,
+            }
 
     # Handle different return types
     if return_type == "count":
         return {"total_count": total_count, "template": template}
 
     elif return_type == "statistics":
+        if cached.is_truncated:
+            # A retained prefix cannot yield complete feature distributions.
+            if uncached_results is not None:
+                results = uncached_results
+            else:
+                try:
+                    results = list(S.search(template))
+                except Exception as e:  # noqa: BLE001 - expose upstream query failures
+                    return {
+                        "error": f"Statistics search failed: {e}",
+                        "template": template,
+                    }
         return _format_statistics(
             api, results, template, aggregate_features, group_by_section, top_n
         )
 
     elif return_type == "passages":
-        return _format_passages(api, results, template, limit)
+        return _format_passages(api, results, template, limit, total_count)
 
     else:  # "results" (default)
-        return _format_results(api, results, template, cached.cursor_id, limit)
+        return _format_results(api, results, template, cached.cursor_id, limit, total_count)
 
 
 def _format_results(
@@ -337,9 +356,11 @@ def _format_results(
     template: str,
     cursor_id: str,
     limit: int,
+    total_count: int | None = None,
 ) -> dict[str, Any]:
     """Format search results as paginated node info."""
-    total_count = len(results)
+    if total_count is None:
+        total_count = len(results)
     page = results[:limit]
     has_more = len(results) > limit
 
@@ -355,6 +376,8 @@ def _format_results(
     return {
         "results": result_list,
         "total_count": total_count,
+        "cached_count": len(results),
+        "results_truncated": len(results) < total_count,
         "template": template,
         "cursor": {
             "id": cursor_id,
@@ -474,9 +497,11 @@ def _format_passages(
     results: list[tuple[int, ...]],
     template: str,
     limit: int,
+    total_count: int | None = None,
 ) -> dict[str, Any]:
     """Format search results as readable passages."""
-    total_count = len(results)
+    if total_count is None:
+        total_count = len(results)
 
     passages = []
     for r in results[:limit]:
@@ -493,9 +518,11 @@ def _format_passages(
 
     return {
         "total_count": total_count,
+        "cached_count": len(results),
+        "results_truncated": len(results) < total_count,
         "template": template,
         "passages": passages,
-        "has_more": total_count > limit,
+        "has_more": len(results) > limit,
     }
 
 
@@ -551,6 +578,8 @@ def search_continue(
         "results": result_list,
         "total_count": total_count,
         "template": cached.template,
+        "cached_count": len(cached.results),
+        "results_truncated": cached.is_truncated,
         "cursor": {
             "id": cursor_id,
             "offset": offset,

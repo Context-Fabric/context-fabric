@@ -68,6 +68,14 @@ The server exposes 11 MCP tools organized in layers for efficient discovery.
 | `search_csv` | Export results to CSV file (stdio only) |
 | `search_syntax_guide` | Search syntax docs (section-based) |
 
+Search totals count all matches, including matches beyond the cursor cache's
+10,000-result retention limit. Counts remain exact on cache hits. Statistics
+use all matches; when only a prefix is cached, statistics may rerun the query.
+Result and passage responses include `cached_count` and `results_truncated`
+to distinguish retained results from `total_count`. Pagination's `has_more`
+describes remaining cached results, so it becomes false at the cache boundary
+even when `results_truncated` is true.
+
 ### Data Access Tools
 
 | Tool | Description |
