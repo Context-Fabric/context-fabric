@@ -205,7 +205,8 @@ export function BookView({ corpus, passageRef, settings, onOpen, onBy, onOpenScr
             <>
               <p className="mb-3 text-[13px] text-stone">
                 {data.verses.length} {data.verses.length === 1 ? "verse" : "verses"} with text in the scrolls.{" "}
-                <span className="dim">Dimmed</span>: reconstructed by the editors.
+                <span className="dim">Dimmed</span>: reconstructed by the editors; ◦ an illegible letter; […] lost
+                text.
               </p>
               <div className="flex max-w-[60rem] flex-col">
                 {data.verses.map((v) => (

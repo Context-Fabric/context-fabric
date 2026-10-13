@@ -38,7 +38,7 @@ from cfabric_browser.queries import (
     template_constraints,
     template_features,
 )
-from cfabric_browser.witnesses import format_ref, mark_reconstructed, parse_ref, place
+from cfabric_browser.witnesses import dress_signs, format_ref, parse_ref, place
 from cfabric_browser.workers import FINISHED, SearchJob, SearchPool
 
 MAX_PAGE = 500
@@ -340,7 +340,7 @@ def build_router(
                 for word in w.words:
                     tree = render_node(api, config, word, mode, opts).to_dict()
                     fragments.extend(tree["fragments"])
-                mark_reconstructed(api, fragments)
+                dress_signs(api, fragments)
                 where = L.u(w.words[0], otype=placeType)[0] if placeType else None
                 rows.append(
                     {
@@ -403,7 +403,7 @@ def build_router(
             for n in nodes[:MAX_PASSAGE]
         ]
         for tree in trees:
-            mark_reconstructed(api, tree["fragments"])
+            dress_signs(api, tree["fragments"])
         return {
             "node": node,
             "ref": section_ref_for(api, config, node, lang=opts.lang),

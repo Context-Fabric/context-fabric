@@ -29,7 +29,9 @@ from cfabric.display import DisplayConfig, node_from_section_ref
 from cfabric_browser.books import canonical_book
 from cfabric_browser.corpora import CorpusService
 from cfabric_browser.witnesses import (
+    PLACEHOLDER_TYPES,
     RECONSTRUCTED,
+    SIGN_TYPE,
     format_ref,
     parse_ref,
     siglum_key,
@@ -40,6 +42,7 @@ HEBREW_LETTER = re.compile("[א-ת]")
 # final forms depend on word division, which doesn't count
 FINALS = str.maketrans("ךםןףץ", "כמנפצ")
 MATRES = frozenset("אהוי")
+UNKNOWN = "◦"  # a letter that is there but cannot be read
 
 MATRES_ONLY = "matres"
 VARIANT = "variant"
@@ -275,8 +278,11 @@ def witness_letters(api, words: list[int]) -> tuple[Words, list[bool]]:
     """The consonants of the words of a manuscript, and which are preserved.
 
     A letter is preserved unless its slot (sign) is flagged as reconstructed.
+    A lost or illegible sign (`ε`, `#`, `?` in the DSS) stands for letters
+    that are there but unknown: it becomes a placeholder that is not preserved.
     """
     rec = api.Fs(RECONSTRUCTED).v if RECONSTRUCTED in api.Fall() else None
+    signType = api.Fs(SIGN_TYPE).v if SIGN_TYPE in api.Fall() else None
     # a format of the slots: text-orig-extra (DSS) is one of words
     formats = api.T.formats
     fmt = "text-orig-full" if "text-orig-full" in formats else None
@@ -285,6 +291,10 @@ def witness_letters(api, words: list[int]) -> tuple[Words, list[bool]]:
     for w in words:
         letters = ""
         for s in api.E.oslots.s(w):
+            if signType and signType(int(s)) in PLACEHOLDER_TYPES:
+                letters += UNKNOWN
+                known.append(False)
+                continue
             c = consonants(str(api.T.text([int(s)], fmt=fmt)))
             letters += c
             known.extend([not (rec and rec(int(s)))] * len(c))
