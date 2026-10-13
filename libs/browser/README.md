@@ -28,6 +28,15 @@ Options:
 - `--max-results`: results kept per search (default 500,000).
 - `--no-open`: don't open a web browser.
 - `--no-library`: don't let users open other corpora found on this computer.
+- `--hide ORG/REPO`: leave a corpus out of the *Open a corpus* list (repeatable). To do this permanently, list them in `~/.cfabric/browser.yaml`:
+
+  ```yaml
+  library:
+    hide:
+      - CLARIAH/descartes-tf
+  ```
+
+  The list also shows copies of one corpus (same title, such as a fork) only once, keeping the one with the newest data.
 
 The server listens on `127.0.0.1` only. Pass `--host` to change that, and only when you know what you're doing.
 

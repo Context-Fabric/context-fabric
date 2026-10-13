@@ -192,11 +192,25 @@ def _app_title(repo: Path) -> str | None:
     return str(title) if title else None
 
 
-def discover(roots: tuple[str, ...] = SEARCH_ROOTS) -> list[dict[str, Any]]:
+def discover(
+    roots: tuple[str, ...] = SEARCH_ROOTS,
+    hide: tuple[str, ...] | list[str] = (),
+    collapse: bool = True,
+) -> list[dict[str, Any]]:
     """Corpora on this computer, in Text-Fabric layout (`<org>/<repo>/tf/<version>`).
 
-    A corpus found under several roots is listed once, from the first root.
+    Each entry has the version that opening it would load (`version`), besides
+    all versions on disk. A corpus found under several roots is listed once,
+    from the first root.
+
+    Parameters
+    ----------
+    hide: ids (`org/repo`) to leave out, e.g. corpora someone does not use.
+    collapse: list corpora with the same title (copies and forks of one
+        corpus, such as `DT-UCPH/sp` and `saulocantanhede/sp`) once, keeping the
+        one with the newest data; the others are named in `copies`.
     """
+    hidden = {h.lower() for h in hide}
     found: dict[str, dict[str, Any]] = {}
     for root in roots:
         base = Path(root).expanduser()
@@ -216,15 +230,53 @@ def discover(roots: tuple[str, ...] = SEARCH_ROOTS) -> list[dict[str, Any]]:
                 if not versions:
                     continue
                 key = f"{org.name}/{repo.name}".lower()
-                if key in found:
+                if key in found or key in hidden:
                     continue
+                default = _pick_version(repo)
                 found[key] = {
                     "id": f"{org.name}/{repo.name}",
                     "name": repo.name.lower(),
                     "title": _app_title(repo),
+                    "version": default.name if default else versions[-1],
                     "versions": versions,
                 }
-    return sorted(found.values(), key=lambda c: c["id"].lower())
+    entries = sorted(found.values(), key=lambda c: c["id"].lower())
+    if not collapse:
+        return entries
+
+    byTitle: dict[str, list[dict[str, Any]]] = {}
+    for entry in entries:
+        if entry["title"]:
+            byTitle.setdefault(entry["title"].strip().lower(), []).append(entry)
+    dropped: set[str] = set()
+    for group in byTitle.values():
+        if len(group) < 2:
+            continue
+        keep = max(group, key=lambda c: versionSort(c["versions"][-1]))
+        keep["copies"] = [c["id"] for c in group if c is not keep]
+        dropped.update(c["id"] for c in group if c is not keep)
+    return [e for e in entries if e["id"] not in dropped]
+
+
+SETTINGS = "~/.cfabric/browser.yaml"
+
+
+def load_settings(path: str | Path = SETTINGS) -> dict[str, Any]:
+    """Personal browser settings, e.g. corpora to leave out of the library::
+
+    library:
+      hide:
+        - CLARIAH/descartes-tf
+    """
+    file = Path(path).expanduser()
+    if not file.is_file():
+        return {}
+    try:
+        settings: dict[str, Any] = read_app_config(file)
+        return settings
+    except Exception:  # noqa: BLE001 - a broken settings file must not stop the browser
+        logger.warning("Could not read browser settings from %s", file)
+        return {}
 
 
 def _merge(base: dict[str, Any], extra: dict[str, Any]) -> dict[str, Any]:
@@ -274,10 +326,12 @@ class CorpusService:
         specs: list[CorpusSpec] | None = None,
         roots: tuple[str, ...] = SEARCH_ROOTS,
         overrides: str | Path = OVERRIDES,
+        hide: tuple[str, ...] | list[str] = (),
     ) -> None:
         self.registry = CorpusRegistry()
         self.roots = roots  # where the library looks for corpora
         self.overrides = overrides  # local display settings, see display_overrides
+        self.hide = tuple(hide)  # library ids not to list
         self._specs: dict[str, CorpusSpec] = {}
         self._configs: dict[str, DisplayConfig] = {}
         self._books: dict[str, dict[str, str]] = {}

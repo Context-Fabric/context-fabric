@@ -23,5 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A pane whose search the server no longer has (after a restart, or from an old link) searches again with its template
 - Download dialog: choose extra feature columns per part of the results, besides those in the template, and TSV or TSV for Excel (`export.tsv?extra=3:lex,gloss`)
 - Statistics on search results: how often each value of a feature occurs on one part of the results (by default a feature the template leaves open, such as `lex*`), and how the results spread over books or chapters; with a table view, and links to read each section
+- Library list: copies of one corpus (same title, e.g. a fork) are listed once, keeping the newest data; each entry shows the version that opens; corpora can be hidden with `library: hide:` in `~/.cfabric/browser.yaml` or `--hide`
 - Corpus library: open other corpora found on this computer while the browser runs (`--no-library` switches this off)
 - Template problems as structured data (line, message, feature or node type), including problems inside quantifiers that the search engine only logs

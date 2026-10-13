@@ -77,8 +77,9 @@ export function Library({ onOpen, onClose }: Props) {
                   <li key={c.id} className="flex items-baseline gap-3 border-b border-rule py-2 last:border-b-0">
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold">{c.title?.split(" = ").pop() ?? c.name}</p>
-                      <p className="truncate text-[13px] text-stone">
-                        {c.id}, version {c.versions[c.versions.length - 1]}
+                      <p className="truncate text-[13px] text-stone" title={c.copies?.length ? `Also on this computer: ${c.copies.join(", ")}` : undefined}>
+                        {c.id}, version {c.version}
+                        {c.copies?.length ? ` (also ${c.copies.length === 1 ? "a copy" : `${c.copies.length} copies`} elsewhere)` : ""}
                       </p>
                     </div>
                     <button
