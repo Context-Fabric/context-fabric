@@ -282,6 +282,22 @@ class TestSearch:
         # the first word of clause 19 whose gloss contains an "a" is word 7
         assert first[8:] == ["7", "word", "η ", "conj", "and"]
 
+    def test_export_extra_columns(self, client):
+        response = client.post(
+            "/api/corpora/alpha/search", json={"template": "clause\n  word sp*\n"}
+        )
+        status = wait_for(client, response.json()["id"])
+        url = f"/api/searches/{status['id']}/export.tsv"
+        tsv = client.get(url, params={"extra": ["2:gloss,sp", "1:typ"]}).text
+        header = tsv.split("\n")[0].split("\t")
+        # template features first (sp2), extras after, without repeating sp2
+        assert header[4:] == [
+            "NODE1", "TYPE1", "TEXT1", "typ1",
+            "NODE2", "TYPE2", "TEXT2", "sp2", "gloss2",
+        ]  # fmt: skip
+        assert client.get(url, params={"extra": "3:gloss"}).status_code == 422
+        assert client.get(url, params={"extra": "2:nope"}).status_code == 422
+
     def test_export_without_template_features(self, client):
         response = client.post("/api/corpora/alpha/search", json={"template": "verse"})
         status = wait_for(client, response.json()["id"])

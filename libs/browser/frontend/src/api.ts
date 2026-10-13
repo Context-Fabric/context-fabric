@@ -158,8 +158,12 @@ export const api = {
       `/api/searches/${id}/stats/sections${query({ level })}`,
     ),
 
-  exportUrl: (id: string, fmt?: string | null, excel = false) =>
-    `/api/searches/${id}/export.tsv${query({ fmt, excel: excel || null })}`,
+  exportUrl: (id: string, fmt?: string | null, excel = false, extra: string[] = []) => {
+    const base = query({ fmt, excel: excel || null });
+    const extras = extra.map((e) => `extra=${encodeURIComponent(e)}`).join("&");
+    const sep = base ? "&" : "?";
+    return `/api/searches/${id}/export.tsv${base}${extras ? sep + extras : ""}`;
+  },
 
   events: (id: string) => new EventSource(`/api/searches/${id}/events`),
 };

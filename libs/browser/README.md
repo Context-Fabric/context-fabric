@@ -73,7 +73,7 @@ All functions of the interface are available as a JSON API; interactive document
 | `GET /api/searches/{id}/stats/features?position=` | Features with values on one part of the results; which the template mentions, and which it leaves open |
 | `GET /api/searches/{id}/stats/values?position=&feature=` | How often each value occurs there (distinct nodes) |
 | `GET /api/searches/{id}/stats/sections?level=` | Results per book (0), chapter (1), ... in text order |
-| `GET /api/searches/{id}/export.tsv` | All results, one row per result; features in the template become columns (write `sp*` to add one without narrowing the search); `?excel=true` for Excel |
+| `GET /api/searches/{id}/export.tsv` | All results, one row per result; features in the template become columns (write `sp*` to add one without narrowing the search); `extra=3:lex,gloss` adds columns for the third node; `excel=true` for Excel |
 | `DELETE /api/searches/{id}` | Stop a search |
 
 Display options are query parameters: `mode` (`pretty`/`plain`), `fmt`, `full`, `hide_types`, `hidden_types`, `base_types`, `condense_type`, `extra_features`, `lang`.
