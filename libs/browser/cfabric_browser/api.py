@@ -38,6 +38,7 @@ from cfabric_browser.queries import (
     template_constraints,
     template_features,
 )
+from cfabric_browser.witnesses import format_ref, mark_reconstructed, parse_ref, place
 from cfabric_browser.workers import FINISHED, SearchJob, SearchPool
 
 MAX_PAGE = 500
@@ -245,17 +246,19 @@ def build_router(
         ref: str,
         source: Annotated[str, Query(alias="from")],
         lang: str = "en",
+        view: Literal["sections", "books"] = "sections",
     ) -> dict[str, Any]:
         """The passage of this corpus that corresponds to `ref` in `from`.
 
         Books are matched with a concordance of book names; chapters and
         verses by number. `exact` is false when only an enclosing section
         exists here (a verse missing in this corpus, for instance).
+        With `view=books`, the passage in this corpus' book view (DSS).
         """
         corpus_api(corpus)
         corpus_api(source)
         try:
-            result = service.align(source, ref, corpus, lang)
+            result = service.align(source, ref, corpus, lang, view)
         except ValueError as e:
             raise HTTPException(404, str(e)) from None
         if result is None:
@@ -277,6 +280,87 @@ def build_router(
             return compare_passages(service, a, aref, b, bref, lang)
         except ValueError as e:
             raise HTTPException(404, str(e)) from None
+
+    # reading by biblical book (DSS)
+
+    def book_index(corpus: str):
+        corpus_api(corpus)
+        index = service.book_index(corpus)
+        if index is None:
+            raise HTTPException(404, f"{corpus} cannot be read by biblical book")
+        return index
+
+    @router.get("/corpora/{corpus}/books")
+    def books(corpus: str) -> dict[str, Any]:
+        """The biblical books in this corpus, with chapters, verses and scrolls."""
+        return {"books": book_index(corpus).summary()}
+
+    @router.get("/corpora/{corpus}/witnesses")
+    def witnesses(
+        corpus: str,
+        ref: str,
+        opts: Annotated[RenderOptions, Depends(render_options)],
+        mode: Literal["pretty", "plain"] = "plain",
+    ) -> dict[str, Any]:
+        """A chapter or verse in the book view: per verse, the text of each scroll.
+
+        Each witness has the scroll, the place of its words (`f1i:1–2`), a
+        reference to open that place in the scroll, its words and a render
+        tree of them, in which reconstructed text is flagged `dim`.
+        `alsoNonBiblical` is set for text that the DSS also lists among
+        non-biblical material (`biblical=2`).
+        """
+        index = book_index(corpus)
+        parsed = parse_ref(ref)
+        if parsed is None or not index.has(*parsed):
+            raise HTTPException(404, f"{corpus} has no {ref}")
+        (book, chapter, verse) = parsed
+        api = corpus_api(corpus)
+        config = service.config(corpus)
+        L, T = api.L, api.T
+        lineType = T.sectionTypes[-1] if T.sectionTypes else None
+        chapterVerses = index.books[book][chapter]
+        verses = []
+        for v in [verse] if verse is not None else list(chapterVerses):
+            rows = []
+            for w in chapterVerses[v]:
+                fragments: list[dict[str, Any]] = []
+                for word in w.words:
+                    tree = render_node(api, config, word, mode, opts).to_dict()
+                    fragments.extend(tree["fragments"])
+                mark_reconstructed(api, fragments)
+                line = L.u(w.words[0], otype=lineType)[0] if lineType else None
+                rows.append(
+                    {
+                        "scroll": w.scroll,
+                        "place": place(api, w.words),
+                        "ref": section_ref_for(api, config, int(line), lang=opts.lang)
+                        if line
+                        else None,
+                        "words": w.words,
+                        "alsoNonBiblical": w.also_non_biblical,
+                        "tree": {
+                            "node": w.words[0],
+                            "type": index.word_type,
+                            "mode": mode,
+                            "fmt": tree["fmt"],
+                            "direction": tree["direction"],
+                            "heading": f"{w.scroll} {place(api, w.words)}",
+                            "fragments": fragments,
+                        },
+                    }
+                )
+            verses.append(
+                {"verse": v, "ref": format_ref(book, chapter, v), "witnesses": rows}
+            )
+        return {
+            "ref": format_ref(book, chapter, verse),
+            "book": book,
+            "chapter": chapter,
+            "chapterRef": format_ref(book, chapter),
+            "verses": verses,
+            **index.neighbours(book, chapter),
+        }
 
     @router.get("/corpora/{corpus}/passage")
     def passage(
@@ -306,6 +390,8 @@ def build_router(
             render_node(api, config, n, mode, opts).to_dict()
             for n in nodes[:MAX_PASSAGE]
         ]
+        for tree in trees:
+            mark_reconstructed(api, tree["fragments"])
         return {
             "node": node,
             "ref": section_ref_for(api, config, node, lang=opts.lang),

@@ -138,6 +138,13 @@ class TestAlign:
         assert response.status_code == 404
 
 
+class TestBookView:
+    def test_corpus_with_books_has_none(self, client):
+        # its sections are books already; see test_witnesses.py for the DSS
+        assert client.get("/api/corpora/heb").json()["bookView"] is False
+        assert client.get("/api/corpora/heb/books").status_code == 404
+
+
 class TestCompare:
     # the diff itself is tested in test_compare.py; the fixture is not Hebrew
 
