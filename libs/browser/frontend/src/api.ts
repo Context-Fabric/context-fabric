@@ -1,13 +1,16 @@
 import type {
+  BookSummary,
   CorpusCard,
   DiffKind,
   FeatureEntry,
   NodeInfo,
   Problem,
+  ReadBy,
   RenderTree,
   ResultRow,
   SearchStatus,
   SectionItem,
+  WitnessPassage,
 } from "./types";
 
 export class ApiError extends Error {
@@ -89,10 +92,15 @@ export const api = {
       body: JSON.stringify({ id }),
     }),
 
-  align: (corpus: string, from: string, ref: string) =>
-    request<{ node: number; ref: string; exact: boolean }>(
-      `${corpusPath(corpus)}/align${query({ from, ref })}`,
+  align: (corpus: string, from: string, ref: string, view: ReadBy = "sections") =>
+    request<{ node: number | null; ref: string; exact: boolean }>(
+      `${corpusPath(corpus)}/align${query({ from, ref, view })}`,
     ),
+
+  books: (corpus: string) => request<{ books: BookSummary[] }>(`${corpusPath(corpus)}/books`),
+
+  witnesses: (corpus: string, ref: string, params: RenderParams) =>
+    request<WitnessPassage>(`${corpusPath(corpus)}/witnesses${query({ ref, ...params })}`),
 
   /** Words that differ between a passage of `a` and the corresponding passage of `b`. */
   compare: (a: string, aref: string, b: string, bref: string) =>

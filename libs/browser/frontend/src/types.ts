@@ -22,6 +22,8 @@ export interface Fragment {
   features?: FeatureValue[];
   highlight?: string;
   base?: boolean;
+  /** Reconstructed by a modern editor (DSS); shown dimmed. */
+  dim?: boolean;
   children?: Fragment[];
 }
 
@@ -79,6 +81,8 @@ export interface CorpusCard {
   maxNode: number;
   nodeTypes: { type: string; count: number; isSlot: boolean }[];
   sectionTypes: string[];
+  /** Whether the corpus can also be read by biblical book (DSS). */
+  bookView: boolean;
   display: DisplayConfig;
 }
 
@@ -156,3 +160,35 @@ export interface ViewSettings {
 
 /** How a word differs from its counterpart in another corpus: only in matres lectionis, or otherwise. */
 export type DiffKind = "matres" | "variant";
+
+/** How a reading pane goes through a corpus: by its own sections, or by biblical book (DSS). */
+export type ReadBy = "sections" | "books";
+
+export interface BookSummary {
+  book: string;
+  label: string;
+  ref: string;
+  scrolls: number;
+  verses: number;
+  chapters: { chapter: number; ref: string; verses: number; witnesses: number }[];
+}
+
+/** The text of one verse in one scroll. */
+export interface Witness {
+  scroll: string;
+  place: string;
+  ref: string | null; // its fragment in scroll view
+  words: number[];
+  alsoNonBiblical: boolean;
+  tree: RenderTree;
+}
+
+export interface WitnessPassage {
+  ref: string;
+  book: string;
+  chapter: number;
+  chapterRef: string;
+  verses: { verse: number; ref: string; witnesses: Witness[] }[];
+  prev: string | null;
+  next: string | null;
+}

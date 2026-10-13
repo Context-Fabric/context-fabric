@@ -213,3 +213,10 @@
   display: inline-block;
   padding: 0 0.3em;
 }
+
+/* reconstructed by a modern editor (DSS) */
+
+.dim {
+  color: var(--stone);
+  opacity: 0.8;
+}

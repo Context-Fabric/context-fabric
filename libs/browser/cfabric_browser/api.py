@@ -305,7 +305,7 @@ def build_router(
         """A chapter or verse in the book view: per verse, the text of each scroll.
 
         Each witness has the scroll, the place of its words (`f1i:1–2`), a
-        reference to open that place in the scroll, its words and a render
+        reference to open its fragment in the scroll, its words and a render
         tree of them, in which reconstructed text is flagged `dim`.
         `alsoNonBiblical` is set for text that the DSS also lists among
         non-biblical material (`biblical=2`).
@@ -318,7 +318,9 @@ def build_router(
         api = corpus_api(corpus)
         config = service.config(corpus)
         L, T = api.L, api.T
-        lineType = T.sectionTypes[-1] if T.sectionTypes else None
+        # a witness links to its fragment in the scroll view, for context
+        types = T.sectionTypes or ()
+        placeType = types[1] if len(types) > 1 else (types[0] if types else None)
         chapterVerses = index.books[book][chapter]
         verses = []
         for v in [verse] if verse is not None else list(chapterVerses):
@@ -329,13 +331,13 @@ def build_router(
                     tree = render_node(api, config, word, mode, opts).to_dict()
                     fragments.extend(tree["fragments"])
                 mark_reconstructed(api, fragments)
-                line = L.u(w.words[0], otype=lineType)[0] if lineType else None
+                where = L.u(w.words[0], otype=placeType)[0] if placeType else None
                 rows.append(
                     {
                         "scroll": w.scroll,
                         "place": place(api, w.words),
-                        "ref": section_ref_for(api, config, int(line), lang=opts.lang)
-                        if line
+                        "ref": section_ref_for(api, config, int(where), lang=opts.lang)
+                        if where
                         else None,
                         "words": w.words,
                         "alsoNonBiblical": w.also_non_biblical,

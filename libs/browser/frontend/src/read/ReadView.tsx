@@ -3,7 +3,8 @@ import { useState } from "react";
 import { api } from "../api";
 import { Cite, citePassage } from "../Cite";
 import { displayRef, Plain, Pretty } from "../display/Display";
-import type { CorpusCard, SectionItem, ViewSettings } from "../types";
+import type { CorpusCard, ReadBy, SectionItem, ViewSettings } from "../types";
+import { ReadBySwitch } from "./BookView";
 
 interface Props {
   corpus: CorpusCard;
@@ -16,6 +17,8 @@ interface Props {
   note?: string | null;
   /** About differences with the text in other panes, when they are shown. */
   diff?: string | null;
+  /** For a corpus that can also be read by biblical book (DSS). */
+  onBy?: (by: ReadBy) => void;
 }
 
 /** Books, then the chapters of the current book. */
@@ -112,7 +115,7 @@ function useStartRef(corpus: CorpusCard, enabled: boolean): string | null {
   return data ?? null;
 }
 
-export function ReadView({ corpus, passageRef, settings, onOpen, compact = false, note = null, diff = null }: Props) {
+export function ReadView({ corpus, passageRef, settings, onOpen, compact = false, note = null, diff = null, onBy }: Props) {
   const [mode, setMode] = useState<"pretty" | "plain">("plain");
   const startRef = useStartRef(corpus, passageRef === null);
   const ref = passageRef ?? startRef;
@@ -171,6 +174,7 @@ export function ReadView({ corpus, passageRef, settings, onOpen, compact = false
           </div>
           <div className="ms-auto flex items-center gap-2">
           {data ? <Cite text={(software, date) => citePassage(corpus, data.ref, software, date)} /> : null}
+          {corpus.bookView && onBy ? <ReadBySwitch by="sections" onBy={onBy} /> : null}
           <div className="flex rounded border border-rule-strong text-[13px]" role="group" aria-label="Display">
             {(["plain", "pretty"] as const).map((m) => (
               <button
