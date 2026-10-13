@@ -471,7 +471,13 @@ class Text:
                 # Get dataType from api.F feature or CF.features
                 fFeature = getattr(api.F, fName, None)
                 if fFeature is not None and hasattr(fFeature, 'meta'):
-                    dataType = fFeature.meta.get('value_type', 'str')
+                    # .cfm metadata says `value_type`; metadata read from .tf
+                    # files (the first load, before compiling) says `valueType`
+                    dataType = (
+                        fFeature.meta.get('value_type')
+                        or fFeature.meta.get('valueType')
+                        or 'str'
+                    )
                 else:
                     fObj = api.CF.features.get(fName)
                     dataType = fObj.dataType if fObj else 'str'

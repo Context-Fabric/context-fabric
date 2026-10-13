@@ -151,6 +151,20 @@ class TestSections:
         with pytest.raises(ValueError):
             node_from_section_ref(api, ref)
 
+    def test_section_types_on_first_load(self, corpus_path, tmp_path):
+        # The first load reads .tf files (and compiles the .cfm cache); section
+        # value types must be right then too, or "Alpha Book 1.2" won't resolve.
+        import shutil
+
+        from cfabric.core.fabric import Fabric
+
+        fresh = tmp_path / "corpus"
+        shutil.copytree(corpus_path, fresh, ignore=shutil.ignore_patterns(".cfm"))
+        for attempt in ("from .tf", "from .cfm"):
+            api = Fabric(locations=str(fresh), silent="deep").loadAll(silent="deep")
+            assert api.T.sectionFeatureTypes == ["str", "int", "int"], attempt
+            assert node_from_section_ref(api, "Alpha Book 1.2", sep2=".") == 17
+
     def test_two_section_levels(self, loaded_api):
         # mini_corpus has two section levels: sentence and phrase
         assert section_ref(loaded_api, 1) == "S1 1"
