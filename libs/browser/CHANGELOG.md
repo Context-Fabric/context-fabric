@@ -17,5 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Search all corpora: run a template in every open corpus and compare the counts; each opens in its own pane
 - Choose a corpus version with `@`: `DT-UCPH/sp@7.2.4`, or `@latest` for the newest on this computer (by default the version named in the corpus' app config); the corpus card reports the version actually loaded
 - Local display settings in `~/.cfabric/display/<org>/<repo>[@<version>].yaml`, layered over a corpus' app config
+- Statistics on search results: how often each value of a feature occurs on one part of the results (by default a feature the template leaves open, such as `lex*`), and how the results spread over books or chapters; with a table view, and links to read each section
 - Corpus library: open other corpora found on this computer while the browser runs (`--no-library` switches this off)
 - Template problems as structured data (line, message, feature or node type), including problems inside quantifiers that the search engine only logs

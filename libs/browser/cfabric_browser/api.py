@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import threading
+from collections import Counter
 from typing import Annotated, Any, Literal
 
 from anyio import to_thread
@@ -30,12 +31,18 @@ from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from cfabric_browser.corpora import CorpusService, discover, resolve_corpus
-from cfabric_browser.queries import LANGUAGES, check_template, template_features
+from cfabric_browser.queries import (
+    LANGUAGES,
+    check_template,
+    template_constraints,
+    template_features,
+)
 from cfabric_browser.workers import FINISHED, SearchJob, SearchPool
 
 MAX_PAGE = 500
 MAX_DOWN = 200
 MAX_PASSAGE = 200
+STATS_SAMPLE = 300
 
 
 class OpenRequest(BaseModel):
@@ -483,6 +490,142 @@ def build_router(
             "index": index,
             "nodes": list(page[0]),
             "trees": [t.to_dict() for t in trees],
+        }
+
+    # statistics over the results of a search
+
+    def position_nodes(job: SearchJob, position: int) -> list[int]:
+        rows = job.page(0, job.count)
+        if rows and not 0 <= position < len(rows[0]):
+            raise HTTPException(404, f"Results have no position {position + 1}")
+        return [row[position] for row in rows]
+
+    @router.get("/searches/{search_id}/stats/features")
+    def stats_features(
+        search_id: str, position: int = Query(0, ge=0)
+    ) -> dict[str, Any]:
+        """Features that have values on the nodes at one position of the results.
+
+        Looks at a sample of the results; features the template mentions for
+        this position come first.
+        """
+        job = search_job(search_id)
+        api = corpus_api(job.corpus)
+        config = service.config(job.corpus)
+        nodes = position_nodes(job, position)
+        if not nodes:
+            return {
+                "position": position,
+                "type": None,
+                "features": [],
+                "inTemplate": [],
+                "open": [],
+            }
+        sample = nodes[:: max(1, len(nodes) // STATS_SAMPLE)][:STATS_SAMPLE]
+        nType = api.F.otype.v(nodes[0])
+        features = []
+        for name in sorted(api.Fall()):
+            if name == "otype" or name in config.excluded_features:
+                continue
+            fObj = api.Fs(name)
+            if any(fObj.v(n) not in (None, "") for n in sample):
+                features.append(name)
+        perAtom = template_constraints(api, job.template)
+        mentioned = perAtom[position] if position < len(perAtom) else []
+        inTemplate = [name for (name, _) in mentioned if name in features]
+        # features the template leaves open (`lex*`) are the interesting ones to count
+        openFeatures = [
+            name for (name, fixed) in mentioned if not fixed and name in features
+        ]
+        return {
+            "position": position,
+            "type": nType,
+            "features": features,
+            "inTemplate": inTemplate,
+            "open": openFeatures,
+        }
+
+    @router.get("/searches/{search_id}/stats/values")
+    def stats_values(
+        search_id: str,
+        feature: str,
+        position: int = Query(0, ge=0),
+        top: int = Query(25, ge=1, le=500),
+    ) -> dict[str, Any]:
+        """How often each value of a feature occurs at one position of the results.
+
+        Counts distinct nodes, so a word that occurs in several results counts
+        once. Values the corpus marks as "no value" (NA, none, ...) are counted
+        separately.
+        """
+        job = search_job(search_id)
+        api = corpus_api(job.corpus)
+        if feature not in api.Fall() or feature == "otype":
+            raise HTTPException(404, f"Unknown feature: {feature}")
+        config = service.config(job.corpus)
+        nodes = set(position_nodes(job, position))
+        fObj = api.Fs(feature)
+        counts: Counter[str] = Counter()
+        empty = 0
+        for n in nodes:
+            value = fObj.v(n)
+            if value is None or value == "" or value in config.none_values:
+                empty += 1
+            else:
+                counts[str(value)] += 1
+        ranked = counts.most_common()
+        shown = ranked[:top]
+        rest = ranked[top:]
+        return {
+            "search": job.snapshot(),
+            "position": position,
+            "type": api.F.otype.v(next(iter(nodes))) if nodes else None,
+            "feature": feature,
+            "nodes": len(nodes),
+            "withoutValue": empty,
+            "distinct": len(counts),
+            "values": [{"value": v, "count": c} for (v, c) in shown],
+            "other": {"values": len(rest), "count": sum(c for (_, c) in rest)},
+        }
+
+    @router.get("/searches/{search_id}/stats/sections")
+    def stats_sections(
+        search_id: str,
+        level: int = Query(0, ge=0, le=2),
+        lang: str = "en",
+    ) -> dict[str, Any]:
+        """Results per section (book, chapter, ...) of their first node, in text order."""
+        job = search_job(search_id)
+        api = corpus_api(job.corpus)
+        config = service.config(job.corpus)
+        T, L = api.T, api.L
+        sectionTypes = list(T.sectionTypes or ())
+        if level >= len(sectionTypes):
+            raise HTTPException(404, "This corpus has no sections at that level")
+        sType = sectionTypes[level]
+        slotType = api.F.otype.slotType
+        eOslots = api.E.oslots.s
+        counts: Counter[int] = Counter()
+        for row in job.page(0, job.count):
+            first = row[0]
+            if api.F.otype.v(first) == sType:
+                counts[first] += 1
+                continue
+            # the section of the node's first slot, as in references; a node
+            # that crosses sections lies in none of them as a whole
+            slot = first if api.F.otype.v(first) == slotType else int(eOslots(first)[0])
+            ups = L.u(slot, otype=sType)
+            if ups:
+                counts[int(ups[0])] += 1
+        sections = [
+            {**section_item(api, config, n, lang), "count": counts[n]}
+            for n in sorted(counts)
+        ]
+        return {
+            "search": job.snapshot(),
+            "level": level,
+            "type": sType,
+            "sections": sections,
         }
 
     @router.get("/searches/{search_id}/export.tsv")

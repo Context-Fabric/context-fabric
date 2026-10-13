@@ -137,6 +137,27 @@ export const api = {
       `/api/searches/${id}/results/${index}${query({ ...params })}`,
     ),
 
+  statsFeatures: (id: string, position: number) =>
+    request<{ position: number; type: string | null; features: string[]; inTemplate: string[]; open: string[] }>(
+      `/api/searches/${id}/stats/features${query({ position })}`,
+    ),
+
+  statsValues: (id: string, position: number, feature: string, top = 25) =>
+    request<{
+      nodes: number;
+      type: string | null;
+      feature: string;
+      withoutValue: number;
+      distinct: number;
+      values: { value: string; count: number }[];
+      other: { values: number; count: number };
+    }>(`/api/searches/${id}/stats/values${query({ position, feature, top })}`),
+
+  statsSections: (id: string, level: number) =>
+    request<{ level: number; type: string; sections: (SectionItem & { count: number })[] }>(
+      `/api/searches/${id}/stats/sections${query({ level })}`,
+    ),
+
   exportUrl: (id: string, fmt?: string | null, excel = false) =>
     `/api/searches/${id}/export.tsv${query({ fmt, excel: excel || null })}`,
 

@@ -5,6 +5,7 @@ import type { Pane } from "../state";
 import type { CorpusCard, Problem, SearchStatus, ViewSettings } from "../types";
 import { QueryEditor } from "./QueryEditor";
 import { ResultList } from "./ResultList";
+import { Stats } from "./Stats";
 
 const HISTORY_KEY = "cfabric-browser/history";
 const HISTORY_SIZE = 20;
@@ -61,17 +62,21 @@ function formatCount(n: number): string {
   return n.toLocaleString("en-US");
 }
 
+type Tab = "results" | "stats";
+
 interface StatusProps {
   status: SearchStatus;
   onCancel: () => void;
   exportUrl: string;
   excelUrl: string;
+  tab: Tab;
+  onTab: (tab: Tab) => void;
 }
 
 const EXPORT_HINT =
   "One row per result. Features in your template become columns; add a line like `word sp*` to include a feature without narrowing the search.";
 
-function StatusLine({ status, onCancel, exportUrl, excelUrl }: StatusProps) {
+function StatusLine({ status, onCancel, exportUrl, excelUrl, tab, onTab }: StatusProps) {
   const seconds = status.elapsed < 10 ? status.elapsed.toFixed(2) : status.elapsed.toFixed(1);
   const results = `${formatCount(status.count)} ${status.count === 1 ? "result" : "results"}`;
   let text: string;
@@ -99,8 +104,25 @@ function StatusLine({ status, onCancel, exportUrl, excelUrl }: StatusProps) {
   const running = status.state === "running" || status.state === "queued";
   const finished = !running && status.state !== "failed";
   return (
-    <div className="flex items-center gap-4 border-b border-rule px-4 py-2.5 text-[14px]" role="status">
-      <span className={status.state === "timeout" ? "text-madder" : ""}>{text}</span>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-rule px-4 py-2.5 text-[14px]">
+      <span role="status" className={status.state === "timeout" ? "text-madder" : ""}>
+        {text}
+      </span>
+      {status.count > 0 ? (
+        <div className="flex gap-0.5 text-[13px]" role="group" aria-label="Show">
+          {(["results", "stats"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              aria-pressed={tab === t}
+              onClick={() => onTab(t)}
+              className="rounded px-2.5 py-0.5 hover:bg-woad-soft aria-pressed:bg-ink aria-pressed:text-vellum"
+            >
+              {t === "results" ? "Results" : "Statistics"}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {running ? (
         <button
           type="button"
@@ -224,6 +246,7 @@ export function SearchView({
 }: Props) {
   const status = useSearchStatus(searchId);
   const [others, setOthers] = useState<{ template: string; searches: OtherSearch[] } | null>(null);
+  const [tab, setTab] = useState<Tab>("results");
   const [problems, setProblems] = useState<Problem[]>([]);
   const [starting, setStarting] = useState(false);
   const [history, setHistory] = useState<string[]>(() => loadHistory(corpus.name));
@@ -353,9 +376,13 @@ export function SearchView({
               onCancel={() => api.cancel(status.id)}
               exportUrl={api.exportUrl(status.id, settings.fmt)}
               excelUrl={api.exportUrl(status.id, settings.fmt, true)}
+              tab={tab}
+              onTab={setTab}
             />
             <div className="min-h-0 flex-1">
-              {status.count > 0 ? (
+              {status.count > 0 && tab === "stats" ? (
+                <Stats search={status} corpus={corpus} onOpenPassage={onOpenPassage} />
+              ) : status.count > 0 ? (
                 <ResultList
                   search={status}
                   settings={settings}

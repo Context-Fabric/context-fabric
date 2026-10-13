@@ -28,6 +28,8 @@
   --woad-soft: #e6e9f2;
   --madder: #a23b2a;
   --madder-soft: #f6e4df;
+  /* chart bars: woad, brightened to pass the chart colour checks (lightness, chroma) */
+  --chart: #3f5fbf;
 
   /* structure levels in pretty displays, from slots (0) to sections (4) */
   --level-0: #b9b3a8;
@@ -53,6 +55,7 @@
   --woad-soft: #232a3d;
   --madder: #e08a77;
   --madder-soft: #3a211c;
+  --chart: #6f8ae0;
 
   --level-0: #4a4740;
   --level-1: #4f5b80;
@@ -77,6 +80,7 @@
   --color-woad-soft: var(--woad-soft);
   --color-madder: var(--madder);
   --color-madder-soft: var(--madder-soft);
+  --color-chart: var(--chart);
 
   --font-serif: "Source Serif 4 Variable", "Source Serif 4", Georgia, serif;
   --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
