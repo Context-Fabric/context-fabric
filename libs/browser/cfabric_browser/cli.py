@@ -38,6 +38,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--no-open", action="store_true", help="do not open a web browser"
     )
+    parser.add_argument(
+        "--no-library",
+        action="store_true",
+        help="do not let users open other corpora found on this computer",
+    )
     parser.add_argument("--version", action="version", version=__version__)
     return parser.parse_args(argv)
 
@@ -80,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
         max_results=args.max_results,
         timeout=args.timeout,
     )
-    app = create_app(service, pool)
+    app = create_app(service, pool, library=not args.no_library)
 
     host = args.host
     url = f"http://{'localhost' if host in ('127.0.0.1', '0.0.0.0') else host}:{args.port}/"

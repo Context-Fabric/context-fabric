@@ -21,10 +21,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from cfabric.display import DisplayConfig, find_app_config
+from cfabric.display import (
+    DisplayConfig,
+    find_app_config,
+    node_from_section_ref,
+    section_ref_for,
+)
 from cfabric.display.config import read_app_config
 from cfabric.registry import CorpusRegistry
 from cfabric.utils.helpers import versionSort
+
+from cfabric_browser.books import book_index, canonical_book
 
 logger = logging.getLogger(__name__)
 
@@ -139,13 +146,66 @@ def resolve_corpus(spec: str, roots: tuple[str, ...] = SEARCH_ROOTS) -> CorpusSp
     return CorpusSpec(name=name.lower(), path=dataDir.resolve())
 
 
+def _app_title(repo: Path) -> str | None:
+    config = repo / "app" / "config.yaml"
+    if not config.is_file():
+        return None
+    try:
+        provenance = read_app_config(config).get("provenanceSpec") or {}
+    except Exception:  # noqa: BLE001 - a broken config only costs the title
+        return None
+    title = provenance.get("corpus")
+    return str(title) if title else None
+
+
+def discover(roots: tuple[str, ...] = SEARCH_ROOTS) -> list[dict[str, Any]]:
+    """Corpora on this computer, in Text-Fabric layout (`<org>/<repo>/tf/<version>`).
+
+    A corpus found under several roots is listed once, from the first root.
+    """
+    found: dict[str, dict[str, Any]] = {}
+    for root in roots:
+        base = Path(root).expanduser()
+        if not base.is_dir():
+            continue
+        for org in sorted(base.iterdir()):
+            if not org.is_dir():
+                continue
+            for repo in sorted(org.iterdir()):
+                tfDir = repo / "tf"
+                if not tfDir.is_dir():
+                    continue
+                versions = sorted(
+                    (d.name for d in tfDir.iterdir() if d.is_dir() and _is_data_dir(d)),
+                    key=versionSort,
+                )
+                if not versions:
+                    continue
+                key = f"{org.name}/{repo.name}".lower()
+                if key in found:
+                    continue
+                found[key] = {
+                    "id": f"{org.name}/{repo.name}",
+                    "name": repo.name.lower(),
+                    "title": _app_title(repo),
+                    "versions": versions,
+                }
+    return sorted(found.values(), key=lambda c: c["id"].lower())
+
+
 class CorpusService:
     """The corpora served by the browser, with their display configurations."""
 
-    def __init__(self, specs: list[CorpusSpec] | None = None) -> None:
+    def __init__(
+        self,
+        specs: list[CorpusSpec] | None = None,
+        roots: tuple[str, ...] = SEARCH_ROOTS,
+    ) -> None:
         self.registry = CorpusRegistry()
+        self.roots = roots  # where the library looks for corpora
         self._specs: dict[str, CorpusSpec] = {}
         self._configs: dict[str, DisplayConfig] = {}
+        self._books: dict[str, dict[str, str]] = {}
         self._lock = threading.Lock()
         for spec in specs or ():
             self.add(spec)
@@ -153,6 +213,9 @@ class CorpusService:
     def add(self, spec: CorpusSpec) -> None:
         self.registry.register(spec.path, spec.name)
         self._specs[spec.name] = spec
+
+    def spec(self, name: str) -> CorpusSpec:
+        return self._specs[name]
 
     @property
     def specs(self) -> list[CorpusSpec]:
@@ -181,6 +244,71 @@ class CorpusService:
         with self._lock:
             self._configs[name] = config
         return config
+
+    def books(self, name: str) -> dict[str, str]:
+        """Canonical book ids of a corpus, mapped to its own book names."""
+        with self._lock:
+            index = self._books.get(name)
+        if index is not None:
+            return index
+        api = self.api(name)
+        T = api.T
+        names = (
+            [
+                str(T.sectionFromNode(int(n), lang="en")[0])
+                for n in api.F.otype.s(T.sectionTypes[0])
+            ]
+            if T.sectionTypes
+            else []
+        )
+        index = book_index(names)
+        with self._lock:
+            self._books[name] = index
+        return index
+
+    def align(
+        self, source: str, ref: str, target: str, lang: str = "en"
+    ) -> dict[str, Any] | None:
+        """The passage in `target` that corresponds to `ref` in `source`.
+
+        Books are matched through the book concordance (`1_Samuel` in one
+        corpus is `1Sam` in another); chapters and verses by number. When the
+        verse (or chapter) does not exist in the target, the nearest enclosing
+        section that does is returned, with `exact` false.
+
+        Returns None when the target has no counterpart, e.g. a book it does
+        not contain, or a corpus with a different kind of sections.
+
+        Raises
+        ------
+        ValueError
+            If `ref` is not a passage of `source`.
+        """
+        sApi, tApi = self.api(source), self.api(target)
+        sConfig, tConfig = self.config(source), self.config(target)
+        node = node_from_section_ref(
+            sApi, ref, sConfig.section_sep1, sConfig.section_sep2, lang
+        )
+        section = sApi.T.sectionFromNode(node, lang="en")
+        if not section or not tApi.T.sectionTypes:
+            return None
+
+        book = str(section[0])
+        canonical = canonical_book(book)
+        tBook = self.books(target).get(canonical) if canonical else None
+        if tBook is None:
+            # corpora with other kinds of sections: same name or nothing
+            tBook = book
+        parts = (tBook, *section[1 : len(tApi.T.sectionTypes)])
+        for k in range(len(parts), 0, -1):
+            tNode = tApi.T.nodeFromSection(parts[:k], lang="en")
+            if tNode is not None:
+                return {
+                    "node": int(tNode),
+                    "ref": section_ref_for(tApi, tConfig, int(tNode), lang=lang),
+                    "exact": k == len(section),
+                }
+        return None
 
     def card(self, name: str) -> dict[str, Any]:
         """Everything a client needs to know about a corpus to work with it."""

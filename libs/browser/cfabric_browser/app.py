@@ -33,6 +33,7 @@ def create_app(
     pool: SearchPool,
     static_dir: Path = STATIC,
     manage_pool: bool = True,
+    library: bool = True,
 ) -> FastAPI:
     """Build the application.
 
@@ -46,6 +47,9 @@ def create_app(
         Directory with the built interface (`index.html` and `assets/`).
     manage_pool: bool
         Start the pool when the app starts and stop it when it stops.
+    library: bool
+        Let people open other corpora found on this computer. Switch this off
+        when the browser is reachable by others.
     """
 
     @asynccontextmanager
@@ -63,7 +67,7 @@ def create_app(
         version=__version__,
         lifespan=lifespan,
     )
-    app.include_router(build_router(service, pool))
+    app.include_router(build_router(service, pool, library=library))
 
     @app.get("/api/health")
     def health() -> dict:
