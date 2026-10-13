@@ -158,6 +158,25 @@ class TestPassages:
         assert [t["node"] for t in data["trees"]] == [16, 17]
         assert data["truncated"] is False
 
+    def test_passage_path_and_neighbours(self, client):
+        data = client.get(
+            "/api/corpora/alpha/passage", params={"ref": "Alpha Book 1.2"}
+        ).json()
+        assert data["ref"] == "Alpha Book 1.2"
+        assert [p["ref"] for p in data["path"]] == [
+            "Alpha Book",
+            "Alpha Book 1",
+            "Alpha Book 1.2",
+        ]
+        assert data["prev"]["ref"] == "Alpha Book 1.1"
+        # the next verse is in the next chapter
+        assert data["next"]["ref"] == "Alpha Book 2.1"
+        last = client.get(
+            "/api/corpora/alpha/passage", params={"ref": "Alpha Book 2"}
+        ).json()
+        assert last["prev"]["ref"] == "Alpha Book 1"
+        assert last["next"] is None
+
     def test_passage_options(self, client):
         data = client.get(
             "/api/corpora/alpha/passage",

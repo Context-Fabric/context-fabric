@@ -167,17 +167,7 @@ def build_router(service: CorpusService, pool: SearchPool) -> APIRouter:
             node = None
             childNodes = [int(n) for n in api.F.otype.s(sectionTypes[0])]
             heading = ""
-        children = []
-        for n in childNodes:
-            section = T.sectionFromNode(n, lang=lang)
-            children.append(
-                {
-                    "node": n,
-                    "type": api.F.otype.v(n),
-                    "label": str(section[-1]) if section else str(n),
-                    "ref": section_ref_for(api, config, n, lang=lang),
-                }
-            )
+        children = [section_item(api, config, n, lang) for n in childNodes]
         return {"node": node, "heading": heading, "children": children}
 
     @router.get("/corpora/{corpus}/passage")
@@ -210,9 +200,11 @@ def build_router(service: CorpusService, pool: SearchPool) -> APIRouter:
         ]
         return {
             "node": node,
-            "ref": ref,
+            "ref": section_ref_for(api, config, node, lang=opts.lang),
             "total": len(nodes),
             "truncated": len(nodes) > MAX_PASSAGE,
+            "path": section_path(api, config, node, opts.lang),
+            **section_neighbours(api, config, node, opts.lang),
             "trees": trees,
         }
 
@@ -252,7 +244,8 @@ def build_router(service: CorpusService, pool: SearchPool) -> APIRouter:
 
         edges: dict[str, dict[str, list]] = {}
         for name in sorted(api.Eall()):
-            if name == "oslots":
+            # oslots is structure; omap@... maps nodes between corpus versions
+            if name == "oslots" or name.startswith("omap@"):
                 continue
             es = api.Es(name)
             out = [_edge_item(x) for x in (es.f(node) or ())]
@@ -451,6 +444,46 @@ def build_router(service: CorpusService, pool: SearchPool) -> APIRouter:
         )
 
     return router
+
+
+def section_item(api, config, node: int, lang: str) -> dict[str, Any]:
+    """A section node as shown in navigation: its label and full reference."""
+    section = api.T.sectionFromNode(node, lang=lang)
+    return {
+        "node": node,
+        "type": api.F.otype.v(node),
+        "label": str(section[-1]) if section else str(node),
+        "ref": section_ref_for(api, config, node, lang=lang),
+    }
+
+
+def section_path(api, config, node: int, lang: str) -> list[dict[str, Any]]:
+    """The sections a section node lies in, from the top down, ending with itself."""
+    F, L, T = api.F, api.L, api.T
+    nType = F.otype.v(node)
+    path = []
+    for sType in T.sectionTypes:
+        if sType == nType:
+            path.append(section_item(api, config, node, lang))
+            break
+        ups = L.u(node, otype=sType)
+        if ups:
+            path.append(section_item(api, config, int(ups[0]), lang))
+    return path
+
+
+def section_neighbours(api, config, node: int, lang: str) -> dict[str, Any]:
+    """The previous and next section of the same level, across parents."""
+    F = api.F
+    siblings = F.otype.s(F.otype.v(node))
+    (first, last) = (int(siblings[0]), int(siblings[-1]))
+    # section nodes of one type are numbered consecutively in text order
+    prev = node - 1 if node > first else None
+    nxt = node + 1 if node < last else None
+    return {
+        "prev": None if prev is None else section_item(api, config, prev, lang),
+        "next": None if nxt is None else section_item(api, config, nxt, lang),
+    }
 
 
 def _edge_item(x: Any) -> dict[str, Any]:

@@ -2,7 +2,7 @@
 
 A graphical browser for [Context-Fabric](https://context-fabric.ai) corpora, the successor of the Text-Fabric browser. It runs on your own computer and works offline.
 
-> **Status: pre-alpha.** The server and its API work; the interface is being built.
+> **Status: pre-alpha.** Reading, searching and inspecting one or more corpora works; working with several corpora side by side is next.
 
 ## Usage
 
@@ -61,3 +61,19 @@ Display options are query parameters: `mode` (`pretty`/`plain`), `fmt`, `full`, 
 - Searches run in worker processes, so the interface stays responsive and searches can run in parallel. Because corpora are memory-mapped, the workers share most of their memory. A search that ignores its time limit or a stop request is ended by restarting its worker.
 - Results stream in while the search runs. Once it has finished, they are put in canonical order.
 - Displays are built by `cfabric.display` as structured render trees, which the interface draws. The corpus' Text-Fabric app configuration (`app/config.yaml`) is used as it is.
+
+## Development
+
+The interface is a Vite + React + TypeScript app in `frontend/`. It is built into `cfabric_browser/static/`, which is not in git; the release workflow builds it before packaging.
+
+```bash
+cd libs/browser/frontend
+npm install
+npm run build        # type-check and build into cfabric_browser/static
+npm run dev          # live-reloading interface on :5173, using a running cfabric-browser on :8107
+```
+
+Fonts are bundled from npm (`@fontsource`), so the browser needs no internet. For Hebrew, Ezra SIL or SBL Hebrew are used when installed on the computer, otherwise the bundled Noto Serif Hebrew.
+
+Tests: `pytest tests/` in `libs/browser` (they start real search workers on a small fixture corpus).
+
