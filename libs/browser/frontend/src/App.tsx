@@ -428,6 +428,42 @@ export function App() {
     document.title = nameList ? `${nameList}: Context-Fabric` : "Context-Fabric Browser";
   }, [nameList]);
 
+  // With synchronised reading, reading panes without a passage (a short link,
+  // a new pane) open the passage of the first pane that has one.
+  useEffect(() => {
+    if (!ws.sync) return;
+    const source = ws.panes.find((p) => p.view === "read" && p.corpus && p.ref);
+    const missing = ws.panes
+      .map((p, i) => (p.view === "read" && p.corpus && !p.ref ? i : -1))
+      .filter((i) => i >= 0);
+    if (!source || !missing.length) return;
+    let current = true;
+    (async () => {
+      const changes = new Map<number, Partial<Pane>>();
+      const newNotes: Record<number, string | null> = {};
+      await Promise.all(
+        missing.map(async (i) => {
+          const p = ws.panes[i];
+          try {
+            const target = await api.align(p.corpus!, source.corpus!, source.ref!, p.by);
+            changes.set(i, { ref: target.ref });
+            newNotes[i] = target.exact
+              ? null
+              : `${displayRef(source.ref!)} is not in ${p.corpus}; showing ${displayRef(target.ref)}.`;
+          } catch {
+            newNotes[i] = `${p.corpus} has no counterpart of ${displayRef(source.ref!)}.`;
+          }
+        }),
+      );
+      if (!current) return;
+      if (changes.size) actions.updatePanes(changes);
+      setNotes((n) => ({ ...n, ...newNotes }));
+    })();
+    return () => {
+      current = false;
+    };
+  }, [ws.panes, ws.sync, actions]);
+
   /** Open a passage in a pane; with synchronised reading, the other reading panes follow. */
   const openPassage = useCallback(
     async (index: number, ref: string) => {
