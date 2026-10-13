@@ -192,9 +192,12 @@ def place(api, words: list[int]) -> str:
 # documentation of ETCBC/dss): `ε` (`missing`) is text that is lost and not
 # reconstructed, ` # ` and ` ? ` (`unc`) a letter too damaged to identify.
 # They are shown as in the editions: [ … ] for a gap, ◦ for an illegible letter.
+# The transcription also marks morpheme breaks (`sep` `׳`, as in עמ׳י), which
+# are not in the scrolls: they are left out.
 SIGN_TYPE = "type"
-PLACEHOLDERS = {"ε": "[…]", " # ": "◦", " ? ": "◦"}
+PLACEHOLDERS = {"ε": "[…]", " # ": "◦", " ? ": "◦", "׳": ""}
 PLACEHOLDER_TYPES = {"missing", "unc"}
+SHOWN_TYPES = PLACEHOLDER_TYPES | {"sep"}
 
 
 def show_placeholders(text: str) -> str:
@@ -209,7 +212,8 @@ def dress_signs(api, fragments: list[dict[str, Any]]) -> None:
     Parts reconstructed by an editor are flagged `dim`: slots (signs) with
     `rec`, and fragments shown as one text (a word in the structure view)
     whose slots are all reconstructed. Placeholders for lost and illegible
-    text are shown as in the editions (see `PLACEHOLDERS`).
+    text are shown as in the editions, and morpheme breaks are left out (see
+    `PLACEHOLDERS`).
     """
     if RECONSTRUCTED not in api.Fall():
         return
@@ -226,13 +230,11 @@ def dress_signs(api, fragments: list[dict[str, Any]]) -> None:
                 (begin, end) = frag["range"]
                 if frag["type"] == slotType:
                     reconstructed = bool(rec(frag["node"]))
-                    placeholder = (
-                        signType and signType(frag["node"]) in PLACEHOLDER_TYPES
-                    )
+                    placeholder = signType and signType(frag["node"]) in SHOWN_TYPES
                 else:
                     reconstructed = all(rec(s) for s in range(begin, end + 1))
                     placeholder = signType and any(
-                        signType(s) in PLACEHOLDER_TYPES for s in range(begin, end + 1)
+                        signType(s) in SHOWN_TYPES for s in range(begin, end + 1)
                     )
                 if reconstructed:
                     frag["dim"] = True
