@@ -70,6 +70,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: libs/browser/frontend/package-lock.json
+      - name: Type-check and build the interface
+        working-directory: libs/browser/frontend
+        run: |
+          npm ci
+          npm run build
       - name: Install core package
         run: pip install -e ../core
       - name: Install browser package with dev dependencies
