@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from importlib import metadata
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -69,9 +70,19 @@ def create_app(
     )
     app.include_router(build_router(service, pool, library=library))
 
+    try:
+        coreVersion = metadata.version("context-fabric")
+    except metadata.PackageNotFoundError:
+        coreVersion = None
+
     @app.get("/api/health")
     def health() -> dict:
-        return {"ok": True, "searchReady": pool.ready, "version": __version__}
+        return {
+            "ok": True,
+            "searchReady": pool.ready,
+            "version": __version__,
+            "coreVersion": coreVersion,
+        }
 
     index = static_dir / "index.html"
     assets = static_dir / "assets"

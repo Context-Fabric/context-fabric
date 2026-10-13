@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api";
+import { Cite, citePassage } from "../Cite";
 import { displayRef, Plain, Pretty } from "../display/Display";
 import type { CorpusCard, SectionItem, ViewSettings } from "../types";
 
@@ -166,7 +167,9 @@ export function ReadView({ corpus, passageRef, settings, onOpen, compact = false
               Next
             </button>
           </div>
-          <div className="ms-auto flex rounded border border-rule-strong text-[13px]" role="group" aria-label="Display">
+          <div className="ms-auto flex items-center gap-2">
+          {data ? <Cite text={(software, date) => citePassage(corpus, data.ref, software, date)} /> : null}
+          <div className="flex rounded border border-rule-strong text-[13px]" role="group" aria-label="Display">
             {(["plain", "pretty"] as const).map((m) => (
               <button
                 key={m}
@@ -178,6 +181,7 @@ export function ReadView({ corpus, passageRef, settings, onOpen, compact = false
                 {m === "plain" ? "Text" : "Structure"}
               </button>
             ))}
+          </div>
           </div>
         </header>
         <div className={`min-h-0 flex-1 overflow-y-auto px-5 py-4 ${passage.isFetching ? "opacity-70" : ""}`}>

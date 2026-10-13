@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "../api";
+import { Cite, citeSearch } from "../Cite";
 import type { Pane } from "../state";
 import type { CorpusCard, Problem, SearchStatus, ViewSettings } from "../types";
 import { QueryEditor } from "./QueryEditor";
@@ -80,11 +81,12 @@ interface StatusProps {
   status: SearchStatus;
   onCancel: () => void;
   onDownload: () => void;
+  corpus: CorpusCard;
   tab: Tab;
   onTab: (tab: Tab) => void;
 }
 
-function StatusLine({ status, onCancel, onDownload, tab, onTab }: StatusProps) {
+function StatusLine({ status, onCancel, onDownload, corpus, tab, onTab }: StatusProps) {
   const seconds = status.elapsed < 10 ? status.elapsed.toFixed(2) : status.elapsed.toFixed(1);
   const results = `${formatCount(status.count)} ${status.count === 1 ? "result" : "results"}`;
   let text: string;
@@ -141,10 +143,19 @@ function StatusLine({ status, onCancel, onDownload, tab, onTab }: StatusProps) {
         </button>
       ) : null}
       {finished && status.count > 0 ? (
+        <div className="ms-auto">
+          <Cite
+            text={(software, date) =>
+              citeSearch(corpus, status.template, status.count, status.truncated, software, date)
+            }
+          />
+        </div>
+      ) : null}
+      {finished && status.count > 0 ? (
         <button
           type="button"
           onClick={onDownload}
-          className="ms-auto text-[13px] text-woad hover:underline"
+          className="text-[13px] text-woad hover:underline"
           title="One row per result, as TSV or for Excel; choose extra feature columns"
         >
           Download…
@@ -399,6 +410,7 @@ export function SearchView({
               status={status}
               onCancel={() => api.cancel(status.id)}
               onDownload={() => setDownloading(true)}
+              corpus={corpus}
               tab={tab}
               onTab={setTab}
             />
