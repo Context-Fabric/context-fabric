@@ -685,6 +685,10 @@ def _stitchResults(searchExe: SearchExe) -> None:
 
     shallow = searchExe.shallow
 
+    # Cancellation is checked once per candidate of the outermost yarn,
+    # which keeps the inner loops free of overhead.
+    check = searchExe.cancel.check if searchExe.cancel is not None else None
+
     def deliver(remap=True):
         stitch = [None for q in range(len(qPermuted))]
         lStitch = len(stitch)
@@ -705,6 +709,8 @@ def _stitchResults(searchExe: SearchExe) -> None:
                 # this cannot happen for a multi-edge
                 yarnF = yarnsP[f]
                 for sN in yarnF:
+                    if check is not None:
+                        check()
                     stitch[f] = sN
                     for s in stitchOn(e):
                         yield s
@@ -791,6 +797,8 @@ def _stitchResults(searchExe: SearchExe) -> None:
                 yarnF = yarnsP[f]
                 if f == resultQmax:
                     for sN in yarnF:
+                        if check is not None:
+                            check()
                         if sN in resultSet:
                             continue
                         stitch[f] = sN
@@ -798,6 +806,8 @@ def _stitchResults(searchExe: SearchExe) -> None:
                             yield s
                 else:
                     for sN in yarnF:
+                        if check is not None:
+                            check()
                         stitch[f] = sN
                         for s in stitchOn(e):
                             yield s
