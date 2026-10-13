@@ -1,11 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
-import { DisplayProvider } from "./display/Display";
+import { DisplayProvider, displayRef } from "./display/Display";
 import { Inspector } from "./Inspector";
+import { Library } from "./Library";
 import { ReadView } from "./read/ReadView";
 import { SearchView } from "./search/SearchView";
-import { useLocation, useSettings, useTheme, type View } from "./state";
+import {
+  emptyPane,
+  MAX_PANES,
+  useSettings,
+  useTheme,
+  useWorkspace,
+  type Pane,
+  type View,
+} from "./state";
 import type { CorpusCard, ViewSettings } from "./types";
 
 function Mark() {
@@ -14,12 +23,14 @@ function Mark() {
 }
 
 function DisplayOptions({
-  corpus,
   settings,
+  formats,
+  defaultFormat,
   onChange,
 }: {
-  corpus: CorpusCard;
   settings: ViewSettings;
+  formats: string[];
+  defaultFormat: string | null;
   onChange: (change: Partial<ViewSettings>) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -39,11 +50,10 @@ function DisplayOptions({
     };
   }, [open]);
 
-  const formats = corpus.display.textFormats;
   const toggles: [keyof ViewSettings, string][] = [
     ["showTypes", "Show object types"],
-    ["standardFeatures", "Show the corpus' standard features"],
-    ["hideTypes", `Hide ${corpus.display.hiddenTypes.join(", ") || "minor types"}`],
+    ["standardFeatures", "Show each corpus' standard features"],
+    ["hideTypes", "Hide minor object types"],
     ["showNodes", "Show node numbers"],
   ];
 
@@ -59,20 +69,22 @@ function DisplayOptions({
       </button>
       {open ? (
         <div className="absolute end-0 z-20 mt-1 flex w-72 flex-col gap-3 rounded border border-rule-strong bg-raised p-4 text-[14px] shadow-[0_8px_24px_-12px_rgba(31,43,77,0.35)]">
-          <label className="flex flex-col gap-1">
-            <span className="text-[13px] text-stone">Text format</span>
-            <select
-              value={settings.fmt ?? corpus.display.defaultFormat}
-              onChange={(e) => onChange({ fmt: e.target.value === corpus.display.defaultFormat ? null : e.target.value })}
-              className="rounded border border-rule-strong bg-vellum px-2 py-1"
-            >
-              {formats.map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
-              ))}
-            </select>
-          </label>
+          {formats.length ? (
+            <label className="flex flex-col gap-1">
+              <span className="text-[13px] text-stone">Text format</span>
+              <select
+                value={settings.fmt ?? defaultFormat ?? ""}
+                onChange={(e) => onChange({ fmt: e.target.value === defaultFormat ? null : e.target.value })}
+                className="rounded border border-rule-strong bg-vellum px-2 py-1"
+              >
+                {formats.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           {toggles.map(([key, label]) => (
             <label key={key} className="flex items-center gap-2">
               <input
@@ -90,36 +102,210 @@ function DisplayOptions({
   );
 }
 
+interface PaneProps {
+  index: number;
+  pane: Pane;
+  card: CorpusCard | undefined;
+  cardError: unknown;
+  corpora: string[];
+  paneCount: number;
+  settings: ViewSettings;
+  note: string | null;
+  onChange: (change: Partial<Pane>, push?: boolean) => void;
+  onOpenPassage: (ref: string) => void;
+  onOpenPane: (pane: Pane) => void;
+  onClose: () => void;
+  onInspect: (corpus: string, node: number) => void;
+}
+
+function PaneView({
+  index,
+  pane,
+  card,
+  cardError,
+  corpora,
+  paneCount,
+  settings,
+  note,
+  onChange,
+  onOpenPassage,
+  onOpenPane,
+  onClose,
+  onInspect,
+}: PaneProps) {
+  const compact = paneCount > 1;
+  const setView = (view: View) => onChange({ view }, true);
+  // a corpus' own default format applies unless the reader chose one it has
+  const paneSettings =
+    card && settings.fmt && !card.display.textFormats.includes(settings.fmt) ? { ...settings, fmt: null } : settings;
+
+  return (
+    <section
+      className="flex min-h-0 min-w-0 flex-1 flex-col border-rule [&+&]:border-t md:[&+&]:border-s md:[&+&]:border-t-0"
+      aria-label={`Pane ${index + 1}${card ? `: ${card.name}` : ""}`}
+    >
+      {paneCount > 1 || corpora.length > 1 ? (
+        <div className="flex flex-wrap items-center gap-2 border-b border-rule bg-raised px-3 py-1.5">
+          <select
+            value={pane.corpus ?? ""}
+            onChange={(e) => onChange({ corpus: e.target.value, ref: null, search: null, result: null }, true)}
+            className="rounded border border-rule-strong bg-vellum px-2 py-0.5 text-[14px] font-semibold"
+            aria-label="Corpus"
+          >
+            {corpora.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <div className="flex gap-0.5" role="group" aria-label="View">
+            {(["read", "search"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={pane.view === v}
+                onClick={() => setView(v)}
+                className="rounded px-2.5 py-0.5 text-[14px] hover:bg-woad-soft aria-pressed:bg-ink aria-pressed:text-vellum"
+              >
+                {v === "read" ? "Read" : "Search"}
+              </button>
+            ))}
+          </div>
+          {paneCount > 1 ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="ms-auto rounded px-2 py-0.5 text-[13px] text-stone hover:bg-woad-soft hover:text-ink"
+              aria-label={`Close pane ${index + 1}`}
+            >
+              Close
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="min-h-0 flex-1">
+        {cardError ? (
+          <p className="p-6 text-madder">
+            Could not open {pane.corpus}: {String((cardError as Error).message)}
+          </p>
+        ) : !card ? (
+          <p className="p-6 text-stone">
+            Opening {pane.corpus}… A corpus opened for the first time is prepared once, which can take a minute.
+          </p>
+        ) : (
+          <DisplayProvider config={card.display} settings={paneSettings} onInspect={(n) => onInspect(card.name, n)}>
+            {pane.view === "read" ? (
+              <ReadView
+                corpus={card}
+                passageRef={pane.ref}
+                settings={paneSettings}
+                onOpen={onOpenPassage}
+                compact={compact}
+                note={note}
+              />
+            ) : (
+              <SearchView
+                corpus={card}
+                template={pane.query}
+                searchId={pane.search}
+                expanded={pane.result}
+                settings={paneSettings}
+                onTemplate={(query) => onChange({ query })}
+                onSearch={(search) => onChange({ search, result: null }, true)}
+                onExpand={(result) => onChange({ result })}
+                onOpenPassage={(ref) => onChange({ view: "read", ref }, true)}
+                otherCorpora={corpora.filter((c) => c !== card.name)}
+                onOpenPane={onOpenPane}
+                compact={compact}
+              />
+            )}
+          </DisplayProvider>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function App() {
-  const [loc, setLoc] = useLocation();
+  const [ws, actions] = useWorkspace();
   const [settings, setSettings] = useSettings();
   const [theme, toggleTheme] = useTheme();
-  const [inspected, setInspected] = useState<number | null>(null);
+  const [inspected, setInspected] = useState<{ corpus: string; node: number } | null>(null);
+  const [library, setLibrary] = useState(false);
+  const [notes, setNotes] = useState<Record<number, string | null>>({});
 
-  const corpora = useQuery({ queryKey: ["corpora"], queryFn: api.corpora });
-  const corpusName = loc.corpus ?? corpora.data?.corpora[0]?.name ?? null;
-  const corpus = useQuery({
-    queryKey: ["corpus", corpusName],
-    queryFn: () => api.corpus(corpusName!),
-    enabled: corpusName !== null,
+  const corporaQuery = useQuery({ queryKey: ["corpora"], queryFn: api.corpora });
+  const corpora = corporaQuery.data?.corpora.map((c) => c.name) ?? [];
+  const firstCorpus = corpora[0] ?? null;
+
+  // panes without a corpus get the first one
+  useEffect(() => {
+    if (!firstCorpus) return;
+    const missing = new Map<number, Partial<Pane>>();
+    ws.panes.forEach((p, i) => {
+      if (!p.corpus) missing.set(i, { corpus: firstCorpus });
+    });
+    if (missing.size) actions.updatePanes(missing);
+  }, [ws.panes, firstCorpus, actions]);
+
+  const names = [...new Set(ws.panes.map((p) => p.corpus).filter((c): c is string => Boolean(c)))];
+  const cards = useQuery({
+    queryKey: ["cards", ...names],
+    queryFn: async () => {
+      const entries = await Promise.allSettled(names.map((n) => api.corpus(n)));
+      const result: Record<string, { card?: CorpusCard; error?: unknown }> = {};
+      entries.forEach((e, i) => {
+        result[names[i]] = e.status === "fulfilled" ? { card: e.value } : { error: e.reason };
+      });
+      return result;
+    },
+    enabled: names.length > 0,
+    placeholderData: (previous) => previous,
   });
+  const cardOf = (name: string | null) => (name ? cards.data?.[name] : undefined);
+  const nameList = names.join(" + ");
 
   useEffect(() => {
-    if (!loc.corpus && corpusName) setLoc({ corpus: corpusName });
-  }, [loc.corpus, corpusName, setLoc]);
+    document.title = nameList ? `${nameList}: Context-Fabric` : "Context-Fabric Browser";
+  }, [nameList]);
 
-  useEffect(() => {
-    const title = corpus.data ? `${corpus.data.name}: Context-Fabric` : "Context-Fabric Browser";
-    document.title = title;
-  }, [corpus.data]);
-
+  /** Open a passage in a pane; with synchronised reading, the other reading panes follow. */
   const openPassage = useCallback(
-    (ref: string) => setLoc({ view: "read", ref }, true),
-    [setLoc],
+    async (index: number, ref: string) => {
+      const source = ws.panes[index];
+      if (!ws.sync || !source.corpus) {
+        setNotes((n) => ({ ...n, [index]: null }));
+        actions.updatePane(index, { view: "read", ref }, true);
+        return;
+      }
+      const sourceCorpus = source.corpus;
+      const changes = new Map<number, Partial<Pane>>([[index, { view: "read", ref }]]);
+      const newNotes: Record<number, string | null> = { [index]: null };
+      await Promise.all(
+        ws.panes.map(async (p, i) => {
+          if (i === index || p.view !== "read" || !p.corpus) return;
+          try {
+            const target = await api.align(p.corpus, sourceCorpus, ref);
+            changes.set(i, { ref: target.ref });
+            newNotes[i] = target.exact
+              ? null
+              : `${displayRef(ref)} is not in ${p.corpus}; showing ${displayRef(target.ref)}.`;
+          } catch {
+            newNotes[i] = `${p.corpus} has no counterpart of ${displayRef(ref)}.`;
+          }
+        }),
+      );
+      actions.updatePanes(changes, true);
+      setNotes((n) => ({ ...n, ...newNotes }));
+    },
+    [ws.panes, ws.sync, actions],
   );
-  const setView = (view: View) => setLoc({ view }, true);
 
-  if (corpora.error || corpus.error) {
+  const addPane = (pane: Pane) => {
+    if (ws.panes.length < MAX_PANES) actions.addPane(pane);
+  };
+
+  if (corporaQuery.error) {
     return (
       <main className="p-10">
         <h1 className="mb-2 text-[20px] font-semibold">The browser cannot reach its server</h1>
@@ -129,96 +315,139 @@ export function App() {
       </main>
     );
   }
-  if (!corpus.data) {
-    return <main className="p-10 text-stone">Opening the corpus…</main>;
-  }
+  if (!corporaQuery.data) return <main className="p-10 text-stone">Opening…</main>;
 
-  const card = corpus.data;
+  const firstCard = cardOf(ws.panes[0]?.corpus ?? null)?.card;
+  const inspectedCard = inspected ? cardOf(inspected.corpus)?.card : undefined;
+  const single = ws.panes.length === 1 && corpora.length === 1;
+
   return (
-    <DisplayProvider config={card.display} settings={settings} onInspect={setInspected}>
-      <div className="flex h-full flex-col">
-        <header className="flex items-center gap-2 border-b border-rule px-3 py-2 sm:gap-4 sm:px-4">
-          <div className="flex items-center gap-2" title="Context-Fabric">
-            <Mark />
-            <span className="hidden text-[15px] font-semibold tracking-tight sm:inline">Context-Fabric</span>
-          </div>
-          {corpora.data && corpora.data.corpora.length > 1 ? (
-            <select
-              value={card.name}
-              onChange={(e) => setLoc({ corpus: e.target.value, ref: null, search: null, result: null }, true)}
-              className="rounded border border-rule-strong bg-raised px-2 py-1 text-[14px]"
-              aria-label="Corpus"
-            >
-              {corpora.data.corpora.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <span className="text-[14px] text-stone" title={card.title}>
-              {card.name} <span className="hidden tabular-nums sm:inline">{card.version}</span>
-            </span>
-          )}
-          <nav className="flex gap-1" aria-label="Views">
-            {(["read", "search"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                aria-current={loc.view === v ? "page" : undefined}
-                onClick={() => setView(v)}
-                className="rounded px-2.5 py-1 text-[14px] hover:bg-woad-soft aria-[current=page]:bg-ink aria-[current=page]:text-vellum sm:px-3"
-              >
-                {v === "read" ? "Read" : "Search"}
-              </button>
-            ))}
-          </nav>
-          <div className="ms-auto flex items-center">
-            <DisplayOptions corpus={card} settings={settings} onChange={setSettings} />
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="rounded px-2 py-1 text-[14px] hover:bg-woad-soft sm:px-2.5"
-              aria-label={theme === "dark" ? "Use light colours" : "Use dark colours"}
-            >
-              {theme === "dark" ? "Light" : "Dark"}
-            </button>
-          </div>
-        </header>
-        <div className="flex min-h-0 flex-1">
-          <main className="min-h-0 min-w-0 flex-1">
-            {loc.view === "read" ? (
-              <ReadView corpus={card} passageRef={loc.ref} settings={settings} onOpen={openPassage} />
-            ) : (
-              <SearchView
-                corpus={card}
-                template={loc.query}
-                searchId={loc.search}
-                expanded={loc.result}
-                settings={settings}
-                onTemplate={(query) => setLoc({ query })}
-                onSearch={(search) => setLoc({ search, result: null }, true)}
-                onExpand={(result) => setLoc({ result })}
-                onOpenPassage={openPassage}
-              />
-            )}
-          </main>
-          {inspected !== null ? (
-            <div className="fixed inset-0 z-30 md:static md:z-auto">
-              <Inspector
-                corpus={card}
-                node={inspected}
-                onInspect={setInspected}
-                onClose={() => setInspected(null)}
-                onOpenPassage={(ref) => {
-                  setInspected(null);
-                  openPassage(ref);
-                }}
-              />
-            </div>
-          ) : null}
+    <div className="flex h-full flex-col">
+      <header className="flex items-center gap-2 border-b border-rule px-3 py-2 sm:gap-4 sm:px-4">
+        <div className="flex items-center gap-2" title="Context-Fabric">
+          <Mark />
+          <span className="hidden text-[15px] font-semibold tracking-tight sm:inline">Context-Fabric</span>
         </div>
+        {single && firstCard ? (
+          <>
+            <span className="text-[14px] text-stone" title={firstCard.title}>
+              {firstCard.name} <span className="hidden tabular-nums sm:inline">{firstCard.version}</span>
+            </span>
+            <nav className="flex gap-1" aria-label="Views">
+              {(["read", "search"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-current={ws.panes[0].view === v ? "page" : undefined}
+                  onClick={() => actions.updatePane(0, { view: v }, true)}
+                  className="rounded px-2.5 py-1 text-[14px] hover:bg-woad-soft aria-[current=page]:bg-ink aria-[current=page]:text-vellum sm:px-3"
+                >
+                  {v === "read" ? "Read" : "Search"}
+                </button>
+              ))}
+            </nav>
+          </>
+        ) : null}
+        <div className="ms-auto flex items-center gap-1">
+          {ws.panes.length > 1 ? (
+            <label
+              className="me-1 flex items-center gap-1.5 text-[14px]"
+              title="Opening a passage in one pane opens the same passage in the others"
+            >
+              <input
+                type="checkbox"
+                checked={ws.sync}
+                onChange={(e) => actions.setSync(e.target.checked)}
+                className="accent-[var(--woad)]"
+              />
+              Sync passages
+            </label>
+          ) : null}
+          <button
+            type="button"
+            disabled={ws.panes.length >= MAX_PANES}
+            onClick={() => {
+              const last = ws.panes[ws.panes.length - 1];
+              const other = corpora.find((c) => !ws.panes.some((p) => p.corpus === c)) ?? last.corpus;
+              addPane({ ...emptyPane(other), ref: last.view === "read" && other === last.corpus ? last.ref : null });
+            }}
+            className="rounded px-2 py-1 text-[14px] hover:bg-woad-soft disabled:opacity-40 sm:px-2.5"
+            title="Show another corpus, or another passage, side by side"
+          >
+            Add a pane
+          </button>
+          <button
+            type="button"
+            onClick={() => setLibrary(true)}
+            className="rounded px-2 py-1 text-[14px] hover:bg-woad-soft sm:px-2.5"
+          >
+            Open a corpus
+          </button>
+          <DisplayOptions
+            settings={settings}
+            formats={firstCard?.display.textFormats ?? []}
+            defaultFormat={firstCard?.display.defaultFormat ?? null}
+            onChange={setSettings}
+          />
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="rounded px-2 py-1 text-[14px] hover:bg-woad-soft sm:px-2.5"
+            aria-label={theme === "dark" ? "Use light colours" : "Use dark colours"}
+          >
+            {theme === "dark" ? "Light" : "Dark"}
+          </button>
+        </div>
+      </header>
+      <div className="flex min-h-0 flex-1">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col md:flex-row">
+          {ws.panes.map((pane, i) => {
+            const entry = cardOf(pane.corpus);
+            return (
+              <PaneView
+                key={i}
+                index={i}
+                pane={pane}
+                card={entry?.card}
+                cardError={entry?.error}
+                corpora={corpora}
+                paneCount={ws.panes.length}
+                settings={settings}
+                note={notes[i] ?? null}
+                onChange={(change, push) => actions.updatePane(i, change, push)}
+                onOpenPassage={(ref) => openPassage(i, ref)}
+                onOpenPane={addPane}
+                onClose={() => actions.removePane(i)}
+                onInspect={(corpus, node) => setInspected({ corpus, node })}
+              />
+            );
+          })}
+        </main>
+        {inspected && inspectedCard ? (
+          <div className="fixed inset-0 z-30 md:static md:z-auto">
+            <Inspector
+              corpus={inspectedCard}
+              node={inspected.node}
+              onInspect={(node) => setInspected({ corpus: inspected.corpus, node })}
+              onClose={() => setInspected(null)}
+              onOpenPassage={(ref) => {
+                const i = ws.panes.findIndex((p) => p.corpus === inspected.corpus);
+                setInspected(null);
+                if (i >= 0) openPassage(i, ref);
+              }}
+            />
+          </div>
+        ) : null}
       </div>
-    </DisplayProvider>
+      {library ? (
+        <Library
+          onClose={() => setLibrary(false)}
+          onOpen={(corpus) => {
+            setLibrary(false);
+            if (!ws.panes.some((p) => p.corpus === corpus)) addPane(emptyPane(corpus));
+          }}
+        />
+      ) : null}
+    </div>
   );
 }

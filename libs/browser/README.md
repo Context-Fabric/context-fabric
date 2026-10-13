@@ -2,7 +2,7 @@
 
 A graphical browser for [Context-Fabric](https://context-fabric.ai) corpora, the successor of the Text-Fabric browser. It runs on your own computer and works offline.
 
-> **Status: pre-alpha.** Reading, searching and inspecting one or more corpora works; working with several corpora side by side is next.
+> **Status: pre-alpha.** Reading, searching and inspecting work, also with several corpora side by side.
 
 ## Usage
 
@@ -11,7 +11,7 @@ pip install cfabric-browser
 cfabric-browser bhsa
 ```
 
-This opens the browser at <http://localhost:8107/>. You can give a corpus in several ways:
+This opens the browser at <http://localhost:8107/>. Give several corpora to compare them, e.g. `cfabric-browser bhsa CenterBLC/LXX ETCBC/peshitta`; others can be opened from the browser with *Open a corpus*. You can give a corpus in several ways:
 
 | Argument | Meaning |
 |---|---|
@@ -26,6 +26,7 @@ Options:
 - `--timeout`: time limit per search in seconds (default 60).
 - `--max-results`: results kept per search (default 500,000).
 - `--no-open`: don't open a web browser.
+- `--no-library`: don't let users open other corpora found on this computer.
 
 The server listens on `127.0.0.1` only. Pass `--host` to change that, and only when you know what you're doing.
 
@@ -44,7 +45,9 @@ All functions of the interface are available as a JSON API; interactive document
 | `GET /api/corpora`, `GET /api/corpora/{c}` | Corpora and everything needed to work with one (types, sections, display settings) |
 | `GET /api/corpora/{c}/features[/{f}]` | Features, with values and counts |
 | `GET /api/corpora/{c}/sections?ref=` | The section tree, one level at a time |
-| `GET /api/corpora/{c}/passage?ref=Genesis 1:1` | Render trees of a passage |
+| `GET /api/corpora/{c}/passage?ref=Genesis 1:1` | Render trees of a passage, with its section path and the previous and next passages |
+| `GET /api/corpora/{c}/align?from=bhsa&ref=Genesis 1:1` | The corresponding passage in this corpus; `exact` is false when only the enclosing chapter exists |
+| `GET /api/library`, `POST /api/corpora` | Corpora found on this computer; open one by its id (e.g. `ETCBC/dss`) |
 | `GET /api/corpora/{c}/nodes/{n}[/info]` | Render tree of a node; all its features, edges and surroundings |
 | `POST /api/corpora/{c}/check` | Check a template without searching |
 | `POST /api/corpora/{c}/search` | Start a search (`{"template": …, "limit": …, "timeout": …}`) |

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ViewSettings } from "./types";
 
 // Everything that identifies what you are looking at lives in the URL, so a view
@@ -6,7 +6,8 @@ import type { ViewSettings } from "./types";
 
 export type View = "read" | "search";
 
-export interface Location {
+/** What one pane shows. A workspace has one or more panes side by side. */
+export interface Pane {
   corpus: string | null;
   view: View;
   ref: string | null; // passage being read
@@ -15,42 +16,80 @@ export interface Location {
   result: number | null; // expanded result
 }
 
-function parse(): Location {
-  const p = new URLSearchParams(window.location.search);
-  const result = p.get("r");
+export interface Workspace {
+  panes: Pane[];
+  sync: boolean; // keep the passages of reading panes in step
+}
+
+export const MAX_PANES = 4;
+
+export function emptyPane(corpus: string | null = null): Pane {
+  return { corpus, view: "read", ref: null, query: "", search: null, result: null };
+}
+
+// URL keys per pane: c0, v0, ref0, ... ; links without an index are pane 0.
+function parsePane(p: URLSearchParams, i: number): Pane | null {
+  const key = (k: string) => p.get(`${k}${i}`) ?? (i === 0 ? p.get(k) : null);
+  const corpus = key("c");
+  const view = key("v");
+  if (corpus === null && view === null && i > 0) return null;
+  const result = key("r");
   return {
-    corpus: p.get("c"),
-    view: p.get("v") === "search" ? "search" : "read",
-    ref: p.get("ref"),
-    query: p.get("q") ?? "",
-    search: p.get("s"),
+    corpus,
+    view: view === "search" ? "search" : "read",
+    ref: key("ref"),
+    query: key("q") ?? "",
+    search: key("s"),
     result: result === null ? null : Number(result),
   };
 }
 
-function serialize(loc: Location): string {
+function parse(): Workspace {
+  const p = new URLSearchParams(window.location.search);
+  const panes: Pane[] = [];
+  for (let i = 0; i < MAX_PANES; i++) {
+    const pane = parsePane(p, i);
+    if (pane === null) break;
+    panes.push(pane);
+  }
+  return { panes: panes.length ? panes : [emptyPane()], sync: p.get("sync") === "1" };
+}
+
+function serialize(ws: Workspace): string {
   const p = new URLSearchParams();
-  if (loc.corpus) p.set("c", loc.corpus);
-  p.set("v", loc.view);
-  if (loc.ref) p.set("ref", loc.ref);
-  if (loc.query) p.set("q", loc.query);
-  if (loc.search) p.set("s", loc.search);
-  if (loc.result !== null) p.set("r", String(loc.result));
+  ws.panes.forEach((pane, i) => {
+    if (pane.corpus) p.set(`c${i}`, pane.corpus);
+    p.set(`v${i}`, pane.view);
+    if (pane.ref) p.set(`ref${i}`, pane.ref);
+    if (pane.query) p.set(`q${i}`, pane.query);
+    if (pane.search) p.set(`s${i}`, pane.search);
+    if (pane.result !== null) p.set(`r${i}`, String(pane.result));
+  });
+  if (ws.sync) p.set("sync", "1");
   return `?${p.toString()}`;
 }
 
-export function useLocation(): [Location, (change: Partial<Location>, push?: boolean) => void] {
-  const [loc, setLoc] = useState<Location>(parse);
+export interface WorkspaceActions {
+  updatePane: (index: number, change: Partial<Pane>, push?: boolean) => void;
+  /** Change several panes at once (e.g. when passages are kept in step). */
+  updatePanes: (changes: Map<number, Partial<Pane>>, push?: boolean) => void;
+  addPane: (pane: Pane) => void;
+  removePane: (index: number) => void;
+  setSync: (sync: boolean) => void;
+}
+
+export function useWorkspace(): [Workspace, WorkspaceActions] {
+  const [ws, setWs] = useState<Workspace>(parse);
 
   useEffect(() => {
-    const onPop = () => setLoc(parse());
+    const onPop = () => setWs(parse());
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
-  const update = useCallback((change: Partial<Location>, push = false) => {
-    setLoc((current) => {
-      const next = { ...current, ...change };
+  const commit = useCallback((change: (ws: Workspace) => Workspace, push: boolean) => {
+    setWs((current) => {
+      const next = change(current);
       const url = serialize(next);
       if (url !== window.location.search) {
         if (push) window.history.pushState(null, "", url);
@@ -60,7 +99,25 @@ export function useLocation(): [Location, (change: Partial<Location>, push?: boo
     });
   }, []);
 
-  return [loc, update];
+  const actions = useMemo<WorkspaceActions>(
+    () => ({
+      updatePane: (index, change, push = false) =>
+        commit(
+          (w) => ({ ...w, panes: w.panes.map((p, i) => (i === index ? { ...p, ...change } : p)) }),
+          push,
+        ),
+      updatePanes: (changes, push = false) =>
+        commit((w) => ({ ...w, panes: w.panes.map((p, i) => ({ ...p, ...changes.get(i) })) }), push),
+      addPane: (pane) =>
+        commit((w) => (w.panes.length >= MAX_PANES ? w : { ...w, panes: [...w.panes, pane] }), true),
+      removePane: (index) =>
+        commit((w) => (w.panes.length <= 1 ? w : { ...w, panes: w.panes.filter((_, i) => i !== index) }), true),
+      setSync: (sync) => commit((w) => ({ ...w, sync }), false),
+    }),
+    [commit],
+  );
+
+  return [ws, actions];
 }
 
 // per-browser preferences; storage may be unavailable (private windows)

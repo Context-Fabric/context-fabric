@@ -68,6 +68,23 @@ export const api = {
 
   corpus: (corpus: string) => request<CorpusCard>(corpusPath(corpus)),
 
+  library: () =>
+    request<{
+      enabled: boolean;
+      corpora: { id: string; name: string; title: string | null; versions: string[]; open: boolean }[];
+    }>("/api/library"),
+
+  openCorpus: (id: string) =>
+    request<{ name: string; opened: boolean }>("/api/corpora", {
+      method: "POST",
+      body: JSON.stringify({ id }),
+    }),
+
+  align: (corpus: string, from: string, ref: string) =>
+    request<{ node: number; ref: string; exact: boolean }>(
+      `${corpusPath(corpus)}/align${query({ from, ref })}`,
+    ),
+
   features: (corpus: string) =>
     request<{ features: FeatureEntry[] }>(`${corpusPath(corpus)}/features`),
 

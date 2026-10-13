@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "../api";
+import type { Pane } from "../state";
 import type { CorpusCard, Problem, SearchStatus, ViewSettings } from "../types";
 import { QueryEditor } from "./QueryEditor";
 import { ResultList } from "./ResultList";
@@ -147,6 +148,64 @@ interface Props {
   onSearch: (id: string | null) => void;
   onExpand: (index: number | null) => void;
   onOpenPassage: (ref: string) => void;
+  /** Other open corpora, which "Search all corpora" also searches. */
+  otherCorpora?: string[];
+  onOpenPane?: (pane: Pane) => void;
+  /** In a narrow pane the editor sits above the results. */
+  compact?: boolean;
+}
+
+interface OtherSearch {
+  corpus: string;
+  id: string | null;
+  problems: Problem[];
+}
+
+/** One corpus in the comparison: its live count, and a way to see the results. */
+function OtherCount({
+  other,
+  template,
+  onOpenPane,
+}: {
+  other: OtherSearch;
+  template: string;
+  onOpenPane?: (pane: Pane) => void;
+}) {
+  const status = useSearchStatus(other.id);
+  let text: string;
+  if (other.problems.length) text = other.problems[0].message;
+  else if (!status) text = "Starting…";
+  else if (status.state === "running" || status.state === "queued") text = `${formatCount(status.count)} so far`;
+  else if (status.state === "done") text = `${formatCount(status.count)}${status.truncated ? "+" : ""}`;
+  else if (status.state === "failed") text = status.problems[0]?.message ?? "Failed";
+  else text = `stopped at ${formatCount(status.count)}`;
+  const canShow = status && status.count > 0 && onOpenPane;
+  return (
+    <li className="flex items-baseline gap-3 py-1">
+      <span className="w-24 shrink-0 truncate font-semibold">{other.corpus}</span>
+      <span className={`min-w-0 flex-1 truncate tabular-nums ${other.problems.length ? "text-stone" : ""}`} title={text}>
+        {text}
+      </span>
+      {canShow ? (
+        <button
+          type="button"
+          onClick={() =>
+            onOpenPane({
+              corpus: other.corpus,
+              view: "search",
+              ref: null,
+              query: template,
+              search: status.id,
+              result: null,
+            })
+          }
+          className="shrink-0 text-[13px] text-woad hover:underline"
+        >
+          Show
+        </button>
+      ) : null}
+    </li>
+  );
 }
 
 export function SearchView({
@@ -159,8 +218,12 @@ export function SearchView({
   onSearch,
   onExpand,
   onOpenPassage,
+  otherCorpora = [],
+  onOpenPane,
+  compact = false,
 }: Props) {
   const status = useSearchStatus(searchId);
+  const [others, setOthers] = useState<{ template: string; searches: OtherSearch[] } | null>(null);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [starting, setStarting] = useState(false);
   const [history, setHistory] = useState<string[]>(() => loadHistory(corpus.name));
@@ -185,12 +248,40 @@ export function SearchView({
     }
   }, [corpus.name, template, onSearch]);
 
+  const runEverywhere = useCallback(async () => {
+    if (!template.trim()) return;
+    await run();
+    const searches = await Promise.all(
+      otherCorpora.map(async (name): Promise<OtherSearch> => {
+        try {
+          const started = await api.search(name, template);
+          return { corpus: name, id: started.id, problems: [] };
+        } catch (e) {
+          const problems =
+            e instanceof ApiError && e.problems.length
+              ? e.problems
+              : [{ kind: "error" as const, line: null, message: String(e instanceof Error ? e.message : e) }];
+          return { corpus: name, id: null, problems };
+        }
+      }),
+    );
+    setOthers({ template, searches });
+  }, [template, run, otherCorpora]);
+
   const shownProblems = problems.length ? problems : (status?.problems ?? []);
   const running = status?.state === "running" || status?.state === "queued";
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 md:grid-cols-[minmax(20rem,26rem)_1fr]">
-      <aside className="flex min-h-0 flex-col gap-3 overflow-y-auto border-rule p-4 md:border-e">
+    <div
+      className={`grid h-full min-h-0 grid-cols-1 ${
+        compact ? "grid-rows-[minmax(0,auto)_minmax(0,1fr)]" : "md:grid-cols-[minmax(20rem,26rem)_1fr]"
+      }`}
+    >
+      <aside
+        className={`flex min-h-0 flex-col gap-3 overflow-y-auto border-rule p-4 ${
+          compact ? "max-h-[45vh] border-b" : "md:border-e"
+        }`}
+      >
         <h2 className="text-[13px] text-stone">Search template</h2>
         <QueryEditor
           corpus={corpus.name}
@@ -209,9 +300,31 @@ export function SearchView({
           >
             Search
           </button>
-          <span className="text-[12px] text-stone">or Ctrl+Enter</span>
+          {otherCorpora.length ? (
+            <button
+              type="button"
+              onClick={runEverywhere}
+              disabled={starting || running || !template.trim()}
+              className="rounded border border-rule-strong px-3 py-1.5 text-[14px] hover:border-woad disabled:opacity-50"
+              title={`Also search ${otherCorpora.join(", ")}`}
+            >
+              Search all corpora
+            </button>
+          ) : (
+            <span className="text-[12px] text-stone">or Ctrl+Enter</span>
+          )}
         </div>
         <Problems problems={shownProblems} />
+        {others && others.template === template ? (
+          <section>
+            <h2 className="mb-1 text-[13px] text-stone">In the other corpora</h2>
+            <ul className="flex flex-col text-[14px]">
+              {others.searches.map((o) => (
+                <OtherCount key={o.corpus} other={o} template={others.template} onOpenPane={onOpenPane} />
+              ))}
+            </ul>
+          </section>
+        ) : null}
         {history.length ? (
           <section className="mt-2">
             <h2 className="mb-1 text-[13px] text-stone">Recent searches</h2>
