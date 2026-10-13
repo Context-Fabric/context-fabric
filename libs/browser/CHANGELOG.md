@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Synchronised reading: opening a passage in one pane opens the corresponding passage in the others, through a concordance of book names (`1_Samuel`, `1Sam`, `Samuel_1`); where a verse is missing in a corpus, its chapter is shown with a note
 - Search all corpora: run a template in every open corpus and compare the counts; each opens in its own pane
 - Choose a corpus version with `@`: `DT-UCPH/sp@7.2.4`, or `@latest` for the newest on this computer (by default the version named in the corpus' app config); the corpus card reports the version actually loaded
+- Clicking a word in the text opens the word in the node inspector, also where slots are signs (SP, DSS): signs within a word are no longer inspected one by one, and words shown as one unit in the pretty view are clickable
 - Local display settings in `~/.cfabric/display/<org>/<repo>[@<version>].yaml`, layered over a corpus' app config
 - Cite: a citation to copy for the passage being read or for a search (template and number of results), with the corpus' title, version and DOI and the software versions and date; `/api/health` reports the context-fabric version
 - Query editor: completes feature values after `feature=` (also after `|`), most frequent first with their counts; hovering a feature shows its description, the object types it is on and its most frequent values; hovering an object type shows how many there are
