@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import threading
 from typing import Annotated, Any, Literal
 
 from anyio import to_thread
@@ -28,13 +29,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
-from cfabric_browser.corpora import CorpusService
+from cfabric_browser.corpora import CorpusService, discover, resolve_corpus
 from cfabric_browser.queries import LANGUAGES, check_template, template_features
 from cfabric_browser.workers import FINISHED, SearchJob, SearchPool
 
 MAX_PAGE = 500
 MAX_DOWN = 200
 MAX_PASSAGE = 200
+
+
+class OpenRequest(BaseModel):
+    id: str = Field(description="A corpus id from the library, e.g. ETCBC/dss")
+    name: str | None = Field(default=None, description="Name to show it under")
 
 
 class SearchRequest(BaseModel):
@@ -75,7 +81,9 @@ def render_options(
     )
 
 
-def build_router(service: CorpusService, pool: SearchPool) -> APIRouter:
+def build_router(
+    service: CorpusService, pool: SearchPool, library: bool = True
+) -> APIRouter:
     router = APIRouter(prefix="/api")
 
     def corpus_api(corpus: str):
@@ -95,6 +103,47 @@ def build_router(service: CorpusService, pool: SearchPool) -> APIRouter:
         return job
 
     # corpora
+
+    # the library: corpora on this computer that can be opened
+
+    @router.get("/library")
+    def corpus_library() -> dict[str, Any]:
+        if not library:
+            return {"enabled": False, "corpora": []}
+        # a corpus counts as open when its data directory is being served
+        opened = {spec.path for spec in service.specs}
+        corpora = []
+        for entry in discover(service.roots):
+            try:
+                path = resolve_corpus(entry["id"], service.roots).path
+            except FileNotFoundError:
+                continue
+            corpora.append({**entry, "open": path in opened})
+        return {"enabled": True, "corpora": corpora}
+
+    @router.post("/corpora", status_code=201)
+    def open_corpus(request: OpenRequest) -> dict[str, Any]:
+        """Open a corpus from the library. Only library ids are accepted, no paths."""
+        if not library:
+            raise HTTPException(403, "Opening corpora is switched off on this server")
+        ids = {entry["id"].lower(): entry["id"] for entry in discover(service.roots)}
+        corpusId = ids.get(request.id.lower())
+        if corpusId is None:
+            raise HTTPException(404, f"Not in the library: {request.id}")
+        spec = resolve_corpus(
+            f"{request.name}={corpusId}" if request.name else corpusId, service.roots
+        )
+        if service.has(spec.name):
+            if service.spec(spec.name).path != spec.path:
+                raise HTTPException(
+                    409, f"Another corpus is already open as {spec.name!r}"
+                )
+            return {"name": spec.name, "opened": False}
+        service.add(spec)
+        pool.add_corpus(spec.name, str(spec.path))
+        # start loading now, so the corpus is ready by the time it is shown
+        threading.Thread(target=service.config, args=(spec.name,), daemon=True).start()
+        return {"name": spec.name, "opened": True}
 
     @router.get("/corpora")
     def list_corpora() -> dict[str, Any]:
@@ -169,6 +218,29 @@ def build_router(service: CorpusService, pool: SearchPool) -> APIRouter:
             heading = ""
         children = [section_item(api, config, n, lang) for n in childNodes]
         return {"node": node, "heading": heading, "children": children}
+
+    @router.get("/corpora/{corpus}/align")
+    def align(
+        corpus: str,
+        ref: str,
+        source: Annotated[str, Query(alias="from")],
+        lang: str = "en",
+    ) -> dict[str, Any]:
+        """The passage of this corpus that corresponds to `ref` in `from`.
+
+        Books are matched with a concordance of book names; chapters and
+        verses by number. `exact` is false when only an enclosing section
+        exists here (a verse missing in this corpus, for instance).
+        """
+        corpus_api(corpus)
+        corpus_api(source)
+        try:
+            result = service.align(source, ref, corpus, lang)
+        except ValueError as e:
+            raise HTTPException(404, str(e)) from None
+        if result is None:
+            raise HTTPException(404, f"{corpus} has no counterpart of {ref}")
+        return result
 
     @router.get("/corpora/{corpus}/passage")
     def passage(

@@ -160,6 +160,9 @@ def _worker_main(
                 return
             if msg[0] == "search":
                 jobs.put(msg)
+            elif msg[0] == "add":
+                # a corpus opened while the browser runs; loaded on first search
+                registry.register(msg[2], msg[1])
             elif msg[0] == "cancel":
                 with lock:
                     if current["id"] == msg[1] and current["token"] is not None:
@@ -423,6 +426,16 @@ class SearchPool:
             if job is not None:
                 self._jobs.move_to_end(job_id)
             return job
+
+    def add_corpus(self, name: str, path: str) -> None:
+        """Make a corpus searchable by all workers, including ones started later."""
+        with self._lock:
+            if any(n == name for (n, _) in self.specs):
+                return
+            self.specs.append((name, path))
+            workers = list(self._workers)
+        for worker in workers:
+            worker.send(("add", name, path))
 
     def cancel(self, job_id: str) -> bool:
         """Stop a search. Returns False if there is no such search."""
