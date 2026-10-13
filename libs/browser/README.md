@@ -37,6 +37,21 @@ Queries use Text-Fabric's search template language, run by Context-Fabric's sear
 
 Problems in a template are reported per line. That includes problems inside quantifiers such as `/without/`, which the engine itself only logs, and then returns results as if the quantifier excluded nothing.
 
+## Display settings
+
+How a corpus is displayed comes from its Text-Fabric app configuration (`<repo>/app/config.yaml`). To adjust it without editing downloaded files, put the settings that differ in `~/.cfabric/display/<org>/<repo>.yaml`, or, for one version only, `<repo>@<version>.yaml`. These files use the same format as the app configuration and are layered over it. For example, `~/.cfabric/display/DT-UCPH/sp@7.2.4.yaml`:
+
+```yaml
+typeDisplay:
+  word:
+    base: true
+    featuresBare: gloss
+  phrase:
+    label: '{typ} {function}'
+  phrase_atom:
+    hidden: true
+```
+
 ## API
 
 All functions of the interface are available as a JSON API; interactive documentation is at `/docs` while the browser runs. Where they overlap, the endpoints mirror the tools of `cfabric-mcp`, so that people and language models use the same operations.

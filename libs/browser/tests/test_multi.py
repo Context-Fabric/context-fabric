@@ -128,6 +128,34 @@ class TestAlign:
         assert response.status_code == 404
 
 
+class TestDisplayOverrides:
+    def test_overrides_layer_over_app_config(self, roots, tmp_path):
+        overrides = tmp_path / "display" / "Hebrew"
+        overrides.mkdir(parents=True)
+        # for all versions: hide phrases and label clauses differently
+        (overrides / "heb.yaml").write_text(
+            "typeDisplay:\n  phrase:\n    hidden: true\n  clause:\n    label: '[{typ}]'\n",
+            encoding="utf-8",
+        )
+        # for version 1.0 only: a different clause label, which wins
+        (overrides / "heb@1.0.yaml").write_text(
+            "typeDisplay:\n  clause:\n    label: '<{typ}>'\n", encoding="utf-8"
+        )
+        spec = resolve_corpus("heb", roots)
+        service = CorpusService([spec], roots=roots, overrides=tmp_path / "display")
+        config = service.config("heb")
+        assert config.types["phrase"].hidden is True
+        assert config.types["clause"].label == "<{typ}>"
+        # the rest of the app config still applies
+        assert config.types["word"].features == ("sp",)
+        assert config.section_sep2 == "."
+
+    def test_no_overrides(self, roots, tmp_path):
+        spec = resolve_corpus("heb", roots)
+        service = CorpusService([spec], roots=roots, overrides=tmp_path / "none")
+        assert service.config("heb").types["clause"].label == "{typ}"
+
+
 class TestLibrary:
     def test_discover(self, roots):
         found = discover(roots)
