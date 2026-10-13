@@ -637,13 +637,22 @@ def build_router(
             False,
             description="UTF-16 with byte-order mark, which Excel opens correctly",
         ),
+        extra: Annotated[
+            list[str] | None,
+            Query(
+                description="More feature columns for one part of the results:"
+                " `3:lex,gloss` adds lex and gloss for the third node of each"
+                " result. Can be given several times."
+            ),
+        ] = None,
     ) -> Response:
         """All results as tab-separated values, one row per result.
 
         Columns: result number, the section of the result's first node, and for
         each node of the result its number, type and text, followed by the
         features mentioned for it in the template (use `feature*` in a
-        template to add a column without restricting the search).
+        template to add a column without restricting the search), and then
+        any `extra` features asked for.
         """
         job = search_job(search_id)
         if job.state not in FINISHED:
@@ -654,7 +663,21 @@ def build_router(
         rows = job.page(0, job.count)
         width = max((len(r) for r in rows), default=0)
         perAtom = template_features(api, job.template)
-        features = [perAtom[i] if i < len(perAtom) else [] for i in range(width)]
+        features = [list(perAtom[i]) if i < len(perAtom) else [] for i in range(width)]
+        nodeFeatures = set(api.Fall()) - {"otype"}
+        for spec in extra or ():
+            (pos, _, names) = spec.partition(":")
+            if not pos.strip().isdigit() or not 1 <= int(pos) <= width:
+                raise HTTPException(
+                    422, f"Not a part of the results: {spec!r} (use 1 to {width})"
+                )
+            for name in (n.strip() for n in names.split(",")):
+                if not name:
+                    continue
+                if name not in nodeFeatures:
+                    raise HTTPException(422, f"Unknown feature: {name}")
+                if name not in features[int(pos) - 1]:
+                    features[int(pos) - 1].append(name)
 
         header = ["R"] + [f"S{i + 1}" for i in range(len(sectionTypes))]
         for i in range(width):

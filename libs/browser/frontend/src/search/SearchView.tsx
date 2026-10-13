@@ -4,6 +4,7 @@ import { api, ApiError } from "../api";
 import type { Pane } from "../state";
 import type { CorpusCard, Problem, SearchStatus, ViewSettings } from "../types";
 import { QueryEditor } from "./QueryEditor";
+import { Download } from "./Download";
 import { ResultList } from "./ResultList";
 import { Stats } from "./Stats";
 
@@ -67,16 +68,12 @@ type Tab = "results" | "stats";
 interface StatusProps {
   status: SearchStatus;
   onCancel: () => void;
-  exportUrl: string;
-  excelUrl: string;
+  onDownload: () => void;
   tab: Tab;
   onTab: (tab: Tab) => void;
 }
 
-const EXPORT_HINT =
-  "One row per result. Features in your template become columns; add a line like `word sp*` to include a feature without narrowing the search.";
-
-function StatusLine({ status, onCancel, exportUrl, excelUrl, tab, onTab }: StatusProps) {
+function StatusLine({ status, onCancel, onDownload, tab, onTab }: StatusProps) {
   const seconds = status.elapsed < 10 ? status.elapsed.toFixed(2) : status.elapsed.toFixed(1);
   const results = `${formatCount(status.count)} ${status.count === 1 ? "result" : "results"}`;
   let text: string;
@@ -133,14 +130,14 @@ function StatusLine({ status, onCancel, exportUrl, excelUrl, tab, onTab }: Statu
         </button>
       ) : null}
       {finished && status.count > 0 ? (
-        <span className="ms-auto flex items-baseline gap-3 text-[13px]" title={EXPORT_HINT}>
-          <a href={exportUrl} className="text-woad hover:underline" download>
-            Download as TSV
-          </a>
-          <a href={excelUrl} className="text-woad hover:underline" download>
-            for Excel
-          </a>
-        </span>
+        <button
+          type="button"
+          onClick={onDownload}
+          className="ms-auto text-[13px] text-woad hover:underline"
+          title="One row per result, as TSV or for Excel; choose extra feature columns"
+        >
+          Download…
+        </button>
       ) : null}
     </div>
   );
@@ -247,6 +244,7 @@ export function SearchView({
   const status = useSearchStatus(searchId);
   const [others, setOthers] = useState<{ template: string; searches: OtherSearch[] } | null>(null);
   const [tab, setTab] = useState<Tab>("results");
+  const [downloading, setDownloading] = useState(false);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [starting, setStarting] = useState(false);
   const [history, setHistory] = useState<string[]>(() => loadHistory(corpus.name));
@@ -369,13 +367,15 @@ export function SearchView({
         ) : null}
       </aside>
       <section className="flex min-h-0 flex-col">
+        {downloading && status ? (
+          <Download search={status} fmt={settings.fmt} onClose={() => setDownloading(false)} />
+        ) : null}
         {status ? (
           <>
             <StatusLine
               status={status}
               onCancel={() => api.cancel(status.id)}
-              exportUrl={api.exportUrl(status.id, settings.fmt)}
-              excelUrl={api.exportUrl(status.id, settings.fmt, true)}
+              onDownload={() => setDownloading(true)}
               tab={tab}
               onTab={setTab}
             />
