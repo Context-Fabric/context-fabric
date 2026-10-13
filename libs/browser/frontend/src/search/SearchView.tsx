@@ -330,6 +330,7 @@ export function SearchView({
           corpus={corpus.name}
           value={template}
           nodeTypes={corpus.nodeTypes.map((t) => t.type)}
+          typeCounts={Object.fromEntries(corpus.nodeTypes.map((t) => [t.type, t.count]))}
           features={features?.features ?? []}
           onChange={onTemplate}
           onRun={run}
