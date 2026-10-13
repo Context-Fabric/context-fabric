@@ -298,6 +298,70 @@ class TestSearch:
         assert excel.content.decode("utf-16").startswith("R\tS1")
         assert "-excel.tsv" in excel.headers["content-disposition"]
 
+    def test_statistics(self, client):
+        # 11 (clause, word) pairs: clause 19 has words 1, 2, 7, 8 (it has a
+        # gap), clause 20 words 3-6 (it crosses into verse 2), clause 21 words 9-11
+        response = client.post(
+            "/api/corpora/alpha/search", json={"template": "clause\n  word sp*\n"}
+        )
+        status = wait_for(client, response.json()["id"])
+        assert status["count"] == 11
+        base = f"/api/searches/{status['id']}/stats"
+
+        features = client.get(f"{base}/features", params={"position": 1}).json()
+        assert features["type"] == "word"
+        assert features["inTemplate"] == ["sp"]
+        assert features["open"] == ["sp"]  # `sp*` leaves it open
+        assert {"sp", "gloss", "g_word"} <= set(features["features"])
+        assert "trans" not in features["features"]  # excluded by the app config
+
+        values = client.get(
+            f"{base}/values", params={"position": 1, "feature": "sp", "top": 2}
+        ).json()
+        assert values["nodes"] == 11
+        assert values["distinct"] == 5
+        assert values["values"] == [
+            {"value": "subs", "count": 4},
+            {"value": "verb", "count": 3},
+        ]
+        assert values["other"] == {"values": 3, "count": 4}
+
+        # each clause counts once per result; clause 20 is counted in verse 1
+        # (its first word), clause 19 too
+        verses = client.get(f"{base}/sections", params={"level": 2}).json()
+        assert [(s["ref"], s["count"]) for s in verses["sections"]] == [
+            ("Alpha Book 1.1", 8),
+            ("Alpha Book 2.1", 3),
+        ]
+        books = client.get(f"{base}/sections", params={"level": 0}).json()
+        assert [(s["label"], s["count"]) for s in books["sections"]] == [
+            ("Alpha Book", 11)
+        ]
+
+    def test_open_and_fixed_features(self, client):
+        response = client.post(
+            "/api/corpora/alpha/search",
+            json={"template": "word sp=verb gloss* g_word~."},
+        )
+        status = wait_for(client, response.json()["id"])
+        features = client.get(f"/api/searches/{status['id']}/stats/features").json()
+        assert features["inTemplate"] == ["sp", "gloss", "g_word"]
+        assert features["open"] == ["gloss", "g_word"]
+
+    def test_statistics_errors(self, client):
+        response = client.post("/api/corpora/alpha/search", json={"template": "word"})
+        status = wait_for(client, response.json()["id"])
+        base = f"/api/searches/{status['id']}/stats"
+        assert (
+            client.get(f"{base}/values", params={"feature": "nope"}).status_code == 404
+        )
+        assert (
+            client.get(
+                f"{base}/values", params={"feature": "sp", "position": 3}
+            ).status_code
+            == 404
+        )
+
     def test_invalid_template(self, client):
         response = client.post(
             "/api/corpora/alpha/search", json={"template": "word spp=verb"}
