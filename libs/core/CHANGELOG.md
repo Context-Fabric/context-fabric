@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `cfabric.display`: structured (HTML-free) displays, groundwork for the Context-Fabric browser
+  - `DisplayConfig` reads a corpus' Text-Fabric app `config.yaml` (found next to the data) and computes TF's display defaults
+  - `render_node` / `render_tuple` build JSON-ready render trees (plain and pretty), a port of TF's unravel algorithm, verified identical to TF on six corpora
+  - `section_ref` / `node_from_section_ref` for references like `Genesis 1:1`, using the corpus' own separators
+- `cfabric.registry.CorpusRegistry`: thread-safe registry of named corpora with lazy loading and per-corpus search locks
+- Search cancellation and timeouts: `S.search(..., cancel=CancelToken())` or `S.search(..., timeout=10)` raise `SearchCancelled` / `SearchTimeout`
+
+### Fixed
+- `S.search` / `S.fetch` docstrings had the generator-vs-tuple behaviour of `limit` the wrong way round
+
 ## [0.5.8] - 2026-10-14
 
 ### Added
