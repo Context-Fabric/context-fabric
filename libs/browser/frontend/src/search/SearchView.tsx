@@ -60,7 +60,17 @@ function formatCount(n: number): string {
   return n.toLocaleString("en-US");
 }
 
-function StatusLine({ status, onCancel, exportUrl }: { status: SearchStatus; onCancel: () => void; exportUrl: string }) {
+interface StatusProps {
+  status: SearchStatus;
+  onCancel: () => void;
+  exportUrl: string;
+  excelUrl: string;
+}
+
+const EXPORT_HINT =
+  "One row per result. Features in your template become columns; add a line like `word sp*` to include a feature without narrowing the search.";
+
+function StatusLine({ status, onCancel, exportUrl, excelUrl }: StatusProps) {
   const seconds = status.elapsed < 10 ? status.elapsed.toFixed(2) : status.elapsed.toFixed(1);
   const results = `${formatCount(status.count)} ${status.count === 1 ? "result" : "results"}`;
   let text: string;
@@ -100,9 +110,14 @@ function StatusLine({ status, onCancel, exportUrl }: { status: SearchStatus; onC
         </button>
       ) : null}
       {finished && status.count > 0 ? (
-        <a href={exportUrl} className="ms-auto text-[13px] text-woad hover:underline" download>
-          Download as TSV
-        </a>
+        <span className="ms-auto flex items-baseline gap-3 text-[13px]" title={EXPORT_HINT}>
+          <a href={exportUrl} className="text-woad hover:underline" download>
+            Download as TSV
+          </a>
+          <a href={excelUrl} className="text-woad hover:underline" download>
+            for Excel
+          </a>
+        </span>
       ) : null}
     </div>
   );
@@ -224,6 +239,7 @@ export function SearchView({
               status={status}
               onCancel={() => api.cancel(status.id)}
               exportUrl={api.exportUrl(status.id, settings.fmt)}
+              excelUrl={api.exportUrl(status.id, settings.fmt, true)}
             />
             <div className="min-h-0 flex-1">
               {status.count > 0 ? (
@@ -260,6 +276,10 @@ function Intro({ corpus, onTry }: { corpus: CorpusCard; onTry: (t: string) => vo
       <p className="mb-3">
         Write a search template: one object per line, with indentation for what lies inside what, and
         features to narrow it down. Templates are the same as in the Text-Fabric browser.
+      </p>
+      <p className="mb-3">
+        Results can be downloaded as a spreadsheet. Features in the template become columns; write{" "}
+        <code className="font-mono text-[13px]">sp*</code> to add a feature with any value.
       </p>
       <p className="mb-4 text-stone">
         Object types in this corpus: {types.concat(slot).join(", ")}.

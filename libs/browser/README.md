@@ -51,7 +51,7 @@ All functions of the interface are available as a JSON API; interactive document
 | `GET /api/searches/{id}[/events]` | Status, or a live event stream of it |
 | `GET /api/searches/{id}/results` | A page of results (optionally with plain renderings) |
 | `GET /api/searches/{id}/results/{i}` | One result in its context, highlighted |
-| `GET /api/searches/{id}/export.tsv` | All results as a spreadsheet-ready file |
+| `GET /api/searches/{id}/export.tsv` | All results, one row per result; features in the template become columns (write `sp*` to add one without narrowing the search); `?excel=true` for Excel |
 | `DELETE /api/searches/{id}` | Stop a search |
 
 Display options are query parameters: `mode` (`pretty`/`plain`), `fmt`, `full`, `hide_types`, `hidden_types`, `base_types`, `condense_type`, `extra_features`, `lang`.

@@ -11,4 +11,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `cfabric-browser` command: serve one or more corpora given by name (`bhsa`), repository or data directory
 - JSON API: corpora, features, section tree, passages and nodes as render trees, node inspector, template check, search with live status events, paging, results in context, TSV export
 - Searches in worker processes: parallel, cancellable, with time limits and a result cap; results stream in and are put in canonical order when done
+- TSV export of all results: features mentioned in the template become columns per result node (`sp*` adds a feature without narrowing the search, as in Text-Fabric); `?excel=true` gives a UTF-16 file with byte-order mark that Excel opens correctly
 - Template problems as structured data (line, message, feature or node type), including problems inside quantifiers that the search engine only logs

@@ -87,6 +87,38 @@ def check_template(
     return problems_of(exe, messages)
 
 
+def template_features(api, template: str) -> list[list[str]]:
+    """The node features mentioned per atom of a template, in result-tuple order.
+
+    `clause typ*` mentions `typ`, `word sp=verb gloss~a` mentions `sp` and
+    `gloss`. As in Text-Fabric, mentioning a feature with `*` (any value) is the
+    way to get it into exports without restricting the search. Atoms inside
+    quantifiers are not part of results and are left out. Edge features are
+    left out too.
+    """
+    exe = SearchExe(
+        api,
+        template,
+        outerTemplate=template,
+        quKind=None,
+        offset=0,
+        sets=None,
+        shallow=False,
+        silent="deep",
+        setInfo={},
+    )
+    with capture_engine_messages():
+        exe._parse()
+        exe._prepare()
+    if not exe.good:
+        return []
+    nodeFeatures = set(api.Fall())
+    return [
+        [name for name in qnode[1] if name in nodeFeatures and name != "otype"]
+        for qnode in exe.qnodes
+    ]
+
+
 def problems_of(
     exe: SearchExe, messages: list[str] | None = None
 ) -> list[dict[str, Any]]:

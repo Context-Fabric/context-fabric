@@ -120,7 +120,8 @@ export const api = {
       `/api/searches/${id}/results/${index}${query({ ...params })}`,
     ),
 
-  exportUrl: (id: string, fmt?: string | null) => `/api/searches/${id}/export.tsv${query({ fmt })}`,
+  exportUrl: (id: string, fmt?: string | null, excel = false) =>
+    `/api/searches/${id}/export.tsv${query({ fmt, excel: excel || null })}`,
 
   events: (id: string) => new EventSource(`/api/searches/${id}/events`),
 };

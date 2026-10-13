@@ -25,11 +25,11 @@ from cfabric.display import (
 )
 from cfabric.utils.helpers import tsvEsc
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import PlainTextResponse, StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from cfabric_browser.corpora import CorpusService
-from cfabric_browser.queries import LANGUAGES, check_template
+from cfabric_browser.queries import LANGUAGES, check_template, template_features
 from cfabric_browser.workers import FINISHED, SearchJob, SearchPool
 
 MAX_PAGE = 500
@@ -406,41 +406,61 @@ def build_router(service: CorpusService, pool: SearchPool) -> APIRouter:
         }
 
     @router.get("/searches/{search_id}/export.tsv")
-    def export_tsv(search_id: str, fmt: str | None = None, lang: str = "en"):
-        """All results as tab-separated values, one row per result."""
+    def export_tsv(
+        search_id: str,
+        fmt: str | None = None,
+        lang: str = "en",
+        excel: bool = Query(
+            False,
+            description="UTF-16 with byte-order mark, which Excel opens correctly",
+        ),
+    ) -> Response:
+        """All results as tab-separated values, one row per result.
+
+        Columns: result number, the section of the result's first node, and for
+        each node of the result its number, type and text, followed by the
+        features mentioned for it in the template (use `feature*` in a
+        template to add a column without restricting the search).
+        """
         job = search_job(search_id)
         if job.state not in FINISHED:
             raise HTTPException(409, "The search has not finished yet")
         api = corpus_api(job.corpus)
-        F, T = api.F, api.T
+        F, T, Fs = api.F, api.T, api.Fs
         sectionTypes = list(T.sectionTypes or ())
         rows = job.page(0, job.count)
         width = max((len(r) for r in rows), default=0)
+        perAtom = template_features(api, job.template)
+        features = [perAtom[i] if i < len(perAtom) else [] for i in range(width)]
 
         header = ["R"] + [f"S{i + 1}" for i in range(len(sectionTypes))]
         for i in range(width):
             header += [f"NODE{i + 1}", f"TYPE{i + 1}", f"TEXT{i + 1}"]
+            header += [f"{name}{i + 1}" for name in features[i]]
         lines = ["\t".join(header)]
         for r, tup in enumerate(rows, 1):
             section = T.sectionFromNode(tup[0], lang=lang) if sectionTypes else ()
-            cells = [str(r)] + [tsvEsc("" if s is None else s) for s in (section or ())]
-            cells += [""] * (len(header) - len(cells) - 3 * width)
-            for n in tup:
-                text = (
-                    T.text(n, fmt=fmt)
-                    if F.otype.v(n) == F.otype.slotType or len(api.E.oslots.s(n)) <= 100
-                    else ""
+            cells = [str(r)]
+            cells += [tsvEsc("" if s is None else s) for s in (section or ())]
+            cells += [""] * (1 + len(sectionTypes) - len(cells))
+            for i, n in enumerate(tup):
+                small = (
+                    F.otype.v(n) == F.otype.slotType or len(api.E.oslots.s(n)) <= 100
                 )
+                text = T.text(n, fmt=fmt) if small else ""
                 cells += [str(n), F.otype.v(n), tsvEsc(text)]
+                for name in features[i]:
+                    value = Fs(name).v(n)
+                    cells.append("" if value is None else tsvEsc(value))
             lines.append("\t".join(cells))
-        return PlainTextResponse(
-            "\n".join(lines) + "\n",
-            media_type="text/tab-separated-values; charset=utf-8",
-            headers={
-                "Content-Disposition": (
-                    f'attachment; filename="{job.corpus}-results-{job.id}.tsv"'
-                )
-            },
+        content = "\n".join(lines) + "\n"
+        suffix = "-excel" if excel else ""
+        filename = f"{job.corpus}-results-{job.id}{suffix}.tsv"
+        return Response(
+            content.encode("utf-16") if excel else content.encode("utf-8"),
+            media_type="text/tab-separated-values; charset="
+            + ("utf-16" if excel else "utf-8"),
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
     return router

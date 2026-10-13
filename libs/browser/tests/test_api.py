@@ -240,6 +240,42 @@ class TestSearch:
         assert lines[1].split("\t")[:5] == ["1", "Alpha Book", "1", "1", "20"]
         assert len(lines) == 4
 
+    def test_export_feature_columns(self, client):
+        # `typ*` and `sp*` match any value: they only add columns
+        response = client.post(
+            "/api/corpora/alpha/search",
+            json={"template": "clause typ*\n  word sp* gloss~a\n"},
+        )
+        status = wait_for(client, response.json()["id"])
+        assert status["state"] == "done"
+        tsv = client.get(f"/api/searches/{status['id']}/export.tsv").text
+        lines = tsv.strip().split("\n")
+        assert lines[0].split("\t") == [
+            "R", "S1", "S2", "S3",
+            "NODE1", "TYPE1", "TEXT1", "typ1",
+            "NODE2", "TYPE2", "TEXT2", "sp2", "gloss2",
+        ]  # fmt: skip
+        first = lines[1].split("\t")
+        assert first[4:8] == ["19", "clause", "α β η θ ", "Main"]
+        # the first word of clause 19 whose gloss contains an "a" is word 7
+        assert first[8:] == ["7", "word", "η ", "conj", "and"]
+
+    def test_export_without_template_features(self, client):
+        response = client.post("/api/corpora/alpha/search", json={"template": "verse"})
+        status = wait_for(client, response.json()["id"])
+        header = client.get(f"/api/searches/{status['id']}/export.tsv").text
+        assert header.split("\n")[0] == "R\tS1\tS2\tS3\tNODE1\tTYPE1\tTEXT1"
+
+    def test_export_for_excel(self, client):
+        response = client.post("/api/corpora/alpha/search", json={"template": "word"})
+        status = wait_for(client, response.json()["id"])
+        excel = client.get(
+            f"/api/searches/{status['id']}/export.tsv", params={"excel": True}
+        )
+        assert excel.content[:2] == b"\xff\xfe"  # UTF-16 little endian, with BOM
+        assert excel.content.decode("utf-16").startswith("R\tS1")
+        assert "-excel.tsv" in excel.headers["content-disposition"]
+
     def test_invalid_template(self, client):
         response = client.post(
             "/api/corpora/alpha/search", json={"template": "word spp=verb"}
