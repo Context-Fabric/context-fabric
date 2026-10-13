@@ -81,13 +81,18 @@ def make_scrolls(root: Path) -> None:
         "@fmt:text-orig-full={glyph}{after}\n"
         "@sectionFeatures=scroll,fragment,line\n@sectionTypes=scroll,fragment,line\n",
     )
-    write_tf(
-        root / "Hebrew" / "mt" / "tf" / "1.0",
-        MT_FILES,
-        {"chapter", "verse"},
-        "@fmt:text-orig-full={g_cons_utf8} \n"
-        "@sectionFeatures=book,chapter,verse\n@sectionTypes=book,chapter,verse\n",
-    )
+    # MT, and a second text (SP) that reads ברא ש: without the ו
+    for repo, files in (("mt", MT_FILES), ("sp", SP_FILES)):
+        write_tf(
+            root / "Hebrew" / repo / "tf" / "1.0",
+            files,
+            {"chapter", "verse"},
+            "@fmt:text-orig-full={g_cons_utf8} \n"
+            "@sectionFeatures=book,chapter,verse\n@sectionTypes=book,chapter,verse\n",
+        )
+
+
+SP_FILES = {**MT_FILES, "g_cons_utf8": "1\tברא\n2\tש\n"}
 
 
 @pytest.fixture(scope="module")
@@ -95,8 +100,8 @@ def service(tmp_path_factory):
     root = tmp_path_factory.mktemp("scrolls")
     make_scrolls(root)
     roots = (str(root),)
-    specs = [resolve_corpus(c, roots) for c in ("Scrolls/mini", "Hebrew/mt")]
-    return CorpusService(specs, roots=roots)
+    names = ("Scrolls/mini", "Hebrew/mt", "Hebrew/sp")
+    return CorpusService([resolve_corpus(c, roots) for c in names], roots=roots)
 
 
 @pytest.fixture(scope="module")
@@ -292,3 +297,40 @@ class TestPlaceholders:
         (letters, known) = witness_letters(service.api("mini"), [15])
         assert letters == [(15, "ק◦")]
         assert known == [True, False]
+
+
+class TestAgreement:
+    def get(self, client, cref: str = "Genesis 1"):
+        return client.get(
+            "/api/agreement",
+            params={
+                "a": "mt",
+                "aref": "Genesis 1",
+                "b": "sp",
+                "bref": "Genesis 1",
+                "c": "mini",
+                "cref": cref,
+            },
+        )
+
+    def test_scroll_sides_with_sp(self, client):
+        data = self.get(client).json()
+        assert data["comparable"] is True
+        (verse,) = data["verses"]
+        assert verse["ref"] == "Genesis 1:1"
+        (place_,) = verse["units"]
+        assert (place_["a"], place_["b"]) == ("בורא", "ברא")
+        assert (place_["aWords"], place_["bWords"]) == ([1], [1])
+        # 1Q1 reads ברא; 4Q2 is reconstructed there, 4Q10 has only the ש
+        assert place_["witnesses"] == [
+            {
+                "scroll": "1Q1",
+                "agrees": "b",
+                "reading": "",
+                "words": [],
+                "text": "",
+            }
+        ]
+
+    def test_other_passage(self, client):
+        assert self.get(client, "Exodus 2").json()["comparable"] is False

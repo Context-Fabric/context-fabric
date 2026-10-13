@@ -1,7 +1,14 @@
 """Tests for comparing the consonantal text of two corpora (MT and SP)."""
 
 import pytest
-from cfabric_browser.compare import consonants, diff_words
+from cfabric_browser.compare import (
+    consonants,
+    diff_units,
+    diff_words,
+    merge_units,
+    with_finals,
+    witness_reading,
+)
 
 
 def words(text: str, start: int = 1) -> list[tuple[int, str]]:
@@ -131,3 +138,32 @@ class TestDiffWitness:
         (b, known) = letters("ברא ק")
         (a, _) = diff_words(words("ברא אלהים את השמים"), b, known)
         assert a == {2: "variant"}
+
+
+class TestThreeWay:
+    def test_reading_between_anchors(self):
+        # MT בורא, a scroll ברא: where MT has ו the scroll has nothing
+        assert witness_reading("בוראש", "בראש", [True] * 4, 1, 2) == (1, "")
+        assert witness_reading("בוראש", "בוראש", [True] * 5, 1, 2) == (1, "ו")
+
+    def test_lost_anchor_is_unknown(self):
+        known = [True, False, True, True]  # the ר is reconstructed
+        assert witness_reading("בוראש", "בראש", known, 1, 2) is None
+
+    def test_edges(self):
+        # the scroll starts after the place: nothing is known there
+        assert witness_reading("בראש", "ראש", [True] * 3, 0, 1) is None
+        # but a letter it does have at the start is a reading
+        assert witness_reading("בראש", "פראש", [True] * 4, 0, 1) == (0, "פ")
+
+    def test_same_words_are_one_place(self):
+        units = merge_units(diff_units(words("מארת ב"), words("מאורות ב", 10)))
+        assert len(units) == 1
+        (unit,) = units
+        assert (unit.aWords, unit.bWords) == ([1], [10])
+
+    def test_final_forms_for_people(self):
+        assert with_finals("אלהימ") == "אלהים"
+        assert with_finals("ארצ") == "ארץ"
+        assert with_finals("את") == "את"
+        assert with_finals("") == ""

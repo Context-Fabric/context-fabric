@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from typing import Any
 
@@ -41,6 +42,14 @@ CONSONANT_FEATURE = "g_cons_utf8"
 HEBREW_LETTER = re.compile("[א-ת]")
 # final forms depend on word division, which doesn't count
 FINALS = str.maketrans("ךםןףץ", "כמנפצ")
+TO_FINAL = {normal: final for (final, normal) in zip("ךםןףץ", "כמנפצ")}
+
+
+def with_finals(word: str) -> str:
+    """A word's consonants for people: with its last letter in final form."""
+    return word[:-1] + TO_FINAL.get(word[-1], word[-1]) if word else word
+
+
 MATRES = frozenset("אהוי")
 UNKNOWN = "◦"  # a letter that is there but cannot be read
 
@@ -91,10 +100,38 @@ def _mark(marks: Marks, node: int, kind: str) -> None:
         marks[node] = kind
 
 
+@dataclass
+class Unit:
+    """A place where two texts differ: letters `a[i1:i2]` against `b[j1:j2]`."""
+
+    kind: str
+    i1: int
+    i2: int
+    j1: int
+    j2: int
+    aWords: list[int] = field(default_factory=list)
+    bWords: list[int] = field(default_factory=list)
+
+
 def diff_words(
     a: Words, b: Words, known: list[bool] | None = None
 ) -> tuple[Marks, Marks]:
     """The words of `a` and `b` that differ, each with the kind of difference.
+
+    See `diff_units`.
+    """
+    marksA: Marks = {}
+    marksB: Marks = {}
+    for unit in diff_units(a, b, known):
+        for w in unit.aWords:
+            _mark(marksA, w, unit.kind)
+        for w in unit.bWords:
+            _mark(marksB, w, unit.kind)
+    return marksA, marksB
+
+
+def diff_units(a: Words, b: Words, known: list[bool] | None = None) -> list[Unit]:
+    """The places where `a` and `b` differ, with the words that are marked there.
 
     The consonants are compared without word boundaries. Where letters are
     present in one text only, the other text marks the word they fall into,
@@ -112,8 +149,7 @@ def diff_words(
     textB = "".join(c for (_, c) in b)
     ownerA = [w for (w, c) in a for _ in c]
     ownerB = [w for (w, c) in b for _ in c]
-    marksA: Marks = {}
-    marksB: Marks = {}
+    units: list[Unit] = []
 
     def attached(owner: list[int], i: int, j: int) -> bool:
         # letters i and j (j = i + 1) are in the same word
@@ -187,24 +223,25 @@ def diff_words(
             spelling = set(textA[i1:i2]) <= MATRES and not whole_words(ownerA, i1, i2)
         else:
             spelling = False
-        kind = MATRES_ONLY if spelling else VARIANT
-        for i in range(i1, i2):
-            _mark(marksA, ownerA[i], kind)
-        for j in kept:
-            _mark(marksB, ownerB[j], kind)
+        unit = Unit(MATRES_ONLY if spelling else VARIANT, i1, i2, j1, j2)
+        aWords = [ownerA[i] for i in range(i1, i2)]
+        bWords = [ownerB[j] for j in kept]
         # letters only in b: mark the words of a they are attached to
         if i1 == i2:
             if attached(ownerB, j1 - 1, j1) and i1 > 0:
-                _mark(marksA, ownerA[i1 - 1], kind)
+                aWords.append(ownerA[i1 - 1])
             if attached(ownerB, j2 - 1, j2) and i1 < len(ownerA):
-                _mark(marksA, ownerA[i1], kind)
+                aWords.append(ownerA[i1])
         # letters only in a: likewise for b
         if j1 == j2:
             if attached(ownerA, i1 - 1, i1) and j1 > 0:
-                _mark(marksB, ownerB[j1 - 1], kind)
+                bWords.append(ownerB[j1 - 1])
             if attached(ownerA, i2 - 1, i2) and j1 < len(ownerB):
-                _mark(marksB, ownerB[j1], kind)
-    return marksA, marksB
+                bWords.append(ownerB[j1])
+        unit.aWords = sorted(set(aWords))
+        unit.bWords = sorted(set(bWords))
+        units.append(unit)
+    return units
 
 
 def _verses(api, node: int) -> list[int]:
@@ -374,3 +411,203 @@ def compare_witnesses(
             str(n): sorted(scrolls, key=siglum_key) for (n, scrolls) in who.items()
         },
     }
+
+
+# three texts: which scrolls agree with MT and which with SP
+
+
+def witness_reading(
+    textA: str, textW: str, known: list[bool], i1: int, i2: int
+) -> tuple[int, str] | None:
+    """What a manuscript has where `a` has `textA[i1:i2]`, or None if unknown.
+
+    Returns where the reading starts in `textW`, and the reading.
+
+    The reading is what the manuscript has between the letters aligned with
+    the letters of `a` just before and just after: these anchors and all
+    letters between them must be preserved. At the start or end of the verse
+    the manuscript's own first or last letter is the anchor; there an empty
+    reading is unknown, because the text may just be lost.
+    """
+    if not textW:
+        return None
+    matcher = SequenceMatcher(None, textA, textW, autojunk=False)
+    aligned = {
+        i + k: j + k for (i, j, n) in matcher.get_matching_blocks() for k in range(n)
+    }
+    edge = i1 == 0 or i2 == len(textA)
+    if i1 > 0:
+        left = aligned.get(i1 - 1)
+        if left is None or not known[left]:
+            return None
+    else:
+        left = -1
+        if not known[0]:
+            return None
+    if i2 < len(textA):
+        right = aligned.get(i2)
+        if right is None or not known[right]:
+            return None
+    else:
+        right = len(textW)
+        if not known[-1]:
+            return None
+    if right <= left or not all(known[left + 1 : right]):
+        return None
+    reading = textW[left + 1 : right]
+    if edge and not reading:
+        return None
+    return (left + 1, reading)
+
+
+def merge_units(units: list[Unit]) -> list[Unit]:
+    """Join differences in the same words into one place.
+
+    MT מארת against SP מאורות is two differences (two ו), but one place: a
+    scroll reading מארות agrees with neither as a whole.
+    """
+    merged: list[Unit] = []
+    for unit in units:
+        last = merged[-1] if merged else None
+        if last and (
+            set(unit.aWords) & set(last.aWords) or set(unit.bWords) & set(last.bWords)
+        ):
+            last.i2 = max(last.i2, unit.i2)
+            last.j2 = max(last.j2, unit.j2)
+            last.aWords = sorted(set(last.aWords) | set(unit.aWords))
+            last.bWords = sorted(set(last.bWords) | set(unit.bWords))
+            if unit.kind == VARIANT:
+                last.kind = VARIANT
+        else:
+            merged.append(
+                Unit(
+                    unit.kind,
+                    unit.i1,
+                    unit.i2,
+                    unit.j1,
+                    unit.j2,
+                    unit.aWords,
+                    unit.bWords,
+                )
+            )
+    return merged
+
+
+def compare_three(
+    service: CorpusService,
+    a: str,
+    aRef: str,
+    b: str,
+    bRef: str,
+    c: str,
+    cRef: str,
+    lang: str = "en",
+) -> dict[str, Any]:
+    """Which scrolls of `c` side with `a` (MT) and which with `b` (SP).
+
+    `bRef` is the passage of `b` that corresponds to `aRef`, `cRef` the one in
+    the book view of `c` (DSS). For every place where `a` and `b` differ in a
+    verse (see `diff_units`), each scroll that has the verse is read there
+    (see `witness_reading`): it agrees with `a`, with `b`, or with neither.
+    Scrolls whose text is lost or reconstructed there are left out.
+
+    Raises
+    ------
+    ValueError
+        If a reference is not a passage of its corpus.
+    """
+    aApi, bApi, cApi = service.api(a), service.api(b), service.api(c)
+    aConfig, bConfig = service.config(a), service.config(b)
+    index = service.book_index(c)
+    aNode = node_from_section_ref(
+        aApi, aRef, aConfig.section_sep1, aConfig.section_sep2, lang
+    )
+    bNode = node_from_section_ref(
+        bApi, bRef, bConfig.section_sep1, bConfig.section_sep2, lang
+    )
+
+    def incomparable(reason: str) -> dict[str, Any]:
+        return {"comparable": False, "reason": reason, "verses": []}
+
+    parsed = parse_ref(cRef)
+    if index is None or parsed is None:
+        return incomparable(f"{c} cannot be read by biblical book.")
+    alignedB = service.align(a, aRef, b, lang)
+    alignedC = service.align(a, aRef, c, lang, view="books")
+    if alignedB is None or alignedB["node"] != bNode:
+        return incomparable("The panes show different passages.")
+    if alignedC is None or alignedC["ref"] != format_ref(*parsed):
+        return incomparable("The panes show different passages.")
+    bBook = bApi.T.sectionFromNode(bNode, lang="en")[0]
+
+    def words_text(words: Words, nodes: list[int]) -> str:
+        chosen = set(nodes)
+        return " ".join(with_finals(c) for (w, c) in words if w in chosen)
+
+    verses = []
+    for aVerse in _verses(aApi, aNode):
+        section = aApi.T.sectionFromNode(aVerse, lang="en")
+        book = canonical_book(str(section[0]))
+        if book is None or len(section) < 3:
+            continue
+        (chapter, verse) = (int(section[1]), int(section[2]))
+        bVerse = bApi.T.nodeFromSection((bBook, *section[1:]), lang="en")
+        if bVerse is None or not index.has(book, chapter, verse):
+            continue
+        aWords = verse_words(aApi, aConfig, aVerse)
+        bWords = verse_words(bApi, bConfig, int(bVerse))
+        units = merge_units(diff_units(aWords, bWords))
+        if not units:
+            continue
+        textA = "".join(c for (_, c) in aWords)
+        textB = "".join(c for (_, c) in bWords)
+        readings: list[list[dict[str, Any]]] = [[] for _ in units]
+        for witness in index.books[book][chapter][verse]:
+            (wWords, known) = witness_letters(cApi, witness.words)
+            textW = "".join(c for (_, c) in wWords)
+            if not any(known):
+                continue
+            ownerW = [w for (w, c) in wWords for _ in c]
+            for k, unit in enumerate(units):
+                found = witness_reading(textA, textW, known, unit.i1, unit.i2)
+                if found is None:
+                    continue
+                (start, reading) = found
+                if reading == textA[unit.i1 : unit.i2]:
+                    agrees = "a"
+                elif reading == textB[unit.j1 : unit.j2]:
+                    agrees = "b"
+                else:
+                    agrees = "other"
+                inSpan = sorted({ownerW[j] for j in range(start, start + len(reading))})
+                readings[k].append(
+                    {
+                        "scroll": witness.scroll,
+                        "agrees": agrees,
+                        # the letters in which it differs, and its words there
+                        "reading": reading,
+                        "words": inSpan,
+                        "text": words_text(wWords, inSpan),
+                    }
+                )
+        places = [
+            {
+                "kind": unit.kind,
+                "a": words_text(aWords, unit.aWords),
+                "b": words_text(bWords, unit.bWords),
+                "aWords": unit.aWords,
+                "bWords": unit.bWords,
+                "witnesses": rs,
+            }
+            for (unit, rs) in zip(units, readings)
+            if rs
+        ]
+        if places:
+            verses.append(
+                {
+                    "verse": verse,
+                    "ref": format_ref(book, chapter, verse),
+                    "units": places,
+                }
+            )
+    return {"comparable": True, "reason": None, "verses": verses}
