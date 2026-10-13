@@ -36,6 +36,7 @@ from cfabric_browser.books import book_index, canonical_book
 logger = logging.getLogger(__name__)
 
 SEARCH_ROOTS = ("~/text-fabric-data/github", "~/github")
+OVERRIDES = "~/.cfabric/display"
 
 
 @dataclass(frozen=True)
@@ -226,6 +227,45 @@ def discover(roots: tuple[str, ...] = SEARCH_ROOTS) -> list[dict[str, Any]]:
     return sorted(found.values(), key=lambda c: c["id"].lower())
 
 
+def _merge(base: dict[str, Any], extra: dict[str, Any]) -> dict[str, Any]:
+    """Deep merge of two config mappings; `extra` wins."""
+    merged = dict(base)
+    for key, value in extra.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def display_overrides(
+    path: Path, overrides: str | Path = OVERRIDES
+) -> tuple[dict[str, Any], list[Path]]:
+    """Local display settings for a corpus, layered over its app config.
+
+    For data in `<org>/<repo>/tf/<version>`, these files are read, later ones
+    winning: `<overrides>/<org>/<repo>.yaml`, then
+    `<overrides>/<org>/<repo>@<version>.yaml`. They use the format of a
+    Text-Fabric app `config.yaml` (`typeDisplay`, `dataDisplay`, ...) and need
+    only contain what differs. This is the place for settings that a corpus'
+    own app config does not (yet) have, without editing downloaded files.
+    """
+    if path.parent.name != "tf":
+        return ({}, [])
+    repo = path.parent.parent
+    base = Path(overrides).expanduser() / repo.parent.name
+    merged: dict[str, Any] = {}
+    used: list[Path] = []
+    for candidate in (
+        base / f"{repo.name}.yaml",
+        base / f"{repo.name}@{path.name}.yaml",
+    ):
+        if candidate.is_file():
+            merged = _merge(merged, read_app_config(candidate))
+            used.append(candidate)
+    return (merged, used)
+
+
 class CorpusService:
     """The corpora served by the browser, with their display configurations."""
 
@@ -233,9 +273,11 @@ class CorpusService:
         self,
         specs: list[CorpusSpec] | None = None,
         roots: tuple[str, ...] = SEARCH_ROOTS,
+        overrides: str | Path = OVERRIDES,
     ) -> None:
         self.registry = CorpusRegistry()
         self.roots = roots  # where the library looks for corpora
+        self.overrides = overrides  # local display settings, see display_overrides
         self._specs: dict[str, CorpusSpec] = {}
         self._configs: dict[str, DisplayConfig] = {}
         self._books: dict[str, dict[str, str]] = {}
@@ -273,7 +315,14 @@ class CorpusService:
         if config is not None:
             return config
         api = self.api(name)
-        config = DisplayConfig.from_api(api, corpus_path=self._specs[name].path)
+        path = self._specs[name].path
+        appConfig = find_app_config(path)
+        settings = read_app_config(appConfig) if appConfig else {}
+        (extra, used) = display_overrides(path, self.overrides)
+        for file in used:
+            logger.info("Display settings for %s from %s", name, file)
+        config = DisplayConfig.from_api(api, config=_merge(settings, extra))
+        config.source = appConfig
         with self._lock:
             self._configs[name] = config
         return config
