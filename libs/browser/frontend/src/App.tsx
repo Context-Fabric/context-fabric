@@ -5,6 +5,7 @@ import { DisplayProvider, displayRef } from "./display/Display";
 import { Inspector } from "./Inspector";
 import { Library } from "./Library";
 import { Workspaces } from "./Workspaces";
+import { BookView } from "./read/BookView";
 import { ReadView } from "./read/ReadView";
 import { SearchView } from "./search/SearchView";
 import {
@@ -16,7 +17,7 @@ import {
   type Pane,
   type View,
 } from "./state";
-import type { CorpusCard, DiffKind, ViewSettings } from "./types";
+import type { CorpusCard, DiffKind, ReadBy, ViewSettings } from "./types";
 
 function Mark() {
   // the Context-Fabric woven mark
@@ -115,7 +116,7 @@ interface PaneDiff {
  * of them; each other pane marks how it differs from the first.
  */
 function useDifferences(panes: Pane[], on: boolean): (PaneDiff | null)[] {
-  const reading = panes.map((p, i) => (p.view === "read" && p.corpus ? i : -1)).filter((i) => i >= 0);
+  const reading = panes.map((p, i) => (p.view === "read" && p.corpus && p.by !== "books" ? i : -1)).filter((i) => i >= 0);
   const base = reading[0] ?? -1;
   const others = on && base >= 0 ? reading.slice(1) : [];
   const ready = (i: number) => panes[base].ref !== null && panes[i].ref !== null;
@@ -170,6 +171,7 @@ interface PaneProps {
   diff: PaneDiff | null;
   onChange: (change: Partial<Pane>, push?: boolean) => void;
   onOpenPassage: (ref: string) => void;
+  onBy: (by: ReadBy) => void;
   onOpenPane: (pane: Pane) => void;
   onClose: () => void;
   onInspect: (corpus: string, node: number) => void;
@@ -187,6 +189,7 @@ function PaneView({
   diff,
   onChange,
   onOpenPassage,
+  onBy,
   onOpenPane,
   onClose,
   onInspect,
@@ -206,7 +209,7 @@ function PaneView({
         <div className="flex flex-wrap items-center gap-2 border-b border-rule bg-raised px-3 py-1.5">
           <select
             value={pane.corpus ?? ""}
-            onChange={(e) => onChange({ corpus: e.target.value, ref: null, search: null, result: null }, true)}
+            onChange={(e) => onChange({ corpus: e.target.value, ref: null, by: "sections", search: null, result: null }, true)}
             className="rounded border border-rule-strong bg-vellum px-2 py-0.5 text-[14px] font-semibold"
             aria-label="Corpus"
           >
@@ -257,7 +260,18 @@ function PaneView({
             onInspect={(n) => onInspect(card.name, n)}
             marks={pane.view === "read" ? diff?.marks : undefined}
           >
-            {pane.view === "read" ? (
+            {pane.view === "read" && pane.by === "books" && card.bookView ? (
+              <BookView
+                corpus={card}
+                passageRef={pane.ref}
+                settings={paneSettings}
+                onOpen={onOpenPassage}
+                onBy={onBy}
+                onOpenScroll={(ref) => onChange({ by: "sections", ref }, true)}
+                compact={compact}
+                note={note}
+              />
+            ) : pane.view === "read" ? (
               <ReadView
                 corpus={card}
                 passageRef={pane.ref}
@@ -266,6 +280,7 @@ function PaneView({
                 compact={compact}
                 note={note}
                 diff={diff?.message ?? null}
+                onBy={onBy}
               />
             ) : (
               <SearchView
@@ -350,7 +365,7 @@ export function App() {
         ws.panes.map(async (p, i) => {
           if (i === index || p.view !== "read" || !p.corpus) return;
           try {
-            const target = await api.align(p.corpus, sourceCorpus, ref);
+            const target = await api.align(p.corpus, sourceCorpus, ref, p.by);
             changes.set(i, { ref: target.ref });
             newNotes[i] = target.exact
               ? null
@@ -365,6 +380,25 @@ export function App() {
     },
     [ws.panes, ws.sync, actions],
   );
+
+  /** Read a pane by its own sections or by biblical book; with sync, at the passage of the other panes. */
+  const setBy = async (index: number, by: ReadBy) => {
+    const pane = ws.panes[index];
+    const other = ws.panes.find((p, i) => i !== index && p.view === "read" && p.corpus && p.ref);
+    let ref: string | null = null;
+    let note: string | null = null;
+    if (ws.sync && other && pane.corpus) {
+      try {
+        const target = await api.align(pane.corpus, other.corpus!, other.ref!, by);
+        ref = target.ref;
+        note = target.exact ? null : `${displayRef(other.ref!)} is not in ${pane.corpus}; showing ${displayRef(target.ref)}.`;
+      } catch {
+        note = `${pane.corpus} has no counterpart of ${displayRef(other.ref!)}.`;
+      }
+    }
+    setNotes((n) => ({ ...n, [index]: note }));
+    actions.updatePane(index, { by, ref }, true);
+  };
 
   const addPane = (pane: Pane) => {
     if (ws.panes.length < MAX_PANES) actions.addPane(pane);
@@ -497,6 +531,7 @@ export function App() {
                 diff={differences[i]}
                 onChange={(change, push) => actions.updatePane(i, change, push)}
                 onOpenPassage={(ref) => openPassage(i, ref)}
+                onBy={(by) => setBy(i, by)}
                 onOpenPane={addPane}
                 onClose={() => actions.removePane(i)}
                 onInspect={(corpus, node) => setInspected({ corpus, node })}

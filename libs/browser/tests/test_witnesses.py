@@ -165,7 +165,7 @@ class TestWitnesses:
         q1 = self.get(client, "Gen 1:1").json()["verses"][0]["witnesses"][0]
         assert q1["words"] == [10, 11]
         assert q1["place"] == "f1:1"
-        assert q1["ref"] == "1Q1 f1:1"
+        assert q1["ref"] == "1Q1 f1"
         assert texts(q1) == [("ב", False), ("ר", False), ("א", False)]
 
     def test_reconstructed_is_dim(self, client):

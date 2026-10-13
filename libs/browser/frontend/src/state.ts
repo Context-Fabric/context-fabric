@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ViewSettings } from "./types";
+import type { ReadBy, ViewSettings } from "./types";
 
 // Everything that identifies what you are looking at lives in the URL, so a view
 // can be bookmarked and shared. Display preferences are kept per browser.
@@ -11,6 +11,7 @@ export interface Pane {
   corpus: string | null;
   view: View;
   ref: string | null; // passage being read
+  by: ReadBy; // by the corpus' own sections, or by biblical book (DSS)
   query: string; // search template
   search: string | null; // id of the current search
   result: number | null; // expanded result
@@ -25,7 +26,7 @@ export interface Workspace {
 export const MAX_PANES = 4;
 
 export function emptyPane(corpus: string | null = null): Pane {
-  return { corpus, view: "read", ref: null, query: "", search: null, result: null };
+  return { corpus, view: "read", ref: null, by: "sections", query: "", search: null, result: null };
 }
 
 // URL keys per pane: c0, v0, ref0, ... ; links without an index are pane 0.
@@ -39,6 +40,7 @@ function parsePane(p: URLSearchParams, i: number): Pane | null {
     corpus,
     view: view === "search" ? "search" : "read",
     ref: key("ref"),
+    by: key("by") === "books" ? "books" : "sections",
     query: key("q") ?? "",
     search: key("s"),
     result: result === null ? null : Number(result),
@@ -62,6 +64,7 @@ export function serialize(ws: Workspace): string {
     if (pane.corpus) p.set(`c${i}`, pane.corpus);
     p.set(`v${i}`, pane.view);
     if (pane.ref) p.set(`ref${i}`, pane.ref);
+    if (pane.by === "books") p.set(`by${i}`, "books");
     if (pane.query) p.set(`q${i}`, pane.query);
     if (pane.search) p.set(`s${i}`, pane.search);
     if (pane.result !== null) p.set(`r${i}`, String(pane.result));

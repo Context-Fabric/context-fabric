@@ -235,6 +235,7 @@ function OtherCount({
               corpus: other.corpus,
               view: "search",
               ref: null,
+              by: "sections",
               query: template,
               search: status.id,
               result: null,

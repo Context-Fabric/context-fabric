@@ -75,7 +75,7 @@ function PlainFragment({ fragment, inBase = false }: { fragment: Fragment; inBas
   const { config, onInspect, marks } = useDisplay();
   const isText = fragment.text !== undefined;
   const isBase = !inBase && !isText && isBaseType(config, fragment.type);
-  const cls = highlightClass(fragment.highlight);
+  const cls = `${highlightClass(fragment.highlight)} ${fragment.dim ? "dim" : ""}`.trim();
   const content = isText
     ? fragment.text
     : (fragment.children ?? []).map((child, i) => (
@@ -177,7 +177,7 @@ function PrettyFragment({ fragment, direction }: { fragment: Fragment; direction
       {isText ? (
         <button
           type="button"
-          className={`frag-word ${scriptClass(config, direction)} ${diffClass(marks, fragment.node)}`}
+          className={`frag-word ${scriptClass(config, direction)} ${diffClass(marks, fragment.node)} ${fragment.dim ? "dim" : ""}`}
           dir={direction}
           onClick={() => onInspect?.(fragment.node)}
           title={settings.showNodes ? undefined : `${fragment.type} ${fragment.node}`}
@@ -191,7 +191,7 @@ function PrettyFragment({ fragment, direction }: { fragment: Fragment; direction
       {!isText && fragment.base && fragment.text ? (
         <button
           type="button"
-          className={`frag-word frag-base ${scriptClass(config, direction)} ${diffClass(marks, fragment.node)}`}
+          className={`frag-word frag-base ${scriptClass(config, direction)} ${diffClass(marks, fragment.node)} ${fragment.dim ? "dim" : ""}`}
           dir={direction}
           onClick={() => onInspect?.(fragment.node)}
           title={settings.showNodes ? undefined : `${fragment.type} ${fragment.node}`}
