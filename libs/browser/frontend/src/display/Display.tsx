@@ -57,15 +57,24 @@ function highlightClass(color: string | undefined): string {
 
 // plain
 
-function PlainFragment({ fragment }: { fragment: Fragment }) {
-  const { onInspect } = useDisplay();
+function isBaseType(config: DisplayConfig, type: string): boolean {
+  return type !== config.slotType && config.baseTypes.includes(type);
+}
+
+// Where slots are below word level (signs in SP and DSS), the base type (word) is
+// the unit to click: its signs are drawn inside it and are not inspected one by one.
+function PlainFragment({ fragment, inBase = false }: { fragment: Fragment; inBase?: boolean }) {
+  const { config, onInspect } = useDisplay();
   const isText = fragment.text !== undefined;
+  const isBase = !inBase && !isText && isBaseType(config, fragment.type);
   const cls = highlightClass(fragment.highlight);
   const content = isText
     ? fragment.text
-    : (fragment.children ?? []).map((child, i) => <PlainFragment key={i} fragment={child} />);
+    : (fragment.children ?? []).map((child, i) => (
+        <PlainFragment key={i} fragment={child} inBase={inBase || isBase} />
+      ));
 
-  if (isText && onInspect) {
+  if (((isText && !inBase) || isBase) && onInspect) {
     return (
       <span
         className={`plain-word ${cls}`}
@@ -172,9 +181,15 @@ function PrettyFragment({ fragment, direction }: { fragment: Fragment; direction
         <span className="frag-node frag-node-slot">{fragment.node}</span>
       ) : null}
       {!isText && fragment.base && fragment.text ? (
-        <div className={`frag-base ${scriptClass(config, direction)}`} dir={direction}>
+        <button
+          type="button"
+          className={`frag-word frag-base ${scriptClass(config, direction)}`}
+          dir={direction}
+          onClick={() => onInspect?.(fragment.node)}
+          title={settings.showNodes ? undefined : `${fragment.type} ${fragment.node}`}
+        >
           {fragment.text}
-        </div>
+        </button>
       ) : null}
       <Features features={features} />
       {children.length ? (
