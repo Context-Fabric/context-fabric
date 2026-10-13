@@ -27,6 +27,19 @@ export function ReadBySwitch({ by, onBy }: { by: ReadBy; onBy: (by: ReadBy) => v
   );
 }
 
+/** What the marks for differences with other panes mean. */
+export function DiffNote({ message }: { message: string }) {
+  return (
+    <p className="mb-3 flex flex-wrap items-baseline gap-x-3 text-[13px] text-stone">
+      <span>{message}.</span>
+      <span>
+        <span className="diff diff-variant diff-key text-ink">variant</span>{" "}
+        <span className="diff diff-matres diff-key text-ink">spelling (matres lectionis)</span>
+      </span>
+    </p>
+  );
+}
+
 function BookNavigator({
   books,
   current,
@@ -100,9 +113,11 @@ interface Props {
   onOpenScroll: (ref: string) => void;
   compact?: boolean;
   note?: string | null;
+  /** About differences with the text in another pane, when they are shown. */
+  diff?: string | null;
 }
 
-export function BookView({ corpus, passageRef, settings, onOpen, onBy, onOpenScroll, compact = false, note = null }: Props) {
+export function BookView({ corpus, passageRef, settings, onOpen, onBy, onOpenScroll, compact = false, note = null, diff = null }: Props) {
   const [mode, setMode] = useState<"pretty" | "plain">("plain");
   const [navOpen, setNavOpen] = useState(false);
   const books = useQuery({ queryKey: ["books", corpus.name], queryFn: () => api.books(corpus.name) });
@@ -183,6 +198,7 @@ export function BookView({ corpus, passageRef, settings, onOpen, onBy, onOpenScr
         </header>
         <div className={`min-h-0 flex-1 overflow-y-auto px-5 py-4 ${passage.isFetching ? "opacity-70" : ""}`}>
           {note ? <p className="mb-3 text-[13px] text-stone">{note}</p> : null}
+          {diff ? <DiffNote message={diff} /> : null}
           {books.error || passage.error ? (
             <p className="text-madder">{String(((books.error ?? passage.error) as Error).message)}</p>
           ) : data ? (

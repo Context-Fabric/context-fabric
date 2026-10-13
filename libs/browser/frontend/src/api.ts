@@ -103,14 +103,16 @@ export const api = {
     request<WitnessPassage>(`${corpusPath(corpus)}/witnesses${query({ ref, ...params })}`),
 
   /** Words that differ between a passage of `a` and the corresponding passage of `b`. */
-  compare: (a: string, aref: string, b: string, bref: string) =>
+  compare: (a: string, aref: string, b: string, bref: string, bview: ReadBy = "sections") =>
     request<{
       comparable: boolean;
       reason: string | null;
       verses: number;
       a: Record<string, DiffKind>;
       b: Record<string, DiffKind>;
-    }>(`/api/compare${query({ a, aref, b, bref })}`),
+      /** With `bview=books`: per marked word of `a`, the scrolls that differ there. */
+      aWitnesses?: Record<string, string[]>;
+    }>(`/api/compare${query({ a, aref, b, bref, bview })}`),
 
   features: (corpus: string) =>
     request<{ features: FeatureEntry[] }>(`${corpusPath(corpus)}/features`),
