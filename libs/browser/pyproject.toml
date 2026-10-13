@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cfabric-browser"
+version = "0.1.0"
+description = "Graphical browser for Context-Fabric corpora: search, read and compare, offline"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.13"
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.13",
+]
+
+dependencies = [
+    # Needs cfabric.display, cfabric.registry and search cancellation, which are
+    # unreleased: raise this to the first core release that contains them.
+    "context-fabric>=0.5.7",
+    "fastapi>=0.115",
+    "uvicorn>=0.32.0",
+]
+
+[project.urls]
+Homepage = "https://context-fabric.ai"
+Repository = "https://github.com/Context-Fabric/context-fabric"
+Issues = "https://github.com/Context-Fabric/context-fabric/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "httpx2>=2.0",
+]
+
+[project.scripts]
+cfabric-browser = "cfabric_browser.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cfabric_browser*"]
+
+[tool.setuptools.package-data]
+cfabric_browser = ["static/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
