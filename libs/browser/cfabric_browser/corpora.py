@@ -53,14 +53,38 @@ def _is_data_dir(path: Path) -> bool:
     return (path / ".cfm").is_dir() or any(path.glob("otype.tf"))
 
 
-def _pick_version(repo: Path) -> Path | None:
-    """The data directory of a repository in TF layout (`<repo>/tf/<version>`)."""
+LATEST = "latest"
+
+
+def _pick_version(repo: Path, version: str | None = None) -> Path | None:
+    """The data directory of a repository in TF layout (`<repo>/tf/<version>`).
+
+    Without `version`: the version named in the app config, or else the newest.
+    With `version`: that version, or the newest for `latest`.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the requested version is not on disk; the message lists those that are.
+    """
     tfDir = repo / "tf"
     if not tfDir.is_dir():
         return None
     versions = [d for d in tfDir.iterdir() if d.is_dir() and _is_data_dir(d)]
     if not versions:
         return None
+
+    if version == LATEST:
+        return max(versions, key=lambda d: versionSort(d.name))
+    if version is not None:
+        for d in versions:
+            if d.name == version:
+                return d
+        available = ", ".join(sorted((d.name for d in versions), key=versionSort))
+        raise FileNotFoundError(
+            f"{repo.parent.name}/{repo.name} has no version {version}; "
+            f"on this computer: {available}"
+        )
 
     appConfig = repo / "app" / "config.yaml"
     if appConfig.is_file():
@@ -107,6 +131,9 @@ def _find_repo(name: str, roots: tuple[str, ...]) -> Path | None:
 def resolve_corpus(spec: str, roots: tuple[str, ...] = SEARCH_ROOTS) -> CorpusSpec:
     """Turn a command-line corpus specification into a name and a data directory.
 
+    A version can be chosen with `@`: `DT-UCPH/sp@7.2.4`, or `sp@latest` for
+    the newest version on this computer.
+
     Raises
     ------
     FileNotFoundError
@@ -118,7 +145,13 @@ def resolve_corpus(spec: str, roots: tuple[str, ...] = SEARCH_ROOTS) -> CorpusSp
         (name, target) = spec.split("=", 1)
         name = name.strip() or None
 
+    version: str | None = None
     path = Path(target).expanduser()
+    if not path.is_dir() and "@" in target:
+        (target, version) = target.rsplit("@", 1)
+        version = version.strip() or None
+        path = Path(target).expanduser()
+
     dataDir: Path | None = None
     repo: Path | None = None
 
@@ -126,12 +159,12 @@ def resolve_corpus(spec: str, roots: tuple[str, ...] = SEARCH_ROOTS) -> CorpusSp
         if _is_data_dir(path):
             dataDir = path
         else:
-            dataDir = _pick_version(path)
+            dataDir = _pick_version(path, version)
             repo = path
     else:
         repo = _find_repo(target, roots)
         if repo is not None:
-            dataDir = _pick_version(repo)
+            dataDir = _pick_version(repo, version)
 
     if dataDir is None:
         raise FileNotFoundError(f"No corpus data found for '{spec}'")
@@ -330,7 +363,8 @@ class CorpusService:
         return {
             "name": name,
             "title": provenance.get("corpus") or name,
-            "version": str(provenance.get("version") or self._specs[name].path.name),
+            # the version actually loaded, which may differ from the app config's
+            "version": self._specs[name].path.name,
             "doi": provenance.get("doi"),
             "hasAppConfig": find_app_config(self._specs[name].path) is not None,
             "slotType": F.otype.slotType,

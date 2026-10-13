@@ -77,6 +77,27 @@ class TestCorpora:
         assert resolve_corpus("alpha", roots=(str(tmp_path),)).path.name == "1.0"
         assert resolve_corpus("org/ALPHA", roots=(str(tmp_path),)).name == "alpha"
 
+    def test_resolve_versions(self, tmp_path):
+        roots = (str(tmp_path),)
+        repo = tmp_path / "Org" / "alpha"
+        for version in ("0.9", "1.0", "1.10"):
+            shutil.copytree(
+                DATA, repo / "tf" / version, ignore=shutil.ignore_patterns(".cfm")
+            )
+        # no app config here, so the newest version (1.10, not 1.0) by default
+        assert resolve_corpus("alpha", roots=roots).path.name == "1.10"
+        assert resolve_corpus("alpha@0.9", roots=roots).path.name == "0.9"
+        assert resolve_corpus("Org/alpha@latest", roots=roots).path.name == "1.10"
+        assert resolve_corpus("old=alpha@0.9", roots=roots).name == "old"
+        assert resolve_corpus(f"{repo}@0.9").path.name == "0.9"
+        with pytest.raises(FileNotFoundError, match="on this computer: 0.9, 1.0, 1.10"):
+            resolve_corpus("alpha@2.0", roots=roots)
+
+    def test_app_config_version_wins_unless_asked(self):
+        # the fixture's app config names version 1.0
+        assert resolve_corpus(str(FIXTURE)).path.name == "1.0"
+        assert resolve_corpus(f"{FIXTURE}@latest").path.name == "1.0"
+
 
 class TestDescribe:
     def test_health(self, client):
@@ -96,6 +117,7 @@ class TestDescribe:
         assert {"type": "clause", "count": 3, "isSlot": False} in card["nodeTypes"]
         assert card["display"]["direction"] == "rtl"
         assert card["hasAppConfig"] is True
+        assert card["version"] == "1.0"  # the data directory that is loaded
         assert str(DATA.resolve()) not in str(card)  # no server paths in the API
 
     def test_unknown_corpus(self, client):

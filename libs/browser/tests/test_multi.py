@@ -156,6 +156,15 @@ class TestLibrary:
         names = [c["name"] for c in client.get("/api/corpora").json()["corpora"]]
         assert "notes" in names
 
+    def test_open_a_version(self, client, roots):
+        response = client.post("/api/corpora", json={"id": "Greek/gr@9.9"})
+        assert response.status_code == 404
+        assert "on this computer: 1.0" in response.json()["detail"]
+        response = client.post(
+            "/api/corpora", json={"id": "Greek/gr@latest", "name": "grlatest"}
+        )
+        assert response.status_code == 201
+
     def test_name_clash(self, client):
         response = client.post("/api/corpora", json={"id": "Greek/gr", "name": "heb"})
         assert response.status_code == 409
