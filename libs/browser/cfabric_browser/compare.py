@@ -26,7 +26,14 @@ from typing import Any
 
 from cfabric.display import DisplayConfig, node_from_section_ref
 
+from cfabric_browser.books import canonical_book
 from cfabric_browser.corpora import CorpusService
+from cfabric_browser.witnesses import (
+    RECONSTRUCTED,
+    format_ref,
+    parse_ref,
+    siglum_key,
+)
 
 CONSONANT_FEATURE = "g_cons_utf8"
 HEBREW_LETTER = re.compile("[א-ת]")
@@ -81,13 +88,22 @@ def _mark(marks: Marks, node: int, kind: str) -> None:
         marks[node] = kind
 
 
-def diff_words(a: Words, b: Words) -> tuple[Marks, Marks]:
+def diff_words(
+    a: Words, b: Words, known: list[bool] | None = None
+) -> tuple[Marks, Marks]:
     """The words of `a` and `b` that differ, each with the kind of difference.
 
     The consonants are compared without word boundaries. Where letters are
     present in one text only, the other text marks the word they fall into,
     if they are attached to a word there; a plus of whole words leaves the
     other text unmarked.
+
+    `known` flags, per letter of `b`, whether it is preserved (a manuscript)
+    rather than reconstructed by an editor. Reconstructed letters keep the
+    texts aligned but are never marked, and neither is what `a` has in their
+    place. Letters of `a` that `b` lacks count only between two preserved
+    letters: at the edge of what survives, or next to a reconstruction, they
+    may just be lost.
     """
     textA = "".join(c for (_, c) in a)
     textB = "".join(c for (_, c) in b)
@@ -144,10 +160,26 @@ def diff_words(a: Words, b: Words) -> tuple[Marks, Marks]:
             else:
                 s = slide(textA, ownerA, i1, i2, left, right)
             (i1, i2, j1, j2) = (i1 + s, i2 + s, j1 + s, j2 + s)
+        kept = [j for j in range(j1, j2) if known is None or known[j]]
+        if known is not None:
+            if tag != "delete" and not kept:
+                continue
+            if tag == "delete" and not (
+                0 < j1 < len(known) and known[j1 - 1] and known[j1]
+            ):
+                continue
+            # at the edge of what survives, `a` goes on where `b` is lost:
+            # only as many letters of `a` as `b` has stand against them
+            if tag == "replace" and j2 == len(known):
+                i2 = min(i2, i1 + (j2 - j1))
+            if tag == "replace" and j1 == 0:
+                i1 = max(i1, i2 - (j2 - j1))
         # spelling: matres added or left out within a word; a word of its
         # own (the article ה, the conjunction ו) or another letter is a variant
         if tag == "insert":
-            spelling = set(textB[j1:j2]) <= MATRES and not whole_words(ownerB, j1, j2)
+            spelling = {textB[j] for j in kept} <= MATRES and not whole_words(
+                ownerB, j1, j2
+            )
         elif tag == "delete":
             spelling = set(textA[i1:i2]) <= MATRES and not whole_words(ownerA, i1, i2)
         else:
@@ -155,7 +187,7 @@ def diff_words(a: Words, b: Words) -> tuple[Marks, Marks]:
         kind = MATRES_ONLY if spelling else VARIANT
         for i in range(i1, i2):
             _mark(marksA, ownerA[i], kind)
-        for j in range(j1, j2):
+        for j in kept:
             _mark(marksB, ownerB[j], kind)
         # letters only in b: mark the words of a they are attached to
         if i1 == i2:
@@ -236,4 +268,99 @@ def compare_passages(
         "verses": paired,
         "a": {str(n): k for (n, k) in marksA.items()},
         "b": {str(n): k for (n, k) in marksB.items()},
+    }
+
+
+def witness_letters(api, words: list[int]) -> tuple[Words, list[bool]]:
+    """The consonants of the words of a manuscript, and which are preserved.
+
+    A letter is preserved unless its slot (sign) is flagged as reconstructed.
+    """
+    rec = api.Fs(RECONSTRUCTED).v if RECONSTRUCTED in api.Fall() else None
+    # a format of the slots: text-orig-extra (DSS) is one of words
+    formats = api.T.formats
+    fmt = "text-orig-full" if "text-orig-full" in formats else None
+    result: Words = []
+    known: list[bool] = []
+    for w in words:
+        letters = ""
+        for s in api.E.oslots.s(w):
+            c = consonants(str(api.T.text([int(s)], fmt=fmt)))
+            letters += c
+            known.extend([not (rec and rec(int(s)))] * len(c))
+        result.append((w, letters))
+    return result, known
+
+
+def compare_witnesses(
+    service: CorpusService, a: str, aRef: str, b: str, bRef: str, lang: str = "en"
+) -> dict[str, Any]:
+    """Compare passage `aRef` of `a` (MT, SP) with the scrolls at `bRef` of `b`.
+
+    `bRef` is a passage in the book view of `b` (DSS). Each scroll that
+    contains a verse (a witness) is compared with that verse of `a`, its
+    reconstructed letters not counting (see `diff_words`). `a` marks a word
+    when any witness differs there; `aWitnesses` names them.
+
+    Raises
+    ------
+    ValueError
+        If `aRef` is not a passage of `a`.
+    """
+    aApi, bApi = service.api(a), service.api(b)
+    aConfig = service.config(a)
+    index = service.book_index(b)
+    aNode = node_from_section_ref(
+        aApi, aRef, aConfig.section_sep1, aConfig.section_sep2, lang
+    )
+
+    def incomparable(reason: str) -> dict[str, Any]:
+        return {"comparable": False, "reason": reason, "verses": 0, "a": {}, "b": {}}
+
+    parsed = parse_ref(bRef)
+    if index is None or parsed is None:
+        return incomparable(f"{b} cannot be read by biblical book.")
+    aligned = service.align(a, aRef, b, lang, view="books")
+    if aligned is None or aligned["ref"] != format_ref(*parsed):
+        return incomparable("The panes show different passages.")
+
+    marksA: Marks = {}
+    marksB: Marks = {}
+    who: dict[int, set[str]] = {}
+    verses = 0
+    letters = False
+    for aVerse in _verses(aApi, aNode):
+        section = aApi.T.sectionFromNode(aVerse, lang="en")
+        book = canonical_book(str(section[0]))
+        if book is None or len(section) < 3:
+            continue
+        (chapter, verse) = (int(section[1]), int(section[2]))
+        if not index.has(book, chapter, verse):
+            continue
+        aWords = verse_words(aApi, aConfig, aVerse)
+        if not any(c for (_, c) in aWords):
+            continue
+        verses += 1
+        for witness in index.books[book][chapter][verse]:
+            (bWords, known) = witness_letters(bApi, witness.words)
+            if not any(known):
+                continue
+            letters = True
+            (mA, mB) = diff_words(aWords, bWords, known)
+            for node, kind in mA.items():
+                _mark(marksA, node, kind)
+                who.setdefault(node, set()).add(witness.scroll)
+            marksB.update(mB)
+
+    if not letters:
+        return incomparable("Only Hebrew texts can be compared so far.")
+    return {
+        "comparable": True,
+        "reason": None,
+        "verses": verses,
+        "a": {str(n): k for (n, k) in marksA.items()},
+        "b": {str(n): k for (n, k) in marksB.items()},
+        "aWitnesses": {
+            str(n): sorted(scrolls, key=siglum_key) for (n, scrolls) in who.items()
+        },
     }

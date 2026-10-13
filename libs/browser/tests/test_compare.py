@@ -90,3 +90,44 @@ class TestDiffWords:
         (a, b) = diff_words(words("עשב"), words("עושה", 10))
         assert a == {1: "variant"}
         assert b == {10: "variant"}
+
+
+def letters(text: str, reconstructed: str = "") -> tuple[list, list[bool]]:
+    """A manuscript's words, numbered from 10, and per letter whether it is
+    preserved: letters under a `^` in `reconstructed` (laid out like `text`,
+    spaces included) are reconstructed."""
+    marks = reconstructed.ljust(len(text))
+    known = [m != "^" for (t, m) in zip(text, marks) if t != " "]
+    return words(text, 10), known
+
+
+class TestDiffWitness:
+    def test_reconstructed_letters_do_not_count(self):
+        (b, known) = letters("ברא אלוהים", "      ^")
+        assert diff_words(words("ברא אלהים"), b, known) == ({}, {})
+
+    def test_preserved_letters_count(self):
+        (b, known) = letters("ברא אלוהים")
+        assert diff_words(words("ברא אלהים"), b, known) == (
+            {2: "matres"},
+            {11: "matres"},
+        )
+
+    def test_lost_edges_do_not_count(self):
+        # a fragment with only the middle of the verse
+        (b, known) = letters("אלהים")
+        assert diff_words(words("ברא אלהים את"), b, known) == ({}, {})
+
+    def test_minus_between_preserved_letters(self):
+        (b, known) = letters("את ל ימים")
+        assert diff_words(words("את ו ל ימים"), b, known) == ({2: "variant"}, {})
+
+    def test_minus_next_to_reconstruction_does_not_count(self):
+        (b, known) = letters("את ל ימים", " ^")
+        assert diff_words(words("את ו ל ימים"), b, known) == ({}, {})
+
+    def test_edge_replacement_stays_local(self):
+        # a last surviving letter that differs does not mark the rest of `a`
+        (b, known) = letters("ברא ק")
+        (a, _) = diff_words(words("ברא אלהים את השמים"), b, known)
+        assert a == {2: "variant"}

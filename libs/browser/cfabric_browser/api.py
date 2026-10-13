@@ -30,7 +30,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
-from cfabric_browser.compare import compare_passages
+from cfabric_browser.compare import compare_passages, compare_witnesses
 from cfabric_browser.corpora import CorpusService, discover, resolve_corpus
 from cfabric_browser.queries import (
     LANGUAGES,
@@ -267,16 +267,26 @@ def build_router(
 
     @router.get("/compare")
     def compare(
-        a: str, aref: str, b: str, bref: str, lang: str = "en"
+        a: str,
+        aref: str,
+        b: str,
+        bref: str,
+        lang: str = "en",
+        bview: Literal["sections", "books"] = "sections",
     ) -> dict[str, Any]:
         """Words that differ between passage `aref` of `a` and `bref` of `b`.
 
         `a` and `b` map word nodes of each corpus to `matres` (only matres
-        lectionis differ) or `variant`. See `cfabric_browser.compare`.
+        lectionis differ) or `variant`. With `bview=books`, `bref` is a passage
+        in the book view of `b` (DSS): each scroll is compared with `a`, and
+        `aWitnesses` names, per marked word of `a`, the scrolls that differ.
+        See `cfabric_browser.compare`.
         """
         corpus_api(a)
         corpus_api(b)
         try:
+            if bview == "books":
+                return compare_witnesses(service, a, aref, b, bref, lang)
             return compare_passages(service, a, aref, b, bref, lang)
         except ValueError as e:
             raise HTTPException(404, str(e)) from None
@@ -319,7 +329,7 @@ def build_router(
         config = service.config(corpus)
         L, T = api.L, api.T
         # a witness links to its fragment in the scroll view, for context
-        types = T.sectionTypes or ()
+        types = list(T.sectionTypes or [])
         placeType = types[1] if len(types) > 1 else (types[0] if types else None)
         chapterVerses = index.books[book][chapter]
         verses = []

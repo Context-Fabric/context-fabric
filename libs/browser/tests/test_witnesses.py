@@ -47,21 +47,43 @@ EDGES = {"oslots"}
 INTS = {"rec", "biblical"}
 
 
-def make_scrolls(root: Path) -> Path:
-    data = root / "Scrolls" / "mini" / "tf" / "1.0"
+# a reference text (MT) with Genesis 1:1 = בורא ש
+MT_FILES = {
+    "otype": "1-2\tword\n3\tbook\n4\tchapter\n5\tverse\n",
+    "oslots": "3\t1-2\n4\t1-2\n5\t1-2\n",
+    "g_cons_utf8": "1\tבורא\n2\tש\n",
+    "book": "3\tGenesis\n",
+    "chapter": "4\t1\n",
+    "verse": "5\t1\n",
+}
+
+
+def write_tf(data: Path, files: dict[str, str], ints: set[str], otext: str) -> None:
     data.mkdir(parents=True)
-    for name, body in FILES.items():
+    for name, body in files.items():
         kind = "@edge" if name in EDGES else "@node"
-        vtype = "int" if name in INTS else "str"
+        vtype = "int" if name in ints else "str"
         (data / f"{name}.tf").write_text(
             f"{kind}\n@valueType={vtype}\n\n{body}", encoding="utf-8"
         )
-    (data / "otext.tf").write_text(
-        "@config\n@fmt:text-orig-full={glyph}{after}\n"
+    (data / "otext.tf").write_text(f"@config\n{otext}", encoding="utf-8")
+
+
+def make_scrolls(root: Path) -> None:
+    write_tf(
+        root / "Scrolls" / "mini" / "tf" / "1.0",
+        FILES,
+        INTS,
+        "@fmt:text-orig-full={glyph}{after}\n"
         "@sectionFeatures=scroll,fragment,line\n@sectionTypes=scroll,fragment,line\n",
-        encoding="utf-8",
     )
-    return data
+    write_tf(
+        root / "Hebrew" / "mt" / "tf" / "1.0",
+        MT_FILES,
+        {"chapter", "verse"},
+        "@fmt:text-orig-full={g_cons_utf8} \n"
+        "@sectionFeatures=book,chapter,verse\n@sectionTypes=book,chapter,verse\n",
+    )
 
 
 @pytest.fixture(scope="module")
@@ -69,7 +91,8 @@ def service(tmp_path_factory):
     root = tmp_path_factory.mktemp("scrolls")
     make_scrolls(root)
     roots = (str(root),)
-    return CorpusService([resolve_corpus("Scrolls/mini", roots)], roots=roots)
+    specs = [resolve_corpus(c, roots) for c in ("Scrolls/mini", "Hebrew/mt")]
+    return CorpusService(specs, roots=roots)
 
 
 @pytest.fixture(scope="module")
@@ -212,3 +235,40 @@ class TestAlign:
             params={"from": "mini", "ref": "Leviticus 1", "view": "books"},
         )
         assert response.status_code == 404
+
+
+class TestCompareWitnesses:
+    def compare(self, client, aref: str, bref: str):
+        return client.get(
+            "/api/compare",
+            params={
+                "a": "mt",
+                "aref": aref,
+                "b": "mini",
+                "bref": bref,
+                "bview": "books",
+            },
+        )
+
+    def test_witnesses(self, client):
+        data = self.compare(client, "Genesis 1", "Genesis 1").json()
+        assert data["comparable"] is True
+        # 1Q1 lacks the ו of בורא; 4Q2 is all reconstructed; 4Q10 agrees
+        assert data["a"] == {"1": "matres"}
+        assert data["aWitnesses"] == {"1": ["1Q1"]}
+        assert data["b"] == {"10": "matres"}
+
+    def test_other_passage(self, client):
+        data = self.compare(client, "Genesis 1", "Exodus 2").json()
+        assert data["comparable"] is False
+
+    def test_align_to_book_view_and_back(self, client):
+        there = client.get(
+            "/api/corpora/mini/align",
+            params={"from": "mt", "ref": "Genesis 1:1", "view": "books"},
+        ).json()
+        assert there == {"node": None, "ref": "Genesis 1:1", "exact": True}
+        back = client.get(
+            "/api/corpora/mt/align", params={"from": "mini", "ref": "Genesis 1:1"}
+        ).json()
+        assert back["ref"] == "Genesis 1:1"

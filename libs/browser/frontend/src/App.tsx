@@ -107,23 +107,28 @@ function DisplayOptions({
 /** What a reading pane shows about differences with other panes. */
 interface PaneDiff {
   marks?: Map<number, DiffKind>;
+  /** Per marked word: what it differs from, for a tooltip. */
+  titles?: Map<number, string>;
   message: string;
 }
 
 /**
  * Differences between the texts of reading panes: the first reading pane is
  * compared with each of the others. It marks the words that differ from any
- * of them; each other pane marks how it differs from the first.
+ * of them; each other pane marks how it differs from the first. A pane that
+ * reads the DSS by biblical book is compared scroll by scroll, and cannot be
+ * the first.
  */
 function useDifferences(panes: Pane[], on: boolean): (PaneDiff | null)[] {
-  const reading = panes.map((p, i) => (p.view === "read" && p.corpus && p.by !== "books" ? i : -1)).filter((i) => i >= 0);
-  const base = reading[0] ?? -1;
-  const others = on && base >= 0 ? reading.slice(1) : [];
+  const reading = panes.map((p, i) => (p.view === "read" && p.corpus ? i : -1)).filter((i) => i >= 0);
+  const base = reading.find((i) => panes[i].by !== "books") ?? -1;
+  const others = on && base >= 0 ? reading.filter((i) => i !== base) : [];
   const ready = (i: number) => panes[base].ref !== null && panes[i].ref !== null;
   const results = useQueries({
     queries: others.map((i) => ({
-      queryKey: ["compare", panes[base].corpus, panes[base].ref, panes[i].corpus, panes[i].ref],
-      queryFn: () => api.compare(panes[base].corpus!, panes[base].ref!, panes[i].corpus!, panes[i].ref!),
+      queryKey: ["compare", panes[base].corpus, panes[base].ref, panes[i].corpus, panes[i].ref, panes[i].by],
+      queryFn: () =>
+        api.compare(panes[base].corpus!, panes[base].ref!, panes[i].corpus!, panes[i].ref!, panes[i].by),
       enabled: ready(i),
       staleTime: Infinity,
     })),
@@ -132,6 +137,7 @@ function useDifferences(panes: Pane[], on: boolean): (PaneDiff | null)[] {
   const diffs: (PaneDiff | null)[] = panes.map(() => null);
   if (!others.length) return diffs;
   const baseMarks = new Map<number, DiffKind>();
+  const differsIn = new Map<number, string[]>();
   const compared: string[] = [];
   others.forEach((i, k) => {
     const { data, error } = results[k];
@@ -148,13 +154,20 @@ function useDifferences(panes: Pane[], on: boolean): (PaneDiff | null)[] {
       const marks = new Map(Object.entries(data.b).map(([n, kind]) => [Number(n), kind]));
       for (const [n, kind] of Object.entries(data.a)) {
         if (baseMarks.get(Number(n)) !== "variant") baseMarks.set(Number(n), kind);
+        const scrolls = data.aWitnesses?.[n];
+        const where = scrolls ? `${panes[i].corpus} ${scrolls.join(", ")}` : panes[i].corpus!;
+        differsIn.set(Number(n), [...(differsIn.get(Number(n)) ?? []), where]);
       }
       compared.push(panes[i].corpus!);
       diffs[i] = { marks, message: `${marks.size} words differ from ${name}` };
     }
   });
   diffs[base] = compared.length
-    ? { marks: baseMarks, message: `${baseMarks.size} words differ from ${compared.join(", ")}` }
+    ? {
+        marks: baseMarks,
+        titles: new Map([...differsIn].map(([n, where]) => [n, `Differs in ${where.join("; ")}`])),
+        message: `${baseMarks.size} words differ from ${compared.join(", ")}`,
+      }
     : null;
   return diffs;
 }
@@ -259,6 +272,7 @@ function PaneView({
             settings={paneSettings}
             onInspect={(n) => onInspect(card.name, n)}
             marks={pane.view === "read" ? diff?.marks : undefined}
+            markTitles={pane.view === "read" ? diff?.titles : undefined}
           >
             {pane.view === "read" && pane.by === "books" && card.bookView ? (
               <BookView
@@ -270,6 +284,7 @@ function PaneView({
                 onOpenScroll={(ref) => onChange({ by: "sections", ref }, true)}
                 compact={compact}
                 note={note}
+                diff={diff?.message ?? null}
               />
             ) : pane.view === "read" ? (
               <ReadView

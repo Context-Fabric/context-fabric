@@ -13,6 +13,8 @@ interface DisplayContextValue {
   onInspect?: (node: number) => void;
   /** Words that differ from the text in another pane. */
   marks?: Map<number, DiffKind>;
+  /** Per marked word: what it differs from. */
+  markTitles?: Map<number, string>;
 }
 
 const DisplayContext = createContext<DisplayContextValue | null>(null);
@@ -22,10 +24,13 @@ export function DisplayProvider({
   settings,
   onInspect,
   marks,
+  markTitles,
   children,
 }: DisplayContextValue & { children: ReactNode }) {
   return (
-    <DisplayContext.Provider value={{ config, settings, onInspect, marks }}>{children}</DisplayContext.Provider>
+    <DisplayContext.Provider value={{ config, settings, onInspect, marks, markTitles }}>
+      {children}
+    </DisplayContext.Provider>
   );
 }
 
@@ -72,7 +77,7 @@ function isBaseType(config: DisplayConfig, type: string): boolean {
 // Where slots are below word level (signs in SP and DSS), the base type (word) is
 // the unit to click: its signs are drawn inside it and are not inspected one by one.
 function PlainFragment({ fragment, inBase = false }: { fragment: Fragment; inBase?: boolean }) {
-  const { config, onInspect, marks } = useDisplay();
+  const { config, onInspect, marks, markTitles } = useDisplay();
   const isText = fragment.text !== undefined;
   const isBase = !inBase && !isText && isBaseType(config, fragment.type);
   const cls = `${highlightClass(fragment.highlight)} ${fragment.dim ? "dim" : ""}`.trim();
@@ -87,6 +92,7 @@ function PlainFragment({ fragment, inBase = false }: { fragment: Fragment; inBas
       <span
         className={`plain-word ${cls} ${diffClass(marks, fragment.node)}`}
         style={highlightStyle(fragment.highlight)}
+        title={markTitles?.get(fragment.node)}
         onClick={() => onInspect(fragment.node)}
       >
         {content}
@@ -135,7 +141,7 @@ function Features({ features }: { features: FeatureValue[] }) {
 }
 
 function PrettyFragment({ fragment, direction }: { fragment: Fragment; direction: "rtl" | "ltr" }) {
-  const { config, settings, onInspect, marks } = useDisplay();
+  const { config, settings, onInspect, marks, markTitles } = useDisplay();
   const typeDisplay = config.types[fragment.type];
   const level = typeDisplay?.level ?? 1;
   const flow = typeDisplay?.flow ?? "hor";
@@ -180,7 +186,7 @@ function PrettyFragment({ fragment, direction }: { fragment: Fragment; direction
           className={`frag-word ${scriptClass(config, direction)} ${diffClass(marks, fragment.node)} ${fragment.dim ? "dim" : ""}`}
           dir={direction}
           onClick={() => onInspect?.(fragment.node)}
-          title={settings.showNodes ? undefined : `${fragment.type} ${fragment.node}`}
+          title={markTitles?.get(fragment.node) ?? (settings.showNodes ? undefined : `${fragment.type} ${fragment.node}`)}
         >
           {fragment.text}
         </button>
