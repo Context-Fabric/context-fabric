@@ -18,6 +18,7 @@ This opens the browser at <http://localhost:8107/>. Give several corpora to comp
 | `bhsa`, `ETCBC/dss` | A corpus that Text-Fabric has downloaded or cloned, in `~/text-fabric-data/github` or `~/github` |
 | `~/github/ETCBC/bhsa` | A repository in Text-Fabric layout (`tf/<version>/`); the version in its app config is used, otherwise the newest |
 | `path/to/tf/2021` | A data directory with `.tf` files or a `.cfm` cache |
+| `DT-UCPH/sp@7.2.4`, `sp@latest` | A specific version, or the newest on this computer (by default the version named in the corpus' app config) |
 | `hebrew=…` | Any of the above, shown under the name `hebrew` |
 
 Options:

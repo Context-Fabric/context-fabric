@@ -39,7 +39,10 @@ MAX_PASSAGE = 200
 
 
 class OpenRequest(BaseModel):
-    id: str = Field(description="A corpus id from the library, e.g. ETCBC/dss")
+    id: str = Field(
+        description="A corpus id from the library, e.g. ETCBC/dss, optionally with"
+        " a version: DT-UCPH/sp@7.2.4 or DT-UCPH/sp@latest"
+    )
     name: str | None = Field(default=None, description="Name to show it under")
 
 
@@ -126,13 +129,18 @@ def build_router(
         """Open a corpus from the library. Only library ids are accepted, no paths."""
         if not library:
             raise HTTPException(403, "Opening corpora is switched off on this server")
+        (requested, _, version) = request.id.partition("@")
         ids = {entry["id"].lower(): entry["id"] for entry in discover(service.roots)}
-        corpusId = ids.get(request.id.lower())
+        corpusId = ids.get(requested.lower())
         if corpusId is None:
             raise HTTPException(404, f"Not in the library: {request.id}")
-        spec = resolve_corpus(
-            f"{request.name}={corpusId}" if request.name else corpusId, service.roots
-        )
+        target = f"{corpusId}@{version}" if version else corpusId
+        try:
+            spec = resolve_corpus(
+                f"{request.name}={target}" if request.name else target, service.roots
+            )
+        except FileNotFoundError as e:
+            raise HTTPException(404, str(e)) from None
         if service.has(spec.name):
             if service.spec(spec.name).path != spec.path:
                 raise HTTPException(
