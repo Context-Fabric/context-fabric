@@ -25,10 +25,20 @@ FIXTURE = (
 
 
 def make_corpus(
-    root: Path, org: str, repo: str, book: str, verses: dict[int, int]
+    root: Path,
+    org: str,
+    repo: str,
+    book: str,
+    verses: dict[int, int],
+    title: str = "Display test corpus",
 ) -> Path:
     target = root / org / repo
     shutil.copytree(FIXTURE, target, ignore=shutil.ignore_patterns(".cfm"))
+    config = target / "app" / "config.yaml"
+    config.write_text(
+        config.read_text(encoding="utf-8").replace("Display test corpus", title),
+        encoding="utf-8",
+    )
     data = target / "tf" / "1.0"
     (data / "book.tf").write_text(
         f"@node\n@description=book name\n@valueType=str\n\n13\t{book}\n",
@@ -44,9 +54,9 @@ def make_corpus(
 @pytest.fixture(scope="module")
 def roots(tmp_path_factory):
     root = tmp_path_factory.mktemp("corpora")
-    make_corpus(root, "Hebrew", "heb", "Genesis", {16: 1, 17: 2, 18: 1})
-    make_corpus(root, "Greek", "gr", "Gen", {16: 1, 17: 3, 18: 1})
-    make_corpus(root, "Other", "notes", "Alpha Book", {16: 1, 17: 2, 18: 1})
+    make_corpus(root, "Hebrew", "heb", "Genesis", {16: 1, 17: 2, 18: 1}, "Hebrew text")
+    make_corpus(root, "Greek", "gr", "Gen", {16: 1, 17: 3, 18: 1}, "Greek text")
+    make_corpus(root, "Other", "notes", "Alpha Book", {16: 1, 17: 2, 18: 1}, "Notes")
     return (str(root),)
 
 
@@ -160,8 +170,42 @@ class TestLibrary:
     def test_discover(self, roots):
         found = discover(roots)
         assert [c["id"] for c in found] == ["Greek/gr", "Hebrew/heb", "Other/notes"]
-        assert found[1]["title"] == "Display test corpus"
+        assert found[1]["title"] == "Hebrew text"
         assert found[1]["versions"] == ["1.0"]
+
+    def test_discover_collapses_copies_and_hides(self, tmp_path):
+        roots = (str(tmp_path),)
+        # two copies of one corpus (same app title) and an unrelated one
+        make_corpus(tmp_path, "Main", "text", "Genesis", {16: 1, 17: 2, 18: 1})
+        fork = make_corpus(tmp_path, "Fork", "text", "Genesis", {16: 1, 17: 2, 18: 1})
+        shutil.copytree(
+            fork / "tf" / "1.0",
+            tmp_path / "Main" / "text" / "tf" / "2.0",
+            ignore=shutil.ignore_patterns(".cfm"),
+        )
+        make_corpus(tmp_path, "Other", "letters", "Alpha Book", {16: 1, 17: 2, 18: 1})
+        (tmp_path / "Other" / "letters" / "app" / "config.yaml").write_text(
+            "provenanceSpec:\n  corpus: Letters\n", encoding="utf-8"
+        )
+
+        everything = discover(roots, collapse=False)
+        assert [c["id"] for c in everything] == [
+            "Fork/text",
+            "Main/text",
+            "Other/letters",
+        ]
+
+        listed = discover(roots)
+        # the copy with the newest data stays, the other is named as a copy
+        assert [c["id"] for c in listed] == ["Main/text", "Other/letters"]
+        assert listed[0]["copies"] == ["Fork/text"]
+        assert listed[0]["versions"] == ["1.0", "2.0"]
+        # the version that opens is the one the app config names (1.0)
+        assert listed[0]["version"] == "1.0"
+
+        assert [c["id"] for c in discover(roots, hide=["other/LETTERS"])] == [
+            "Main/text"
+        ]
 
     def test_library_lists_open_state(self, client):
         corpora = client.get("/api/library").json()["corpora"]

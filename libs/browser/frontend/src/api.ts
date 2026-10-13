@@ -71,7 +71,15 @@ export const api = {
   library: () =>
     request<{
       enabled: boolean;
-      corpora: { id: string; name: string; title: string | null; versions: string[]; open: boolean }[];
+      corpora: {
+        id: string;
+        name: string;
+        title: string | null;
+        version: string;
+        versions: string[];
+        copies?: string[];
+        open: boolean;
+      }[];
     }>("/api/library"),
 
   openCorpus: (id: string) =>

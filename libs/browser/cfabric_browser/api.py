@@ -123,7 +123,7 @@ def build_router(
         # a corpus counts as open when its data directory is being served
         opened = {spec.path for spec in service.specs}
         corpora = []
-        for entry in discover(service.roots):
+        for entry in discover(service.roots, hide=service.hide):
             try:
                 path = resolve_corpus(entry["id"], service.roots).path
             except FileNotFoundError:
@@ -137,7 +137,11 @@ def build_router(
         if not library:
             raise HTTPException(403, "Opening corpora is switched off on this server")
         (requested, _, version) = request.id.partition("@")
-        ids = {entry["id"].lower(): entry["id"] for entry in discover(service.roots)}
+        # any corpus on disk can be opened by its id, also copies and hidden ones
+        ids = {
+            entry["id"].lower(): entry["id"]
+            for entry in discover(service.roots, collapse=False)
+        }
         corpusId = ids.get(requested.lower())
         if corpusId is None:
             raise HTTPException(404, f"Not in the library: {request.id}")
