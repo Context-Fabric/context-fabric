@@ -19,6 +19,7 @@ export interface Pane {
 export interface Workspace {
   panes: Pane[];
   sync: boolean; // keep the passages of reading panes in step
+  diff: boolean; // mark where the texts of reading panes differ
 }
 
 export const MAX_PANES = 4;
@@ -52,7 +53,7 @@ function parse(search: string = window.location.search): Workspace {
     if (pane === null) break;
     panes.push(pane);
   }
-  return { panes: panes.length ? panes : [emptyPane()], sync: p.get("sync") === "1" };
+  return { panes: panes.length ? panes : [emptyPane()], sync: p.get("sync") === "1", diff: p.get("diff") === "1" };
 }
 
 export function serialize(ws: Workspace): string {
@@ -66,6 +67,7 @@ export function serialize(ws: Workspace): string {
     if (pane.result !== null) p.set(`r${i}`, String(pane.result));
   });
   if (ws.sync) p.set("sync", "1");
+  if (ws.diff) p.set("diff", "1");
   return `?${p.toString()}`;
 }
 
@@ -76,6 +78,7 @@ export interface WorkspaceActions {
   addPane: (pane: Pane) => void;
   removePane: (index: number) => void;
   setSync: (sync: boolean) => void;
+  setDiff: (diff: boolean) => void;
   /** Replace the whole workspace, e.g. with a saved one (given as a URL query string). */
   load: (search: string) => void;
 }
@@ -115,6 +118,7 @@ export function useWorkspace(): [Workspace, WorkspaceActions] {
       removePane: (index) =>
         commit((w) => (w.panes.length <= 1 ? w : { ...w, panes: w.panes.filter((_, i) => i !== index) }), true),
       setSync: (sync) => commit((w) => ({ ...w, sync }), false),
+      setDiff: (diff) => commit((w) => ({ ...w, diff }), false),
       load: (search) => commit(() => parse(search), true),
     }),
     [commit],

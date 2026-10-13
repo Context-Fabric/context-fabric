@@ -1,5 +1,6 @@
 import type {
   CorpusCard,
+  DiffKind,
   FeatureEntry,
   NodeInfo,
   Problem,
@@ -92,6 +93,16 @@ export const api = {
     request<{ node: number; ref: string; exact: boolean }>(
       `${corpusPath(corpus)}/align${query({ from, ref })}`,
     ),
+
+  /** Words that differ between a passage of `a` and the corresponding passage of `b`. */
+  compare: (a: string, aref: string, b: string, bref: string) =>
+    request<{
+      comparable: boolean;
+      reason: string | null;
+      verses: number;
+      a: Record<string, DiffKind>;
+      b: Record<string, DiffKind>;
+    }>(`/api/compare${query({ a, aref, b, bref })}`),
 
   features: (corpus: string) =>
     request<{ features: FeatureEntry[] }>(`${corpusPath(corpus)}/features`),

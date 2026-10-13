@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { DisplayProvider, displayRef } from "./display/Display";
@@ -16,7 +16,7 @@ import {
   type Pane,
   type View,
 } from "./state";
-import type { CorpusCard, ViewSettings } from "./types";
+import type { CorpusCard, DiffKind, ViewSettings } from "./types";
 
 function Mark() {
   // the Context-Fabric woven mark
@@ -103,6 +103,61 @@ function DisplayOptions({
   );
 }
 
+/** What a reading pane shows about differences with other panes. */
+interface PaneDiff {
+  marks?: Map<number, DiffKind>;
+  message: string;
+}
+
+/**
+ * Differences between the texts of reading panes: the first reading pane is
+ * compared with each of the others. It marks the words that differ from any
+ * of them; each other pane marks how it differs from the first.
+ */
+function useDifferences(panes: Pane[], on: boolean): (PaneDiff | null)[] {
+  const reading = panes.map((p, i) => (p.view === "read" && p.corpus ? i : -1)).filter((i) => i >= 0);
+  const base = reading[0] ?? -1;
+  const others = on && base >= 0 ? reading.slice(1) : [];
+  const ready = (i: number) => panes[base].ref !== null && panes[i].ref !== null;
+  const results = useQueries({
+    queries: others.map((i) => ({
+      queryKey: ["compare", panes[base].corpus, panes[base].ref, panes[i].corpus, panes[i].ref],
+      queryFn: () => api.compare(panes[base].corpus!, panes[base].ref!, panes[i].corpus!, panes[i].ref!),
+      enabled: ready(i),
+      staleTime: Infinity,
+    })),
+  });
+
+  const diffs: (PaneDiff | null)[] = panes.map(() => null);
+  if (!others.length) return diffs;
+  const baseMarks = new Map<number, DiffKind>();
+  const compared: string[] = [];
+  others.forEach((i, k) => {
+    const { data, error } = results[k];
+    const name = panes[base].corpus;
+    if (!ready(i)) {
+      diffs[i] = { message: "Open a passage to compare it." };
+    } else if (error) {
+      diffs[i] = { message: `Could not compare with ${name}: ${(error as Error).message}` };
+    } else if (!data) {
+      diffs[i] = { message: `Comparing with ${name}…` };
+    } else if (!data.comparable) {
+      diffs[i] = { message: `Not compared with ${name}: ${data.reason}` };
+    } else {
+      const marks = new Map(Object.entries(data.b).map(([n, kind]) => [Number(n), kind]));
+      for (const [n, kind] of Object.entries(data.a)) {
+        if (baseMarks.get(Number(n)) !== "variant") baseMarks.set(Number(n), kind);
+      }
+      compared.push(panes[i].corpus!);
+      diffs[i] = { marks, message: `${marks.size} words differ from ${name}` };
+    }
+  });
+  diffs[base] = compared.length
+    ? { marks: baseMarks, message: `${baseMarks.size} words differ from ${compared.join(", ")}` }
+    : null;
+  return diffs;
+}
+
 interface PaneProps {
   index: number;
   pane: Pane;
@@ -112,6 +167,7 @@ interface PaneProps {
   paneCount: number;
   settings: ViewSettings;
   note: string | null;
+  diff: PaneDiff | null;
   onChange: (change: Partial<Pane>, push?: boolean) => void;
   onOpenPassage: (ref: string) => void;
   onOpenPane: (pane: Pane) => void;
@@ -128,6 +184,7 @@ function PaneView({
   paneCount,
   settings,
   note,
+  diff,
   onChange,
   onOpenPassage,
   onOpenPane,
@@ -194,7 +251,12 @@ function PaneView({
             Opening {pane.corpus}… A corpus opened for the first time is prepared once, which can take a minute.
           </p>
         ) : (
-          <DisplayProvider config={card.display} settings={paneSettings} onInspect={(n) => onInspect(card.name, n)}>
+          <DisplayProvider
+            config={card.display}
+            settings={paneSettings}
+            onInspect={(n) => onInspect(card.name, n)}
+            marks={pane.view === "read" ? diff?.marks : undefined}
+          >
             {pane.view === "read" ? (
               <ReadView
                 corpus={card}
@@ -203,6 +265,7 @@ function PaneView({
                 onOpen={onOpenPassage}
                 compact={compact}
                 note={note}
+                diff={diff?.message ?? null}
               />
             ) : (
               <SearchView
@@ -234,6 +297,7 @@ export function App() {
   const [inspected, setInspected] = useState<{ corpus: string; node: number } | null>(null);
   const [library, setLibrary] = useState(false);
   const [notes, setNotes] = useState<Record<number, string | null>>({});
+  const differences = useDifferences(ws.panes, ws.diff);
 
   const corporaQuery = useQuery({ queryKey: ["corpora"], queryFn: api.corpora });
   const corpora = corporaQuery.data?.corpora.map((c) => c.name) ?? [];
@@ -364,6 +428,20 @@ export function App() {
               Sync passages
             </label>
           ) : null}
+          {ws.panes.length > 1 ? (
+            <label
+              className="me-1 flex items-center gap-1.5 text-[14px]"
+              title="Mark the words where the texts differ from the first pane, compared on their consonants"
+            >
+              <input
+                type="checkbox"
+                checked={ws.diff}
+                onChange={(e) => actions.setDiff(e.target.checked)}
+                className="accent-[var(--woad)]"
+              />
+              Show differences
+            </label>
+          ) : null}
           <button
             type="button"
             disabled={ws.panes.length >= MAX_PANES}
@@ -416,6 +494,7 @@ export function App() {
                 paneCount={ws.panes.length}
                 settings={settings}
                 note={notes[i] ?? null}
+                diff={differences[i]}
                 onChange={(change, push) => actions.updatePane(i, change, push)}
                 onOpenPassage={(ref) => openPassage(i, ref)}
                 onOpenPane={addPane}

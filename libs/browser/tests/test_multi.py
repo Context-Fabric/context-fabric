@@ -138,6 +138,36 @@ class TestAlign:
         assert response.status_code == 404
 
 
+class TestCompare:
+    # the diff itself is tested in test_compare.py; the fixture is not Hebrew
+
+    def compare(self, client, aref: str, bref: str):
+        client.post("/api/corpora", json={"id": "Greek/gr"})
+        return client.get(
+            "/api/compare", params={"a": "heb", "aref": aref, "b": "gr", "bref": bref}
+        )
+
+    def test_not_hebrew(self, client):
+        data = self.compare(client, "Genesis 1", "Gen 1").json()
+        assert data["comparable"] is False
+        assert "Hebrew" in data["reason"]
+
+    def test_different_passages(self, client):
+        data = self.compare(client, "Genesis 1", "Gen 2").json()
+        assert data["comparable"] is False
+        assert "different passages" in data["reason"]
+
+    def test_bad_ref(self, client):
+        assert self.compare(client, "Exodus 1", "Gen 1").status_code == 404
+
+    def test_unknown_corpus(self, client):
+        response = client.get(
+            "/api/compare",
+            params={"a": "heb", "aref": "Genesis 1", "b": "nope", "bref": "Gen 1"},
+        )
+        assert response.status_code == 404
+
+
 class TestDisplayOverrides:
     def test_overrides_layer_over_app_config(self, roots, tmp_path):
         overrides = tmp_path / "display" / "Hebrew"

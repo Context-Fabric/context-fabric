@@ -153,3 +153,6 @@ export interface ViewSettings {
   showNodes: boolean;
   showTypes: boolean;
 }
+
+/** How a word differs from its counterpart in another corpus: only in matres lectionis, or otherwise. */
+export type DiffKind = "matres" | "variant";

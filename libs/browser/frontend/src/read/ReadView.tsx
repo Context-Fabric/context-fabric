@@ -14,6 +14,8 @@ interface Props {
   compact?: boolean;
   /** Shown above the text, e.g. when synchronised reading found only the chapter. */
   note?: string | null;
+  /** About differences with the text in other panes, when they are shown. */
+  diff?: string | null;
 }
 
 /** Books, then the chapters of the current book. */
@@ -110,7 +112,7 @@ function useStartRef(corpus: CorpusCard, enabled: boolean): string | null {
   return data ?? null;
 }
 
-export function ReadView({ corpus, passageRef, settings, onOpen, compact = false, note = null }: Props) {
+export function ReadView({ corpus, passageRef, settings, onOpen, compact = false, note = null, diff = null }: Props) {
   const [mode, setMode] = useState<"pretty" | "plain">("plain");
   const startRef = useStartRef(corpus, passageRef === null);
   const ref = passageRef ?? startRef;
@@ -186,6 +188,15 @@ export function ReadView({ corpus, passageRef, settings, onOpen, compact = false
         </header>
         <div className={`min-h-0 flex-1 overflow-y-auto px-5 py-4 ${passage.isFetching ? "opacity-70" : ""}`}>
           {note ? <p className="mb-3 text-[13px] text-stone">{note}</p> : null}
+          {diff ? (
+            <p className="mb-3 flex flex-wrap items-baseline gap-x-3 text-[13px] text-stone">
+              <span>{diff}.</span>
+              <span>
+                <span className="diff diff-variant diff-key text-ink">variant</span>{" "}
+                <span className="diff diff-matres diff-key text-ink">spelling (matres lectionis)</span>
+              </span>
+            </p>
+          ) : null}
           {passage.error ? (
             <p className="text-madder">{String((passage.error as Error).message)}</p>
           ) : !ref ? (
