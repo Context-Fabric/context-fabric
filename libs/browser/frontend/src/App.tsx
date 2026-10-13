@@ -17,7 +17,7 @@ import {
   type Pane,
   type View,
 } from "./state";
-import type { CorpusCard, DiffKind, ReadBy, ViewSettings } from "./types";
+import type { Agreement, CorpusCard, DiffKind, Place, ReadBy, ViewSettings } from "./types";
 
 function Mark() {
   // the Context-Fabric woven mark
@@ -110,6 +110,67 @@ interface PaneDiff {
   /** Per marked word: what it differs from, for a tooltip. */
   titles?: Map<number, string>;
   message: string;
+  /** In a DSS pane next to MT and SP: per verse, the scrolls at each place where MT and SP differ. */
+  places?: { a: string; b: string; verses: Map<number, Place[]> };
+}
+
+/**
+ * With MT, SP and a DSS pane in book view open: which scrolls side with MT and
+ * which with SP, at each place where MT and SP differ. The first two reading
+ * panes not in book view count as MT and SP, the first in book view as the DSS.
+ */
+function useAgreement(panes: Pane[], on: boolean) {
+  const open = (p: Pane) => p.view === "read" && p.corpus && p.ref;
+  const plain = panes.map((p, i) => (open(p) && p.by !== "books" ? i : -1)).filter((i) => i >= 0);
+  const scrolls = panes.findIndex((p) => open(p) && p.by === "books");
+  const trio = on && plain.length >= 2 && scrolls >= 0 ? { a: plain[0], b: plain[1], c: scrolls } : null;
+  const query = useQuery({
+    queryKey: ["agreement", ...(trio ? [trio.a, trio.b, trio.c].flatMap((i) => [panes[i].corpus, panes[i].ref]) : [])],
+    queryFn: () => {
+      const [a, b, c] = [panes[trio!.a], panes[trio!.b], panes[trio!.c]];
+      return api.agreement(a.corpus!, a.ref!, b.corpus!, b.ref!, c.corpus!, c.ref!);
+    },
+    enabled: trio !== null,
+    staleTime: Infinity,
+  });
+  return trio && query.data?.comparable ? { ...trio, data: query.data } : null;
+}
+
+/** A scroll's agreement for people: `4Q7 = sp`, `4Q10 other (מארות)`. */
+function agreementLabel(w: Place["witnesses"][number], a: string, b: string): string {
+  if (w.agrees === "a") return `${w.scroll} = ${a}`;
+  if (w.agrees === "b") return `${w.scroll} = ${b}`;
+  return `${w.scroll} other (${w.text || "—"})`;
+}
+
+/** Add tooltips and per-verse places from the scrolls' agreement (see useAgreement). */
+function addAgreement(
+  diffs: (PaneDiff | null)[],
+  panes: Pane[],
+  { a, b, c, data }: { a: number; b: number; c: number; data: Agreement },
+) {
+  const [aName, bName] = [panes[a].corpus!, panes[b].corpus!];
+  const titles = [new Map<number, string>(), new Map<number, string>(), new Map<number, string>()];
+  const verses = new Map<number, Place[]>();
+  for (const verse of data.verses) {
+    verses.set(verse.verse, verse.units);
+    for (const place of verse.units) {
+      const where = `${aName} ${place.a || "—"} | ${bName} ${place.b || "—"}`;
+      const title = `${where}: ${place.witnesses.map((w) => agreementLabel(w, aName, bName)).join(", ")}`;
+      place.aWords.forEach((n) => titles[0].set(n, title));
+      place.bWords.forEach((n) => titles[1].set(n, title));
+      for (const w of place.witnesses) {
+        const side = w.agrees === "a" ? aName : w.agrees === "b" ? bName : "neither";
+        w.words.forEach((n) => titles[2].set(n, `Agrees with ${side} (${where})`));
+      }
+    }
+  }
+  [a, b, c].forEach((i, k) => {
+    const merged = new Map(diffs[i]?.titles);
+    for (const [n, t] of titles[k]) merged.set(n, merged.has(n) ? `${merged.get(n)}\n${t}` : t);
+    diffs[i] = { message: "", ...diffs[i], titles: merged };
+  });
+  diffs[c] = { ...diffs[c]!, places: { a: aName, b: bName, verses } };
 }
 
 /**
@@ -120,6 +181,7 @@ interface PaneDiff {
  * the first.
  */
 function useDifferences(panes: Pane[], on: boolean): (PaneDiff | null)[] {
+  const agreement = useAgreement(panes, on);
   const reading = panes.map((p, i) => (p.view === "read" && p.corpus ? i : -1)).filter((i) => i >= 0);
   const base = reading.find((i) => panes[i].by !== "books") ?? -1;
   const others = on && base >= 0 ? reading.filter((i) => i !== base) : [];
@@ -169,6 +231,7 @@ function useDifferences(panes: Pane[], on: boolean): (PaneDiff | null)[] {
         message: `${baseMarks.size} words differ from ${compared.join(", ")}`,
       }
     : null;
+  if (agreement) addAgreement(diffs, panes, agreement);
   return diffs;
 }
 
@@ -285,6 +348,7 @@ function PaneView({
                 compact={compact}
                 note={note}
                 diff={diff?.message ?? null}
+                places={diff?.places}
               />
             ) : pane.view === "read" ? (
               <ReadView

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { api } from "../api";
 import { Cite, citePassage } from "../Cite";
 import { displayRef, Plain, Pretty } from "../display/Display";
-import type { BookSummary, CorpusCard, ReadBy, ViewSettings } from "../types";
+import type { BookSummary, CorpusCard, Place, ReadBy, ViewSettings } from "../types";
 
 // Reading a corpus of manuscripts (the DSS) by biblical book: per verse, the
 // text of every scroll that contains it, so that it can be read next to MT or SP.
@@ -115,9 +115,46 @@ interface Props {
   note?: string | null;
   /** About differences with the text in another pane, when they are shown. */
   diff?: string | null;
+  /** Next to MT and SP: per verse, the scrolls at each place where MT and SP differ. */
+  places?: { a: string; b: string; verses: Map<number, Place[]> };
 }
 
-export function BookView({ corpus, passageRef, settings, onOpen, onBy, onOpenScroll, compact = false, note = null, diff = null }: Props) {
+const AGREES = {
+  a: "border-woad text-woad",
+  b: "border-gold-deep text-gold-deep",
+  other: "border-madder text-madder",
+} as const;
+
+/** One place where MT and SP differ, and which scrolls side with which. */
+function PlaceSummary({ place, a, b }: { place: Place; a: string; b: string }) {
+  return (
+    <p className="mb-1 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] text-stone">
+      <span>
+        {a}{" "}
+        <span className="script text-[14px] text-ink" dir="rtl">
+          {place.a || "—"}
+        </span>
+      </span>
+      <span>
+        {b}{" "}
+        <span className="script text-[14px] text-ink" dir="rtl">
+          {place.b || "—"}
+        </span>
+      </span>
+      {place.witnesses.map((w) => (
+        <span
+          key={w.scroll}
+          className={`rounded border px-1.5 ${AGREES[w.agrees]}`}
+          title={w.agrees === "other" ? `${w.scroll} reads ${w.text || "—"}` : undefined}
+        >
+          {w.scroll} {w.agrees === "a" ? `= ${a}` : w.agrees === "b" ? `= ${b}` : "other"}
+        </span>
+      ))}
+    </p>
+  );
+}
+
+export function BookView({ corpus, passageRef, settings, onOpen, onBy, onOpenScroll, compact = false, note = null, diff = null, places }: Props) {
   const [mode, setMode] = useState<"pretty" | "plain">("plain");
   const [navOpen, setNavOpen] = useState(false);
   const books = useQuery({ queryKey: ["books", corpus.name], queryFn: () => api.books(corpus.name) });
@@ -214,6 +251,9 @@ export function BookView({ corpus, passageRef, settings, onOpen, onBy, onOpenScr
                     <h2 dir="ltr" className="mb-1 text-[12px] tabular-nums text-stone">
                       {data.chapter}:{v.verse}
                     </h2>
+                    {places?.verses.get(v.verse)?.map((place, k) => (
+                      <PlaceSummary key={k} place={place} a={places.a} b={places.b} />
+                    ))}
                     <ol className="flex flex-col gap-1.5">
                       {v.witnesses.map((w) => (
                         <li key={w.scroll} className="flex items-baseline gap-3">

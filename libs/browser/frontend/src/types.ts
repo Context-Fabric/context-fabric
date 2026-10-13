@@ -192,3 +192,28 @@ export interface WitnessPassage {
   prev: string | null;
   next: string | null;
 }
+
+/** A scroll at a place where two texts (MT, SP) differ: which one it agrees with. */
+export interface PlaceWitness {
+  scroll: string;
+  agrees: "a" | "b" | "other";
+  reading: string; // its letters there
+  words: number[];
+  text: string; // its words there
+}
+
+/** A place where two texts differ, with what the scrolls read there. */
+export interface Place {
+  kind: DiffKind;
+  a: string; // the words of the first text there
+  b: string;
+  aWords: number[];
+  bWords: number[];
+  witnesses: PlaceWitness[];
+}
+
+export interface Agreement {
+  comparable: boolean;
+  reason: string | null;
+  verses: { verse: number; ref: string; units: Place[] }[];
+}

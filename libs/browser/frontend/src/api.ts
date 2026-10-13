@@ -1,4 +1,5 @@
 import type {
+  Agreement,
   BookSummary,
   CorpusCard,
   DiffKind,
@@ -96,6 +97,10 @@ export const api = {
     request<{ node: number | null; ref: string; exact: boolean }>(
       `${corpusPath(corpus)}/align${query({ from, ref, view })}`,
     ),
+
+  /** Which scrolls of `c` (DSS, book view) side with `a` (MT) or `b` (SP). */
+  agreement: (a: string, aref: string, b: string, bref: string, c: string, cref: string) =>
+    request<Agreement>(`/api/agreement${query({ a, aref, b, bref, c, cref })}`),
 
   books: (corpus: string) => request<{ books: BookSummary[] }>(`${corpusPath(corpus)}/books`),
 

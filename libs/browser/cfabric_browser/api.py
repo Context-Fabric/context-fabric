@@ -30,7 +30,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
-from cfabric_browser.compare import compare_passages, compare_witnesses
+from cfabric_browser.compare import (
+    compare_passages,
+    compare_three,
+    compare_witnesses,
+)
 from cfabric_browser.corpora import CorpusService, discover, resolve_corpus
 from cfabric_browser.queries import (
     LANGUAGES,
@@ -373,6 +377,24 @@ def build_router(
             "verses": verses,
             **index.neighbours(book, chapter),
         }
+
+    @router.get("/agreement")
+    def agreement(
+        a: str, aref: str, b: str, bref: str, c: str, cref: str, lang: str = "en"
+    ) -> dict[str, Any]:
+        """Which scrolls of `c` (DSS, book view) side with `a` (MT) or `b` (SP).
+
+        Per verse, every place where `a` and `b` differ, with the words of each
+        and, per scroll that preserves it, its reading there and whether it
+        `agrees` with `a`, `b` or neither (`other`). See
+        `cfabric_browser.compare.compare_three`.
+        """
+        for corpus in (a, b, c):
+            corpus_api(corpus)
+        try:
+            return compare_three(service, a, aref, b, bref, c, cref, lang)
+        except ValueError as e:
+            raise HTTPException(404, str(e)) from None
 
     @router.get("/corpora/{corpus}/passage")
     def passage(

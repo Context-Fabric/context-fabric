@@ -74,6 +74,7 @@ All functions of the interface are available as a JSON API; interactive document
 | `GET /api/corpora/{c}/align?from=bhsa&ref=Genesis 1:1` | The corresponding passage in this corpus; `exact` is false when only the enclosing chapter exists |
 | `GET /api/corpora/{c}/books` | For a corpus of manuscripts (DSS): the biblical books in it, with chapters, verses and scrolls |
 | `GET /api/corpora/{c}/witnesses?ref=Genesis 1` | A chapter or verse in the book view: per verse, the text of each scroll that contains it |
+| `GET /api/agreement?a=bhsa&aref=…&b=sp&bref=…&c=dss&cref=…` | At each place where `a` and `b` differ, which scrolls of `c` (book view) agree with `a`, with `b`, or with neither |
 | `GET /api/compare?a=bhsa&aref=Genesis 1&b=sp&bref=Genesis 1` | Words that differ between two corresponding Hebrew passages, compared on their consonants verse by verse: `matres` (only matres lectionis) or `variant` |
 | `GET /api/library`, `POST /api/corpora` | Corpora found on this computer; open one by its id (e.g. `ETCBC/dss`) |
 | `GET /api/corpora/{c}/nodes/{n}[/info]` | Render tree of a node; all its features, edges and surroundings |
