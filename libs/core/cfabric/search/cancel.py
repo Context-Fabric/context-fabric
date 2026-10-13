@@ -47,7 +47,7 @@ class CancelToken:
     >>> token.cancel()
     """
 
-    __slots__ = ("_event", "_deadline", "timeout")
+    __slots__ = ("_deadline", "_event", "timeout")
 
     def __init__(self, timeout: float | None = None) -> None:
         self._event = threading.Event()

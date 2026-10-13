@@ -1,7 +1,6 @@
 """Integration tests for cancelling searches and search timeouts."""
 
 import pytest
-
 from cfabric.search import CancelToken, SearchCancelled, SearchTimeout
 
 TEMPLATE = """
