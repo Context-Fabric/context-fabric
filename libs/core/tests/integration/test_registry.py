@@ -4,7 +4,6 @@ import threading
 from unittest import mock
 
 import pytest
-
 from cfabric.registry import CorpusRegistry
 
 

@@ -19,13 +19,10 @@ import logging
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
 
+from cfabric.core.api import Api
 from cfabric.core.fabric import Fabric
 from cfabric.results import CorpusInfo
-
-if TYPE_CHECKING:
-    from cfabric.core.api import Api
 
 logger = logging.getLogger(__name__)
 
@@ -182,12 +179,12 @@ class CorpusRegistry:
                 api = fabric.load(entry.features, silent="deep")
             else:
                 api = fabric.loadAll(silent="deep")
-            if not api:
-                logger.error("Failed to load corpus from %s", entry.path)
-                raise RuntimeError(f"Failed to load corpus from {entry.path}")
-            entry.fabric = fabric
-            entry.api = api
-        return entry
+            if isinstance(api, Api):
+                entry.fabric = fabric
+                entry.api = api
+                return entry
+        logger.error("Failed to load corpus from %s", entry.path)
+        raise RuntimeError(f"Failed to load corpus from {entry.path}")
 
     # access
 

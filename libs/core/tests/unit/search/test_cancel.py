@@ -4,7 +4,6 @@ import threading
 import time
 
 import pytest
-
 from cfabric.search.cancel import CancelToken, SearchCancelled, SearchTimeout
 
 
