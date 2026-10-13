@@ -88,6 +88,17 @@ export const api = {
   features: (corpus: string) =>
     request<{ features: FeatureEntry[] }>(`${corpusPath(corpus)}/features`),
 
+  feature: (corpus: string, name: string, sampleLimit = 200) =>
+    request<{
+      name: string;
+      kind: string;
+      value_type: string;
+      description: string;
+      node_types?: string[];
+      unique_values?: number;
+      sample_values?: { value: string | number; count: number }[];
+    }>(`${corpusPath(corpus)}/features/${encodeURIComponent(name)}${query({ sample_limit: sampleLimit })}`),
+
   sections: (corpus: string, ref?: string) =>
     request<{ node: number | null; heading: string; children: SectionItem[] }>(
       `${corpusPath(corpus)}/sections${query({ ref })}`,
