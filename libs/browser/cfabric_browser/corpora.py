@@ -32,6 +32,7 @@ from cfabric.registry import CorpusRegistry
 from cfabric.utils.helpers import versionSort
 
 from cfabric_browser.books import book_index, canonical_book
+from cfabric_browser.witnesses import BookIndex, format_ref, parse_ref
 
 logger = logging.getLogger(__name__)
 
@@ -335,6 +336,7 @@ class CorpusService:
         self._specs: dict[str, CorpusSpec] = {}
         self._configs: dict[str, DisplayConfig] = {}
         self._books: dict[str, dict[str, str]] = {}
+        self._bookIndexes: dict[str, BookIndex | None] = {}
         self._lock = threading.Lock()
         for spec in specs or ():
             self.add(spec)
@@ -402,8 +404,26 @@ class CorpusService:
             self._books[name] = index
         return index
 
+    def book_index(self, name: str) -> BookIndex | None:
+        """The biblical books in a corpus of manuscripts (DSS), if it has them.
+
+        Only for corpora whose own sections are not books: see `witnesses.py`.
+        """
+        with self._lock:
+            if name in self._bookIndexes:
+                return self._bookIndexes[name]
+        index = None if self.books(name) else BookIndex.build(self.api(name))
+        with self._lock:
+            self._bookIndexes[name] = index
+        return index
+
     def align(
-        self, source: str, ref: str, target: str, lang: str = "en"
+        self,
+        source: str,
+        ref: str,
+        target: str,
+        lang: str = "en",
+        view: str = "sections",
     ) -> dict[str, Any] | None:
         """The passage in `target` that corresponds to `ref` in `source`.
 
@@ -415,6 +435,10 @@ class CorpusService:
         Returns None when the target has no counterpart, e.g. a book it does
         not contain, or a corpus with a different kind of sections.
 
+        `ref` may also be a book view reference of `source` (`Genesis 1:1` in
+        the DSS); with `view="books"` the result is one in the book view of
+        `target` (its `node` is None there).
+
         Raises
         ------
         ValueError
@@ -422,15 +446,26 @@ class CorpusService:
         """
         sApi, tApi = self.api(source), self.api(target)
         sConfig, tConfig = self.config(source), self.config(target)
-        node = node_from_section_ref(
-            sApi, ref, sConfig.section_sep1, sConfig.section_sep2, lang
-        )
-        section = sApi.T.sectionFromNode(node, lang="en")
-        if not section or not tApi.T.sectionTypes:
+        section: tuple
+        sIndex = self.book_index(source)
+        parsed = parse_ref(ref) if sIndex else None
+        if parsed:
+            (book, chapter, verse) = parsed
+            section = (book, chapter) if verse is None else parsed
+        else:
+            node = node_from_section_ref(
+                sApi, ref, sConfig.section_sep1, sConfig.section_sep2, lang
+            )
+            section = sApi.T.sectionFromNode(node, lang="en")
+        if not section:
             return None
 
         book = str(section[0])
         canonical = canonical_book(book)
+        if view == "books":
+            return self._align_books(target, canonical, section)
+        if not tApi.T.sectionTypes:
+            return None
         tBook = self.books(target).get(canonical) if canonical else None
         if tBook is None:
             # corpora with other kinds of sections: same name or nothing
@@ -445,6 +480,27 @@ class CorpusService:
                     "exact": k == len(section),
                 }
         return None
+
+    def _align_books(
+        self, target: str, canonical: str | None, section: tuple
+    ) -> dict[str, Any] | None:
+        index = self.book_index(target)
+        if index is None or canonical is None or canonical not in index.books:
+            return None
+        if len(section) < 2:
+            chapter = next(iter(index.books[canonical]))
+            return {"node": None, "ref": format_ref(canonical, chapter), "exact": False}
+        chapter = int(section[1])
+        if not index.has(canonical, chapter):
+            return None
+        if len(section) > 2 and index.has(canonical, chapter, int(section[2])):
+            ref = format_ref(canonical, chapter, int(section[2]))
+            return {"node": None, "ref": ref, "exact": True}
+        return {
+            "node": None,
+            "ref": format_ref(canonical, chapter),
+            "exact": len(section) == 2,
+        }
 
     def card(self, name: str) -> dict[str, Any]:
         """Everything a client needs to know about a corpus to work with it."""
@@ -475,5 +531,7 @@ class CorpusService:
             "maxNode": int(F.otype.maxNode),
             "nodeTypes": types,
             "sectionTypes": list(T.sectionTypes or ()),
+            # whether the corpus can also be read by biblical book (DSS)
+            "bookView": self.book_index(name) is not None,
             "display": config.to_dict(),
         }
