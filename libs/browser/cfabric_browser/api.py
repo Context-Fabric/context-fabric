@@ -30,6 +30,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
+from cfabric_browser.compare import compare_passages
 from cfabric_browser.corpora import CorpusService, discover, resolve_corpus
 from cfabric_browser.queries import (
     LANGUAGES,
@@ -260,6 +261,22 @@ def build_router(
         if result is None:
             raise HTTPException(404, f"{corpus} has no counterpart of {ref}")
         return result
+
+    @router.get("/compare")
+    def compare(
+        a: str, aref: str, b: str, bref: str, lang: str = "en"
+    ) -> dict[str, Any]:
+        """Words that differ between passage `aref` of `a` and `bref` of `b`.
+
+        `a` and `b` map word nodes of each corpus to `matres` (only matres
+        lectionis differ) or `variant`. See `cfabric_browser.compare`.
+        """
+        corpus_api(a)
+        corpus_api(b)
+        try:
+            return compare_passages(service, a, aref, b, bref, lang)
+        except ValueError as e:
+            raise HTTPException(404, str(e)) from None
 
     @router.get("/corpora/{corpus}/passage")
     def passage(

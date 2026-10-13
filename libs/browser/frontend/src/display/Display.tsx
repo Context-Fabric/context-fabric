@@ -1,5 +1,5 @@
 import { createContext, useContext, type CSSProperties, type ReactNode } from "react";
-import type { DisplayConfig, FeatureValue, Fragment, RenderTree, ViewSettings } from "../types";
+import type { DiffKind, DisplayConfig, FeatureValue, Fragment, RenderTree, ViewSettings } from "../types";
 import "./display.css";
 
 // Draws render trees from cfabric.display. Pretty displays nest the fragments as
@@ -11,6 +11,8 @@ interface DisplayContextValue {
   config: DisplayConfig;
   settings: ViewSettings;
   onInspect?: (node: number) => void;
+  /** Words that differ from the text in another pane. */
+  marks?: Map<number, DiffKind>;
 }
 
 const DisplayContext = createContext<DisplayContextValue | null>(null);
@@ -19,10 +21,11 @@ export function DisplayProvider({
   config,
   settings,
   onInspect,
+  marks,
   children,
 }: DisplayContextValue & { children: ReactNode }) {
   return (
-    <DisplayContext.Provider value={{ config, settings, onInspect }}>{children}</DisplayContext.Provider>
+    <DisplayContext.Provider value={{ config, settings, onInspect, marks }}>{children}</DisplayContext.Provider>
   );
 }
 
@@ -50,6 +53,11 @@ function highlightStyle(color: string | undefined): CSSProperties | undefined {
   return { background: color, boxShadow: "none" };
 }
 
+function diffClass(marks: Map<number, DiffKind> | undefined, node: number): string {
+  const kind = marks?.get(node);
+  return kind ? `diff diff-${kind}` : "";
+}
+
 function highlightClass(color: string | undefined): string {
   if (color === undefined) return "";
   return color ? "hl-custom" : "hl";
@@ -64,7 +72,7 @@ function isBaseType(config: DisplayConfig, type: string): boolean {
 // Where slots are below word level (signs in SP and DSS), the base type (word) is
 // the unit to click: its signs are drawn inside it and are not inspected one by one.
 function PlainFragment({ fragment, inBase = false }: { fragment: Fragment; inBase?: boolean }) {
-  const { config, onInspect } = useDisplay();
+  const { config, onInspect, marks } = useDisplay();
   const isText = fragment.text !== undefined;
   const isBase = !inBase && !isText && isBaseType(config, fragment.type);
   const cls = highlightClass(fragment.highlight);
@@ -77,7 +85,7 @@ function PlainFragment({ fragment, inBase = false }: { fragment: Fragment; inBas
   if (((isText && !inBase) || isBase) && onInspect) {
     return (
       <span
-        className={`plain-word ${cls}`}
+        className={`plain-word ${cls} ${diffClass(marks, fragment.node)}`}
         style={highlightStyle(fragment.highlight)}
         onClick={() => onInspect(fragment.node)}
       >
@@ -127,7 +135,7 @@ function Features({ features }: { features: FeatureValue[] }) {
 }
 
 function PrettyFragment({ fragment, direction }: { fragment: Fragment; direction: "rtl" | "ltr" }) {
-  const { config, settings, onInspect } = useDisplay();
+  const { config, settings, onInspect, marks } = useDisplay();
   const typeDisplay = config.types[fragment.type];
   const level = typeDisplay?.level ?? 1;
   const flow = typeDisplay?.flow ?? "hor";
@@ -169,7 +177,7 @@ function PrettyFragment({ fragment, direction }: { fragment: Fragment; direction
       {isText ? (
         <button
           type="button"
-          className={`frag-word ${scriptClass(config, direction)}`}
+          className={`frag-word ${scriptClass(config, direction)} ${diffClass(marks, fragment.node)}`}
           dir={direction}
           onClick={() => onInspect?.(fragment.node)}
           title={settings.showNodes ? undefined : `${fragment.type} ${fragment.node}`}
@@ -183,7 +191,7 @@ function PrettyFragment({ fragment, direction }: { fragment: Fragment; direction
       {!isText && fragment.base && fragment.text ? (
         <button
           type="button"
-          className={`frag-word frag-base ${scriptClass(config, direction)}`}
+          className={`frag-word frag-base ${scriptClass(config, direction)} ${diffClass(marks, fragment.node)}`}
           dir={direction}
           onClick={() => onInspect?.(fragment.node)}
           title={settings.showNodes ? undefined : `${fragment.type} ${fragment.node}`}

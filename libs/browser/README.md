@@ -72,6 +72,7 @@ All functions of the interface are available as a JSON API; interactive document
 | `GET /api/corpora/{c}/sections?ref=` | The section tree, one level at a time |
 | `GET /api/corpora/{c}/passage?ref=Genesis 1:1` | Render trees of a passage, with its section path and the previous and next passages |
 | `GET /api/corpora/{c}/align?from=bhsa&ref=Genesis 1:1` | The corresponding passage in this corpus; `exact` is false when only the enclosing chapter exists |
+| `GET /api/compare?a=bhsa&aref=Genesis 1&b=sp&bref=Genesis 1` | Words that differ between two corresponding Hebrew passages, compared on their consonants verse by verse: `matres` (only matres lectionis) or `variant` |
 | `GET /api/library`, `POST /api/corpora` | Corpora found on this computer; open one by its id (e.g. `ETCBC/dss`) |
 | `GET /api/corpora/{c}/nodes/{n}[/info]` | Render tree of a node; all its features, edges and surroundings |
 | `POST /api/corpora/{c}/check` | Check a template without searching |
