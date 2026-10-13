@@ -76,3 +76,6 @@ htmlcov/
 # Others
 .private
 .corpora
+
+# Claude Code
+CLAUDE.md
