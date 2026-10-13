@@ -44,8 +44,8 @@ function parsePane(p: URLSearchParams, i: number): Pane | null {
   };
 }
 
-function parse(): Workspace {
-  const p = new URLSearchParams(window.location.search);
+function parse(search: string = window.location.search): Workspace {
+  const p = new URLSearchParams(search);
   const panes: Pane[] = [];
   for (let i = 0; i < MAX_PANES; i++) {
     const pane = parsePane(p, i);
@@ -55,7 +55,7 @@ function parse(): Workspace {
   return { panes: panes.length ? panes : [emptyPane()], sync: p.get("sync") === "1" };
 }
 
-function serialize(ws: Workspace): string {
+export function serialize(ws: Workspace): string {
   const p = new URLSearchParams();
   ws.panes.forEach((pane, i) => {
     if (pane.corpus) p.set(`c${i}`, pane.corpus);
@@ -76,6 +76,8 @@ export interface WorkspaceActions {
   addPane: (pane: Pane) => void;
   removePane: (index: number) => void;
   setSync: (sync: boolean) => void;
+  /** Replace the whole workspace, e.g. with a saved one (given as a URL query string). */
+  load: (search: string) => void;
 }
 
 export function useWorkspace(): [Workspace, WorkspaceActions] {
@@ -113,6 +115,7 @@ export function useWorkspace(): [Workspace, WorkspaceActions] {
       removePane: (index) =>
         commit((w) => (w.panes.length <= 1 ? w : { ...w, panes: w.panes.filter((_, i) => i !== index) }), true),
       setSync: (sync) => commit((w) => ({ ...w, sync }), false),
+      load: (search) => commit(() => parse(search), true),
     }),
     [commit],
   );

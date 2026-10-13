@@ -33,6 +33,17 @@ function remember(corpus: string, template: string): string[] {
 }
 
 /** Follow a search's status with server-sent events. */
+/** Whether the server no longer knows a search (it restarted, or the search expired). */
+function useSearchGone(id: string | null): boolean {
+  const { error } = useQuery({
+    queryKey: ["search", id],
+    queryFn: () => api.status(id!),
+    enabled: id !== null,
+    retry: false,
+  });
+  return error instanceof ApiError && error.status === 404;
+}
+
 function useSearchStatus(id: string | null): SearchStatus | null {
   const client = useQueryClient();
   const { data } = useQuery({
@@ -242,6 +253,7 @@ export function SearchView({
   compact = false,
 }: Props) {
   const status = useSearchStatus(searchId);
+  const gone = useSearchGone(searchId);
   const [others, setOthers] = useState<{ template: string; searches: OtherSearch[] } | null>(null);
   const [tab, setTab] = useState<Tab>("results");
   const [downloading, setDownloading] = useState(false);
@@ -288,6 +300,16 @@ export function SearchView({
     );
     setOthers({ template, searches });
   }, [template, run, otherCorpora]);
+
+  // a saved workspace or shared link may point at a search the server no longer
+  // has (searches live in its memory): search again with the same template
+  const [rerun, setRerun] = useState<string | null>(null);
+  useEffect(() => {
+    if (gone && searchId && rerun !== searchId && template.trim()) {
+      setRerun(searchId);
+      run();
+    }
+  }, [gone, searchId, rerun, template, run]);
 
   const shownProblems = problems.length ? problems : (status?.problems ?? []);
   const running = status?.state === "running" || status?.state === "queued";

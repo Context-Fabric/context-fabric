@@ -4,6 +4,7 @@ import { api } from "./api";
 import { DisplayProvider, displayRef } from "./display/Display";
 import { Inspector } from "./Inspector";
 import { Library } from "./Library";
+import { Workspaces } from "./Workspaces";
 import { ReadView } from "./read/ReadView";
 import { SearchView } from "./search/SearchView";
 import {
@@ -323,7 +324,7 @@ export function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-2 border-b border-rule px-3 py-2 sm:gap-4 sm:px-4">
+      <header className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-rule px-3 py-2 sm:gap-x-4 sm:px-4">
         <div className="flex items-center gap-2" title="Context-Fabric">
           <Mark />
           <span className="hidden text-[15px] font-semibold tracking-tight sm:inline">Context-Fabric</span>
@@ -348,7 +349,7 @@ export function App() {
             </nav>
           </>
         ) : null}
-        <div className="ms-auto flex items-center gap-1">
+        <div className="ms-auto flex flex-wrap items-center justify-end gap-1 whitespace-nowrap">
           {ws.panes.length > 1 ? (
             <label
               className="me-1 flex items-center gap-1.5 text-[14px]"
@@ -383,6 +384,7 @@ export function App() {
           >
             Open a corpus
           </button>
+          <Workspaces corpora={corpora} onLoad={actions.load} />
           <DisplayOptions
             settings={settings}
             formats={firstCard?.display.textFormats ?? []}
