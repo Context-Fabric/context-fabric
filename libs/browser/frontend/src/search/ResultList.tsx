@@ -28,7 +28,11 @@ function usePage(search: SearchStatus, page: number, fmt: string | null) {
 
 /** Nodes of a tuple that are not already visible inside the first node's display. */
 function treesToShow(row: ResultRow): RenderTree[] {
-  const trees = row.plain ?? [];
+  // a big node (a verse, a chapter) has no text of its own in a result row,
+  // only its heading, which the reference column already shows
+  const hasText = (tree: RenderTree) => tree.fragments.some((f) => f.text !== undefined || f.children?.length);
+  const all = row.plain ?? [];
+  const trees = all.some(hasText) ? all.filter(hasText) : all.slice(0, 1);
   if (trees.length <= 1) return trees;
   const seen = new Set<number>();
   const collect = (frags: RenderTree["fragments"]) => {

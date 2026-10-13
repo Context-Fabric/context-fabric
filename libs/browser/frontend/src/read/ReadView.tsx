@@ -9,6 +9,10 @@ interface Props {
   passageRef: string | null;
   settings: ViewSettings;
   onOpen: (ref: string) => void;
+  /** In a narrow pane the passage list folds away behind a button. */
+  compact?: boolean;
+  /** Shown above the text, e.g. when synchronised reading found only the chapter. */
+  note?: string | null;
 }
 
 /** Books, then the chapters of the current book. */
@@ -105,7 +109,7 @@ function useStartRef(corpus: CorpusCard, enabled: boolean): string | null {
   return data ?? null;
 }
 
-export function ReadView({ corpus, passageRef, settings, onOpen }: Props) {
+export function ReadView({ corpus, passageRef, settings, onOpen, compact = false, note = null }: Props) {
   const [mode, setMode] = useState<"pretty" | "plain">("plain");
   const startRef = useStartRef(corpus, passageRef === null);
   const ref = passageRef ?? startRef;
@@ -123,9 +127,11 @@ export function ReadView({ corpus, passageRef, settings, onOpen }: Props) {
   };
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 md:grid-cols-[16rem_1fr]">
+    <div className={`grid h-full min-h-0 grid-cols-1 ${compact ? "" : "md:grid-cols-[16rem_1fr]"}`}>
       <aside
-        className={`${navOpen ? "flex" : "hidden"} max-h-[60vh] min-h-0 border-b border-rule md:flex md:max-h-none md:border-b-0 md:border-e`}
+        className={`${navOpen ? "flex" : "hidden"} max-h-[60vh] min-h-0 border-b border-rule ${
+          compact ? "" : "md:flex md:max-h-none md:border-b-0 md:border-e"
+        }`}
       >
         <Navigator corpus={corpus} path={data?.path ?? []} onOpen={open} />
       </aside>
@@ -135,7 +141,7 @@ export function ReadView({ corpus, passageRef, settings, onOpen }: Props) {
             type="button"
             aria-expanded={navOpen}
             onClick={() => setNavOpen((o) => !o)}
-            className="rounded border border-rule-strong px-2.5 py-0.5 text-[13px] md:hidden"
+            className={`rounded border border-rule-strong px-2.5 py-0.5 text-[13px] ${compact ? "" : "md:hidden"}`}
           >
             Passages
           </button>
@@ -175,6 +181,7 @@ export function ReadView({ corpus, passageRef, settings, onOpen }: Props) {
           </div>
         </header>
         <div className={`min-h-0 flex-1 overflow-y-auto px-5 py-4 ${passage.isFetching ? "opacity-70" : ""}`}>
+          {note ? <p className="mb-3 text-[13px] text-stone">{note}</p> : null}
           {passage.error ? (
             <p className="text-madder">{String((passage.error as Error).message)}</p>
           ) : !ref ? (
