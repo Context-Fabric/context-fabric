@@ -284,6 +284,9 @@ class TestPlaceholders:
         assert show_placeholders("נפ #  # ") == "נפ◦◦"
         assert show_placeholders("מ ? ") == "מ◦"
 
+    def test_morpheme_breaks_left_out(self):
+        assert show_placeholders("עמ׳י ") == "עמי "
+
     def test_unknown_in_comparisons(self, service):
         # an illegible letter is there but unknown, so it is not preserved
         (letters, known) = witness_letters(service.api("mini"), [15])
