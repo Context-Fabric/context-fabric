@@ -188,15 +188,33 @@ def place(api, words: list[int]) -> str:
     return f"{start}–{end}"
 
 
-def mark_reconstructed(api, fragments: list[dict[str, Any]]) -> None:
-    """Flag (`dim`) the parts of render tree fragments that an editor reconstructed.
+# Placeholders in the DSS transcription (sign `type`, see the feature
+# documentation of ETCBC/dss): `ε` (`missing`) is text that is lost and not
+# reconstructed, ` # ` and ` ? ` (`unc`) a letter too damaged to identify.
+# They are shown as in the editions: [ … ] for a gap, ◦ for an illegible letter.
+SIGN_TYPE = "type"
+PLACEHOLDERS = {"ε": "[…]", " # ": "◦", " ? ": "◦"}
+PLACEHOLDER_TYPES = {"missing", "unc"}
 
-    Slots (signs) with `rec` are flagged, and so are fragments shown as one
-    text (a word in the structure view) whose slots are all reconstructed.
+
+def show_placeholders(text: str) -> str:
+    for glyph, shown in PLACEHOLDERS.items():
+        text = text.replace(glyph, shown)
+    return text
+
+
+def dress_signs(api, fragments: list[dict[str, Any]]) -> None:
+    """Prepare the signs of a manuscript (DSS) in render tree fragments.
+
+    Parts reconstructed by an editor are flagged `dim`: slots (signs) with
+    `rec`, and fragments shown as one text (a word in the structure view)
+    whose slots are all reconstructed. Placeholders for lost and illegible
+    text are shown as in the editions (see `PLACEHOLDERS`).
     """
     if RECONSTRUCTED not in api.Fall():
         return
     rec = api.Fs(RECONSTRUCTED).v
+    signType = api.Fs(SIGN_TYPE).v if SIGN_TYPE in api.Fall() else None
     slotType = api.F.otype.slotType
 
     def visit(frags: list[dict[str, Any]]) -> None:
@@ -208,9 +226,17 @@ def mark_reconstructed(api, fragments: list[dict[str, Any]]) -> None:
                 (begin, end) = frag["range"]
                 if frag["type"] == slotType:
                     reconstructed = bool(rec(frag["node"]))
+                    placeholder = (
+                        signType and signType(frag["node"]) in PLACEHOLDER_TYPES
+                    )
                 else:
                     reconstructed = all(rec(s) for s in range(begin, end + 1))
+                    placeholder = signType and any(
+                        signType(s) in PLACEHOLDER_TYPES for s in range(begin, end + 1)
+                    )
                 if reconstructed:
                     frag["dim"] = True
+                if placeholder:
+                    frag["text"] = show_placeholders(frag["text"])
 
     visit(fragments)

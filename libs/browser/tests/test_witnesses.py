@@ -6,8 +6,9 @@ fragment and line, and words carry `book`, `chapter` and `verse`:
     scroll 1Q1   f1 line 1: בר א      Gen 1:1
                  f1 line 2: ת         Exod 2:3
     scroll 4Q10  f1 line 1: ש         Gen 1:1 (biblical=2)
-    scroll 4Q2   f1 line 1: [בר] קק   Gen 1:1 (reconstructed), then a word
-                                       not identified with a verse
+    scroll 4Q2   f1 line 1: [בר] ק#   Gen 1:1 (reconstructed), then a word
+                                       not identified with a verse, whose
+                                       last letter is illegible (` # `)
 
 The scroll 4Q10 comes before 4Q2 in the corpus, but after it by siglum.
 """
@@ -16,18 +17,20 @@ from pathlib import Path
 
 import pytest
 from cfabric_browser.app import create_app
+from cfabric_browser.compare import witness_letters
 from cfabric_browser.corpora import CorpusService, resolve_corpus
 from cfabric_browser.witnesses import (
     format_ref,
     parse_ref,
     place,
+    show_placeholders,
     siglum_key,
 )
 from cfabric_browser.workers import SearchPool
 from fastapi.testclient import TestClient
 
 # signs 1-9, words 10-15, lines 16-19, fragments 20-22, scrolls 23-25
-SIGNS = "ברא" + "ת" + "ש" + "בר" + "קק"
+SIGNS = ["ב", "ר", "א", "ת", "ש", "ב", "ר", "ק", " # "]
 FILES = {
     "otype": "1-9\tsign\n10-15\tword\n16-19\tline\n20-22\tfragment\n23-25\tscroll\n",
     "oslots": "10\t1-2\n11\t3\n12\t4\n13\t5\n14\t6-7\n15\t8-9\n"
@@ -35,6 +38,7 @@ FILES = {
     "glyph": "".join(f"{i + 1}\t{c}\n" for (i, c) in enumerate(SIGNS)),
     "after": "2\t \n3\t \n4\t \n5\t \n7\t \n9\t \n",
     "rec": "6\t1\n7\t1\n",
+    "type": "1-8\tcons\n9\tunc\n",
     "scroll": "23\t1Q1\n24\t4Q10\n25\t4Q2\n",
     "fragment": "20\tf1\n21\tf1\n22\tf1\n",
     "line": "16\t1\n17\t2\n18\t1\n19\t1\n",
@@ -211,7 +215,7 @@ class TestPassageDims:
             "/api/corpora/mini/passage", params={"ref": "4Q2 f1:1", "mode": "plain"}
         ).json()
         signs = [leaf for tree in data["trees"] for leaf in leaves(tree["fragments"])]
-        assert signs == [("ב", True), ("ר", True), ("ק", False), ("ק", False)]
+        assert signs == [("ב", True), ("ר", True), ("ק", False), ("◦", False)]
 
 
 class TestAlign:
@@ -272,3 +276,16 @@ class TestCompareWitnesses:
             "/api/corpora/mt/align", params={"from": "mini", "ref": "Genesis 1:1"}
         ).json()
         assert back["ref"] == "Genesis 1:1"
+
+
+class TestPlaceholders:
+    def test_shown_as_in_editions(self):
+        assert show_placeholders("ε ") == "[…] "
+        assert show_placeholders("נפ #  # ") == "נפ◦◦"
+        assert show_placeholders("מ ? ") == "מ◦"
+
+    def test_unknown_in_comparisons(self, service):
+        # an illegible letter is there but unknown, so it is not preserved
+        (letters, known) = witness_letters(service.api("mini"), [15])
+        assert letters == [(15, "ק◦")]
+        assert known == [True, False]
