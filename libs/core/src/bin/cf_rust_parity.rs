@@ -20,10 +20,12 @@ struct ParityQuery {
 }
 
 fn main() -> Result<()> {
-    let cfr = std::env::args()
-        .nth(1)
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("/tmp/cf_bhsa_v3_full.cfr"));
+    let Some(cfr) = std::env::args().nth(1).map(PathBuf::from) else {
+        eprintln!(
+            "usage: cf_rust_parity <bhsa.cfr> [parity_queries.json] [comma-separated ids] [budget seconds]"
+        );
+        std::process::exit(2);
+    };
     let json = std::env::args()
         .nth(2)
         .map(PathBuf::from)
