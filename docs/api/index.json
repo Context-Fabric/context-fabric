@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-14T17:08:42.874210+00:00",
+  "generated_at": "2026-10-14T17:11:04.369219+00:00",
   "packages": {
     "cfabric": {
       "name": "cfabric",
@@ -842,6 +842,10 @@
               "functions": {},
               "modules": {},
               "aliases": {
+                "PackageNotFoundError": {
+                  "name": "PackageNotFoundError",
+                  "target": "importlib.metadata.PackageNotFoundError"
+                },
                 "ZIP_DEFLATED": {
                   "name": "ZIP_DEFLATED",
                   "target": "zipfile.ZIP_DEFLATED"
@@ -853,6 +857,10 @@
                 "sys": {
                   "name": "sys",
                   "target": "sys"
+                },
+                "version": {
+                  "name": "version",
+                  "target": "importlib.metadata.version"
                 }
               }
             },
@@ -23234,6 +23242,10 @@
           "name": "CorpusManager",
           "target": "cfabric_mcp.corpus_manager.CorpusManager"
         },
+        "PackageNotFoundError": {
+          "name": "PackageNotFoundError",
+          "target": "importlib.metadata.PackageNotFoundError"
+        },
         "logging": {
           "name": "logging",
           "target": "logging"
@@ -23249,6 +23261,10 @@
         "sys": {
           "name": "sys",
           "target": "sys"
+        },
+        "version": {
+          "name": "version",
+          "target": "importlib.metadata.version"
         }
       }
     },

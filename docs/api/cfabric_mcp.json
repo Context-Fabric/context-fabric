@@ -2949,6 +2949,10 @@
       "name": "CorpusManager",
       "target": "cfabric_mcp.corpus_manager.CorpusManager"
     },
+    "PackageNotFoundError": {
+      "name": "PackageNotFoundError",
+      "target": "importlib.metadata.PackageNotFoundError"
+    },
     "logging": {
       "name": "logging",
       "target": "logging"
@@ -2964,6 +2968,10 @@
     "sys": {
       "name": "sys",
       "target": "sys"
+    },
+    "version": {
+      "name": "version",
+      "target": "importlib.metadata.version"
     }
   }
 }

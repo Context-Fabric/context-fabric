@@ -839,6 +839,10 @@
           "functions": {},
           "modules": {},
           "aliases": {
+            "PackageNotFoundError": {
+              "name": "PackageNotFoundError",
+              "target": "importlib.metadata.PackageNotFoundError"
+            },
             "ZIP_DEFLATED": {
               "name": "ZIP_DEFLATED",
               "target": "zipfile.ZIP_DEFLATED"
@@ -850,6 +854,10 @@
             "sys": {
               "name": "sys",
               "target": "sys"
+            },
+            "version": {
+              "name": "version",
+              "target": "importlib.metadata.version"
             }
           }
         },
