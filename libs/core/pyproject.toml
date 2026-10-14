@@ -61,7 +61,7 @@ python-source = "."
 include = [
     { path = "cfabric/py.typed", format = ["sdist", "wheel"] },
 ]
-exclude = ["**/.cfr/**"]
+exclude = ["**/.cfr/**", "**/__pycache__/**"]
 
 [tool.cibuildwheel]
 build = "cp313-*"
