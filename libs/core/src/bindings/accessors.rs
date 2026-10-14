@@ -6,6 +6,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyIterator, PyList, PySet, PyString, PyTuple};
 
 use crate::compiled::MappedCompiledCorpus;
+use crate::config::DEFAULT_FORMAT;
 use crate::corpus::{SectionOptions, StructureTree, TextOptions, WalkEvent};
 use crate::feature::FeatureValue;
 use crate::mapped_search::MappedSearch;
@@ -366,8 +367,13 @@ impl PyLocality {
         nodes_to_tuple(py, nodes)
     }
 
+    /// TF `L.i`: the intersecting nodes as a *list* in canonical order; a slot
+    /// or out-of-range node gives the empty *tuple* (`tf/core/locality.py`).
     #[pyo3(signature = (node, otype=None))]
     fn i(&self, py: Python<'_>, node: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+        if node <= self.corpus.max_slot()? || node > self.corpus.max_node() {
+            return Ok(PyTuple::empty(py).into());
+        }
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
         let sections = self.context()?.sections();
@@ -376,7 +382,7 @@ impl PyLocality {
             Some(values) => sections.intersecting_types(node, Some(values))?,
             None => sections.i(node, None)?,
         };
-        nodes_to_tuple(py, nodes)
+        Ok(PyList::new(py, nodes)?.into())
     }
 
     /// Batch embedder lookup (ADDITIVE; W4): like `u` applied to each node in
@@ -482,12 +488,12 @@ impl PyNodes {
         super::features::sort_key_chunk_length_py(&self.corpus, chunk)
     }
 
+    /// TF `N.sortNodes`: a list in canonical order.
     #[allow(non_snake_case)]
     fn sortNodes(&self, py: Python<'_>, nodes: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-        let nodes = nodes_from_py(Some(nodes))?.unwrap_or_default();
-        let mut nodes = nodes;
+        let mut nodes = nodes_from_py(Some(nodes))?.unwrap_or_default();
         self.corpus.sort_nodes(&mut nodes)?;
-        nodes_to_tuple(py, nodes)
+        Ok(PyList::new(py, nodes)?.into())
     }
 
     #[pyo3(signature = (nodes=None, events=false))]
@@ -497,10 +503,13 @@ impl PyNodes {
         nodes: Option<&Bound<'_, PyAny>>,
         events: bool,
     ) -> PyResult<PyObject> {
+        // TF `N.walk` is a generator; return an iterator so `next(N.walk())`
+        // works and the result is consumed once, as in TF.
         let nodes = nodes_from_py(nodes)?;
         let sections = MappedSections::new(&self.corpus)?;
         if !events {
-            return nodes_to_tuple(py, sections.walk(nodes.as_deref())?);
+            let walk = PyTuple::new(py, sections.walk(nodes.as_deref())?)?;
+            return Ok(walk.try_iter()?.into_any().unbind());
         }
         // TF `N.walk(events=True)` (tf/core/nodes.py:278-292) yields event pairs:
         // slot -> `(n, None)`, container start -> `(n, False)`, container end ->
@@ -514,7 +523,7 @@ impl PyNodes {
                 WalkEvent::End(node) => (node, Some(true)),
             })
             .collect();
-        Ok(PyTuple::new(py, rows)?.into())
+        Ok(PyTuple::new(py, rows)?.try_iter()?.into_any().unbind())
     }
 }
 
@@ -604,22 +613,33 @@ fn section_heading(
 
 #[pymethods]
 impl PyText {
+    /// TF `T.sectionTypes`: a list.
     #[getter]
     #[allow(non_snake_case)]
     fn sectionTypes(&self, py: Python<'_>) -> PyResult<PyObject> {
-        Ok(PyTuple::new(py, MappedSections::new(&self.corpus)?.section_types())?.into())
+        Ok(PyList::new(py, MappedSections::new(&self.corpus)?.section_types())?.into())
     }
 
+    /// The section feature names (TF's `T.sectionFeatures` holds the features'
+    /// data dicts instead; use `Fs(name).data` for those).
     #[getter]
     #[allow(non_snake_case)]
     fn sectionFeatures(&self, py: Python<'_>) -> PyResult<PyObject> {
-        Ok(PyTuple::new(py, MappedSections::new(&self.corpus)?.section_features())?.into())
+        self.sectionFeats(py)
     }
 
+    /// TF `T.sectionFeats`: a list.
     #[getter]
     #[allow(non_snake_case)]
     fn sectionFeats(&self, py: Python<'_>) -> PyResult<PyObject> {
-        self.sectionFeatures(py)
+        Ok(PyList::new(py, MappedSections::new(&self.corpus)?.section_features())?.into())
+    }
+
+    /// TF `T.defaultFormat`.
+    #[getter]
+    #[allow(non_snake_case)]
+    fn defaultFormat(&self) -> &'static str {
+        DEFAULT_FORMAT
     }
 
     #[getter]
@@ -627,20 +647,22 @@ impl PyText {
         Ok(MappedText::new(&self.corpus)?.formats()?)
     }
 
+    /// TF `T.structureTypes`: the configured list, as written in `otext`.
     #[getter]
     #[allow(non_snake_case)]
     fn structureTypes(&self, py: Python<'_>) -> PyResult<PyObject> {
-        Ok(PyTuple::new(
+        Ok(PyList::new(
             py,
             parse_csv_config(mapped_otext_value(&self.corpus, "structureTypes")?.as_deref()),
         )?
         .into())
     }
 
+    /// TF `T.structureFeats`: the configured list, as written in `otext`.
     #[getter]
     #[allow(non_snake_case)]
     fn structureFeats(&self, py: Python<'_>) -> PyResult<PyObject> {
-        Ok(PyTuple::new(
+        Ok(PyList::new(
             py,
             parse_csv_config(mapped_otext_value(&self.corpus, "structureFeatures")?.as_deref()),
         )?

@@ -394,7 +394,7 @@ impl EdgeFeature {
 
     pub fn s(&self, node: u32) -> Vec<u32> {
         let targets = self.forward(node);
-        if targets.is_empty() && self.name == "oslots" {
+        if targets.is_empty() && self.name == "oslots" && node >= 1 {
             vec![node]
         } else {
             targets

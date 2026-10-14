@@ -44,11 +44,11 @@ def test_computed_navigation_text_and_search(loaded_api):
     assert loaded_api.F.otype.maxNode == 8
 
     assert loaded_api.C.order.data
-    assert loaded_api.N.sortNodes({5, 3, 1}) == (1, 3, 5)
+    assert loaded_api.N.sortNodes({5, 3, 1}) == [1, 3, 5]
     assert loaded_api.L.u(1, otype={"phrase", "sentence"}) == (6, 8)
 
     assert loaded_api.T.text(1) == "hello"
-    assert loaded_api.T.sectionTypes == ("sentence", "phrase")
+    assert loaded_api.T.sectionTypes == ["sentence", "phrase"]
 
     loaded_api.S.study("word")
     assert loaded_api.S.exe is None
@@ -84,17 +84,17 @@ def test_text_fabric_compatibility_surface(mini_corpus_path, loaded_api):
     assert loaded_api.E.distance.dataInv[2][1] == 0
     assert loaded_api.E.distance.freqList(nodeTypesFrom=("word",), nodeTypesTo=("word",))
 
-    events = loaded_api.N.walk(events=True)
+    events = list(loaded_api.N.walk(events=True))
     assert all(isinstance(item, tuple) and len(item) == 2 for item in events)
     # The non-end events (slots and container starts) replay walk() order.
-    assert loaded_api.N.walk() == tuple(node for (node, kind) in events if kind is not True)
+    assert list(loaded_api.N.walk()) == [node for (node, kind) in events if kind is not True]
     assert loaded_api.T.sectionFeats == loaded_api.T.sectionFeatures
     # sectionTuple returns section NODE ids; sectionFromNode returns their values.
     assert loaded_api.T.sectionTuple(1) == (8, 6)
     assert loaded_api.T.sectionFromNode(1) == ("S1", 1)
     assert loaded_api.T.formats == {"text-orig-full": "word"}
-    assert isinstance(loaded_api.T.structureTypes, tuple)
-    assert isinstance(loaded_api.T.structureFeats, tuple)
+    assert loaded_api.T.structureTypes == []
+    assert loaded_api.T.structureFeats == []
     assert loaded_api.T.languages == {
         "": {"language": "default", "languageEnglish": "default"}
     }

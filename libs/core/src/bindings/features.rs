@@ -554,6 +554,28 @@ impl PyNodeFeature {
         Ok(PyTuple::new(py, names)?.into())
     }
 
+    /// TF `F.otype.sInterval(type)`: the `(first, last)` node of a node type,
+    /// `()` for an unknown type. Only on `otype`.
+    #[allow(non_snake_case)]
+    fn sInterval(&self, py: Python<'_>, node_type: &str) -> PyResult<PyObject> {
+        if self.name != "otype" {
+            return Err(PyAttributeError::new_err(format!(
+                "node feature {} has no attribute 'sInterval'",
+                self.name
+            )));
+        }
+        let interval = self
+            .corpus
+            .string_pool_node_feature("otype")?
+            .map(|otype| otype.value_interval(node_type))
+            .transpose()?
+            .flatten();
+        Ok(match interval {
+            Some((first, last)) => PyTuple::new(py, [first, last])?.into(),
+            None => PyTuple::empty(py).into(),
+        })
+    }
+
     #[pyo3(signature = (node_types=None))]
     fn freq_list(
         &self,
@@ -964,6 +986,19 @@ impl PyLevView {
     }
 }
 
+/// A compiled section heading key as TF's key: the int for int-valued section
+/// features (`None` for a node without a value), the string otherwise.
+fn section_key_to_py(py: Python<'_>, heading: &str, is_int: bool) -> PyResult<PyObject> {
+    if !is_int {
+        return Ok(PyString::new(py, heading).into_any().unbind());
+    }
+    Ok(match heading.parse::<i64>() {
+        Ok(value) => value.into_pyobject(py)?.into_any().unbind(),
+        Err(_) if heading.is_empty() => py.None(),
+        Err(_) => PyString::new(py, heading).into_any().unbind(),
+    })
+}
+
 #[pyclass(name = "Computed")]
 pub(crate) struct PyComputed {
     #[pyo3(get)]
@@ -1031,6 +1066,21 @@ impl PyComputeds {
         Ok(PyComputed::new(view.into_any()))
     }
 
+    /// Per section level, whether its section feature is int-valued.
+    fn section_key_types(&self) -> PyResult<Vec<bool>> {
+        let metadata = self.corpus.metadata();
+        Ok(crate::mapped_sections::MappedSections::new(&self.corpus)?
+            .section_features()
+            .iter()
+            .map(|name| {
+                metadata
+                    .node_feature(name)
+                    .and_then(|feature| feature.value_type())
+                    == Some("int")
+            })
+            .collect())
+    }
+
     fn sections_to_py(&self, py: Python<'_>) -> PyResult<PyObject> {
         // TF C.sections.data shape: dict(sec1=, sec2=, seqFromNode=, nodeFromSeq=).
         let data = PyDict::new(py);
@@ -1041,11 +1091,18 @@ impl PyComputeds {
             return Ok(data.into());
         };
 
+        // The compiled section maps key headings by their string form; TF keys
+        // them by the section feature's value (int for int features).
+        let key_types = self.section_key_types()?;
+        let key = |level: usize, heading: &str| -> PyResult<PyObject> {
+            section_key_to_py(py, heading, key_types.get(level).copied().unwrap_or(false))
+        };
+
         let sec1 = PyDict::new(py);
         for (node, inner) in &sections.sec1 {
             let inner_dict = PyDict::new(py);
             for (heading, target) in inner {
-                inner_dict.set_item(heading, *target)?;
+                inner_dict.set_item(key(1, heading)?, *target)?;
             }
             sec1.set_item(node, inner_dict)?;
         }
@@ -1056,9 +1113,9 @@ impl PyComputeds {
             for (heading1, inner2) in inner {
                 let inner2_dict = PyDict::new(py);
                 for (heading2, target) in inner2 {
-                    inner2_dict.set_item(heading2, *target)?;
+                    inner2_dict.set_item(key(2, heading2)?, *target)?;
                 }
-                inner_dict.set_item(heading1, inner2_dict)?;
+                inner_dict.set_item(key(1, heading1)?, inner2_dict)?;
             }
             sec2.set_item(node, inner_dict)?;
         }
@@ -1196,15 +1253,24 @@ fn extract_format_features(spec: &str) -> Vec<String> {
 impl PyComputeds {
     #[getter]
     fn levels(&self, py: Python<'_>) -> PyResult<PyComputed> {
+        let slot_type = self.corpus.slot_type()?;
         let rows = match self.corpus.computed_feature("levels")? {
             Some(ComputedFeatureData::Levels(rows)) => rows,
             _ => Vec::new(),
         }
         .into_iter()
         .map(|(node_type, level, first, last)| {
+            // TF computes the average slot count of every type as a float, but
+            // writes the slot type's row with the int `1`
+            // (`tf/core/prepare.py::levels`).
+            let level: PyObject = if node_type == slot_type {
+                1_i64.into_pyobject(py)?.into_any().unbind()
+            } else {
+                level.into_pyobject(py)?.into_any().unbind()
+            };
             let row: Vec<PyObject> = vec![
                 PyString::new(py, &node_type).into(),
-                level.into_pyobject(py)?.into(),
+                level,
                 first.into_pyobject(py)?.into(),
                 last.into_pyobject(py)?.into(),
             ];

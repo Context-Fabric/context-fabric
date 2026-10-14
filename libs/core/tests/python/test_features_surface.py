@@ -176,39 +176,15 @@ def test_sections_shape(api):
     assert isinstance(data["seqFromNode"], dict)
 
 
-def _stringify_headings(mapping):
-    """Normalize TF sec1/sec2 heading keys to strings.
-
-    DIVERGENCE: the Rust core's ``SectionsData`` stores section-heading keys as
-    strings (``BTreeMap<u32, BTreeMap<String, u32>>``), whereas TF preserves the
-    heading feature's native type (e.g. int chapter/verse numbers). We compare
-    with stringified TF keys to validate structure rather than key type.
-    """
-    return {
-        node: {str(h): target for h, target in inner.items()}
-        for node, inner in mapping.items()
-    }
-
-
-def _stringify_sec2(mapping):
-    return {
-        node: {
-            str(h1): {str(h2): target for h2, target in inner2.items()}
-            for h1, inner2 in inner.items()
-        }
-        for node, inner in mapping.items()
-    }
-
-
 def test_sections_parity_with_tf(api, tf_api):
     cf = api.C.sections.data
     tf = tf_api.C.sections.data
     # node ids and seq tuples are ints in both -> exact match.
     assert cf["seqFromNode"] == tf["seqFromNode"]
     assert cf["nodeFromSeq"] == tf["nodeFromSeq"]
-    # sec1/sec2 heading keys are stringified by the core (documented divergence).
-    assert cf["sec1"] == _stringify_headings(tf["sec1"])
-    assert cf["sec2"] == _stringify_sec2(tf["sec2"])
+    # sec1/sec2 heading keys keep the section feature's value type.
+    assert cf["sec1"] == tf["sec1"]
+    assert cf["sec2"] == tf["sec2"]
 
 
 # --------------------------------------------------------------------------- #
