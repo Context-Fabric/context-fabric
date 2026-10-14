@@ -24,9 +24,12 @@ fn main() -> Result<()> {
         .nth(1)
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("/tmp/cf_bhsa_v3_full.cfr"));
-    let json = std::env::args().nth(2).map(PathBuf::from).unwrap_or_else(|| {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/parity/parity_queries.json")
-    });
+    let json = std::env::args()
+        .nth(2)
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/parity/parity_queries.json")
+        });
     let filter = std::env::args().nth(3).filter(|s| !s.is_empty()); // optional comma-separated ids
     let budget_secs: u64 = std::env::args()
         .nth(4)

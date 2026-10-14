@@ -131,28 +131,48 @@ fn assert_locality_parity(harness: &Harness, node_types: &[Option<&str>]) {
 
             // Upward (embedders): all three paths identical.
             let u_v3 = sv3.u(node, ot).unwrap();
-            assert_eq!(u_v3, sfb.u(node, ot).unwrap(), "L.u v3 != fallback ({label})");
+            assert_eq!(
+                u_v3,
+                sfb.u(node, ot).unwrap(),
+                "L.u v3 != fallback ({label})"
+            );
             assert_eq!(u_v3, corpus.u(node, ot), "L.u v3 != in-memory ({label})");
 
             // Downward (embeddees).
             let d_v3 = sv3.d(node, ot).unwrap();
-            assert_eq!(d_v3, sfb.d(node, ot).unwrap(), "L.d v3 != fallback ({label})");
+            assert_eq!(
+                d_v3,
+                sfb.d(node, ot).unwrap(),
+                "L.d v3 != fallback ({label})"
+            );
             assert_eq!(d_v3, corpus.d(node, ot), "L.d v3 != in-memory ({label})");
 
             // Next.
             let n_v3 = sv3.n(node, ot).unwrap();
-            assert_eq!(n_v3, sfb.n(node, ot).unwrap(), "L.n v3 != fallback ({label})");
+            assert_eq!(
+                n_v3,
+                sfb.n(node, ot).unwrap(),
+                "L.n v3 != fallback ({label})"
+            );
             assert_eq!(n_v3, corpus.n(node, ot), "L.n v3 != in-memory ({label})");
 
             // Previous.
             let p_v3 = sv3.p(node, ot).unwrap();
-            assert_eq!(p_v3, sfb.p(node, ot).unwrap(), "L.p v3 != fallback ({label})");
+            assert_eq!(
+                p_v3,
+                sfb.p(node, ot).unwrap(),
+                "L.p v3 != fallback ({label})"
+            );
             assert_eq!(p_v3, corpus.p(node, ot), "L.p v3 != in-memory ({label})");
 
             // Intersecting: all three paths agree, in ascending canonical order
             // (TF `L.i`; the old `.reverse()` was removed from both paths).
             let i_v3 = sv3.i(node, ot).unwrap();
-            assert_eq!(i_v3, sfb.i(node, ot).unwrap(), "L.i v3 != fallback ({label})");
+            assert_eq!(
+                i_v3,
+                sfb.i(node, ot).unwrap(),
+                "L.i v3 != fallback ({label})"
+            );
             assert_eq!(i_v3, corpus.i(node, ot), "L.i v3 != in-memory ({label})");
             assert_ascending_rank(&harness.v3, &i_v3, &label);
         }
@@ -181,7 +201,13 @@ fn three_level_corpus_locality_parity_across_paths() {
     let harness = build_harness(write_three_level_corpus);
     assert_locality_parity(
         &harness,
-        &[None, Some("word"), Some("verse"), Some("chapter"), Some("book")],
+        &[
+            None,
+            Some("word"),
+            Some("verse"),
+            Some("chapter"),
+            Some("book"),
+        ],
     );
 }
 
@@ -193,7 +219,10 @@ fn boundary_completes_and_matches_across_paths() {
 
     let b_v3 = sv3.boundary().unwrap();
     let b_fb = sfb.boundary().unwrap();
-    assert_eq!(b_v3.first_slots, b_fb.first_slots, "boundary first mismatch");
+    assert_eq!(
+        b_v3.first_slots, b_fb.first_slots,
+        "boundary first mismatch"
+    );
     assert_eq!(b_v3.last_slots, b_fb.last_slots, "boundary last mismatch");
     assert!(!b_v3.first_slots.is_empty());
 }
@@ -265,7 +294,8 @@ fn node_from_section_round_trips_three_level() {
     // Explicit lookups exercising each level.
     let genesis = FeatureValue::string("Genesis");
     assert_eq!(
-        sv3.node_from_section(std::slice::from_ref(&genesis)).unwrap(),
+        sv3.node_from_section(std::slice::from_ref(&genesis))
+            .unwrap(),
         Some(10),
     );
     assert_eq!(
@@ -282,11 +312,13 @@ fn node_from_section_round_trips_three_level() {
     // Unknown sections return None on both the v3 and fallback paths.
     let missing = FeatureValue::string("Nonexistent");
     assert_eq!(
-        sv3.node_from_section(std::slice::from_ref(&missing)).unwrap(),
+        sv3.node_from_section(std::slice::from_ref(&missing))
+            .unwrap(),
         None,
     );
     assert_eq!(
-        sfb.node_from_section(std::slice::from_ref(&missing)).unwrap(),
+        sfb.node_from_section(std::slice::from_ref(&missing))
+            .unwrap(),
         None,
     );
     assert_eq!(

@@ -469,7 +469,10 @@ impl<'a> MappedText<'a> {
             let Some(view) = self.corpus.node_feature(&name)? else {
                 continue;
             };
-            let code = view.metadata_value("languageCode").unwrap_or("").to_string();
+            let code = view
+                .metadata_value("languageCode")
+                .unwrap_or("")
+                .to_string();
             let mut info = BTreeMap::new();
             for key in ["language", "languageEnglish"] {
                 info.insert(
@@ -588,7 +591,10 @@ enum TextOp {
     Literal(String),
     /// A `{feat1/feat2/...:default}` placeholder. `features` holds indices into
     /// the context handle table; `default` is the pre-rendered default literal.
-    Placeholder { features: Vec<usize>, default: String },
+    Placeholder {
+        features: Vec<usize>,
+        default: String,
+    },
 }
 
 /// A single `otext` format compiled to a flat op-list plus its descend (target)
@@ -763,7 +769,12 @@ impl TextContext {
             match op {
                 TextOp::Literal(literal) => out.push_str(literal),
                 TextOp::Placeholder { features, default } => {
-                    out.push_str(&self.render_placeholder(&format.handles, node, features, default)?);
+                    out.push_str(&self.render_placeholder(
+                        &format.handles,
+                        node,
+                        features,
+                        default,
+                    )?);
                 }
             }
         }
@@ -780,9 +791,9 @@ impl TextContext {
         default: &str,
     ) -> Result<String> {
         match features {
-            [single] => {
-                Ok(handles[*single].value(node)?.unwrap_or_else(|| default.to_string()))
-            }
+            [single] => Ok(handles[*single]
+                .value(node)?
+                .unwrap_or_else(|| default.to_string())),
             [first, second] => {
                 if let Some(value) = handles[*first].value(node)? {
                     return Ok(value);

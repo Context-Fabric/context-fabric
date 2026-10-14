@@ -394,8 +394,7 @@ impl PyFabric {
                     }
                 }
                 let has_values = edge_values_flag || !edge_values.is_empty();
-                let feature =
-                    EdgeFeature::new_with_values(name.clone(), meta, values, edge_values);
+                let feature = EdgeFeature::new_with_values(name.clone(), meta, values, edge_values);
                 let mut tf = TfData::new(write_dir.join(format!("{name}.tf")));
                 tf.is_edge = Some(true);
                 tf.is_config = Some(false);
@@ -436,7 +435,10 @@ impl PyFabric {
 
     #[allow(non_snake_case)]
     fn openMapped(&self, cache_path: &str) -> PyResult<PyCorpus> {
-        Ok(PyCorpus::new(self.inner.open_mapped(cache_path)?, Vec::new()))
+        Ok(PyCorpus::new(
+            self.inner.open_mapped(cache_path)?,
+            Vec::new(),
+        ))
     }
 
     fn open_mapped(&self, cache_path: &str) -> PyResult<PyCorpus> {
@@ -476,7 +478,8 @@ impl PyCorpus {
     }
 
     fn exposes(&self, name: &str) -> bool {
-        self.visible_features.is_empty() || self.visible_features.iter().any(|feature| feature == name)
+        self.visible_features.is_empty()
+            || self.visible_features.iter().any(|feature| feature == name)
     }
 }
 

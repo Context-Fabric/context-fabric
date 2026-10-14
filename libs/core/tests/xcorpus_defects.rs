@@ -14,8 +14,8 @@ use std::fs;
 use std::path::Path;
 
 use context_fabric_core::{
-    Corpus, Fabric, FeatureValue, MappedCompiledCorpus, MappedSections, MappedText, compile_features,
-    precompute,
+    Corpus, Fabric, FeatureValue, MappedCompiledCorpus, MappedSections, MappedText,
+    compile_features, precompute,
 };
 
 fn write_files(dir: &Path, files: &[(&str, &str)]) {
@@ -37,7 +37,10 @@ fn multi_location_compile_merges_warp_and_added_features() {
     write_files(
         &base,
         &[
-            ("otype.tf", "@node\n@valueType=str\n\nword\nword\n3\tphrase\n"),
+            (
+                "otype.tf",
+                "@node\n@valueType=str\n\nword\nword\n3\tphrase\n",
+            ),
             ("oslots.tf", "@edge\n@valueType=int\n\n3\t1-2\n"),
             ("word.tf", "@node\n@valueType=str\n\na\nb\n"),
             ("otext.tf", "@config\n@fmt:text-orig-full={word}\n"),
@@ -47,7 +50,10 @@ fn multi_location_compile_merges_warp_and_added_features() {
     let module = temp.path().join("module");
     write_files(
         &module,
-        &[("crossref.tf", "@edge\n@edgeValues\n@valueType=int\n\n3\t3\t7\n")],
+        &[(
+            "crossref.tf",
+            "@edge\n@edgeValues\n@valueType=int\n\n3\t3\t7\n",
+        )],
     );
 
     // Single-location compile of the module alone must fail: it has no otype.
@@ -82,7 +88,10 @@ fn build_qere_corpus(dir: &Path) {
         dir,
         &[
             // words 1,2 (slots) and phrase 3.
-            ("otype.tf", "@node\n@valueType=str\n\nword\nword\n3\tphrase\n"),
+            (
+                "otype.tf",
+                "@node\n@valueType=str\n\nword\nword\n3\tphrase\n",
+            ),
             ("oslots.tf", "@edge\n@valueType=int\n\n3\t1-2\n"),
             ("word.tf", "@node\n@valueType=str\n\nA\nB\n"),
             // node 1 has an explicit EMPTY qtrailer; node 2 has none.
@@ -165,7 +174,10 @@ fn level_corpus_files(constraint: Option<&str>) -> Vec<(&'static str, String)> {
             "oslots.tf",
             "@edge\n@valueType=int\n\n5\t1-4\n6\t1-2\n7\t3-4\n".to_string(),
         ),
-        ("word.tf", "@node\n@valueType=str\n\na\nb\nc\nd\n".to_string()),
+        (
+            "word.tf",
+            "@node\n@valueType=str\n\na\nb\nc\nd\n".to_string(),
+        ),
         ("otext.tf", otext),
     ]
 }
@@ -290,7 +302,9 @@ fn node_from_section_language_override_and_fast_miss() {
     );
     // A miss returns None immediately (v3 index present) — no linear rescan.
     assert_eq!(
-        sections.node_from_section(&[FeatureValue::Int(999)]).unwrap(),
+        sections
+            .node_from_section(&[FeatureValue::Int(999)])
+            .unwrap(),
         None,
     );
     assert_eq!(

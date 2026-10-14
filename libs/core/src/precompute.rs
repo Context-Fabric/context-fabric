@@ -440,13 +440,11 @@ pub fn sections_with(
     if section_types.len() >= 3 {
         if let Some(level_2_feature) = level_2_feature {
             for &level_2_node in corpus.nodes_of_type(&section_types[2]) {
-                let Some(level_0_node) =
-                    first_embedder_of_type(level_2_node, &section_types[0])
+                let Some(level_0_node) = first_embedder_of_type(level_2_node, &section_types[0])
                 else {
                     continue;
                 };
-                let Some(level_1_node) =
-                    first_embedder_of_type(level_2_node, &section_types[1])
+                let Some(level_1_node) = first_embedder_of_type(level_2_node, &section_types[1])
                 else {
                     continue;
                 };

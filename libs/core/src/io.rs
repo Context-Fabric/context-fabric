@@ -387,9 +387,7 @@ impl TfData {
                 // Emit the standalone `@edgeValues` flag (TF convention) when the
                 // feature carries values, whether signalled by the `edge_values`
                 // flag, by the metadata `edgeValues` key, or by actual edge values.
-                if self.edge_values
-                    || feature.has_edge_values()
-                    || !feature.edge_values.is_empty()
+                if self.edge_values || feature.has_edge_values() || !feature.edge_values.is_empty()
                 {
                     output.push_str("@edgeValues\n");
                 }

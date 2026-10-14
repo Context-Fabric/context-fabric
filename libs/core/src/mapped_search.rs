@@ -516,12 +516,12 @@ impl<'a> MappedSearch<'a> {
         //    (container-from-contained) direction. Interval containment scans grow
         //    O(candidates); a slot index keeps it O(1) and is exact even for
         //    sparse-interval container types such as `lex`.
-        let container_index = self.build_container_indexes(plan, &candidates, &embeds, otype, oslots)?;
+        let container_index =
+            self.build_container_indexes(plan, &candidates, &embeds, otype, oslots)?;
 
         // 6. Connectivity-greedy evaluation order so every non-seed atom is driven
         //    from an already-bound neighbour rather than enumerated wholesale.
         let order = compute_join_order(plan, &candidates, &embeds, root);
-
 
         // 7. Backtracking join driven by relations/embeddings.
         let mut results = if count_only {
@@ -644,9 +644,16 @@ impl<'a> MappedSearch<'a> {
         )?;
         for node in cands {
             bound[atom] = Some(node);
-            if self
-                .partial_constraints_ok(plan, embeds, atom, bound, root, otype, oslots, slots_cache)?
-            {
+            if self.partial_constraints_ok(
+                plan,
+                embeds,
+                atom,
+                bound,
+                root,
+                otype,
+                oslots,
+                slots_cache,
+            )? {
                 self.join_recurse(
                     plan,
                     candidates,
@@ -817,7 +824,8 @@ impl<'a> MappedSearch<'a> {
         for (child, child_parent) in embeds.iter().enumerate() {
             if *child_parent == Some(atom) {
                 if let Some(child_node) = bound[child] {
-                    let Some((cf, cl)) = self.node_interval(slot_cache, oslots, otype, child_node)?
+                    let Some((cf, cl)) =
+                        self.node_interval(slot_cache, oslots, otype, child_node)?
                     else {
                         return Ok(Vec::new());
                     };
@@ -827,14 +835,14 @@ impl<'a> MappedSearch<'a> {
         }
         // Relations with a bound other endpoint.
         for relation in &plan.relations {
-            let (is_left, other_ep) =
-                if matches!(relation.left, MappedRelationEndpoint::Atom(a) if a == atom) {
-                    (true, &relation.right)
-                } else if matches!(relation.right, MappedRelationEndpoint::Atom(a) if a == atom) {
-                    (false, &relation.left)
-                } else {
-                    continue;
-                };
+            let (is_left, other_ep) = if matches!(relation.left, MappedRelationEndpoint::Atom(a) if a == atom)
+            {
+                (true, &relation.right)
+            } else if matches!(relation.right, MappedRelationEndpoint::Atom(a) if a == atom) {
+                (false, &relation.left)
+            } else {
+                continue;
+            };
             let Some(other) = endpoint_node(other_ep, bound, root) else {
                 continue;
             };
@@ -901,98 +909,103 @@ impl<'a> MappedSearch<'a> {
                 _ => return Ok(Some(Vec::new())),
             },
         };
-        let driver = match operator {
-            Equal => {
-                if cset.contains(other) {
-                    vec![other]
-                } else {
-                    vec![]
+        let driver =
+            match operator {
+                Equal => {
+                    if cset.contains(other) {
+                        vec![other]
+                    } else {
+                        vec![]
+                    }
                 }
-            }
-            Embeds => {
-                if is_left {
-                    containers_of(self.corpus, cmap, cset, of, ol)?
-                } else {
-                    cset.nodes_within_slot_interval(of, ol)
+                Embeds => {
+                    if is_left {
+                        containers_of(self.corpus, cmap, cset, of, ol)?
+                    } else {
+                        cset.nodes_within_slot_interval(of, ol)
+                    }
                 }
-            }
-            EmbeddedIn => {
-                if is_left {
-                    cset.nodes_within_slot_interval(of, ol)
-                } else {
-                    containers_of(self.corpus, cmap, cset, of, ol)?
+                EmbeddedIn => {
+                    if is_left {
+                        cset.nodes_within_slot_interval(of, ol)
+                    } else {
+                        containers_of(self.corpus, cmap, cset, of, ol)?
+                    }
                 }
-            }
-            Overlaps => cset.nodes_overlapping(of, ol),
-            AdjacentBefore => {
-                if is_left {
-                    sub1(of).map_or_else(Vec::new, |t| cset.nodes_with_last_in(t, t))
-                } else {
-                    add1(ol).map_or_else(Vec::new, |t| cset.nodes_with_first_in(t, t))
+                Overlaps => cset.nodes_overlapping(of, ol),
+                AdjacentBefore => {
+                    if is_left {
+                        sub1(of).map_or_else(Vec::new, |t| cset.nodes_with_last_in(t, t))
+                    } else {
+                        add1(ol).map_or_else(Vec::new, |t| cset.nodes_with_first_in(t, t))
+                    }
                 }
-            }
-            AdjacentAfter => {
-                if is_left {
-                    add1(ol).map_or_else(Vec::new, |t| cset.nodes_with_first_in(t, t))
-                } else {
-                    sub1(of).map_or_else(Vec::new, |t| cset.nodes_with_last_in(t, t))
+                AdjacentAfter => {
+                    if is_left {
+                        add1(ol).map_or_else(Vec::new, |t| cset.nodes_with_first_in(t, t))
+                    } else {
+                        sub1(of).map_or_else(Vec::new, |t| cset.nodes_with_last_in(t, t))
+                    }
                 }
-            }
-            NearBefore(k) => {
-                if is_left {
-                    let t = i64::from(of) - 1;
-                    cset.nodes_with_last_in(clamp_lo(t, *k), clamp_hi(t, *k))
-                } else {
-                    let t = i64::from(ol) + 1;
-                    cset.nodes_with_first_in(clamp_lo(t, *k), clamp_hi(t, *k))
+                NearBefore(k) => {
+                    if is_left {
+                        let t = i64::from(of) - 1;
+                        cset.nodes_with_last_in(clamp_lo(t, *k), clamp_hi(t, *k))
+                    } else {
+                        let t = i64::from(ol) + 1;
+                        cset.nodes_with_first_in(clamp_lo(t, *k), clamp_hi(t, *k))
+                    }
                 }
-            }
-            NearAfter(k) => {
-                if is_left {
-                    let t = i64::from(ol) + 1;
-                    cset.nodes_with_first_in(clamp_lo(t, *k), clamp_hi(t, *k))
-                } else {
-                    let t = i64::from(of) - 1;
-                    cset.nodes_with_last_in(clamp_lo(t, *k), clamp_hi(t, *k))
+                NearAfter(k) => {
+                    if is_left {
+                        let t = i64::from(ol) + 1;
+                        cset.nodes_with_first_in(clamp_lo(t, *k), clamp_hi(t, *k))
+                    } else {
+                        let t = i64::from(of) - 1;
+                        cset.nodes_with_last_in(clamp_lo(t, *k), clamp_hi(t, *k))
+                    }
                 }
-            }
-            SameFirstSlot => cset.nodes_with_first_in(of, of),
-            SameLastSlot => cset.nodes_with_last_in(ol, ol),
-            NearFirstSlot(k) => {
-                cset.nodes_with_first_in(clamp_lo(i64::from(of), *k), clamp_hi(i64::from(of), *k))
-            }
-            NearLastSlot(k) => {
-                cset.nodes_with_last_in(clamp_lo(i64::from(ol), *k), clamp_hi(i64::from(ol), *k))
-            }
-            SameBoundary | SameSlots => cset.nodes_with_first_in(of, of),
-            NearBoundary(k) => {
-                cset.nodes_with_first_in(clamp_lo(i64::from(of), *k), clamp_hi(i64::from(of), *k))
-            }
-            // EdgeForward: edge runs left -> right. If `atom` is the right operand
-            // (is_left = false) it is a forward target of `other`; if it is the left
-            // operand it is a backward source of `other`.
-            EdgeForward(name) | EdgeForwardValue(name, _) => {
-                self.edge_driver(edge_adj, name, other, !is_left, cset)
-            }
-            // EdgeBackward: edge runs right -> left (the relation holds when an edge
-            // goes from the right operand to the left). If `atom` is the left operand
-            // it is a forward target of `other`; otherwise a backward source.
-            EdgeBackward(name) | EdgeBackwardValue(name, _) => {
-                self.edge_driver(edge_adj, name, other, is_left, cset)
-            }
-            EdgeEither(name) | EdgeEitherValue(name, _) => {
-                let mut nodes = self.edge_driver(edge_adj, name, other, is_left, cset);
-                nodes.extend(self.edge_driver(edge_adj, name, other, !is_left, cset));
-                nodes.sort_unstable();
-                nodes.dedup();
-                nodes
-            }
-            // `<<` / `>>` produce open-ended ~half-corpus windows; intersecting such
-            // a large driver per seed is far more expensive than verifying the
-            // relation, so they drive nothing (verified incrementally instead).
-            SlotBefore | SlotAfter | NotEqual | DifferentSlots | Disjoint | Before | After
-            | FeatureCompare { .. } | FeatureRegexCompare { .. } => return Ok(None),
-        };
+                SameFirstSlot => cset.nodes_with_first_in(of, of),
+                SameLastSlot => cset.nodes_with_last_in(ol, ol),
+                NearFirstSlot(k) => cset
+                    .nodes_with_first_in(clamp_lo(i64::from(of), *k), clamp_hi(i64::from(of), *k)),
+                NearLastSlot(k) => cset
+                    .nodes_with_last_in(clamp_lo(i64::from(ol), *k), clamp_hi(i64::from(ol), *k)),
+                SameBoundary | SameSlots => cset.nodes_with_first_in(of, of),
+                NearBoundary(k) => cset
+                    .nodes_with_first_in(clamp_lo(i64::from(of), *k), clamp_hi(i64::from(of), *k)),
+                // EdgeForward: edge runs left -> right. If `atom` is the right operand
+                // (is_left = false) it is a forward target of `other`; if it is the left
+                // operand it is a backward source of `other`.
+                EdgeForward(name) | EdgeForwardValue(name, _) => {
+                    self.edge_driver(edge_adj, name, other, !is_left, cset)
+                }
+                // EdgeBackward: edge runs right -> left (the relation holds when an edge
+                // goes from the right operand to the left). If `atom` is the left operand
+                // it is a forward target of `other`; otherwise a backward source.
+                EdgeBackward(name) | EdgeBackwardValue(name, _) => {
+                    self.edge_driver(edge_adj, name, other, is_left, cset)
+                }
+                EdgeEither(name) | EdgeEitherValue(name, _) => {
+                    let mut nodes = self.edge_driver(edge_adj, name, other, is_left, cset);
+                    nodes.extend(self.edge_driver(edge_adj, name, other, !is_left, cset));
+                    nodes.sort_unstable();
+                    nodes.dedup();
+                    nodes
+                }
+                // `<<` / `>>` produce open-ended ~half-corpus windows; intersecting such
+                // a large driver per seed is far more expensive than verifying the
+                // relation, so they drive nothing (verified incrementally instead).
+                SlotBefore
+                | SlotAfter
+                | NotEqual
+                | DifferentSlots
+                | Disjoint
+                | Before
+                | After
+                | FeatureCompare { .. }
+                | FeatureRegexCompare { .. } => return Ok(None),
+            };
         Ok(Some(driver))
     }
 
@@ -1011,7 +1024,11 @@ impl<'a> MappedSearch<'a> {
         };
         let map = if forward { &adj.fwd } else { &adj.bwd };
         match map.get(&other) {
-            Some(nodes) => nodes.iter().copied().filter(|n| cset.contains(*n)).collect(),
+            Some(nodes) => nodes
+                .iter()
+                .copied()
+                .filter(|n| cset.contains(*n))
+                .collect(),
             None => Vec::new(),
         }
     }
@@ -1032,11 +1049,7 @@ impl<'a> MappedSearch<'a> {
 
     /// The node's `(first_slot, last_slot)` without materializing its slot list:
     /// identity for slots, two CSR reads after one binary search otherwise.
-    fn fast_interval(
-        &self,
-        oslots: &EdgeFeatureView<'_>,
-        node: u32,
-    ) -> Result<Option<(u32, u32)>> {
+    fn fast_interval(&self, oslots: &EdgeFeatureView<'_>, node: u32) -> Result<Option<(u32, u32)>> {
         if node == 0 {
             return Ok(None);
         }
@@ -1067,10 +1080,7 @@ impl<'a> MappedSearch<'a> {
         Ok(CandidateSet::new(entries))
     }
 
-    fn build_edge_adjacency(
-        &self,
-        plan: &MappedRelationPlan,
-    ) -> Result<HashMap<String, EdgeAdj>> {
+    fn build_edge_adjacency(&self, plan: &MappedRelationPlan) -> Result<HashMap<String, EdgeAdj>> {
         let mut names: HashSet<&str> = HashSet::new();
         for relation in &plan.relations {
             match &relation.operator {
@@ -1604,7 +1614,6 @@ impl<'a> MappedSearch<'a> {
             .iter()
             .all(|slot| parent_slots.binary_search(slot).is_ok())
     }
-
 }
 
 enum MappedNodeFeatureView<'a> {
@@ -1656,10 +1665,7 @@ impl<'a, 'query> ResolvedConstraint<'a, 'query> {
         match (&self.pool_match, &self.feature) {
             (Some(pool_match), MappedNodeFeatureView::StringPool(view)) => {
                 Ok(match view.pool_id(node)? {
-                    Some(pool_id) => pool_match
-                        .get(pool_id as usize)
-                        .copied()
-                        .unwrap_or(false),
+                    Some(pool_id) => pool_match.get(pool_id as usize).copied().unwrap_or(false),
                     None => self.missing_matches,
                 })
             }
@@ -1702,7 +1708,6 @@ impl<'a> MappedNodeFeatureView<'a> {
         }
         Ok(())
     }
-
 }
 
 /// Forward/backward adjacency for an edge feature, used to drive a join from the
@@ -1794,12 +1799,16 @@ impl CandidateSet {
         if lo > hi {
             return Vec::new();
         }
-        let start = self
-            .by_last_slot
-            .partition_point(|index| self.entries[*index as usize].last_slot.is_some_and(|last| last < lo));
-        let end = self
-            .by_last_slot
-            .partition_point(|index| self.entries[*index as usize].last_slot.is_some_and(|last| last <= hi));
+        let start = self.by_last_slot.partition_point(|index| {
+            self.entries[*index as usize]
+                .last_slot
+                .is_some_and(|last| last < lo)
+        });
+        let end = self.by_last_slot.partition_point(|index| {
+            self.entries[*index as usize]
+                .last_slot
+                .is_some_and(|last| last <= hi)
+        });
         self.by_last_slot[start..end]
             .iter()
             .map(|index| self.entries[*index as usize].node)
@@ -2092,7 +2101,6 @@ impl MappedMatcher {
     }
 }
 
-
 fn parse_mapped_plan(template: &str) -> Result<MappedRelationPlan> {
     let mut atoms: Vec<SimpleAtom> = Vec::new();
     let mut names: HashMap<String, usize> = HashMap::new();
@@ -2103,7 +2111,8 @@ fn parse_mapped_plan(template: &str) -> Result<MappedRelationPlan> {
     // TF `atomStack`: indent -> last atom index seen at that indent in the current
     // nesting. Used to determine the operand of operator edges and to detect
     // illegal "lonely" relations.
-    let mut atom_stack: std::collections::BTreeMap<usize, usize> = std::collections::BTreeMap::new();
+    let mut atom_stack: std::collections::BTreeMap<usize, usize> =
+        std::collections::BTreeMap::new();
 
     // Index-based iteration so quantifier blocks can be consumed wholesale and
     // attached to the most recently seen atom (TF: an atom's `quantifiers` list).
@@ -2396,7 +2405,12 @@ fn endpoint_node(
 fn operator_drive_strength(operator: &MappedRelationOperator) -> u32 {
     use MappedRelationOperator::*;
     match operator {
-        NotEqual | DifferentSlots | Disjoint | Before | After | FeatureCompare { .. }
+        NotEqual
+        | DifferentSlots
+        | Disjoint
+        | Before
+        | After
+        | FeatureCompare { .. }
         | FeatureRegexCompare { .. } => 0,
         SlotBefore | SlotAfter | Overlaps => 1,
         _ => 2,
@@ -2416,7 +2430,11 @@ fn containers_of(
 ) -> Result<Vec<u32>> {
     if let Some(map) = cmap {
         return Ok(match map.get(&first) {
-            Some(nodes) => nodes.iter().copied().filter(|n| cset.contains(*n)).collect(),
+            Some(nodes) => nodes
+                .iter()
+                .copied()
+                .filter(|n| cset.contains(*n))
+                .collect(),
             None => Vec::new(),
         });
     }
@@ -2439,7 +2457,10 @@ fn lev_up_containers(
     let Some(row) = corpus.lev_up_row(first)? else {
         return Ok(None);
     };
-    let mut nodes: Vec<u32> = row.into_iter().filter(|node| cset.contains(*node)).collect();
+    let mut nodes: Vec<u32> = row
+        .into_iter()
+        .filter(|node| cset.contains(*node))
+        .collect();
     nodes.sort_unstable();
     Ok(Some(nodes))
 }
@@ -2530,7 +2551,10 @@ fn compute_join_order(
                 continue;
             }
             best = Some(match best {
-                Some((b, bs)) if (bs, std::cmp::Reverse(sizes[b])) >= (strength, std::cmp::Reverse(sizes[i])) => {
+                Some((b, bs))
+                    if (bs, std::cmp::Reverse(sizes[b]))
+                        >= (strength, std::cmp::Reverse(sizes[i])) =>
+                {
                     (b, bs)
                 }
                 _ => (i, strength),
@@ -2557,10 +2581,7 @@ fn is_quantifier_init_token(token: &str) -> bool {
 /// A clean, named atom line for `atom` (TF cleanParent), plus the name that `..`
 /// parent references inside its quantifier blocks resolve to.
 fn clean_host_atom(atom: &SimpleAtom) -> (String, String) {
-    let parent_name = atom
-        .name
-        .clone()
-        .unwrap_or_else(|| PARENT_NAME.to_string());
+    let parent_name = atom.name.clone().unwrap_or_else(|| PARENT_NAME.to_string());
     let mut line = format!("{parent_name}:{}", atom.node_type);
     for constraint in &atom.constraints {
         line.push(' ');

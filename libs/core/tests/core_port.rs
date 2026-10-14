@@ -28,35 +28,34 @@ use context_fabric_core::{
     MappedSearch, MappedSections, MappedText, MmapManager, NodeFeature, NodeFeatures, NodeInfo,
     NodeInfoOptions, NodeList, Nodes, OrderComputed, OslotsFeature, OtypeFeature, PARENT_REF,
     Projection, QCONT, QEND, QHAVE, QINIT, QOR, QTERM, QWHERE, QWITH, QWITHOUT, RankComputed,
-    SILENT_D, SearchResult, SectionOptions, SetValue, SilentInput,
-    StringPool, TERSE, Text, TextOptions, TfData, TfDataContent, TfFeature, TfFeatureKind,
-    VAL_ESCAPES, VERBOSE, WARN32, WalkEvent, abspath, active_logging_level, api_refs, atomOpRe,
-    atomRe, backendRep, camel, chDir, check32, clean_name, cleanName, collect_formats,
-    collectFormats, compRe, compile_corpus, configure_logging, console_message, deep_attr_dict,
-    deep_size_json, deepSize, deepdict, default_compiled_output_path, describe_corpus,
-    describe_corpus_overview, describe_feature, describe_features, describe_text_formats,
-    dirAllFiles, dirContents, dirCopy, dirEmpty, dirExists, dirMake, dirMove, dirNm, dirRemove,
-    download, expandDir, expanduser, extNm, fileCopy, fileExists, fileMake, fileMove, fileNm,
-    fileRemove, fitemize, flatten_to_set, format_meta, get_all_feature_otypes, get_cache_dir,
-    get_feature_otypes, getCwd, html_esc, htmlEsc, identRe, indentLineRe, is_clean, is_int,
-    is_iterable, is_quantifier_continuation, is_quantifier_init, is_quantifier_line,
-    is_quantifier_terminator, is_search_name, is_search_number, is_search_white_line, isClean,
-    isDir, isFile, isInt, itemize, kRe, level_map, list_corpora, list_features, log_message,
-    logging_level, make_examples, make_index, make_inverse, make_inverse_val, makeIndex,
-    makeInverse, makeInverseVal, math_esc, mathEsc, md_esc, mdEsc, mdhtml_esc, mdhtmlEsc,
-    merge_dict, merge_dict_of_sets, nameRe, namesRe, nbytes, noneRe, normpath, numRe, opLineRe,
-    opStripRe, pandas_esc, pandasEsc, parse_atom_operator_syntax, parse_atom_syntax,
-    parse_comparison_syntax, parse_ident_syntax, parse_k_nearness_syntax, parse_named_atom_prefix,
-    parse_none_syntax, parse_operator_line_syntax, parse_quantifier_line_syntax,
-    parse_regex_feature_syntax, parse_relation_syntax, parse_tf_file, parse_tf_file_metadata,
-    parse_true_syntax, prefixSlash, project, quLineRe, ranges_from_list, ranges_from_set,
-    rangesFromList, rangesFromSet, reRe, read_args, readJson, readYaml, relRe, replaceExt,
-    resolve_corpus_id, scanDir, search_line_indent, set_from_spec,
-    set_from_str, set_from_value, set_logging_level, setDir, setFromSpec, should_log,
-    silentConvert, spec_from_ranges, spec_from_ranges_logical, specFromRanges,
-    specFromRangesLogical, splitExt, splitPath, strip_operator_syntax, stripExt, tf_from_value,
-    tfFromValue, trueRe, tsv_esc, tsvEsc, unexpanduser, utcnow, value_from_tf, valueFromTf, var,
-    version_sort, versionSort, whiteRe, writeJson, writeYaml, xml_esc, xmlEsc,
+    SILENT_D, SearchResult, SectionOptions, SetValue, SilentInput, StringPool, TERSE, Text,
+    TextOptions, TfData, TfDataContent, TfFeature, TfFeatureKind, VAL_ESCAPES, VERBOSE, WARN32,
+    WalkEvent, abspath, active_logging_level, api_refs, atomOpRe, atomRe, backendRep, camel, chDir,
+    check32, clean_name, cleanName, collect_formats, collectFormats, compRe, compile_corpus,
+    configure_logging, console_message, deep_attr_dict, deep_size_json, deepSize, deepdict,
+    default_compiled_output_path, describe_corpus, describe_corpus_overview, describe_feature,
+    describe_features, describe_text_formats, dirAllFiles, dirContents, dirCopy, dirEmpty,
+    dirExists, dirMake, dirMove, dirNm, dirRemove, download, expandDir, expanduser, extNm,
+    fileCopy, fileExists, fileMake, fileMove, fileNm, fileRemove, fitemize, flatten_to_set,
+    format_meta, get_all_feature_otypes, get_cache_dir, get_feature_otypes, getCwd, html_esc,
+    htmlEsc, identRe, indentLineRe, is_clean, is_int, is_iterable, is_quantifier_continuation,
+    is_quantifier_init, is_quantifier_line, is_quantifier_terminator, is_search_name,
+    is_search_number, is_search_white_line, isClean, isDir, isFile, isInt, itemize, kRe, level_map,
+    list_corpora, list_features, log_message, logging_level, make_examples, make_index,
+    make_inverse, make_inverse_val, makeIndex, makeInverse, makeInverseVal, math_esc, mathEsc,
+    md_esc, mdEsc, mdhtml_esc, mdhtmlEsc, merge_dict, merge_dict_of_sets, nameRe, namesRe, nbytes,
+    noneRe, normpath, numRe, opLineRe, opStripRe, pandas_esc, pandasEsc,
+    parse_atom_operator_syntax, parse_atom_syntax, parse_comparison_syntax, parse_ident_syntax,
+    parse_k_nearness_syntax, parse_named_atom_prefix, parse_none_syntax,
+    parse_operator_line_syntax, parse_quantifier_line_syntax, parse_regex_feature_syntax,
+    parse_relation_syntax, parse_tf_file, parse_tf_file_metadata, parse_true_syntax, prefixSlash,
+    project, quLineRe, ranges_from_list, ranges_from_set, rangesFromList, rangesFromSet, reRe,
+    read_args, readJson, readYaml, relRe, replaceExt, resolve_corpus_id, scanDir,
+    search_line_indent, set_from_spec, set_from_str, set_from_value, set_logging_level, setDir,
+    setFromSpec, should_log, silentConvert, spec_from_ranges, spec_from_ranges_logical,
+    specFromRanges, specFromRangesLogical, splitExt, splitPath, strip_operator_syntax, stripExt,
+    tf_from_value, tfFromValue, trueRe, tsv_esc, tsvEsc, unexpanduser, utcnow, value_from_tf,
+    valueFromTf, var, version_sort, versionSort, whiteRe, writeJson, writeYaml, xml_esc, xmlEsc,
 };
 
 fn repo_path(relative: &str) -> PathBuf {
@@ -123,7 +122,9 @@ fn mapped_operator_prefixed_atoms_emit_directional_sibling_relations() {
 
     // `<: word` (AdjacentBefore) between the previous sibling (w1) and the
     // operator atom (w2): w1 immediately before w2, both embedded in the sentence.
-    let mut adjacent_before = search.search("sentence\n  w1:word\n  <: w2:word", None).unwrap();
+    let mut adjacent_before = search
+        .search("sentence\n  w1:word\n  <: w2:word", None)
+        .unwrap();
     adjacent_before.sort_unstable();
     assert_eq!(
         adjacent_before,
@@ -132,7 +133,9 @@ fn mapped_operator_prefixed_atoms_emit_directional_sibling_relations() {
 
     // Direction is load-bearing: `:> word` (AdjacentAfter) yields the reverse
     // pairs, not the same set.
-    let mut adjacent_after = search.search("sentence\n  w1:word\n  :> w2:word", None).unwrap();
+    let mut adjacent_after = search
+        .search("sentence\n  w1:word\n  :> w2:word", None)
+        .unwrap();
     adjacent_after.sort_unstable();
     assert_eq!(
         adjacent_after,
@@ -141,7 +144,9 @@ fn mapped_operator_prefixed_atoms_emit_directional_sibling_relations() {
 
     // `< word` (canonical before) between siblings: prevSibling < opAtom, never
     // inverted; all strictly increasing word pairs inside the sentence.
-    let before = search.search("sentence\n  w1:word\n  < w2:word", None).unwrap();
+    let before = search
+        .search("sentence\n  w1:word\n  < w2:word", None)
+        .unwrap();
     assert_eq!(before.len(), 10);
     assert!(before.iter().all(|row| row[1] < row[2]));
     assert!(before.contains(&vec![8, 1, 5]));
@@ -161,7 +166,13 @@ fn mapped_operator_prefixed_atoms_emit_directional_sibling_relations() {
     // Embedding is still enforced alongside the operator edge: a `:= word` whose
     // candidate is outside the parent never appears (sentence 8 is the only
     // sentence, so all matches are contained).
-    assert!(search.search("sentence\n  := word", None).unwrap().iter().all(|row| row[0] == 8));
+    assert!(
+        search
+            .search("sentence\n  := word", None)
+            .unwrap()
+            .iter()
+            .all(|row| row[0] == 8)
+    );
 
     // Lonely operators: as a first child or at the outermost level they are
     // rejected, mirroring TF.
@@ -187,7 +198,9 @@ fn mapped_compiled_corpus_serializes_structure_data() {
         materialized.heading_from_node(7)
     );
     assert_eq!(
-        mapped.node_from_heading(&structure.heading_from_node[&7]).unwrap(),
+        mapped
+            .node_from_heading(&structure.heading_from_node[&7])
+            .unwrap(),
         materialized.node_from_heading(&structure.heading_from_node[&7])
     );
     assert_eq!(
@@ -3411,7 +3424,12 @@ fn fabric_facade_explores_loads_compiles_and_opens_mapped_corpora() {
     assert!(additive.node_feature("number").unwrap().is_some());
     let selective_from_slice = fabric.load(["word", "number"]).unwrap();
     assert!(selective_from_slice.node_feature("word").unwrap().is_some());
-    assert!(selective_from_slice.node_feature("number").unwrap().is_some());
+    assert!(
+        selective_from_slice
+            .node_feature("number")
+            .unwrap()
+            .is_some()
+    );
     assert!(selective_from_slice.node_feature("pos").unwrap().is_some());
 
     let temp_dir = tempfile::tempdir().unwrap();
@@ -3448,7 +3466,10 @@ fn fabric_load_all_creates_reuses_and_refreshes_mapped_cache() {
     let _ = fs::remove_dir_all(corpus_dir.join(".cfr"));
     let fabric = Fabric::new(&corpus_dir);
     let cache_path = fabric.cfr_cache_path();
-    assert_eq!(cache_path, corpus_dir.join(".cfr").join("3").join("corpus.cfr"));
+    assert_eq!(
+        cache_path,
+        corpus_dir.join(".cfr").join("3").join("corpus.cfr")
+    );
     assert!(!cache_path.exists());
 
     let first = fabric.loadAll().unwrap();
@@ -5194,7 +5215,10 @@ word word=hello
     // mirroring TF ("Lonely relation: not allowed as first child"). The
     // operator-prefixed atom form is the correct way to express containment.
     assert!(search.search("phrase\n  [[\n  word", None).is_err());
-    assert_eq!(search.search("phrase\n  [[ word", None).unwrap(), phrase_words);
+    assert_eq!(
+        search.search("phrase\n  [[ word", None).unwrap(),
+        phrase_words
+    );
     assert!(
         search
             .search(
@@ -8700,14 +8724,19 @@ w1 -distance=0> w2
     assert!(search.search("phrase\n  [[\n  word", None).is_err());
     assert!(search.search("word\n  ]]\n  phrase", None).is_err());
     // The operator-prefixed atom form embeds correctly (phrase contains word).
-    assert_eq!(search.search("phrase\n  [[ word", None).unwrap(), phrase_words);
+    assert_eq!(
+        search.search("phrase\n  [[ word", None).unwrap(),
+        phrase_words
+    );
     // "word embedded in phrase" expressed as an explicit relation; the indented
     // `]] phrase` form would contradict the indentation embedding under TF's
     // two-edge semantics and is intentionally not equivalent.
     let mut word_in_phrase = search.search("w:word\np:phrase\nw ]] p", None).unwrap();
     word_in_phrase.sort_unstable();
-    let mut expected_word_in_phrase: Vec<Vec<u32>> =
-        phrase_words.iter().map(|row| vec![row[1], row[0]]).collect();
+    let mut expected_word_in_phrase: Vec<Vec<u32>> = phrase_words
+        .iter()
+        .map(|row| vec![row[1], row[0]])
+        .collect();
     expected_word_in_phrase.sort_unstable();
     assert_eq!(word_in_phrase, expected_word_in_phrase);
     assert_eq!(
@@ -9149,7 +9178,11 @@ w -parent> p
     assert!(parent_forward.contains(&vec![1, 6]));
     assert!(parent_forward.contains(&vec![5, 7]));
     // Lonely edge operator as a first child is rejected (TF "Lonely relation").
-    assert!(search.search("w:word\n  -parent>\n  p:phrase", None).is_err());
+    assert!(
+        search
+            .search("w:word\n  -parent>\n  p:phrase", None)
+            .is_err()
+    );
 
     let parent_backward = search
         .search(

@@ -228,7 +228,10 @@ fn node_feature_s_uses_canonical_rank_order() {
 
     let tag = mapped.string_pool_node_feature("tag").unwrap().unwrap();
     let mapped_nodes = tag.s("shared").unwrap();
-    let canonical = corpus.node_feature("tag").unwrap().s(&FeatureValue::string("shared"));
+    let canonical = corpus
+        .node_feature("tag")
+        .unwrap()
+        .s(&FeatureValue::string("shared"));
 
     // Mapped matches the in-memory canonical (rank) order.
     assert_eq!(mapped_nodes, canonical);
@@ -255,12 +258,27 @@ fn edge_value_index_distinguishes_zero_from_missing() {
     assert!(distance.has_edge_values());
 
     // Explicit zero is preserved (not conflated with missing).
-    assert_eq!(distance.edge_value(1, 2).unwrap(), Some(MappedNodeValue::Int(0)));
-    assert_eq!(distance.edge_value(3, 4).unwrap(), Some(MappedNodeValue::Int(0)));
-    assert_eq!(distance.edge_value(6, 7).unwrap(), Some(MappedNodeValue::Int(0)));
+    assert_eq!(
+        distance.edge_value(1, 2).unwrap(),
+        Some(MappedNodeValue::Int(0))
+    );
+    assert_eq!(
+        distance.edge_value(3, 4).unwrap(),
+        Some(MappedNodeValue::Int(0))
+    );
+    assert_eq!(
+        distance.edge_value(6, 7).unwrap(),
+        Some(MappedNodeValue::Int(0))
+    );
     // Non-zero values.
-    assert_eq!(distance.edge_value(1, 3).unwrap(), Some(MappedNodeValue::Int(5)));
-    assert_eq!(distance.edge_value(4, 5).unwrap(), Some(MappedNodeValue::Int(10)));
+    assert_eq!(
+        distance.edge_value(1, 3).unwrap(),
+        Some(MappedNodeValue::Int(5))
+    );
+    assert_eq!(
+        distance.edge_value(4, 5).unwrap(),
+        Some(MappedNodeValue::Int(10))
+    );
     // Edge present but value absent -> None.
     assert!(distance.forward(2).unwrap().contains(&3));
     assert_eq!(distance.edge_value(2, 3).unwrap(), None);
@@ -269,7 +287,10 @@ fn edge_value_index_distinguishes_zero_from_missing() {
 
     // Binary search yields the same answers when queried repeatedly (index is
     // cached after first build).
-    assert_eq!(distance.edge_value(1, 2).unwrap(), Some(MappedNodeValue::Int(0)));
+    assert_eq!(
+        distance.edge_value(1, 2).unwrap(),
+        Some(MappedNodeValue::Int(0))
+    );
     assert_eq!(distance.edge_value(2, 3).unwrap(), None);
 }
 
@@ -374,7 +395,11 @@ fn bhsa_compile_size_and_timing_probe() {
     let start = Instant::now();
     let mut sum = 0usize;
     for node in 1..=200_000u32 {
-        sum += mapped.lev_up_row(node).unwrap().map(|r| r.len()).unwrap_or(0);
+        sum += mapped
+            .lev_up_row(node)
+            .unwrap()
+            .map(|r| r.len())
+            .unwrap_or(0);
     }
     let per = start.elapsed().as_nanos() as f64 / 200_000.0;
     println!("lev_up_row: {per:.0} ns/call ({sum} embedders)");

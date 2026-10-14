@@ -623,4 +623,3 @@ fn is_feature_continuation_line(line: &str) -> bool {
                 || token.contains('>')
         })
 }
-

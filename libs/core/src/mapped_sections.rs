@@ -341,12 +341,8 @@ impl SectionsContext {
                     _ => sections_data
                         .sec2
                         .get(&sec0_node)
-                        .and_then(|level1| {
-                            level1.get(&section_value_to_string(section[1].clone()))
-                        })
-                        .and_then(|level2| {
-                            level2.get(&section_value_to_string(section[2].clone()))
-                        })
+                        .and_then(|level1| level1.get(&section_value_to_string(section[1].clone())))
+                        .and_then(|level2| level2.get(&section_value_to_string(section[2].clone())))
                         .copied(),
                 });
             }
@@ -602,7 +598,8 @@ impl<'a> MappedSections<'a> {
         // (the slow fallback below is only for pre-v3 caches).
         if section.len() <= 3 {
             if let Some(sections) = self.corpus.sections_data()? {
-                let Some(sec0_node) = self.sec0_node_with_feature(&section[0], sec0_feature)? else {
+                let Some(sec0_node) = self.sec0_node_with_feature(&section[0], sec0_feature)?
+                else {
                     return Ok(None);
                 };
                 return Ok(match section.len() {
@@ -617,12 +614,8 @@ impl<'a> MappedSections<'a> {
                     _ => sections
                         .sec2
                         .get(&sec0_node)
-                        .and_then(|level1| {
-                            level1.get(&section_value_to_string(section[1].clone()))
-                        })
-                        .and_then(|level2| {
-                            level2.get(&section_value_to_string(section[2].clone()))
-                        })
+                        .and_then(|level1| level1.get(&section_value_to_string(section[1].clone())))
+                        .and_then(|level2| level2.get(&section_value_to_string(section[2].clone())))
                         .copied(),
                 });
             }

@@ -328,10 +328,12 @@ impl MappedCompiledCorpus {
                 ) {
                     let first_slots = self.csr_all_rows(first_start)?;
                     let last_slots = self.csr_all_rows(last_start)?;
-                    Ok(Some(ComputedFeatureData::Boundary(crate::corpus::Boundary {
-                        first_slots,
-                        last_slots,
-                    })))
+                    Ok(Some(ComputedFeatureData::Boundary(
+                        crate::corpus::Boundary {
+                            first_slots,
+                            last_slots,
+                        },
+                    )))
                 } else {
                     self.warn_missing_v3("CFRBND1");
                     crate::mapped_sections::MappedSections::new(self)?
@@ -340,9 +342,7 @@ impl MappedCompiledCorpus {
                 }
             }
             "levUp" => match self.metadata.lev_up_start {
-                Some(start) => Ok(Some(ComputedFeatureData::LevUp(
-                    self.csr_all_rows(start)?,
-                ))),
+                Some(start) => Ok(Some(ComputedFeatureData::LevUp(self.csr_all_rows(start)?))),
                 None => {
                     self.warn_missing_v3("CFRLEVU1");
                     Ok(None)
@@ -541,11 +541,7 @@ impl MappedCompiledCorpus {
     }
 
     #[allow(non_snake_case)]
-    pub fn structurePretty(
-        &self,
-        node: Option<u32>,
-        full_heading: bool,
-    ) -> Result<Option<String>> {
+    pub fn structurePretty(&self, node: Option<u32>, full_heading: bool) -> Result<Option<String>> {
         self.structure_pretty(node, full_heading)
     }
 
@@ -870,13 +866,9 @@ impl MappedCompiledCorpus {
                             continue;
                         }
                     }
-                    let pool_id =
-                        read_u32_from(&self.path, &self.mmap, row_offset + 4)? as usize;
+                    let pool_id = read_u32_from(&self.path, &self.mmap, row_offset + 4)? as usize;
                     let Some(slot) = histogram.get_mut(pool_id) else {
-                        return Err(invalid_compiled(
-                            &self.path,
-                            "string pool id out of bounds",
-                        ));
+                        return Err(invalid_compiled(&self.path, "string pool id out of bounds"));
                     };
                     *slot += 1;
                 }
@@ -1056,7 +1048,13 @@ impl MappedCompiledCorpus {
         let Some(feature) = self.metadata.edge_feature(name) else {
             return Ok(None);
         };
-        if let Some(parts) = self.caches.read().expect("view cache poisoned").edge.get(name) {
+        if let Some(parts) = self
+            .caches
+            .read()
+            .expect("view cache poisoned")
+            .edge
+            .get(name)
+        {
             return Ok(Some(Arc::clone(parts)));
         }
         let parts = Arc::new(build_edge_parts(&self.path, &self.mmap, feature)?);
@@ -1072,15 +1070,15 @@ impl MappedCompiledCorpus {
         &self,
         name: &str,
     ) -> Result<Option<StringPoolNodeFeatureView<'_>>> {
-        Ok(self.string_pool_parts(name)?.map(|parts| {
-            StringPoolNodeFeatureView {
+        Ok(self
+            .string_pool_parts(name)?
+            .map(|parts| StringPoolNodeFeatureView {
                 path: &self.path,
                 bytes: &self.mmap,
                 parts,
                 rank_start: self.metadata.rank_start,
                 rank_len: self.metadata.rank_len,
-            }
-        }))
+            }))
     }
 
     pub fn mixed_node_feature(&self, name: &str) -> Result<Option<MixedNodeFeatureView<'_>>> {
@@ -1136,17 +1134,16 @@ impl MappedCompiledCorpus {
         self: &Arc<Self>,
         name: &str,
     ) -> Result<Option<OwnedStringPoolFeature>> {
-        Ok(self.string_pool_parts(name)?.map(|parts| OwnedStringPoolFeature {
-            corpus: Arc::clone(self),
-            parts,
-        }))
+        Ok(self
+            .string_pool_parts(name)?
+            .map(|parts| OwnedStringPoolFeature {
+                corpus: Arc::clone(self),
+                parts,
+            }))
     }
 
     /// Owned counterpart of [`mixed_node_feature`](Self::mixed_node_feature).
-    pub fn owned_mixed_feature(
-        self: &Arc<Self>,
-        name: &str,
-    ) -> Result<Option<OwnedMixedFeature>> {
+    pub fn owned_mixed_feature(self: &Arc<Self>, name: &str) -> Result<Option<OwnedMixedFeature>> {
         Ok(self.mixed_parts(name)?.map(|parts| OwnedMixedFeature {
             corpus: Arc::clone(self),
             parts,
@@ -1154,10 +1151,7 @@ impl MappedCompiledCorpus {
     }
 
     /// Owned counterpart of [`edge_feature`](Self::edge_feature).
-    pub fn owned_edge_feature(
-        self: &Arc<Self>,
-        name: &str,
-    ) -> Result<Option<OwnedEdgeFeature>> {
+    pub fn owned_edge_feature(self: &Arc<Self>, name: &str) -> Result<Option<OwnedEdgeFeature>> {
         Ok(self.edge_parts(name)?.map(|parts| OwnedEdgeFeature {
             corpus: Arc::clone(self),
             parts,
@@ -1953,10 +1947,7 @@ impl<'a> StringPoolNodeFeatureView<'a> {
 
     /// Visit every `(node, pool_id)` row without decoding the pooled strings —
     /// two u32 reads per row. `visit` returns `false` to stop early.
-    pub fn for_each_id_row(
-        &self,
-        visit: &mut impl FnMut(u32, u32) -> Result<bool>,
-    ) -> Result<()> {
+    pub fn for_each_id_row(&self, visit: &mut impl FnMut(u32, u32) -> Result<bool>) -> Result<()> {
         for index in 0..self.parts.row_count {
             let row_offset = self.parts.rows_start + (index * 8);
             let node = read_u32_from(self.path, self.bytes, row_offset)?;
@@ -2381,11 +2372,7 @@ impl<'a> Iterator for StringPoolNodeRows<'a, '_> {
     }
 }
 
-fn build_edge_parts(
-    path: &Path,
-    bytes: &[u8],
-    feature: &CompiledEdgeFeature,
-) -> Result<EdgeParts> {
+fn build_edge_parts(path: &Path, bytes: &[u8], feature: &CompiledEdgeFeature) -> Result<EdgeParts> {
     let mut offset = feature.payload_start;
     let row_count = read_u32_at(path, bytes, &mut offset)? as usize;
     if row_count != feature.row_count {
@@ -2509,11 +2496,8 @@ impl<'a> EdgeFeatureView<'a> {
                         return Ok(None);
                     }
                     let first = read_u32_from(self.path, self.bytes, row_offset + 8)?;
-                    let last = read_u32_from(
-                        self.path,
-                        self.bytes,
-                        row_offset + 8 + ((count - 1) * 4),
-                    )?;
+                    let last =
+                        read_u32_from(self.path, self.bytes, row_offset + 8 + ((count - 1) * 4))?;
                     return Ok(Some((first, last)));
                 }
             }
@@ -2708,8 +2692,8 @@ impl<'a> EdgeFeatureView<'a> {
     }
 
     fn rank_key(&self, node: u32) -> (u32, u32) {
-        let rank = mmap_rank(self.path, self.bytes, self.rank_start, self.rank_len, node)
-            .unwrap_or(node);
+        let rank =
+            mmap_rank(self.path, self.bytes, self.rank_start, self.rank_len, node).unwrap_or(node);
         (rank, node)
     }
 
@@ -3437,10 +3421,12 @@ fn write_v3_sections<W: Write>(writer: &mut W, corpus: &Corpus, path: &Path) -> 
         "lev_up",
         precompute::lev_up(&slot_sets, &rank, max_slot, max_node)
     );
-    writer.write_all(LEV_UP_MAGIC).map_err(|source| CfError::Io {
-        path: path.to_path_buf(),
-        source,
-    })?;
+    writer
+        .write_all(LEV_UP_MAGIC)
+        .map_err(|source| CfError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
     write_csr(writer, &lev_up, path)?;
 
     // levDown is indexed by non-slot nodes (`max_slot+1..=max_node`); store it
@@ -3465,7 +3451,10 @@ fn write_v3_sections<W: Write>(writer: &mut W, corpus: &Corpus, path: &Path) -> 
         })?;
     write_csr(writer, &lev_down_full, path)?;
 
-    let boundary = phase!("boundary", precompute::boundary(&slot_sets, &rank, max_slot));
+    let boundary = phase!(
+        "boundary",
+        precompute::boundary(&slot_sets, &rank, max_slot)
+    );
     writer
         .write_all(BOUNDARY_MAGIC)
         .map_err(|source| CfError::Io {

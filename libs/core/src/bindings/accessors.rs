@@ -66,9 +66,9 @@ fn search_sets_from_py(
     })?;
     let mut owned = Vec::with_capacity(dict.len());
     for (key, value) in dict.iter() {
-        let name = key.extract::<String>().map_err(|_| {
-            PyTypeError::new_err("sets keys must be strings (custom set names)")
-        })?;
+        let name = key
+            .extract::<String>()
+            .map_err(|_| PyTypeError::new_err("sets keys must be strings (custom set names)"))?;
         let nodes = PyIterator::from_object(&value)?
             .map(|item| item?.extract::<u32>())
             .collect::<PyResult<Vec<_>>>()?;
@@ -208,7 +208,10 @@ fn parse_csv_config(value: Option<&str>) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn mapped_otext_value(corpus: &MappedCompiledCorpus, key: &str) -> crate::error::Result<Option<String>> {
+fn mapped_otext_value(
+    corpus: &MappedCompiledCorpus,
+    key: &str,
+) -> crate::error::Result<Option<String>> {
     Ok(corpus
         .config_feature("otext")?
         .and_then(|feature| feature.metadata_value(key).transpose())
@@ -216,7 +219,9 @@ fn mapped_otext_value(corpus: &MappedCompiledCorpus, key: &str) -> crate::error:
         .map(str::to_string))
 }
 
-fn mapped_section_0_language_features(corpus: &MappedCompiledCorpus) -> crate::error::Result<BTreeMap<String, String>> {
+fn mapped_section_0_language_features(
+    corpus: &MappedCompiledCorpus,
+) -> crate::error::Result<BTreeMap<String, String>> {
     // TF `sectionFeatsWithLanguage` (tf/core/fabric.py:364): the language-aware
     // section-0 features are EXACTLY the first section feature and its `@<code>`
     // variants — never arbitrary features that happen to carry a `languageCode`
@@ -237,13 +242,19 @@ fn mapped_section_0_language_features(corpus: &MappedCompiledCorpus) -> crate::e
             continue;
         }
         // Base feature usually has no `languageCode`; TF defaults its code to "".
-        let code = feature.metadata_value("languageCode").unwrap_or("").to_string();
+        let code = feature
+            .metadata_value("languageCode")
+            .unwrap_or("")
+            .to_string();
         features.insert(code, feature.name.clone());
     }
     Ok(features)
 }
 
-fn mapped_section_0_feature_for_lang(corpus: &MappedCompiledCorpus, lang: &str) -> crate::error::Result<Option<String>> {
+fn mapped_section_0_feature_for_lang(
+    corpus: &MappedCompiledCorpus,
+    lang: &str,
+) -> crate::error::Result<Option<String>> {
     let language_features = mapped_section_0_language_features(corpus)?;
     if let Some(feature) = language_features.get(lang) {
         return Ok(Some(feature.clone()));
@@ -251,12 +262,17 @@ fn mapped_section_0_feature_for_lang(corpus: &MappedCompiledCorpus, lang: &str) 
     if let Some(feature) = language_features.get("") {
         return Ok(Some(feature.clone()));
     }
-    Ok(parse_csv_config(mapped_otext_value(corpus, "sectionFeatures")?.as_deref())
-        .into_iter()
-        .next())
+    Ok(
+        parse_csv_config(mapped_otext_value(corpus, "sectionFeatures")?.as_deref())
+            .into_iter()
+            .next(),
+    )
 }
 
-fn mapped_name_from_node(corpus: &MappedCompiledCorpus, lang: &str) -> crate::error::Result<BTreeMap<u32, String>> {
+fn mapped_name_from_node(
+    corpus: &MappedCompiledCorpus,
+    lang: &str,
+) -> crate::error::Result<BTreeMap<u32, String>> {
     let Some(feature_name) = mapped_section_0_feature_for_lang(corpus, lang)? else {
         return Ok(BTreeMap::new());
     };
@@ -732,7 +748,9 @@ impl PyText {
             fillup,
             level,
         };
-        let values = self.sections_context()?.section_heading(node, lang, &options)?;
+        let values = self
+            .sections_context()?
+            .section_heading(node, lang, &options)?;
         let items = values
             .iter()
             .map(|value| option_feature_value_to_py(py, value.as_ref()))
@@ -826,14 +844,23 @@ impl PyText {
     #[allow(non_snake_case)]
     #[pyo3(signature = (node, lang="en"))]
     fn bookName(&self, node: u32, lang: &str) -> Option<String> {
-        let section_0_type = parse_csv_config(mapped_otext_value(&self.corpus, "sectionTypes").ok().flatten().as_deref())
-            .into_iter()
-            .next()?;
+        let section_0_type = parse_csv_config(
+            mapped_otext_value(&self.corpus, "sectionTypes")
+                .ok()
+                .flatten()
+                .as_deref(),
+        )
+        .into_iter()
+        .next()?;
         let sections = MappedSections::new(&self.corpus).ok()?;
         let section_0_node = if sections.node_type(node).ok().flatten()? == section_0_type {
             node
         } else {
-            sections.u(node, Some(&section_0_type)).ok()?.into_iter().next()?
+            sections
+                .u(node, Some(&section_0_type))
+                .ok()?
+                .into_iter()
+                .next()?
         };
         mapped_name_from_node(&self.corpus, lang)
             .ok()?
@@ -844,9 +871,14 @@ impl PyText {
     #[allow(non_snake_case)]
     #[pyo3(signature = (name, lang="en"))]
     fn bookNode(&self, name: &str, lang: &str) -> Option<u32> {
-        let section_0_type = parse_csv_config(mapped_otext_value(&self.corpus, "sectionTypes").ok().flatten().as_deref())
-            .into_iter()
-            .next()?;
+        let section_0_type = parse_csv_config(
+            mapped_otext_value(&self.corpus, "sectionTypes")
+                .ok()
+                .flatten()
+                .as_deref(),
+        )
+        .into_iter()
+        .next()?;
         let names = mapped_name_from_node(&self.corpus, lang).ok()?;
         for node in self.corpus.nodes_of_type(&section_0_type).ok()? {
             if names.get(&node).is_some_and(|candidate| candidate == name) {
@@ -914,9 +946,7 @@ impl PySearch {
             }
             width => {
                 let rows = match sets.as_ref() {
-                    Some(sets) => {
-                        engine.search_prefixes_with_sets(template, sets, width, limit)?
-                    }
+                    Some(sets) => engine.search_prefixes_with_sets(template, sets, width, limit)?,
                     None => engine.search_prefixes(template, width, limit)?,
                 };
                 let tuples = rows
@@ -1054,9 +1084,13 @@ impl PySearch {
 
         let mut fields = Vec::with_capacity(nodes.len());
         for node in nodes {
-            let otype = sections.node_type(node)?.map(str::to_string).unwrap_or_default();
+            let otype = sections
+                .node_type(node)?
+                .map(str::to_string)
+                .unwrap_or_default();
             let field = if level2_type.as_deref() == Some(otype.as_str()) {
-                let heading = section_heading(&self.corpus, node, "en", &SectionOptions::default())?;
+                let heading =
+                    section_heading(&self.corpus, node, "en", &SectionOptions::default())?;
                 let part = |index: usize| {
                     heading
                         .get(index)

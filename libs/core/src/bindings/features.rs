@@ -15,9 +15,7 @@ use crate::feature::{EdgeFrequency, FeatureValue};
 /// Parses a `nodeTypes` style argument (`None` / `str` / iterable of `str`)
 /// into an owned `Vec<String>`. Mirrors TF's `freqList(nodeTypes=...)` which
 /// accepts any iterable of node-type names (commonly a `set`).
-pub(crate) fn node_types_from_py(
-    arg: Option<&Bound<'_, PyAny>>,
-) -> PyResult<Option<Vec<String>>> {
+pub(crate) fn node_types_from_py(arg: Option<&Bound<'_, PyAny>>) -> PyResult<Option<Vec<String>>> {
     let Some(arg) = arg else {
         return Ok(None);
     };
@@ -467,12 +465,7 @@ impl PyNodeFeature {
     /// range and any chosen sentinel always fit. Raises `TypeError` if the
     /// feature is not int-valued.
     #[pyo3(signature = (nodes, fill=0))]
-    fn vs_array(
-        &self,
-        py: Python<'_>,
-        nodes: &Bound<'_, PyAny>,
-        fill: i64,
-    ) -> PyResult<PyObject> {
+    fn vs_array(&self, py: Python<'_>, nodes: &Bound<'_, PyAny>, fill: i64) -> PyResult<PyObject> {
         if self.valueType().as_deref() != Some("int") {
             return Err(PyTypeError::new_err(format!(
                 "vs_array requires an int-valued feature; '{}' is not int-valued",
@@ -552,9 +545,10 @@ impl PyNodeFeature {
             )));
         }
         let names: Vec<String> = match self.corpus.computed_feature("levels")? {
-            Some(ComputedFeatureData::Levels(rows)) => {
-                rows.into_iter().map(|(node_type, _, _, _)| node_type).collect()
-            }
+            Some(ComputedFeatureData::Levels(rows)) => rows
+                .into_iter()
+                .map(|(node_type, _, _, _)| node_type)
+                .collect(),
             _ => Vec::new(),
         };
         Ok(PyTuple::new(py, names)?.into())
@@ -585,11 +579,7 @@ impl PyNodeFeature {
 
     #[allow(non_snake_case)]
     #[pyo3(signature = (nodeTypes=None))]
-    fn freqList(
-        &self,
-        py: Python<'_>,
-        nodeTypes: Option<&Bound<'_, PyAny>>,
-    ) -> PyResult<PyObject> {
+    fn freqList(&self, py: Python<'_>, nodeTypes: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
         self.freq_list(py, nodeTypes)
     }
 }
@@ -777,10 +767,9 @@ impl PyEdgeFeature {
     }
 
     fn f(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
-        let feature = self
-            .corpus
-            .edge_feature(&self.name)?
-            .ok_or_else(|| PyAttributeError::new_err(format!("no edge feature named {}", self.name)))?;
+        let feature = self.corpus.edge_feature(&self.name)?.ok_or_else(|| {
+            PyAttributeError::new_err(format!("no edge feature named {}", self.name))
+        })?;
         if feature.has_edge_values() {
             self.valued_nodes_to_tuple(py, feature.f_with_values(node)?)
         } else {
@@ -789,10 +778,9 @@ impl PyEdgeFeature {
     }
 
     fn t(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
-        let feature = self
-            .corpus
-            .edge_feature(&self.name)?
-            .ok_or_else(|| PyAttributeError::new_err(format!("no edge feature named {}", self.name)))?;
+        let feature = self.corpus.edge_feature(&self.name)?.ok_or_else(|| {
+            PyAttributeError::new_err(format!("no edge feature named {}", self.name))
+        })?;
         if feature.has_edge_values() {
             self.valued_nodes_to_tuple(py, feature.t_with_values(node)?)
         } else {
@@ -801,18 +789,16 @@ impl PyEdgeFeature {
     }
 
     fn s(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
-        let feature = self
-            .corpus
-            .edge_feature(&self.name)?
-            .ok_or_else(|| PyAttributeError::new_err(format!("no edge feature named {}", self.name)))?;
+        let feature = self.corpus.edge_feature(&self.name)?.ok_or_else(|| {
+            PyAttributeError::new_err(format!("no edge feature named {}", self.name))
+        })?;
         self.nodes_to_tuple(py, feature.s(node)?)
     }
 
     fn b(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
-        let feature = self
-            .corpus
-            .edge_feature(&self.name)?
-            .ok_or_else(|| PyAttributeError::new_err(format!("no edge feature named {}", self.name)))?;
+        let feature = self.corpus.edge_feature(&self.name)?.ok_or_else(|| {
+            PyAttributeError::new_err(format!("no edge feature named {}", self.name))
+        })?;
         if feature.has_edge_values() {
             self.valued_nodes_to_tuple(py, feature.b_with_values(node)?)
         } else {
@@ -1158,8 +1144,10 @@ impl PyComputeds {
             let rows = counts
                 .into_iter()
                 .map(|(character, count)| {
-                    let row: Vec<PyObject> =
-                        vec![PyString::new(py, &character).into(), count.into_pyobject(py)?.into()];
+                    let row: Vec<PyObject> = vec![
+                        PyString::new(py, &character).into(),
+                        count.into_pyobject(py)?.into(),
+                    ];
                     PyTuple::new(py, row).map(Into::into)
                 })
                 .collect::<PyResult<Vec<PyObject>>>()?;
