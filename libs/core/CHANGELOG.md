@@ -17,7 +17,7 @@ surface is preserved (existing signatures and return types unchanged).
 - Replaced the pure-Python core engine with the Rust/PyO3 implementation packaged through maturin.
 - Core corpus loading is mmap-first; compiled cache and memory-mapped loading are public (`loadCompiled()`, `openMapped()`).
 - Dropped the in-memory search executor; the mapped engine is now the only search engine (`search.rs` 2816 -> 590 lines).
-- Bumped cache path versions (CFM 2, CFR 3); pre-v3 default caches are auto-invalidated and recompiled.
+- Bumped cache path versions (CFM 2, CFR 4); older default caches are auto-invalidated and recompiled, and an explicitly opened cache with the old structure section is rejected with a request to recompile.
 
 ### Added
 - **TF-core compatibility**: 34/34 real-world ETCBC query parity (counts and result sets match Text-Fabric); 407,719/409,288 public-API value checks pass against TF 13.0.19 on BHSA; valued edges; `TF.save` round-trip (TF reloads CF-authored `.tf`); `sets=`/`shallow=` search; multi-location corpus loading.
@@ -38,12 +38,21 @@ surface is preserved (existing signatures and return types unchanged).
 - Text-Fabric valued edge parsing for implicit `@edgeValues` rows and compact `target:value` syntax.
 - `Fabric.load("a b c")` whitespace feature split; `freqList` node-type/edge filters; `T.text` accepts int or iterable; `sectionTuple` split from `sectionFromNode`; `lastSlot`; `S.glean`/`S.showPlan`; `walk(events=True)`.
 - Downstream MCP and benchmark package imports for the new top-level `cfabric` API surface.
+- Type-strict Text-Fabric parity of the core API (`tests/parity/test_tf_strict_api_parity.py` compares values *and* shapes on BANKS, N1904 and BHSA):
+  - Structure: `T.up` gives the parent structural node (int or `None`) and `T.down` the structural children, both `None` for non-structure nodes and without structure (they walked `L.u`/`L.d`); `T.structure()` nests tuples; `T.structurePretty()` indents like TF; `T.headings` is the tuple of (type, feature) pairs; heading values keep their feature type (`None` when missing); an unusable structure config counts as no structure; `C.structure` exists.
+  - Shapes: `L.i`, `N.sortNodes`, `Fall`/`Eall`/`Call`, `T.sectionTypes`/`sectionFeats`/`structureTypes`/`structureFeats` are lists; `N.walk` is an iterator; `C.levels` gives the slot type's size as the int `1`; `E.f.data`/`dataInv` hold frozensets/sets (or value dicts) and `items()` is `data.items()`, with values; `E.oslots.data`, `F.otype.data`, `C.levUp.data` and `C.levDown.data` are indexed like TF; `C.sections.data` keys sections by their typed values; `F.otype.sInterval`, `T.defaultFormat`; `Cs(name)` is `None` for unknown names.
+  - `T.text` expands to the format's target type with `L.d` (it included same-slot and gap nodes); `freqList` breaks ties by value with ints compared numerically; `E.oslots.s(0)` is `()`; `T.nodeFromSection` reads the first three parts.
+  - Search: `f*` imposes no condition; edge value conditions `-f>n>`, `-f<n>`, `-f#>`, `-f*>` work and `-f#v>` admits edges without a value; `limit=0`/negative means no limit; `api.S` and `api.T` are one object per corpus, so `S.study()` then `S.fetch()` works.
 
 ### Known divergences from Text-Fabric
 - Result-*list* ordering is unspecified-but-deterministic; parity is defined by result counts and sets, not list order (TF's order is search-strategy dependent). Within-tuple column order matches template atom order.
 - `silent` / progress-banner knobs are accepted but are no-ops.
 - Volumes/works and MQL are out of scope.
-- `C.levUp` / `C.levDown` are exposed as lazy views keyed by node id.
+- `C.levUp` / `C.levDown` are lazy sequences indexed like Text-Fabric's tuples; `row(n)` reads a node's row directly.
+- Slot and level rows are tuples where Text-Fabric has `array('I')` (`E.oslots.s`, `E.oslots.data`, `C.levDown.data`, `C.rank.data`).
+- `S.search()` without a limit returns a tuple (Text-Fabric: a generator); a malformed template may raise instead of returning an empty result; repeating a feature in one atom applies every condition (Text-Fabric keeps only the last).
+- `T.nodeFromSection` matches section values regardless of str/int type (Text-Fabric needs the feature's type); `T.nodeFromHeading` is type-exact like Text-Fabric.
+- Additions Text-Fabric lacks: `F.otype.freqList`, `E.oslots.f/t/b`, `E.oslots.dataInv`; `S.count()` returns the count; `T.structureInfo()` returns its text instead of printing it.
 ## [0.5.8] - 2026-10-14
 
 ### Added

@@ -163,3 +163,8 @@ def test_node_from_section_uses_the_first_three_parts(api):
     # TF reads section[0], section[1], section[2] and ignores the rest.
     assert api.T.nodeFromSection(("S1", 1)) == 6
     assert api.T.nodeFromSection(("S1", 1, 99, 99)) is None
+
+
+def test_unknown_computed_feature_is_none(api):
+    assert api.Cs("nope") is None
+    assert api.Cs("levels").data == api.C.levels.data
