@@ -82,24 +82,6 @@ def parse_cargo(results: Path) -> dict[str, Any]:
         failed = re.findall(r"^test (\S+) \.\.\. FAILED", text, re.M)
         ignored = re.findall(r"^test (\S+) \.\.\. ignored", text, re.M)
         out["test"] = {**totals, "failed_tests": failed, "ignored_tests": ignored}
-    parity_log = results / "rust" / "cf_rust_parity.log"
-    if parity_log.exists():
-        rows = []
-        for line in parity_log.read_text().splitlines():
-            parts = line.split()
-            if len(parts) == 5 and parts[0].startswith("q_"):
-                rows.append({"id": parts[0], "tf_count": int(parts[1]), "count": parts[2],
-                             "seconds": None if parts[3] in ("-", ">budget") else float(parts[3]),
-                             "status": parts[4]})
-        out["cf_rust_parity_bin"] = {
-            "ok": sum(r["status"] == "OK" for r in rows),
-            "total": len(rows),
-            "wall_s": round(sum(r["seconds"] or 0 for r in rows), 3),
-            "not_ok": [r for r in rows if r["status"] != "OK"],
-        }
-    validate_log = results / "rust" / "cf_rust_validate_corpora.log"
-    if validate_log.exists():
-        out["cf_rust_validate_corpora_tail"] = validate_log.read_text().splitlines()[-12:]
     return out
 
 
@@ -242,12 +224,12 @@ def parse_perf_gate(results: Path) -> dict[str, Any]:
     return out
 
 
-def parse_legacy(results: Path) -> dict[str, Any]:
+def parse_microbench(results: Path) -> dict[str, Any]:
     out = {}
     patterns = [r"(load_overhead)=([\d.]+)x", r"(query_geomean_overhead)=([\d.]+)x",
                 r"(query_geomean_speedup)=([\d.]+)x", r"(load_speedup)=([\d.]+)x",
                 r"(loaded \S+) load_ms=([\d.]+)", r"(wins)=(\d+)"]
-    for log in sorted((results / "legacy").glob("*.log")):
+    for log in sorted((results / "microbench").glob("*.log")):
         text = log.read_text()
         parsed = {}
         for pattern in patterns:
@@ -493,7 +475,7 @@ def render_tables(summary: dict[str, Any]) -> str:
 
 COMPACT_GLOBS = [
     "environment.json", "steps.jsonl", "rust/*.log", "pytest/*.xml", "pytest/*.log", "golden/*.log",
-    "queries/*.jsonl", "oracle/*/cmp_*.json", "perf/*/*.json", "perf_gate/*", "legacy/*.log",
+    "queries/*.jsonl", "oracle/*/cmp_*.json", "perf/*/*.json", "perf_gate/*", "microbench/*.log",
     "bench_cli/*/*.log", "bench_cli/*/*/**/*.csv", "bench_cli/*/*/**/*.json",
 ]
 
@@ -521,7 +503,7 @@ def main(argv: list[str] | None = None) -> int:
         },
         "perf": perf,
         "perf_gate": gate,
-        "legacy_scripts": parse_legacy(results),
+        "microbench": parse_microbench(results),
         "bench_cli": parse_bench_cli(results),
         "june_record": {"cf": read_json(JUNE_RECORD), "tf": read_json(JUNE_TF)},
     }

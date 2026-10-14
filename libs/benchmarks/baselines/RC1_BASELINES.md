@@ -29,7 +29,7 @@ libs/core/.venv/bin/python libs/benchmarks/scripts/rc_baselines/aggregate.py --r
 ```
 
 `--steps` selects a subset (`corpora, perf, perf_gate, queries, oracle, golden, rust,
-pytest, legacy, bench_cli`). The runner (`libs/benchmarks/scripts/rc_baselines/`):
+pytest, microbench, bench_cli`). The runner (`libs/benchmarks/scripts/rc_baselines/`):
 
 | File | What it does |
 |---|---|
@@ -41,14 +41,15 @@ pytest, legacy, bench_cli`). The runner (`libs/benchmarks/scripts/rc_baselines/`
 | `aggregate.py` | Builds the JSON, `tables.md`, and the regression check against `cf_0.6.0_record.json`. |
 
 Existing tooling run by the runner: `cargo fmt --check`, `cargo test --features python`,
-the `cf_rust_parity` and `cf_rust_validate_corpora` binaries, pytest for
-`libs/core/tests/python`, `libs/core/tests/parity` (`CONTEXT_FABRIC_RUN_PARITY=1`),
+pytest for `libs/core/tests/python`, `libs/core/tests/parity` (`CONTEXT_FABRIC_RUN_PARITY=1`),
 `libs/benchmarks/tests`, `libs/mcp/tests`, repo `tests/`, `tests/golden/compare.py`
-(CF Rust in 3 modes, and CF Python 0.5.8 in python mode),
-`cfabric_benchmarks.perf_gate` (TF and CF), `compare_bhsa_mapped_wheel_overhead.py`,
-`compare_bhsa_tf_mapped_subset.py`, `python_bhsa_mapped_subset.py` on CF Python 0.5.8,
+(CF Rust and CF Python 0.5.8), `cfabric_benchmarks.perf_gate` (TF and CF),
 `bench_scalar_latency.py`, `bench_batch_apis.py`, and `cfabric-bench latency|memory`
 on BHSA in both envs.
+
+The results below were recorded with an earlier revision of the runner that also ran
+the raw-Rust developer binaries and comparison scripts (since removed); their rows are
+kept as recorded.
 
 ## Headline (BHSA)
 

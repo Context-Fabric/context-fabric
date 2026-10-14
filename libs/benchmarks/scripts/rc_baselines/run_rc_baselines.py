@@ -18,20 +18,15 @@ generated with) is no longer on PyPI, so it is installed from its git tag.
 Steps (``--steps`` takes a comma list; default runs all, timing-sensitive steps first):
 
 ``corpora``     copy the ``.tf`` sources (no caches) into ``<scratch>/corpora``.
-``rust``        ``cargo fmt --check``, ``cargo test --features python``, the
-                ``cf_rust_parity`` (34 queries, raw Rust) and
-                ``cf_rust_validate_corpora`` binaries.
+``rust``        ``cargo fmt --check``, ``cargo test --features python``.
 ``pytest``      core ``tests/python``, core ``tests/parity`` (query + TF oracle,
                 ``CONTEXT_FABRIC_RUN_PARITY=1``), benchmarks, mcp, repo ``tests``.
-``golden``      ``tests/golden/compare.py`` for CF Rust (materialized, mapped,
-                python) and for CF Python 0.5.8 (python mode).
+``golden``      ``tests/golden/compare.py`` for CF Rust and for CF Python 0.5.8.
 ``queries``     the 34 parity queries on TF, CF Python and CF Rust (``query_suite.py``).
 ``oracle``      public-API value checks vs TF on every corpus (``oracle_parity.py``).
 ``perf``        cold/warm load, memory and per-call latency per engine (``perf_probe.py``).
 ``perf_gate``   ``cfabric_benchmarks.perf_gate`` for TF, then CF Rust asserted against that TF run.
-``legacy``      existing scripts: ``compare_bhsa_mapped_wheel_overhead.py``,
-                ``compare_bhsa_tf_mapped_subset.py``, the mapped-subset timings on
-                CF Python 0.5.8, ``bench_scalar_latency.py``, ``bench_batch_apis.py``.
+``microbench``  ``bench_scalar_latency.py`` and ``bench_batch_apis.py`` on CF Rust.
 ``bench_cli``   ``cfabric-bench latency`` and ``memory`` on BHSA in both envs.
 
 Usage::
@@ -74,7 +69,7 @@ PERF_ENGINES = ("tf", "cf_python", "cf_rust")
 WARM_REPEATS = 3
 # Timing-sensitive steps run first, before the long test suites heat the machine.
 ALL_STEPS = ("corpora", "perf", "perf_gate", "queries", "oracle", "golden", "rust", "pytest",
-             "legacy", "bench_cli")
+             "microbench", "bench_cli")
 
 
 class Runner:
@@ -147,13 +142,6 @@ class Runner:
         self.run("cargo fmt --check", ["cargo", "fmt", "--check"], cwd=CORE, log=out / "cargo_fmt.log")
         self.run("cargo test", ["cargo", "test", "--features", "python"], cwd=CORE, env=env,
                  log=out / "cargo_test.log")
-        self.ensure_bhsa_cfr()
-        self.run("cf_rust_parity", ["cargo", "run", "--release", "--quiet", "--bin", "cf_rust_parity",
-                 "--", str(self.bhsa_cfr), str(CORE / "tests/parity/parity_queries.json"), "", "300"],
-                 cwd=CORE, log=out / "cf_rust_parity.log")
-        self.run("cf_rust_validate_corpora", ["cargo", "run", "--release", "--quiet", "--bin",
-                 "cf_rust_validate_corpora", "--", str(self.corpora)], cwd=CORE,
-                 log=out / "cf_rust_validate_corpora.log")
 
     def step_pytest(self) -> None:
         out = self.results / "pytest"
@@ -174,10 +162,11 @@ class Runner:
     def step_golden(self) -> None:
         out = self.results / "golden"
         script = str(CORE / "tests/golden/compare.py")
-        self.run("golden cf_rust", [str(self.rust_py), script, *CORPORA], cwd=REPO,
+        env = {"CFABRIC_CORPORA": str(self.corpora)}
+        self.run("golden cf_rust", [str(self.rust_py), script, *CORPORA], cwd=REPO, env=env,
                  log=out / "cf_rust.log")
-        self.run("golden cf_python", [str(self.cfpy_py), script, *CORPORA, "--mode", "python"],
-                 cwd=REPO, log=out / "cf_python.log")
+        self.run("golden cf_python", [str(self.cfpy_py), script, *CORPORA], cwd=REPO, env=env,
+                 log=out / "cf_python.log")
 
     def step_queries(self) -> None:
         out = self.results / "queries"
@@ -253,27 +242,10 @@ class Runner:
                  "--baseline", str(out / "tf.json"), "--out", str(out / "cf.json")],
                  log=out / "cf.log")
 
-    def step_legacy(self) -> None:
-        out = self.results / "legacy"
+    def step_microbench(self) -> None:
+        out = self.results / "microbench"
         self.ensure_bhsa_cfr()
         bhsa = str(self.tf_path("bhsa"))
-        curated_cache = self.scratch / "bhsa-mapped-curated.cfr"
-        scripts = CORE / "scripts"
-        self.run("wheel overhead", [str(self.rust_py), str(scripts / "compare_bhsa_mapped_wheel_overhead.py"),
-                 "--tf-path", bhsa, "--cache-path", str(curated_cache), "--limit", "5"],
-                 cwd=CORE, log=out / "compare_bhsa_mapped_wheel_overhead.log")
-        self.run("tf vs mapped subset", [str(self.rust_py), str(scripts / "compare_bhsa_tf_mapped_subset.py"),
-                 "--tf-path", bhsa, "--cache-path", str(curated_cache), "--limit", "5"],
-                 cwd=CORE, log=out / "compare_bhsa_tf_mapped_subset.log")
-        # compare_bhsa_mapped_subset.py / compare_bhsa_mapped_memory.py put libs/core on
-        # PYTHONPATH, which now resolves to the Rust overlay; run their Python half
-        # directly on CF Python 0.5.8 instead (the Rust half is the curated binary).
-        self.run("mapped subset cf_python", [str(self.cfpy_py), str(scripts / "python_bhsa_mapped_subset.py"),
-                 bhsa, "5"], log=out / "python_bhsa_mapped_subset_cf_python.log")
-        self.run("mapped subset raw rust", ["cargo", "run", "--release", "--quiet", "--bin",
-                 "cf_rust_validate_bhsa_mapped_curated", "--", bhsa, str(curated_cache), "5"],
-                 cwd=CORE, log=out / "cf_rust_validate_bhsa_mapped_curated.log")
-        self.ensure_bhsa_cfr()
         bhsa_args = ["--tf", bhsa, "--cache", str(self.bhsa_cfr)]
         self.run("bench_scalar_latency", [str(self.rust_py), str(BENCH / "bench_scalar_latency.py"),
                  *bhsa_args], log=out / "bench_scalar_latency.log")

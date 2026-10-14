@@ -1,9 +1,19 @@
-# Context Fabric Golden Probes
+# Golden probes
 
-Golden files in `golden/*.json` are Text-Fabric truth data. Regenerate them only with:
+Each probe in `probes/<corpus>.jsonl` is one API call (`kind` + `args`, executed by
+`probes.py`); `golden/<corpus>.json` holds Text-Fabric's answer to every probe.
+
+Compare cfabric with the golden files (core virtual environment; corpora from
+`CFABRIC_CORPORA`, default `libs/benchmarks/.corpora`):
+
+```sh
+libs/core/tests/golden/run.sh            # bhsa n1904 banks
+libs/core/tests/golden/run.sh bhsa
+```
+
+Regenerate the golden files only from Text-Fabric, never from cfabric (the
+implementation under test):
 
 ```sh
 libs/core/.venv/bin/python libs/core/tests/golden/gen_golden.py bhsa n1904 banks
 ```
-
-Do not generate committed golden files from `cf_rust_dump` or `cfabric`; those are the implementations under test. `compare.py` runs materialized Rust, mapped Rust, and Python extension probe execution against the same Text-Fabric-generated golden output.

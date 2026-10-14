@@ -71,7 +71,6 @@ exclude = [
     { path = "NOTES.md", format = "sdist" },
     { path = "PERFORMANCE_CUTOVER.md", format = "sdist" },
     { path = "RUST_PORT_PLAN.md", format = "sdist" },
-    { path = "scripts/**", format = "sdist" },
 ]
 
 [tool.cibuildwheel]
