@@ -16,6 +16,17 @@ pub enum CfError {
         message: String,
     },
 
+    #[error(
+        "{path} is a compiled cache in .cfr format {found}; this release reads format \
+         {expected}. Delete it to have Fabric.load rebuild it, or recompile it with \
+         Fabric.compile."
+    )]
+    IncompatibleCache {
+        path: PathBuf,
+        found: String,
+        expected: &'static str,
+    },
+
     #[error("missing required feature: {0}")]
     MissingFeature(String),
 

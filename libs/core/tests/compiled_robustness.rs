@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use context_fabric_core::compiled::{MappedCompiledCorpus, compile_features, inspect_compiled};
 
-const MAGIC: &[u8; 8] = b"CFRUST02";
+const MAGIC: &[u8; 8] = b"CFRUST04";
 
 fn write_bytes(dir: &tempfile::TempDir, name: &str, bytes: &[u8]) -> PathBuf {
     let path = dir.path().join(name);

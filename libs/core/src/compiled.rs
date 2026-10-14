@@ -3,11 +3,12 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Once, OnceLock, RwLock};
+use std::sync::{Arc, OnceLock, RwLock};
 
 use memmap2::Mmap;
 
 use crate::atomic_file::write_atomically;
+use crate::config::CFR_VERSION;
 use crate::corpus::{
     Chunk, ChunkLengthKey, ChunkPositionKey, ComputedFeatureData, Corpus, FeatureCatalogEntry,
     FeatureDescription, FeatureKind, FeatureValueSample, LoadedFeatureInfo, LoadedFeatureKind,
@@ -19,33 +20,22 @@ use crate::feature::{EdgeFeature, EdgeFrequency, FeatureValue, NodeFeature};
 use crate::precompute::{self, SectionsData, StructureData, StructureHeading};
 use crate::row_index::{RowIndexKind, RowIndexLayout, RowLookup, RowOffsets};
 
-const MAGIC: &[u8; 8] = b"CFRUST02";
+/// Header magic: [`FORMAT_FAMILY`] followed by the two-digit format version
+/// ([`crate::config::CFR_VERSION`]). Any other version is rejected on open.
+const MAGIC: &[u8; 8] = b"CFRUST04";
+const FORMAT_FAMILY: &[u8; 6] = b"CFRUST";
 const FEATURE_METADATA_MAGIC: &[u8; 8] = b"CFRMETA1";
 const EDGE_VALUES_MAGIC: &[u8; 8] = b"CFREDGE1";
 const STRUCTURE_MAGIC: &[u8; 8] = b"CFRSTRC3";
-/// Structure section of pre-v4 caches, whose heading values are stored as text;
-/// see [`HeadingEncoding::Text`].
-const LEGACY_STRUCTURE_MAGIC: &[u8; 8] = b"CFRSTRC2";
-// `.cfr` v3 appended sections (precomputed CSR indexes, mmap-resident, 0 RSS).
+// Precomputed CSR indexes (mmap-resident, 0 RSS).
 const LEV_UP_MAGIC: &[u8; 8] = b"CFRLEVU1";
 const LEV_DOWN_MAGIC: &[u8; 8] = b"CFRLEVD1";
 const BOUNDARY_MAGIC: &[u8; 8] = b"CFRBND1\0";
 const SECTIONS_MAGIC: &[u8; 8] = b"CFRSECT1";
-// `.cfr` v4: per edge feature reverse (target -> sources) CSR, see `edge_index`.
+// Per edge feature reverse (target -> sources) CSR, see `edge_index`.
 const REVERSE_EDGES_MAGIC: &[u8; 8] = b"CFRREVE1";
-// `.cfr` v4: per mixed/edge feature row offsets, see `row_index`.
+// Per mixed/edge feature row offsets, see `row_index`.
 const ROW_INDEX_MAGIC: &[u8; 8] = b"CFRROWS1";
-
-/// How the structure section of a cache stores heading values.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum HeadingEncoding {
-    /// `CFRSTRC3` (v4): each value with its feature type, `None` when missing.
-    #[default]
-    Typed,
-    /// `CFRSTRC2` (pre-v4): each value as text, the empty string when missing.
-    /// Read back by retyping the values from their structure features.
-    Text,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompiledMetadata {
@@ -55,47 +45,20 @@ pub struct CompiledMetadata {
     pub config_features: Vec<CompiledConfigFeature>,
     pub order_len: usize,
     pub rank_len: usize,
-    pub order_start: Option<usize>,
-    pub rank_start: Option<usize>,
+    pub order_start: usize,
+    pub rank_start: usize,
+    /// The structure section, `None` when no usable structure is configured.
     pub structure_start: Option<usize>,
-    /// Encoding of the heading values in the structure section.
-    pub heading_encoding: HeadingEncoding,
-    /// Byte offset of the first `.cfr` v3 appended section magic (`CFRLEVU1`),
-    /// or `None` for pre-v3 caches. Marks where the appended index region begins.
-    pub v3_start: Option<usize>,
-    /// CSR payload starts (just after each section magic). `None` when the
-    /// corresponding section is absent (pre-v3 cache or no section data).
-    pub lev_up_start: Option<usize>,
-    pub lev_down_start: Option<usize>,
-    pub boundary_first_start: Option<usize>,
-    pub boundary_last_start: Option<usize>,
+    /// CSR payload starts (just after each section magic).
+    pub lev_up_start: usize,
+    pub lev_down_start: usize,
+    pub boundary_first_start: usize,
+    pub boundary_last_start: usize,
+    /// The `CFRSECT1` payload, `None` when no sections are configured.
     pub sections_start: Option<usize>,
 }
 
 impl CompiledMetadata {
-    /// Whether the cache carries the v4 index sections: the reverse index of
-    /// every edge feature (`CFRREVE1`) and the row offsets of every mixed node
-    /// feature and edge feature (`CFRROWS1`).
-    pub fn has_v4_indexes(&self) -> bool {
-        let edges = self
-            .edge_features
-            .iter()
-            .all(|feature| feature.reverse_index.is_some() && feature.row_index.is_some());
-        let mixed = self
-            .node_features
-            .iter()
-            .filter(|feature| feature.encoding == NodeFeatureEncoding::Mixed)
-            .all(|feature| feature.row_index.is_some());
-        edges && mixed
-    }
-
-    /// Whether the cache is in the current `.cfr` format: the v4 index sections
-    /// and typed structure headings. Older caches still open (through slower
-    /// fallbacks), but a default cache that is not current is recompiled.
-    pub fn has_current_format(&self) -> bool {
-        self.has_v4_indexes() && self.heading_encoding == HeadingEncoding::Typed
-    }
-
     pub fn node_feature(&self, name: &str) -> Option<&CompiledNodeFeature> {
         self.node_features
             .iter()
@@ -124,7 +87,8 @@ pub struct CompiledNodeFeature {
     pub payload_start: usize,
     pub payload_end: usize,
     pub metadata: BTreeMap<String, Option<String>>,
-    /// Mixed features: the `CFRROWS1` row offsets, `None` for pre-v4 caches.
+    /// The `CFRROWS1` row offsets: always present for mixed features (checked
+    /// on open), `None` for string-pool features, whose rows are fixed-size.
     pub row_index: Option<RowIndexLayout>,
 }
 
@@ -157,10 +121,10 @@ pub struct CompiledEdgeFeature {
     pub edge_value_count: usize,
     pub edge_values_start: Option<usize>,
     pub metadata: BTreeMap<String, Option<String>>,
-    /// The `CFRREVE1` reverse index, `None` for pre-v4 caches.
-    pub reverse_index: Option<ReverseEdgeLayout>,
-    /// The `CFRROWS1` row offsets, `None` for pre-v4 caches.
-    pub row_index: Option<RowIndexLayout>,
+    /// The `CFRREVE1` reverse index.
+    pub reverse_index: ReverseEdgeLayout,
+    /// The `CFRROWS1` row offsets.
+    pub row_index: RowIndexLayout,
 }
 
 impl CompiledEdgeFeature {
@@ -214,7 +178,7 @@ struct EdgeParts {
     edge_value_count: usize,
     edge_values_start: Option<usize>,
     is_oslots: bool,
-    reverse_index: Option<ReverseEdgeLayout>,
+    reverse_index: ReverseEdgeLayout,
     reverse_lookup: RowLookup,
     /// Sorted `(source, target, value_payload_offset)` triples, built on first
     /// `edge_value` call by a single scan of the edge-values section.
@@ -251,7 +215,6 @@ pub struct MappedCompiledCorpus {
     /// The last slot node, computed once by one `otype` pool-id pass. Locality,
     /// search and text all branch on it per call, so it must never be rescanned.
     max_slot_cache: OnceLock<u32>,
-    v3_warned: Once,
 }
 
 impl std::fmt::Debug for MappedCompiledCorpus {
@@ -298,15 +261,6 @@ impl MappedCompiledCorpus {
         let path = path.as_ref();
         let mmap = map_file(path)?;
         let metadata = inspect_compiled_bytes(path, &mmap)?;
-        if !metadata.has_current_format() {
-            eprintln!(
-                "context-fabric: compiled cache {} predates the v4 format (no \
-                 CFRREVE1 / CFRROWS1 index sections, or text structure headings); \
-                 reverse edge lookups and variable-length feature rows fall back to \
-                 scans. Recompile it for full speed.",
-                path.display()
-            );
-        }
         #[cfg(target_os = "macos")]
         let shared_mmap_hint = map_file(path)?;
         Ok(Self {
@@ -321,7 +275,6 @@ impl MappedCompiledCorpus {
             levels_cache: OnceLock::new(),
             type_nodes_cache: OnceLock::new(),
             max_slot_cache: OnceLock::new(),
-            v3_warned: Once::new(),
         })
     }
 
@@ -395,49 +348,23 @@ impl MappedCompiledCorpus {
             "rank" => self
                 .rank()
                 .map(|rank| Some(ComputedFeatureData::Rank(rank))),
-            "boundary" => {
-                // Serve from the CFRBND1 CSRs when present; otherwise fall back
-                // to the (slow) scan path so pre-v3 caches keep working.
-                if let (Some(first_start), Some(last_start)) = (
-                    self.metadata.boundary_first_start,
-                    self.metadata.boundary_last_start,
-                ) {
-                    let first_slots = self.csr_all_rows(first_start)?;
-                    let last_slots = self.csr_all_rows(last_start)?;
-                    Ok(Some(ComputedFeatureData::Boundary(
-                        crate::corpus::Boundary {
-                            first_slots,
-                            last_slots,
-                        },
-                    )))
-                } else {
-                    self.warn_missing_v3("CFRBND1");
-                    crate::mapped_sections::MappedSections::new(self)?
-                        .boundary()
-                        .map(|boundary| Some(ComputedFeatureData::Boundary(boundary)))
-                }
-            }
-            "levUp" => match self.metadata.lev_up_start {
-                Some(start) => Ok(Some(ComputedFeatureData::LevUp(self.csr_all_rows(start)?))),
-                None => {
-                    self.warn_missing_v3("CFRLEVU1");
-                    Ok(None)
-                }
-            },
-            "levDown" => match self.metadata.lev_down_start {
+            "boundary" => Ok(Some(ComputedFeatureData::Boundary(
+                crate::corpus::Boundary {
+                    first_slots: self.csr_all_rows(self.metadata.boundary_first_start)?,
+                    last_slots: self.csr_all_rows(self.metadata.boundary_last_start)?,
+                },
+            ))),
+            "levUp" => Ok(Some(ComputedFeatureData::LevUp(
+                self.csr_all_rows(self.metadata.lev_up_start)?,
+            ))),
+            "levDown" => {
                 // levDown is materialized for non-slot nodes only, matching
                 // `precompute::lev_down` (rows for `max_slot+1..=max_node`).
-                Some(start) => {
-                    let full = self.csr_all_rows(start)?;
-                    let max_slot = self.max_slot()? as usize;
-                    let rows = full.into_iter().skip(max_slot).collect();
-                    Ok(Some(ComputedFeatureData::LevDown(rows)))
-                }
-                None => {
-                    self.warn_missing_v3("CFRLEVD1");
-                    Ok(None)
-                }
-            },
+                let full = self.csr_all_rows(self.metadata.lev_down_start)?;
+                let max_slot = self.max_slot()? as usize;
+                let rows = full.into_iter().skip(max_slot).collect();
+                Ok(Some(ComputedFeatureData::LevDown(rows)))
+            }
             _ => Ok(None),
         }
     }
@@ -545,21 +472,14 @@ impl MappedCompiledCorpus {
             return Ok(cached.as_ref());
         }
         let value = match self.metadata.structure_start {
-            Some(structure_start) => {
-                let data = Reader {
+            Some(structure_start) => Some(
+                Reader {
                     path: &self.path,
                     bytes: &self.mmap,
                     offset: structure_start,
                 }
-                .read_structure_section()?;
-                match self.metadata.heading_encoding {
-                    HeadingEncoding::Typed => data,
-                    HeadingEncoding::Text => match data {
-                        Some(data) => self.retype_text_headings(data)?,
-                        None => None,
-                    },
-                }
-            }
+                .read_structure_section()?,
+            ),
             None => None,
         };
         let _ = self.structure_cache.set(value);
@@ -568,69 +488,6 @@ impl MappedCompiledCorpus {
             .get()
             .expect("structure cache just initialized")
             .as_ref())
-    }
-
-    /// Converts a pre-v4 structure section ([`HeadingEncoding::Text`]) to typed
-    /// headings: values of int-valued structure features become ints and the
-    /// empty string (a missing value) becomes `None`. Such caches stored an
-    /// empty structure for an unusable configuration, which now means none.
-    fn retype_text_headings(&self, data: StructureData) -> Result<Option<StructureData>> {
-        if data.heading_from_node.is_empty() {
-            return Ok(None);
-        }
-        let int_types: BTreeSet<String> = self
-            .otext_list("structureTypes")?
-            .into_iter()
-            .zip(self.otext_list("structureFeatures")?)
-            .filter(|(_, feature)| {
-                self.metadata
-                    .node_feature(feature)
-                    .and_then(|feature| feature.value_type())
-                    == Some("int")
-            })
-            .map(|(node_type, _)| node_type)
-            .collect();
-        let retype = |heading: Vec<StructureHeading>| -> Vec<StructureHeading> {
-            heading
-                .into_iter()
-                .map(|part| {
-                    let heading = match part.heading {
-                        Some(FeatureValue::Str(text)) if text.is_empty() => None,
-                        Some(FeatureValue::Str(text)) if int_types.contains(&part.node_type) => {
-                            Some(match text.parse::<i64>() {
-                                Ok(value) => FeatureValue::Int(value),
-                                Err(_) => FeatureValue::Str(text),
-                            })
-                        }
-                        other => other,
-                    };
-                    StructureHeading {
-                        node_type: part.node_type,
-                        heading,
-                    }
-                })
-                .collect()
-        };
-        Ok(Some(StructureData {
-            heading_from_node: data
-                .heading_from_node
-                .into_iter()
-                .map(|(node, heading)| (node, retype(heading)))
-                .collect(),
-            node_from_heading: data
-                .node_from_heading
-                .into_iter()
-                .map(|(heading, node)| (retype(heading), node))
-                .collect(),
-            multiple: data
-                .multiple
-                .into_iter()
-                .map(|(heading, nodes)| (retype(heading), nodes))
-                .collect(),
-            top: data.top,
-            up: data.up,
-            down: data.down,
-        }))
     }
 
     #[allow(non_snake_case)]
@@ -1582,9 +1439,7 @@ impl MappedCompiledCorpus {
     /// Every node in canonical order, borrowed from the compiled `order`
     /// array. `None` when the cache has no order array covering every node.
     pub fn canonical_order(&self) -> Result<Option<MappedU32s<'_>>> {
-        let Some(order_start) = self.metadata.order_start else {
-            return Ok(None);
-        };
+        let order_start = self.metadata.order_start;
         if self.metadata.order_len != self.metadata.rank_len {
             return Ok(None);
         }
@@ -1598,86 +1453,54 @@ impl MappedCompiledCorpus {
     }
 
     pub fn order(&self) -> Result<Vec<u32>> {
-        let Some(order_start) = self.metadata.order_start else {
-            return Ok(Vec::new());
-        };
+        let order_start = self.metadata.order_start;
         (0..self.metadata.order_len)
             .map(|index| read_u32_from(&self.path, &self.mmap, order_start + (index * 4)))
             .collect()
     }
 
     pub fn rank(&self) -> Result<Vec<u32>> {
-        let Some(rank_start) = self.metadata.rank_start else {
-            return Ok(Vec::new());
-        };
+        let rank_start = self.metadata.rank_start;
         (0..self.metadata.rank_len)
             .map(|index| read_u32_from(&self.path, &self.mmap, rank_start + (index * 4)))
             .collect()
     }
 
-    /// Emits a one-time warning when a v3 accessor is queried on a pre-v3 cache
-    /// (or one missing the requested section), suggesting a recompile.
-    fn warn_missing_v3(&self, section: &str) {
-        let path = self.path.clone();
-        self.v3_warned.call_once(|| {
-            eprintln!(
-                "context-fabric: compiled cache {} lacks v3 precomputed sections \
-                 (missing {section}); falling back to scan path. Recompile to enable \
-                 fast mmap locality indexes.",
-                path.display()
-            );
-        });
+    /// [`lev_up_row`](Self::lev_up_row) borrowed from the map, without
+    /// materializing a `Vec`.
+    pub fn lev_up_values(&self, node: u32) -> Result<Option<MappedU32s<'_>>> {
+        csr_row(&self.path, &self.mmap, self.metadata.lev_up_start, node)
     }
 
     /// Embedders of `node` in descending rank order (`levUp` CSR row), read
-    /// directly from the mmap. Returns `None` for pre-v3 caches (caller should
-    /// fall back to the scan path).
-    /// [`lev_up_row`](Self::lev_up_row) borrowed from the map, without
-    /// materializing a `Vec`. `None` for pre-v3 caches.
-    pub fn lev_up_values(&self, node: u32) -> Result<Option<MappedU32s<'_>>> {
-        let Some(start) = self.metadata.lev_up_start else {
-            self.warn_missing_v3("CFRLEVU1");
-            return Ok(None);
-        };
-        csr_row(&self.path, &self.mmap, start, node)
-    }
-
+    /// directly from the mmap.
     pub fn lev_up_row(&self, node: u32) -> Result<Option<Vec<u32>>> {
-        let Some(start) = self.metadata.lev_up_start else {
-            self.warn_missing_v3("CFRLEVU1");
-            return Ok(None);
-        };
-        read_csr_row(&self.path, &self.mmap, start, node)
+        read_csr_row(&self.path, &self.mmap, self.metadata.lev_up_start, node)
     }
 
     /// Embeddees of `node` (`levDown` CSR row), read directly from the mmap.
-    /// Returns `None` for pre-v3 caches.
     pub fn lev_down_row(&self, node: u32) -> Result<Option<Vec<u32>>> {
-        let Some(start) = self.metadata.lev_down_start else {
-            self.warn_missing_v3("CFRLEVD1");
-            return Ok(None);
-        };
-        read_csr_row(&self.path, &self.mmap, start, node)
+        read_csr_row(&self.path, &self.mmap, self.metadata.lev_down_start, node)
     }
 
     /// Nodes whose first slot is `slot` (`boundary` first CSR row).
-    /// Returns `None` for pre-v3 caches.
     pub fn boundary_first(&self, slot: u32) -> Result<Option<Vec<u32>>> {
-        let Some(start) = self.metadata.boundary_first_start else {
-            self.warn_missing_v3("CFRBND1");
-            return Ok(None);
-        };
-        read_csr_row(&self.path, &self.mmap, start, slot)
+        read_csr_row(
+            &self.path,
+            &self.mmap,
+            self.metadata.boundary_first_start,
+            slot,
+        )
     }
 
     /// Nodes whose last slot is `slot` (`boundary` last CSR row).
-    /// Returns `None` for pre-v3 caches.
     pub fn boundary_last(&self, slot: u32) -> Result<Option<Vec<u32>>> {
-        let Some(start) = self.metadata.boundary_last_start else {
-            self.warn_missing_v3("CFRBND1");
-            return Ok(None);
-        };
-        read_csr_row(&self.path, &self.mmap, start, slot)
+        read_csr_row(
+            &self.path,
+            &self.mmap,
+            self.metadata.boundary_last_start,
+            slot,
+        )
     }
 
     /// Lazily-loaded `CFRSECT1` sections lookup. Loaded once into RAM (< 2 MB on
@@ -1706,9 +1529,7 @@ impl MappedCompiledCorpus {
     }
 
     pub fn sort_key(&self, node: u32) -> Result<Option<u32>> {
-        let Some(rank_start) = self.metadata.rank_start else {
-            return Ok(None);
-        };
+        let rank_start = self.metadata.rank_start;
         if node == 0 || node as usize > self.metadata.rank_len {
             return Ok(None);
         }
@@ -1735,10 +1556,7 @@ impl MappedCompiledCorpus {
     }
 
     pub fn sort_nodes(&self, nodes: &mut [u32]) -> Result<()> {
-        let Some(rank_start) = self.metadata.rank_start else {
-            nodes.sort_unstable();
-            return Ok(());
-        };
+        let rank_start = self.metadata.rank_start;
         nodes.sort_unstable_by_key(|node| {
             if *node == 0 || *node as usize > self.metadata.rank_len {
                 return u32::MAX;
@@ -2122,7 +1940,7 @@ pub struct StringPoolNodeFeatureView<'a> {
     path: &'a Path,
     bytes: &'a [u8],
     parts: Arc<StringPoolParts>,
-    rank_start: Option<usize>,
+    rank_start: usize,
     rank_len: usize,
 }
 
@@ -2409,21 +2227,10 @@ fn build_mixed_parts(
             "mixed row count does not match metadata",
         ));
     }
-    let row_offsets = match feature.row_index {
-        Some(layout) => mapped_row_offsets(path, layout, feature.payload_start, row_count)?,
-        None => {
-            let mut row_offsets = Vec::with_capacity(bounded_capacity(
-                row_count,
-                feature.payload_end.saturating_sub(offset),
-                4,
-            ));
-            for _ in 0..row_count {
-                row_offsets.push(offset);
-                offset = skip_mixed_node_row(path, bytes, offset)?;
-            }
-            RowOffsets::Scanned(row_offsets)
-        }
-    };
+    let layout = feature
+        .row_index
+        .ok_or_else(|| invalid_compiled(path, "mixed feature without row offsets"))?;
+    let row_offsets = mapped_row_offsets(path, layout, feature.payload_start, row_count)?;
     Ok(MixedParts {
         metadata: feature.metadata.clone(),
         row_count,
@@ -2436,7 +2243,7 @@ pub struct MixedNodeFeatureView<'a> {
     path: &'a Path,
     bytes: &'a [u8],
     parts: Arc<MixedParts>,
-    rank_start: Option<usize>,
+    rank_start: usize,
     rank_len: usize,
 }
 
@@ -2711,10 +2518,7 @@ fn mapped_row_offsets(
             "row index length does not match the feature's row count",
         ));
     }
-    Ok(RowOffsets::Mapped {
-        base: payload_start,
-        layout,
-    })
+    Ok(RowOffsets::new(payload_start, layout))
 }
 
 fn build_edge_parts(path: &Path, bytes: &[u8], feature: &CompiledEdgeFeature) -> Result<EdgeParts> {
@@ -2726,21 +2530,8 @@ fn build_edge_parts(path: &Path, bytes: &[u8], feature: &CompiledEdgeFeature) ->
             "edge row count does not match metadata",
         ));
     }
-    let row_offsets = match feature.row_index {
-        Some(layout) => mapped_row_offsets(path, layout, feature.payload_start, row_count)?,
-        None => {
-            let mut row_offsets = Vec::with_capacity(bounded_capacity(
-                row_count,
-                bytes.len().saturating_sub(offset),
-                8,
-            ));
-            for _ in 0..row_count {
-                row_offsets.push(offset);
-                offset = skip_edge_row(path, bytes, offset)?;
-            }
-            RowOffsets::Scanned(row_offsets)
-        }
-    };
+    let row_offsets =
+        mapped_row_offsets(path, feature.row_index, feature.payload_start, row_count)?;
     Ok(EdgeParts {
         metadata: feature.metadata.clone(),
         row_count,
@@ -2761,7 +2552,7 @@ pub struct EdgeFeatureView<'a> {
     parts: Arc<EdgeParts>,
     // Rank is read per-node from the mmap (`rank_start`/`rank_len`) instead of
     // materializing the whole rank Vec on every `edge_feature()` call.
-    rank_start: Option<usize>,
+    rank_start: usize,
     rank_len: usize,
 }
 
@@ -2956,34 +2747,12 @@ impl<'a> EdgeFeatureView<'a> {
         self.forward_with_values(source)
     }
 
-    /// Sources with an edge to `target`, in canonical order. Served from the
-    /// `CFRREVE1` reverse index; pre-v4 caches fall back to scanning every row.
+    /// Sources with an edge to `target`, in canonical order, served from the
+    /// `CFRREVE1` reverse index.
     pub fn t(&self, target: u32) -> Result<Vec<u32>> {
-        match self.parts.reverse_index {
-            Some(layout) => {
-                layout.sources(self.path, self.bytes, &self.parts.reverse_lookup, target)
-            }
-            None => self.t_by_scan(target),
-        }
-    }
-
-    fn t_by_scan(&self, target: u32) -> Result<Vec<u32>> {
-        let mut sources = Vec::new();
-        for row_offset in self.parts.row_offsets.iter(self.bytes) {
-            let source = read_u32_from(self.path, self.bytes, row_offset)?;
-            let target_count = read_u32_from(self.path, self.bytes, row_offset + 4)? as usize;
-            let targets_start = row_offset + 8;
-            for index in 0..target_count {
-                let candidate = read_u32_from(self.path, self.bytes, targets_start + (index * 4))?;
-                if candidate == target {
-                    sources.push(source);
-                    break;
-                }
-            }
-        }
-        self.sort_nodes(&mut sources);
-        sources.dedup();
-        Ok(sources)
+        self.parts
+            .reverse_index
+            .sources(self.path, self.bytes, &self.parts.reverse_lookup, target)
     }
 
     pub fn backward(&self, target: u32) -> Result<Vec<u32>> {
@@ -3318,80 +3087,88 @@ fn inspect_compiled_bytes(path: &Path, bytes: &[u8]) -> Result<CompiledMetadata>
         edge_features.push(reader.inspect_edge_feature()?);
     }
 
-    let (order_len, order_start) = if reader.is_done() {
-        (0, None)
-    } else {
-        reader.inspect_u32_vec()?
-    };
-    let (rank_len, rank_start) = if reader.is_done() {
-        (0, None)
-    } else {
-        reader.inspect_u32_vec()?
-    };
-    let config_features = if reader.is_done() {
-        Vec::new()
-    } else {
-        reader.inspect_config_features()?
-    };
-    if !reader.is_done() {
-        let (node_metadata, edge_metadata) = reader.read_feature_metadata_section()?;
-        for feature in &mut node_features {
-            if let Some(metadata) = node_metadata.get(&feature.name) {
-                feature.metadata = metadata.clone();
-            }
-        }
-        for feature in &mut edge_features {
-            if let Some(metadata) = edge_metadata.get(&feature.name) {
-                feature.metadata = metadata.clone();
-            }
+    let (order_len, order_start) = reader.inspect_u32_vec()?;
+    let (rank_len, rank_start) = reader.inspect_u32_vec()?;
+    let config_features = reader.inspect_config_features()?;
+    let (node_metadata, edge_metadata) = reader.read_feature_metadata_section()?;
+    for feature in &mut node_features {
+        if let Some(metadata) = node_metadata.get(&feature.name) {
+            feature.metadata = metadata.clone();
         }
     }
-    if !reader.is_done() {
-        let edge_values = reader.inspect_edge_values_section()?;
-        for feature in &mut edge_features {
-            if let Some((edge_value_count, edge_values_start)) = edge_values.get(&feature.name) {
-                feature.edge_value_count = *edge_value_count;
-                feature.edge_values_start = Some(*edge_values_start);
-            }
-        }
-    }
-    let heading_encoding = if !reader.is_done() && reader.peek_magic(LEGACY_STRUCTURE_MAGIC) {
-        HeadingEncoding::Text
-    } else {
-        HeadingEncoding::Typed
-    };
-    let structure_start = if !reader.is_done()
-        && (reader.peek_magic(STRUCTURE_MAGIC) || reader.peek_magic(LEGACY_STRUCTURE_MAGIC))
-    {
-        reader.inspect_structure_section()?
+    let edge_values = reader.inspect_edge_values_section()?;
+    let structure_start = if reader.peek_magic(STRUCTURE_MAGIC) {
+        Some(reader.inspect_structure_section()?)
     } else {
         None
     };
 
-    let v3 = reader.inspect_v3_sections()?;
-    for (name, layout) in &v3.reverse_edges {
-        if let Some(feature) = edge_features
-            .iter_mut()
-            .find(|feature| feature.name == *name)
-        {
-            feature.reverse_index = Some(*layout);
+    reader.expect_section_magic(LEV_UP_MAGIC)?;
+    let lev_up_start = reader.inspect_csr()?;
+    reader.expect_section_magic(LEV_DOWN_MAGIC)?;
+    let lev_down_start = reader.inspect_csr()?;
+    reader.expect_section_magic(BOUNDARY_MAGIC)?;
+    let boundary_first_start = reader.inspect_csr()?;
+    let boundary_last_start = reader.inspect_csr()?;
+
+    let reverse_edges: HashMap<String, ReverseEdgeLayout> = reader
+        .inspect_reverse_edges_section()?
+        .into_iter()
+        .collect();
+    let mut row_indexes: HashMap<(RowIndexKind, String), RowIndexLayout> = reader
+        .inspect_row_index_section()?
+        .into_iter()
+        .map(|(kind, name, layout)| ((kind, name), layout))
+        .collect();
+    for feature in &mut node_features {
+        feature.row_index = row_indexes.remove(&(RowIndexKind::Node, feature.name.clone()));
+        if feature.encoding == NodeFeatureEncoding::Mixed && feature.row_index.is_none() {
+            return Err(invalid_compiled(
+                path,
+                format!("mixed feature {} has no row offsets", feature.name),
+            ));
         }
     }
-    for (kind, name, layout) in &v3.row_indexes {
-        let row_index = match kind {
-            RowIndexKind::Node => node_features
-                .iter_mut()
-                .find(|feature| feature.name == *name)
-                .map(|feature| &mut feature.row_index),
-            RowIndexKind::Edge => edge_features
-                .iter_mut()
-                .find(|feature| feature.name == *name)
-                .map(|feature| &mut feature.row_index),
-        };
-        if let Some(row_index) = row_index {
-            *row_index = Some(*layout);
-        }
-    }
+    let edge_features = edge_features
+        .into_iter()
+        .map(|entry| {
+            let missing = |section: &str| {
+                invalid_compiled(
+                    path,
+                    format!("edge feature {} has no {section}", entry.name),
+                )
+            };
+            let reverse_index = *reverse_edges
+                .get(&entry.name)
+                .ok_or_else(|| missing("reverse index"))?;
+            let row_index = row_indexes
+                .remove(&(RowIndexKind::Edge, entry.name.clone()))
+                .ok_or_else(|| missing("row offsets"))?;
+            let (edge_value_count, edge_values_start) = edge_values
+                .get(&entry.name)
+                .map_or((0, None), |(count, start)| (*count, Some(*start)));
+            Ok(CompiledEdgeFeature {
+                metadata: edge_metadata.get(&entry.name).cloned().unwrap_or_default(),
+                name: entry.name,
+                row_count: entry.row_count,
+                payload_start: entry.payload_start,
+                payload_end: entry.payload_end,
+                edge_value_count,
+                edge_values_start,
+                reverse_index,
+                row_index,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    // `CFRSECT1` is the last section: record where it starts and leave the
+    // parse to the first `sections_data()` call.
+    let sections_start = if reader.is_done() {
+        None
+    } else {
+        reader.expect_section_magic(SECTIONS_MAGIC)?;
+        Some(reader.offset)
+    };
 
     Ok(CompiledMetadata {
         byte_len: bytes.len(),
@@ -3403,26 +3180,21 @@ fn inspect_compiled_bytes(path: &Path, bytes: &[u8]) -> Result<CompiledMetadata>
         order_start,
         rank_start,
         structure_start,
-        heading_encoding,
-        v3_start: v3.v3_start,
-        lev_up_start: v3.lev_up_start,
-        lev_down_start: v3.lev_down_start,
-        boundary_first_start: v3.boundary_first_start,
-        boundary_last_start: v3.boundary_last_start,
-        sections_start: v3.sections_start,
+        lev_up_start,
+        lev_down_start,
+        boundary_first_start,
+        boundary_last_start,
+        sections_start,
     })
 }
 
-#[derive(Default)]
-struct V3SectionOffsets {
-    v3_start: Option<usize>,
-    lev_up_start: Option<usize>,
-    lev_down_start: Option<usize>,
-    boundary_first_start: Option<usize>,
-    boundary_last_start: Option<usize>,
-    reverse_edges: Vec<(String, ReverseEdgeLayout)>,
-    row_indexes: Vec<(RowIndexKind, String, RowIndexLayout)>,
-    sections_start: Option<usize>,
+/// An edge feature's entry in the feature table, before the sections that
+/// complete its [`CompiledEdgeFeature`] are read.
+struct EdgeFeatureEntry {
+    name: String,
+    row_count: usize,
+    payload_start: usize,
+    payload_end: usize,
 }
 
 fn map_file(path: &Path) -> Result<Mmap> {
@@ -3562,11 +3334,10 @@ impl ExactSizeIterator for MappedU32s<'_> {}
 fn mmap_rank(
     path: &Path,
     bytes: &[u8],
-    rank_start: Option<usize>,
+    rank_start: usize,
     rank_len: usize,
     node: u32,
 ) -> Option<u32> {
-    let rank_start = rank_start?;
     if node == 0 || node as usize > rank_len {
         return None;
     }
@@ -3577,7 +3348,7 @@ fn mmap_rank(
 fn sort_nodes_by_mmap_rank(
     path: &Path,
     bytes: &[u8],
-    rank_start: Option<usize>,
+    rank_start: usize,
     rank_len: usize,
     nodes: &mut [u32],
 ) {
@@ -3671,26 +3442,6 @@ fn mapped_node_type_allowed(
     })
 }
 
-fn skip_mixed_node_row(path: &Path, bytes: &[u8], offset: usize) -> Result<usize> {
-    let tag_offset = offset
-        .checked_add(4)
-        .ok_or_else(|| invalid_compiled(path, "mixed feature row offset overflow"))?;
-    let tag = *bytes
-        .get(tag_offset)
-        .ok_or_else(|| invalid_compiled(path, "unexpected end of mixed feature value tag"))?;
-    match tag {
-        0 => {
-            let mut string_offset = tag_offset + 1;
-            read_string_range_at(path, bytes, &mut string_offset)?;
-            Ok(string_offset)
-        }
-        1 => tag_offset
-            .checked_add(9)
-            .ok_or_else(|| invalid_compiled(path, "mixed int row offset overflow")),
-        _ => Err(invalid_compiled(path, "invalid feature value tag")),
-    }
-}
-
 fn skip_mixed_value(path: &Path, bytes: &[u8], offset: usize) -> Result<usize> {
     let tag = *bytes
         .get(offset)
@@ -3706,14 +3457,6 @@ fn skip_mixed_value(path: &Path, bytes: &[u8], offset: usize) -> Result<usize> {
             .ok_or_else(|| invalid_compiled(path, "mixed int row offset overflow")),
         _ => Err(invalid_compiled(path, "invalid feature value tag")),
     }
-}
-
-fn skip_edge_row(path: &Path, bytes: &[u8], offset: usize) -> Result<usize> {
-    let target_count = read_u32_from(path, bytes, offset + 4)? as usize;
-    offset
-        .checked_add(8)
-        .and_then(|offset| offset.checked_add(target_count.checked_mul(4)?))
-        .ok_or_else(|| invalid_compiled(path, "compiled edge row offset overflow"))
 }
 
 /// Caps a capacity hint read from an untrusted count field at the number of
@@ -3768,16 +3511,8 @@ fn write_compiled_contents(corpus: &Corpus, file: &File, output_path: &Path) -> 
         let offsets = write_edge_feature(&mut writer, feature, output_path)?;
         row_indexes.push((RowIndexKind::Edge, feature.name.as_str(), offsets));
     }
-    write_u32_vec(
-        &mut writer,
-        corpus.order.as_deref().unwrap_or(&[]),
-        output_path,
-    )?;
-    write_u32_vec(
-        &mut writer,
-        corpus.rank.as_deref().unwrap_or(&[]),
-        output_path,
-    )?;
+    write_u32_vec(&mut writer, &corpus.order(), output_path)?;
+    write_u32_vec(&mut writer, &corpus.rank(), output_path)?;
     write_config_features(&mut writer, &corpus.config_features, output_path)?;
     write_feature_metadata_section(
         &mut writer,
@@ -3787,7 +3522,7 @@ fn write_compiled_contents(corpus: &Corpus, file: &File, output_path: &Path) -> 
     )?;
     write_edge_values_section(&mut writer, &corpus.edge_features, output_path)?;
     write_structure_section(&mut writer, corpus, output_path)?;
-    write_v3_sections(&mut writer, corpus, &row_indexes, output_path)?;
+    write_index_sections(&mut writer, corpus, &row_indexes, output_path)?;
     writer.flush().map_err(|source| CfError::Io {
         path: output_path.to_path_buf(),
         source,
@@ -3818,12 +3553,12 @@ fn write_csr<W: Write>(writer: &mut W, rows: &[Vec<u32>], path: &Path) -> Result
 /// One `CFRROWS1` entry: feature table, feature name, row offsets.
 type RowIndexEntry<'a> = (RowIndexKind, &'a str, Vec<u32>);
 
-/// Appends the precomputed index sections: `CFRLEVU1`, `CFRLEVD1`, `CFRBND1`
-/// (v3), `CFRREVE1` and `CFRROWS1` (v4), then `CFRSECT1`. Plain u32 LE, no
-/// varint, so accessors random-access individual rows out of the mmap with no
-/// decode pass. `CFRSECT1` stays last: opening a cache records its offset
-/// without parsing it.
-fn write_v3_sections<W: Write>(
+/// Appends the precomputed index sections: `CFRLEVU1`, `CFRLEVD1`, `CFRBND1`,
+/// `CFRREVE1` and `CFRROWS1`, then `CFRSECT1` when sections are configured.
+/// Plain u32 LE, no varint, so accessors random-access individual rows out of
+/// the mmap with no decode pass. `CFRSECT1` stays last: opening a cache records
+/// its offset without parsing it.
+fn write_index_sections<W: Write>(
     writer: &mut W,
     corpus: &Corpus,
     row_indexes: &[RowIndexEntry<'_>],
@@ -3831,45 +3566,17 @@ fn write_v3_sections<W: Write>(
 ) -> Result<()> {
     let max_slot = corpus.max_slot();
     let max_node = corpus.max_node();
-    if max_node == 0 {
-        write_reverse_edges_section(writer, corpus, path)?;
-        return write_row_index_section(writer, row_indexes, path);
-    }
-    let timing = std::env::var_os("CF_V3_TIMING").is_some();
-    macro_rules! phase {
-        ($label:expr, $body:expr) => {{
-            let __start = std::time::Instant::now();
-            let __result = $body;
-            if timing {
-                eprintln!("[v3] {} took {} ms", $label, __start.elapsed().as_millis());
-            }
-            __result
-        }};
-    }
+    let slot_sets: BTreeMap<u32, Vec<u32>> = corpus.oslots_items().into_iter().collect();
+    let rank = corpus.rank();
 
-    let slot_sets: BTreeMap<u32, Vec<u32>> =
-        phase!("oslots_items", corpus.oslots_items().into_iter().collect());
-    let rank = phase!("rank", corpus.rank());
-
-    let lev_up = phase!(
-        "lev_up",
-        precompute::lev_up(&slot_sets, &rank, max_slot, max_node)
-    );
-    writer
-        .write_all(LEV_UP_MAGIC)
-        .map_err(|source| CfError::Io {
-            path: path.to_path_buf(),
-            source,
-        })?;
+    let lev_up = precompute::lev_up(&slot_sets, &rank, max_slot, max_node);
+    write_magic(writer, LEV_UP_MAGIC, path)?;
     write_csr(writer, &lev_up, path)?;
 
     // levDown is indexed by non-slot nodes (`max_slot+1..=max_node`); store it
     // as a full `1..=max_node` CSR with empty rows for slots so the accessor is
     // uniform with levUp. The offsets overhead is ~max_slot u32 (negligible).
-    let lev_down = phase!(
-        "lev_down",
-        precompute::lev_down(&lev_up, &rank, max_slot, max_node)
-    );
+    let lev_down = precompute::lev_down(&lev_up, &rank, max_slot, max_node);
     let mut lev_down_full = vec![Vec::new(); max_node as usize];
     for (index, row) in lev_down.iter().enumerate() {
         let node = max_slot as usize + 1 + index;
@@ -3877,46 +3584,31 @@ fn write_v3_sections<W: Write>(
             lev_down_full[node - 1] = row.clone();
         }
     }
-    writer
-        .write_all(LEV_DOWN_MAGIC)
-        .map_err(|source| CfError::Io {
-            path: path.to_path_buf(),
-            source,
-        })?;
+    write_magic(writer, LEV_DOWN_MAGIC, path)?;
     write_csr(writer, &lev_down_full, path)?;
 
-    let boundary = phase!(
-        "boundary",
-        precompute::boundary(&slot_sets, &rank, max_slot)
-    );
-    writer
-        .write_all(BOUNDARY_MAGIC)
-        .map_err(|source| CfError::Io {
-            path: path.to_path_buf(),
-            source,
-        })?;
+    let boundary = precompute::boundary(&slot_sets, &rank, max_slot);
+    write_magic(writer, BOUNDARY_MAGIC, path)?;
     write_csr(writer, &boundary.first_slots, path)?;
     write_csr(writer, &boundary.last_slots, path)?;
 
-    phase!(
-        "reverse_edges",
-        write_reverse_edges_section(writer, corpus, path)?
-    );
+    write_reverse_edges_section(writer, corpus, path)?;
     write_row_index_section(writer, row_indexes, path)?;
 
-    if let Some(sections) = phase!(
-        "sections",
-        precompute::sections_with(corpus, &lev_up, &lev_down)
-    ) {
-        writer
-            .write_all(SECTIONS_MAGIC)
-            .map_err(|source| CfError::Io {
-                path: path.to_path_buf(),
-                source,
-            })?;
+    if max_node > 0
+        && let Some(sections) = precompute::sections_with(corpus, &lev_up, &lev_down)
+    {
+        write_magic(writer, SECTIONS_MAGIC, path)?;
         write_sections_section(writer, &sections, path)?;
     }
     Ok(())
+}
+
+fn write_magic<W: Write>(writer: &mut W, magic: &[u8; 8], path: &Path) -> Result<()> {
+    writer.write_all(magic).map_err(|source| CfError::Io {
+        path: path.to_path_buf(),
+        source,
+    })
 }
 
 /// Appends `CFRROWS1` (layout in [`crate::row_index`]).
@@ -4386,10 +4078,30 @@ impl<'a> Reader<'a> {
         }
     }
 
+    /// Checks the header magic. A cache of another `.cfr` format version is
+    /// rejected with [`CfError::IncompatibleCache`] so the caller can recompile.
     fn expect_magic(&mut self) -> Result<()> {
         let magic = self.take(MAGIC.len())?;
-        if magic != MAGIC {
-            return Err(self.invalid("invalid compiled corpus magic"));
+        if magic == MAGIC {
+            return Ok(());
+        }
+        if magic.starts_with(FORMAT_FAMILY) {
+            return Err(CfError::IncompatibleCache {
+                path: self.path.to_path_buf(),
+                found: String::from_utf8_lossy(&magic[FORMAT_FAMILY.len()..]).into_owned(),
+                expected: CFR_VERSION,
+            });
+        }
+        Err(self.invalid("invalid compiled corpus magic"))
+    }
+
+    /// Consumes the magic of a mandatory section.
+    fn expect_section_magic(&mut self, magic: &[u8; 8]) -> Result<()> {
+        if self.take(magic.len())? != magic {
+            return Err(self.invalid(format!(
+                "missing section {}",
+                String::from_utf8_lossy(magic).trim_end_matches('\0')
+            )));
         }
         Ok(())
     }
@@ -4489,10 +4201,10 @@ impl<'a> Reader<'a> {
         Ok(edge_values)
     }
 
-    fn inspect_structure_section(&mut self) -> Result<Option<usize>> {
+    fn inspect_structure_section(&mut self) -> Result<usize> {
         let start = self.offset;
         self.read_structure_section()?;
-        Ok(Some(start))
+        Ok(start)
     }
 
     fn peek_magic(&self, magic: &[u8; 8]) -> bool {
@@ -4501,43 +4213,9 @@ impl<'a> Reader<'a> {
             == Some(&magic[..])
     }
 
-    /// Parses (skipping payloads) the optional v3 appended sections, recording
-    /// the byte offset of each section's payload. Absent sections (pre-v3 cache
-    /// or no section data) yield `None`.
-    fn inspect_v3_sections(&mut self) -> Result<V3SectionOffsets> {
-        let mut offsets = V3SectionOffsets::default();
-        if !self.is_done() && self.peek_magic(LEV_UP_MAGIC) {
-            offsets.v3_start = Some(self.offset);
-            self.take(LEV_UP_MAGIC.len())?;
-            offsets.lev_up_start = Some(self.inspect_csr()?);
-        }
-        if !self.is_done() && self.peek_magic(LEV_DOWN_MAGIC) {
-            self.take(LEV_DOWN_MAGIC.len())?;
-            offsets.lev_down_start = Some(self.inspect_csr()?);
-        }
-        if !self.is_done() && self.peek_magic(BOUNDARY_MAGIC) {
-            self.take(BOUNDARY_MAGIC.len())?;
-            offsets.boundary_first_start = Some(self.inspect_csr()?);
-            offsets.boundary_last_start = Some(self.inspect_csr()?);
-        }
-        if !self.is_done() && self.peek_magic(REVERSE_EDGES_MAGIC) {
-            offsets.reverse_edges = self.inspect_reverse_edges_section()?;
-        }
-        if !self.is_done() && self.peek_magic(ROW_INDEX_MAGIC) {
-            offsets.row_indexes = self.inspect_row_index_section()?;
-        }
-        // `CFRSECT1` is the last section: record where it starts and leave the
-        // parse to the first `sections_data()` call.
-        if !self.is_done() && self.peek_magic(SECTIONS_MAGIC) {
-            self.take(SECTIONS_MAGIC.len())?;
-            offsets.sections_start = Some(self.offset);
-        }
-        Ok(offsets)
-    }
-
     /// Parses the `CFRROWS1` entries (vectors are bounds-checked, not copied).
     fn inspect_row_index_section(&mut self) -> Result<Vec<(RowIndexKind, String, RowIndexLayout)>> {
-        self.take(ROW_INDEX_MAGIC.len())?;
+        self.expect_section_magic(ROW_INDEX_MAGIC)?;
         let count = self.read_u32()? as usize;
         let mut entries = Vec::with_capacity(count);
         for _ in 0..count {
@@ -4554,7 +4232,7 @@ impl<'a> Reader<'a> {
     /// Parses the `CFRREVE1` section header and each feature's reverse-index
     /// layout (payloads are validated for bounds, not copied).
     fn inspect_reverse_edges_section(&mut self) -> Result<Vec<(String, ReverseEdgeLayout)>> {
-        self.take(REVERSE_EDGES_MAGIC.len())?;
+        self.expect_section_magic(REVERSE_EDGES_MAGIC)?;
         let count = self.read_u32()? as usize;
         let mut layouts = Vec::with_capacity(count);
         for _ in 0..count {
@@ -4641,30 +4319,21 @@ impl<'a> Reader<'a> {
         })
     }
 
-    /// Reads a structure section; a pre-v4 (`CFRSTRC2`) section yields its
-    /// text heading values as strings (see [`HeadingEncoding::Text`]).
-    fn read_structure_section(&mut self) -> Result<Option<StructureData>> {
-        let magic = self.take(STRUCTURE_MAGIC.len())?;
-        let encoding = if magic == STRUCTURE_MAGIC {
-            HeadingEncoding::Typed
-        } else if magic == LEGACY_STRUCTURE_MAGIC {
-            HeadingEncoding::Text
-        } else {
-            return Err(self.invalid("invalid structure section magic"));
-        };
+    fn read_structure_section(&mut self) -> Result<StructureData> {
+        self.expect_section_magic(STRUCTURE_MAGIC)?;
         let top = self.read_u32_vec()?;
 
         let heading_count = self.read_u32()? as usize;
         let mut heading_from_node = BTreeMap::new();
         for _ in 0..heading_count {
             let node = self.read_u32()?;
-            heading_from_node.insert(node, self.read_heading(encoding)?);
+            heading_from_node.insert(node, self.read_heading()?);
         }
 
         let node_heading_count = self.read_u32()? as usize;
         let mut node_from_heading = BTreeMap::new();
         for _ in 0..node_heading_count {
-            let heading = self.read_heading(encoding)?;
+            let heading = self.read_heading()?;
             let node = self.read_u32()?;
             node_from_heading.insert(heading, node);
         }
@@ -4672,7 +4341,7 @@ impl<'a> Reader<'a> {
         let multiple_count = self.read_u32()? as usize;
         let mut multiple = BTreeMap::new();
         for _ in 0..multiple_count {
-            let heading = self.read_heading(encoding)?;
+            let heading = self.read_heading()?;
             multiple.insert(heading, self.read_u32_vec()?);
         }
 
@@ -4691,14 +4360,14 @@ impl<'a> Reader<'a> {
             down.insert(parent, self.read_u32_vec()?);
         }
 
-        Ok(Some(StructureData {
+        Ok(StructureData {
             heading_from_node,
             node_from_heading,
             multiple,
             top,
             up,
             down,
-        }))
+        })
     }
 
     fn read_metadata_map(&mut self) -> Result<BTreeMap<String, Option<String>>> {
@@ -4716,22 +4385,17 @@ impl<'a> Reader<'a> {
         Ok(metadata)
     }
 
-    fn inspect_edge_feature(&mut self) -> Result<CompiledEdgeFeature> {
+    fn inspect_edge_feature(&mut self) -> Result<EdgeFeatureEntry> {
         let name = self.read_string()?;
         let row_count = self.read_u32()? as usize;
         let payload_len = self.read_u32()? as usize;
         let payload_start = self.offset;
         self.skip_bytes(payload_len)?;
-        Ok(CompiledEdgeFeature {
+        Ok(EdgeFeatureEntry {
             name,
             row_count,
             payload_start,
             payload_end: self.offset,
-            edge_value_count: 0,
-            edge_values_start: None,
-            metadata: BTreeMap::new(),
-            reverse_index: None,
-            row_index: None,
         })
     }
 
@@ -4784,31 +4448,27 @@ impl<'a> Reader<'a> {
         Ok(values)
     }
 
-    fn read_heading(&mut self, encoding: HeadingEncoding) -> Result<Vec<StructureHeading>> {
+    fn read_heading(&mut self) -> Result<Vec<StructureHeading>> {
         let len = self.read_u32()? as usize;
         let mut heading = Vec::with_capacity(self.capacity_for(len, 8));
         for _ in 0..len {
             let node_type = self.read_string()?;
-            let value = match encoding {
-                HeadingEncoding::Typed => self.read_optional_feature_value()?,
-                HeadingEncoding::Text => Some(FeatureValue::string(self.read_string()?)),
-            };
             heading.push(StructureHeading {
                 node_type,
-                heading: value,
+                heading: self.read_optional_feature_value()?,
             });
         }
         Ok(heading)
     }
 
-    fn inspect_u32_vec(&mut self) -> Result<(usize, Option<usize>)> {
+    fn inspect_u32_vec(&mut self) -> Result<(usize, usize)> {
         let len = self.read_u32()? as usize;
         let start = self.offset;
         self.skip_bytes(
             len.checked_mul(4)
                 .ok_or_else(|| self.invalid("compiled u32 vector byte count overflow"))?,
         )?;
-        Ok((len, Some(start)))
+        Ok((len, start))
     }
 
     fn take(&mut self, len: usize) -> Result<&'a [u8]> {

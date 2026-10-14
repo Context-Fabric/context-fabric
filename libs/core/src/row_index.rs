@@ -1,11 +1,10 @@
 //! Row offsets for features whose rows have variable length (mixed node
 //! features and edge features), stored in the `.cfr` section `CFRROWS1`.
 //!
-//! Finding row `i` of such a feature needs the byte offset of every row. Older
-//! caches had to walk the whole payload on first access to build that table in
-//! the heap (8 bytes per row, plus every payload page pulled into memory); the
-//! `CFRROWS1` section stores it once at compile time as little-endian u32
-//! offsets relative to the feature's payload start, read straight from the map.
+//! Finding row `i` of such a feature needs the byte offset of every row. The
+//! `CFRROWS1` section stores them once at compile time as little-endian u32
+//! offsets relative to the feature's payload start, read straight from the map
+//! (no heap table, no payload walk).
 //!
 //! Section layout: `u32` entry count, then per entry a `u8` [`RowIndexKind`],
 //! the feature name (`u32` length + UTF-8) and a `u32`-length-prefixed vector of
@@ -19,7 +18,7 @@ use crate::error::Result;
 
 /// Which feature table a `CFRROWS1` entry belongs to (node and edge feature
 /// names may coincide).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RowIndexKind {
     Node = 0,
     Edge = 1,
@@ -65,22 +64,21 @@ impl RowIndexLayout {
     }
 }
 
-/// Absolute byte offsets of a feature's rows.
+/// Absolute byte offsets of a feature's rows: its `CFRROWS1` offsets,
+/// relative to `base` (the payload start), read from the map on demand.
 #[derive(Debug)]
-pub enum RowOffsets {
-    /// From `CFRROWS1`: offsets relative to `base` (the payload start), read
-    /// from the map on demand. No heap, no payload walk.
-    Mapped { base: usize, layout: RowIndexLayout },
-    /// Caches without `CFRROWS1`: found by walking the payload once.
-    Scanned(Vec<usize>),
+pub struct RowOffsets {
+    base: usize,
+    layout: RowIndexLayout,
 }
 
 impl RowOffsets {
+    pub fn new(base: usize, layout: RowIndexLayout) -> Self {
+        Self { base, layout }
+    }
+
     pub fn len(&self) -> usize {
-        match self {
-            Self::Mapped { layout, .. } => layout.len,
-            Self::Scanned(offsets) => offsets.len(),
-        }
+        self.layout.len
     }
 
     pub fn is_empty(&self) -> bool {
@@ -90,18 +88,13 @@ impl RowOffsets {
     /// Absolute offset of row `index`. Out-of-range rows map to `usize::MAX`,
     /// which every bounds-checked map read rejects as an error.
     pub fn get(&self, bytes: &[u8], index: usize) -> usize {
-        match self {
-            Self::Mapped { base, layout } => {
-                if index >= layout.len {
-                    return usize::MAX;
-                }
-                let at = layout.start + index * 4;
-                bytes.get(at..at + 4).map_or(usize::MAX, |raw| {
-                    base + u32::from_le_bytes([raw[0], raw[1], raw[2], raw[3]]) as usize
-                })
-            }
-            Self::Scanned(offsets) => offsets.get(index).copied().unwrap_or(usize::MAX),
+        if index >= self.layout.len {
+            return usize::MAX;
         }
+        let at = self.layout.start + index * 4;
+        bytes.get(at..at + 4).map_or(usize::MAX, |raw| {
+            self.base + u32::from_le_bytes([raw[0], raw[1], raw[2], raw[3]]) as usize
+        })
     }
 
     pub fn iter<'a>(&'a self, bytes: &'a [u8]) -> impl Iterator<Item = usize> + 'a {
@@ -236,19 +229,12 @@ mod tests {
         assert_eq!(end, bytes.len());
         assert_eq!(layout.len(), 3);
 
-        let offsets = RowOffsets::Mapped { base: 100, layout };
+        let offsets = RowOffsets::new(100, layout);
         assert_eq!(
             offsets.iter(&bytes).collect::<Vec<_>>(),
             vec![104, 117, 130]
         );
         assert_eq!(offsets.get(&bytes, 3), usize::MAX);
-
-        let scanned = RowOffsets::Scanned(vec![104, 117, 130]);
-        assert_eq!(
-            scanned.iter(&bytes).collect::<Vec<_>>(),
-            vec![104, 117, 130]
-        );
-        assert_eq!(scanned.get(&bytes, 9), usize::MAX);
     }
 
     #[test]

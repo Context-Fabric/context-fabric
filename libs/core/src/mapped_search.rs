@@ -498,18 +498,11 @@ impl<'a> MappedSearch<'a> {
         //    and the reverse index straight from the map.
         let edge_views = self.edge_views(plan)?;
 
-        // 5. Slot -> container indexes for atoms that may be driven in the reverse
-        //    (container-from-contained) direction. Interval containment scans grow
-        //    O(candidates); a slot index keeps it O(1) and is exact even for
-        //    sparse-interval container types such as `lex`.
-        let container_index =
-            self.build_container_indexes(plan, &candidates, &embeds, otype, oslots)?;
-
-        // 6. Connectivity-greedy evaluation order so every non-seed atom is driven
+        // 5. Connectivity-greedy evaluation order so every non-seed atom is driven
         //    from an already-bound neighbour rather than enumerated wholesale.
         let order = compute_join_order(plan, &candidates, &embeds, root);
 
-        // 7. Backtracking join driven by relations/embeddings.
+        // 6. Backtracking join driven by relations/embeddings.
         let mut results = if count_only {
             JoinSink::Count(0)
         } else {
@@ -523,7 +516,6 @@ impl<'a> MappedSearch<'a> {
             &candidates,
             &embeds,
             &edge_views,
-            &container_index,
             &order,
             0,
             &mut bound,
@@ -538,54 +530,6 @@ impl<'a> MappedSearch<'a> {
         Ok(results)
     }
 
-    /// Build a `slot -> [container node]` index for every atom that may be driven as
-    /// a container (an embedding parent, or the container side of `[[` / `]]`).
-    fn build_container_indexes(
-        &self,
-        plan: &MappedRelationPlan,
-        candidates: &[CandidateSet],
-        embeds: &[Option<usize>],
-        otype: &StringPoolNodeFeatureView<'_>,
-        oslots: &EdgeFeatureView<'_>,
-    ) -> Result<HashMap<usize, HashMap<u32, Vec<u32>>>> {
-        // With a v3 `levUp` CSR on disk, `containers_of` reads embedders straight
-        // from the mmap — no per-query slot index (which costs a full
-        // slots-of-every-candidate scan and a transient multi-MB map) is needed.
-        if self.corpus.metadata().lev_up_start.is_some() {
-            return Ok(HashMap::new());
-        }
-        let n = plan.atoms.len();
-        let mut needs = vec![false; n];
-        for parent in embeds.iter().flatten() {
-            needs[*parent] = true;
-        }
-        for relation in &plan.relations {
-            match (&relation.operator, &relation.left, &relation.right) {
-                (MappedRelationOperator::Embeds, MappedRelationEndpoint::Atom(left), _) => {
-                    needs[*left] = true;
-                }
-                (MappedRelationOperator::EmbeddedIn, _, MappedRelationEndpoint::Atom(right)) => {
-                    needs[*right] = true;
-                }
-                _ => {}
-            }
-        }
-        let mut indexes = HashMap::new();
-        for (atom, needed) in needs.into_iter().enumerate() {
-            if !needed {
-                continue;
-            }
-            let mut map: HashMap<u32, Vec<u32>> = HashMap::new();
-            for node in candidates[atom].nodes() {
-                for slot in self.node_slots(oslots, otype, node)? {
-                    map.entry(slot).or_default().push(node);
-                }
-            }
-            indexes.insert(atom, map);
-        }
-        Ok(indexes)
-    }
-
     #[allow(clippy::too_many_arguments)]
     fn join_recurse(
         &self,
@@ -593,7 +537,6 @@ impl<'a> MappedSearch<'a> {
         candidates: &[CandidateSet],
         embeds: &[Option<usize>],
         edge_views: &EdgeViews<'_>,
-        container_index: &HashMap<usize, HashMap<u32, Vec<u32>>>,
         order: &[usize],
         pos: usize,
         bound: &mut [Option<u32>],
@@ -616,17 +559,7 @@ impl<'a> MappedSearch<'a> {
         }
         let atom = order[pos];
         let cands = self.drive_candidates(
-            plan,
-            candidates,
-            embeds,
-            edge_views,
-            container_index,
-            atom,
-            bound,
-            root,
-            otype,
-            oslots,
-            slot_cache,
+            plan, candidates, embeds, edge_views, atom, bound, root, otype, oslots, slot_cache,
         )?;
         for node in cands {
             bound[atom] = Some(node);
@@ -645,7 +578,6 @@ impl<'a> MappedSearch<'a> {
                     candidates,
                     embeds,
                     edge_views,
-                    container_index,
                     order,
                     pos + 1,
                     bound,
@@ -784,7 +716,6 @@ impl<'a> MappedSearch<'a> {
         candidates: &[CandidateSet],
         embeds: &[Option<usize>],
         edge_views: &EdgeViews<'_>,
-        container_index: &HashMap<usize, HashMap<u32, Vec<u32>>>,
         atom: usize,
         bound: &[Option<u32>],
         root: Option<u32>,
@@ -793,7 +724,6 @@ impl<'a> MappedSearch<'a> {
         slot_cache: &mut HashMap<u32, Option<(u32, u32)>>,
     ) -> Result<Vec<u32>> {
         let cset = &candidates[atom];
-        let cmap = container_index.get(&atom);
         let mut drivers: Vec<Vec<u32>> = Vec::new();
 
         // Forward embedding: `atom` is contained in its bound parent.
@@ -815,7 +745,7 @@ impl<'a> MappedSearch<'a> {
                     else {
                         return Ok(Vec::new());
                     };
-                    drivers.push(containers_of(self.corpus, cmap, cset, cf, cl)?);
+                    drivers.push(containers_of(self.corpus, cset, cf, cl)?);
                 }
             }
         }
@@ -837,7 +767,6 @@ impl<'a> MappedSearch<'a> {
                 is_left,
                 other,
                 cset,
-                cmap,
                 edge_views,
                 slot_cache,
                 otype,
@@ -874,7 +803,6 @@ impl<'a> MappedSearch<'a> {
         is_left: bool,
         other: u32,
         cset: &CandidateSet,
-        cmap: Option<&HashMap<u32, Vec<u32>>>,
         edge_views: &EdgeViews<'_>,
         slot_cache: &mut HashMap<u32, Option<(u32, u32)>>,
         otype: &StringPoolNodeFeatureView<'_>,
@@ -906,7 +834,7 @@ impl<'a> MappedSearch<'a> {
                 }
                 Embeds => {
                     if is_left {
-                        containers_of(self.corpus, cmap, cset, of, ol)?
+                        containers_of(self.corpus, cset, of, ol)?
                     } else {
                         cset.nodes_within_slot_interval(of, ol)
                     }
@@ -915,7 +843,7 @@ impl<'a> MappedSearch<'a> {
                     if is_left {
                         cset.nodes_within_slot_interval(of, ol)
                     } else {
-                        containers_of(self.corpus, cmap, cset, of, ol)?
+                        containers_of(self.corpus, cset, of, ol)?
                     }
                 }
                 Overlaps => cset.nodes_overlapping(of, ol),
@@ -2413,27 +2341,15 @@ fn operator_drive_strength(operator: &MappedRelationOperator) -> u32 {
     }
 }
 
-/// Candidate container nodes for a child interval `[first, last]`. With a slot
-/// index (built for container atoms) this is an exact, O(1) lookup on the child's
-/// first slot followed by interval verification; otherwise it falls back to the
-/// interval scan.
+/// Candidate container nodes for a child interval `[first, last]`: the
+/// embedders of its first slot from the `levUp` index, falling back to the
+/// interval scan for a slot outside the index.
 fn containers_of(
     corpus: &MappedCompiledCorpus,
-    cmap: Option<&HashMap<u32, Vec<u32>>>,
     cset: &CandidateSet,
     first: u32,
     last: u32,
 ) -> Result<Vec<u32>> {
-    if let Some(map) = cmap {
-        return Ok(match map.get(&first) {
-            Some(nodes) => nodes
-                .iter()
-                .copied()
-                .filter(|n| cset.contains(*n))
-                .collect(),
-            None => Vec::new(),
-        });
-    }
     if let Some(nodes) = lev_up_containers(corpus, cset, first)? {
         return Ok(nodes);
     }
@@ -2442,9 +2358,7 @@ fn containers_of(
 
 /// Containers of the slot `first` drawn from the precomputed `levUp` CSR row
 /// (every embedder of that slot), filtered to the atom's candidates and sorted
-/// ascending — the same set, in the same order, as the per-query
-/// `build_container_indexes` map this replaces (which also keyed by first slot
-/// and held candidates in ascending node order).
+/// ascending.
 fn lev_up_containers(
     corpus: &MappedCompiledCorpus,
     cset: &CandidateSet,

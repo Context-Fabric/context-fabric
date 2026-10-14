@@ -18,7 +18,7 @@ from typing import Any
 HERE = Path(__file__).resolve().parent
 PROBE_DIR = HERE / "probes"
 GOLDEN_DIR = HERE / "golden"
-REPO_CORPORA = HERE.parents[3] / "benchmarks" / ".corpora"
+REPO_CORPORA = HERE.parents[2] / "benchmarks" / ".corpora"
 CORPORA = ("bhsa", "n1904", "banks")
 
 

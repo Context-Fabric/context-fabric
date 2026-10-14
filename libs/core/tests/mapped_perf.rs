@@ -1,5 +1,5 @@
-//! Phase 2 (mapped performance foundation) tests: `.cfr` v3 precomputed
-//! sections round-trip, pre-v3 cache fallback, oslots slot-identity, canonical
+//! Mapped performance foundation tests: `.cfr` precomputed index sections
+//! round-trip, older cache formats rejected, oslots slot-identity, canonical
 //! `F.s` ordering, the binary-search edge-value index, and view-cache hit
 //! consistency. Fixtures are tiny corpora compiled to a temp `.cfr`.
 
@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use context_fabric_core::compiled::{MappedCompiledCorpus, MappedNodeValue, compile_features};
-use context_fabric_core::{Corpus, FeatureValue, precompute};
+use context_fabric_core::{CfError, Corpus, FeatureValue, precompute};
 
 fn mini_corpus_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/mini_corpus")
@@ -80,14 +80,7 @@ fn v3_sections_round_trip_matches_precompute_outputs() {
     let boundary = precompute::boundary(&slot_sets, &rank, max_slot);
     let sections = precompute::sections(&corpus).expect("3-level corpus has sections");
 
-    // v3 sections present in metadata.
-    let meta = mapped.metadata();
-    assert!(meta.v3_start.is_some(), "v3 region must be present");
-    assert!(meta.lev_up_start.is_some());
-    assert!(meta.lev_down_start.is_some());
-    assert!(meta.boundary_first_start.is_some());
-    assert!(meta.boundary_last_start.is_some());
-    assert!(meta.sections_start.is_some());
+    assert!(mapped.metadata().sections_start.is_some());
 
     // levUp rows.
     for node in 1..=max_node {
@@ -147,44 +140,52 @@ fn v3_sections_round_trip_matches_precompute_outputs() {
     }
 }
 
+/// A cache in another `.cfr` format version (every pre-release format had the
+/// `CFRUST02` header) is rejected with a hint to recompile, not read.
 #[test]
-fn pre_v3_cache_still_loads_with_fallback() {
+fn caches_of_another_format_version_are_rejected() {
     let temp = tempfile::tempdir().unwrap();
     let source = temp.path().join("three_level");
     write_three_level_corpus(&source);
     let cache = temp.path().join("three_level.cfr");
     compile_features(&source, &cache, &[]).unwrap();
 
-    // Determine where the v3 region begins, then truncate it away to simulate
-    // an old pre-v3 cache.
-    let v3_start = {
-        let mapped = MappedCompiledCorpus::open(&cache).unwrap();
-        mapped.metadata().v3_start.expect("v3 region present")
-    };
+    let mut bytes = fs::read(&cache).unwrap();
+    assert_eq!(&bytes[..8], b"CFRUST04");
+    bytes[..8].copy_from_slice(b"CFRUST02");
+    fs::write(&cache, &bytes).unwrap();
+
+    let error = MappedCompiledCorpus::open(&cache).unwrap_err();
+    assert!(
+        matches!(error, CfError::IncompatibleCache { ref found, .. } if found == "02"),
+        "{error:?}"
+    );
+    let message = error.to_string();
+    assert!(
+        message.contains("format 02") && message.contains("recompile"),
+        "{message}"
+    );
+}
+
+/// Every index section is mandatory: a cache cut short before them is corrupt.
+#[test]
+fn caches_missing_an_index_section_are_rejected() {
+    let temp = tempfile::tempdir().unwrap();
+    let source = temp.path().join("three_level");
+    write_three_level_corpus(&source);
+    let cache = temp.path().join("three_level.cfr");
+    compile_features(&source, &cache, &[]).unwrap();
+
     let bytes = fs::read(&cache).unwrap();
-    let legacy = temp.path().join("legacy.cfr");
-    fs::write(&legacy, &bytes[..v3_start]).unwrap();
-
-    let mapped = MappedCompiledCorpus::open(&legacy).unwrap();
-    let meta = mapped.metadata();
-    assert!(meta.v3_start.is_none(), "truncated cache has no v3 region");
-    assert!(meta.lev_up_start.is_none());
-    assert!(meta.sections_start.is_none());
-
-    // Accessors return None (fallback) rather than erroring.
-    assert_eq!(mapped.lev_up_row(7).unwrap(), None);
-    assert_eq!(mapped.lev_down_row(9).unwrap(), None);
-    assert_eq!(mapped.boundary_first(1).unwrap(), None);
-    assert_eq!(mapped.boundary_last(1).unwrap(), None);
-    assert_eq!(mapped.sections_data().unwrap(), None);
-
-    // Core feature reads still work on the legacy cache.
-    let otype = mapped.string_pool_node_feature("otype").unwrap().unwrap();
-    assert_eq!(otype.str_value(7).unwrap(), Some("verse"));
-    let oslots = mapped.edge_feature("oslots").unwrap().unwrap();
-    assert_eq!(oslots.f(7).unwrap(), vec![1, 2, 3]);
-    // boundary computed feature falls back to the scan path and still completes.
-    assert!(mapped.computed_feature("boundary").unwrap().is_some());
+    let lev_up = bytes
+        .windows(8)
+        .position(|window| window == b"CFRLEVU1")
+        .expect("levUp section present");
+    fs::write(&cache, &bytes[..lev_up]).unwrap();
+    assert!(matches!(
+        MappedCompiledCorpus::open(&cache),
+        Err(CfError::Parse { .. })
+    ));
 }
 
 #[test]
@@ -353,16 +354,6 @@ fn bhsa_compile_size_and_timing_probe() {
     println!("BHSA compile: {compile_ms:.0} ms, cache size {size_mb:.1} MB");
 
     let mapped = MappedCompiledCorpus::open(&cache).unwrap();
-    let meta = mapped.metadata();
-    println!(
-        "v3 present={} lev_up={:?} lev_down={:?} boundary_first={:?} sections={:?}",
-        meta.v3_start.is_some(),
-        meta.lev_up_start,
-        meta.lev_down_start,
-        meta.boundary_first_start,
-        meta.sections_start,
-    );
-    assert!(meta.v3_start.is_some());
 
     // Repeated string-pool feature value lookups: warm then measure.
     let word = mapped.string_pool_node_feature("g_word").unwrap();

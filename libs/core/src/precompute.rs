@@ -478,7 +478,7 @@ pub fn sections(corpus: &Corpus) -> Option<SectionsData> {
 }
 
 /// Same as [`sections`], but reuses already-computed `levUp`/`levDown` data so
-/// the v3 writer does not recompute them. `lev_up` is indexed by `node - 1` over
+/// the cache writer does not recompute them. `lev_up` is indexed by `node - 1` over
 /// `1..=max_node`; `lev_down` is indexed by `node - max_slot - 1` over
 /// `max_slot+1..=max_node` (matching [`lev_down`]'s output).
 ///
