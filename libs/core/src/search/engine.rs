@@ -1,12 +1,14 @@
+//! [`MappedSearch`]: parses a search template, plans it, and runs the join.
+
 use std::collections::{HashMap, HashSet};
 
 use regex::Regex;
 
-use crate::compiled::{
+use crate::error::{CfError, Result};
+use crate::mapped::{
     EdgeFeatureView, MappedCompiledCorpus, MappedNodeValue, MixedNodeFeatureView,
     StringPoolNodeFeatureView,
 };
-use crate::error::{CfError, Result};
 use crate::search::{SearchSets, SearchStudy};
 
 /// Where the backtracking join emits complete assignments: materialized rows
@@ -1451,7 +1453,7 @@ struct ResolvedConstraint<'a, 'query> {
 }
 
 impl<'a, 'query> ResolvedConstraint<'a, 'query> {
-    fn new(
+    pub(crate) fn new(
         constraint: &'query SimpleConstraint,
         feature: MappedNodeFeatureView<'a>,
     ) -> Result<Self> {
@@ -1547,7 +1549,7 @@ struct CandidateSet {
 }
 
 impl CandidateSet {
-    fn new(entries: Vec<CandidateEntry>) -> Self {
+    pub(crate) fn new(entries: Vec<CandidateEntry>) -> Self {
         let mut by_first_slot = (0..entries.len() as u32).collect::<Vec<_>>();
         by_first_slot.sort_by_key(|index| {
             let entry = &entries[*index as usize];

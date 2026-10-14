@@ -13,8 +13,8 @@
 use std::path::Path;
 use std::sync::OnceLock;
 
-use crate::compiled::{invalid_compiled, read_u32_from};
 use crate::error::Result;
+use crate::format::{invalid_compiled, read_u32_from};
 
 /// Which feature table a `CFRROWS1` entry belongs to (node and edge feature
 /// names may coincide).
@@ -214,7 +214,7 @@ impl NodeRank {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::compiled::write_u32_vec;
+    use crate::format::write_u32_vec;
 
     #[test]
     fn mapped_offsets_are_relative_to_the_payload_and_bounds_checked() {

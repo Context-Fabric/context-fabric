@@ -1,12 +1,15 @@
+//! [`Fabric`]: a corpus location (one or more module directories) and the
+//! entry points to explore, compile, and load it.
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use crate::cache::{CacheLocations, ensure_compiled};
-use crate::compiled::{MappedCompiledCorpus, compile_features, compile_loaded_corpus};
+use crate::compile::{Corpus, compile_features, compile_loaded_corpus};
 use crate::config::{BANNER, VERSION};
-use crate::corpus::Corpus;
 use crate::error::Result;
-use crate::explore::{FeatureInventory, explore_feature_paths};
+use crate::mapped::MappedCompiledCorpus;
+use crate::tf::{FeatureInventory, explore_feature_paths};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fabric {

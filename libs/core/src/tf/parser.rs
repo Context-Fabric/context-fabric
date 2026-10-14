@@ -1,10 +1,13 @@
+//! Parses `.tf` feature files (headers, metadata, node and edge rows).
+
 use std::collections::{BTreeMap, HashMap};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
 use crate::error::{CfError, Result};
-use crate::feature::{EdgeFeature, FeatureValue, NodeFeature, TfFeature, parse_value};
+use crate::tf::{EdgeFeature, NodeFeature, TfFeature, parse_value};
+use crate::value::FeatureValue;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FeatureKind {
@@ -328,7 +331,7 @@ fn parse_valued_edge_targets(
     Ok(rows)
 }
 
-fn metadata_value<'a>(
+pub(crate) fn metadata_value<'a>(
     metadata: &'a BTreeMap<String, Option<String>>,
     key: &str,
 ) -> Option<&'a str> {

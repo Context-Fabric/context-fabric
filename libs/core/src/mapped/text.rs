@@ -1,14 +1,31 @@
+//! Text rendering from the `otext` formats (`T.text`) and the text
+//! configuration (`T.formats`, `T.languages`).
+
+use std::collections::BTreeSet;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
-use crate::compiled::{
-    EdgeFeatureView, MappedCompiledCorpus, MappedNodeValue, OwnedEdgeFeature, OwnedNodeFeature,
-    OwnedStringPoolFeature, StringPoolNodeFeatureView,
-};
-use crate::corpus::TextOptions;
 use crate::error::{CfError, Result};
-use crate::mapped_sections::SectionsContext;
-use crate::precompute::StructureHeading;
+use crate::index::StructureHeading;
+use crate::mapped::{
+    EdgeFeatureView, MappedCompiledCorpus, MappedNodeValue, OwnedEdgeFeature, OwnedNodeFeature,
+    OwnedStringPoolFeature, SectionsContext, StringPoolNodeFeatureView,
+};
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct TextOptions {
+    pub format: Option<String>,
+    pub descend: Option<bool>,
+}
+
+impl TextOptions {
+    pub fn new(format: Option<impl Into<String>>, descend: Option<bool>) -> Self {
+        Self {
+            format: format.map(Into::into),
+            descend,
+        }
+    }
+}
 
 pub struct MappedText<'a> {
     corpus: &'a MappedCompiledCorpus,
@@ -170,7 +187,7 @@ impl<'a> MappedText<'a> {
 
     /// TF's expansion to the format's target type: `L.d(node, otype=node_type)`.
     fn descendants_of_type(&self, node: u32, node_type: &str) -> Result<Vec<u32>> {
-        crate::mapped_sections::MappedSections::new(self.corpus)?.d(node, Some(node_type))
+        crate::mapped::MappedSections::new(self.corpus)?.d(node, Some(node_type))
     }
 
     fn text_for_node(&self, slot: u32, spec: &str) -> Result<String> {
@@ -788,4 +805,64 @@ fn render_format_literal(raw: &str) -> String {
         }
     }
     rendered
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CollectedFormat {
+    pub template: String,
+    pub rendered_template: String,
+    pub features: Vec<(Vec<String>, String)>,
+}
+
+pub fn collect_formats(
+    config: &BTreeMap<String, String>,
+) -> (BTreeMap<String, CollectedFormat>, Vec<String>) {
+    let mut feature_set = BTreeSet::new();
+    let mut formats = BTreeMap::new();
+
+    for (name, template) in config {
+        let Some(format_name) = name.strip_prefix("fmt:") else {
+            continue;
+        };
+        let mut rendered_template = String::new();
+        let mut features = Vec::new();
+        let mut rest = template.as_str();
+
+        while let Some(start) = rest.find('{') {
+            rendered_template.push_str(&rest[..start]);
+            let after_start = &rest[start + 1..];
+            let Some(end) = after_start.find('}') else {
+                rendered_template.push_str(&rest[start..]);
+                rest = "";
+                break;
+            };
+            let placeholder = &after_start[..end];
+            let (feature_part, default) = placeholder
+                .split_once(':')
+                .map(|(feature_part, default)| (feature_part, default))
+                .unwrap_or((placeholder, ""));
+            let alternatives = feature_part
+                .split('/')
+                .filter(|feature| !feature.is_empty())
+                .map(str::to_string)
+                .collect::<Vec<_>>();
+            for feature in &alternatives {
+                feature_set.insert(feature.clone());
+            }
+            features.push((alternatives, default.to_string()));
+            rendered_template.push_str("{}");
+            rest = &after_start[end + 1..];
+        }
+        rendered_template.push_str(rest);
+
+        formats.insert(
+            format_name.to_string(),
+            CollectedFormat {
+                template: template.clone(),
+                rendered_template,
+                features,
+            },
+        );
+    }
+
+    (formats, feature_set.into_iter().collect())
 }

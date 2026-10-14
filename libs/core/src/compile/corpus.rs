@@ -1,3 +1,5 @@
+//! The in-memory corpus loaded from `.tf` sources: the input of compilation.
+
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap};
 use std::fs::{self, File};
@@ -5,12 +7,9 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
-use serde::Serialize;
-
 use crate::error::{CfError, Result};
-use crate::feature::{EdgeFeature, FeatureValue, NodeFeature, TfFeature};
-use crate::parser::parse_tf_file;
-use crate::precompute::{self};
+use crate::tf::{EdgeFeature, NodeFeature, TfFeature, parse_tf_file};
+use crate::value::FeatureValue;
 
 #[derive(Debug)]
 pub struct Corpus {
@@ -26,105 +25,6 @@ pub struct Corpus {
     pub rank: Option<Vec<u32>>,
     order_cache: OnceLock<Vec<u32>>,
     rank_cache: OnceLock<Vec<u32>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct Boundary {
-    pub first_slots: Vec<Vec<u32>>,
-    pub last_slots: Vec<Vec<u32>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct TextOptions {
-    pub format: Option<String>,
-    pub descend: Option<bool>,
-}
-
-impl TextOptions {
-    pub fn new(format: Option<impl Into<String>>, descend: Option<bool>) -> Self {
-        Self {
-            format: format.map(Into::into),
-            descend,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub enum StructureTree {
-    Forest(Vec<StructureTree>),
-    Node {
-        node: u32,
-        children: Vec<StructureTree>,
-    },
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct SectionOptions {
-    pub last_slot: bool,
-    pub fillup: bool,
-    pub level: Option<usize>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub enum ComputedFeatureData {
-    Levels(Vec<(String, f64, u32, u32)>),
-    Order(Vec<u32>),
-    Rank(Vec<u32>),
-    Boundary(Boundary),
-    LevUp(Vec<Vec<u32>>),
-    LevDown(Vec<Vec<u32>>),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WalkEvent {
-    Start(u32),
-    End(u32),
-    Slot(u32),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Chunk {
-    pub node: u32,
-    pub start: u32,
-    pub end: u32,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ChunkPositionKey {
-    start: u32,
-    reverse_type_rank: std::cmp::Reverse<u32>,
-    reverse_end: std::cmp::Reverse<u32>,
-    node: u32,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ChunkLengthKey {
-    reverse_size: std::cmp::Reverse<u32>,
-    start: u32,
-    type_rank: u32,
-    node: u32,
-}
-
-impl ChunkPositionKey {
-    pub(crate) fn new(start: u32, type_rank: u32, end: u32, node: u32) -> Self {
-        Self {
-            start,
-            reverse_type_rank: std::cmp::Reverse(type_rank),
-            reverse_end: std::cmp::Reverse(end),
-            node,
-        }
-    }
-}
-
-impl ChunkLengthKey {
-    pub(crate) fn new(size: u32, start: u32, type_rank: u32, node: u32) -> Self {
-        Self {
-            reverse_size: std::cmp::Reverse(size),
-            start,
-            type_rank,
-            node,
-        }
-    }
 }
 
 impl Corpus {
@@ -343,7 +243,7 @@ impl Corpus {
         // Honor `@levelConstraints` (TF `prepare.py`): adjust the size-based order
         // before deriving ranks, so co-extensive nodes break ties identically.
         if let Some(spec) = level_constraints {
-            precompute::apply_level_constraints(&mut levels, spec, |level| level.0.as_str());
+            crate::index::apply_level_constraints(&mut levels, spec, |level| level.0.as_str());
         }
 
         let mut type_ranks = HashMap::new();

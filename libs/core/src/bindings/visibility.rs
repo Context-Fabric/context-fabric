@@ -10,10 +10,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::RwLock;
 
-use crate::compiled::MappedCompiledCorpus;
 use crate::config::{OSLOTS, OTEXT, OTYPE};
 use crate::error::Result;
-use crate::utils::collect_formats;
+use crate::mapped::MappedCompiledCorpus;
+use crate::mapped::text::collect_formats;
 
 /// The set of loaded (exposed) feature names, or "everything" for `loadAll`.
 pub(crate) struct FeatureVisibility {

@@ -1,10 +1,12 @@
+//! Feature inventory of `.tf` directories without loading feature data.
+
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 use crate::error::{CfError, Result};
-use crate::parser::parse_tf_file_metadata;
+use crate::tf::parse_tf_file_metadata;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct FeatureInventory {

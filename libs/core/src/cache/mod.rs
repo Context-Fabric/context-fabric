@@ -21,10 +21,9 @@ use std::time::UNIX_EPOCH;
 use serde::{Deserialize, Serialize};
 
 use crate::atomic_file::write_atomically;
-use crate::compiled::inspect_compiled;
 use crate::config::{CFR_VERSION, VERSION};
-use crate::downloader::get_cache_dir;
 use crate::error::{CfError, Result};
+use crate::format::inspect_compiled;
 
 const CACHE_DIR_NAME: &str = ".cfr";
 const CACHE_FILE_STEM: &str = "corpus";
@@ -298,3 +297,7 @@ mod tests {
         );
     }
 }
+
+mod user_dir;
+
+pub use user_dir::get_cache_dir;

@@ -1,3 +1,6 @@
+//! The per-user cache directory (`CFABRIC_CACHE`, else the platform cache
+//! directory), used for caches of read-only corpora and for downloads.
+
 use std::env;
 use std::path::PathBuf;
 

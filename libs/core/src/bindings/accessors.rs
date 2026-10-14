@@ -1,3 +1,5 @@
+//! The `N`, `L`, `T` and `S` APIs: nodes, locality, text and search.
+
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, OnceLock};
 
@@ -5,20 +7,18 @@ use pyo3::exceptions::{PyAttributeError, PyTypeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyInt, PyIterator, PyList, PySet, PyString, PyTuple};
 
-use crate::compiled::MappedCompiledCorpus;
-use crate::config::{DEFAULT_FORMAT, SEARCH_FAIL_FACTOR};
-use crate::corpus::{SectionOptions, StructureTree, TextOptions, WalkEvent};
-use crate::feature::FeatureValue;
-use crate::mapped_search::MappedSearch;
-use crate::mapped_sections::{MappedSections, SectionsContext};
-use crate::mapped_text::{MappedText, TextContext};
-use crate::precompute::StructureHeading;
-use crate::search::SearchSets;
-
 use super::api_ref::ApiRef;
 use super::features::feature_value_from_py;
 use super::node_arg::{node_number, optional_node_number};
 use super::timestamp::{Silent, write_console};
+use crate::config::DEFAULT_FORMAT;
+use crate::index::{StructureHeading, StructureTree};
+use crate::mapped::{
+    MappedCompiledCorpus, MappedSections, MappedText, SectionOptions, SectionsContext, TextContext,
+    TextOptions, WalkEvent,
+};
+use crate::search::{MappedSearch, SEARCH_FAIL_FACTOR, SearchSets};
+use crate::value::FeatureValue;
 
 fn nodes_to_tuple(py: Python<'_>, nodes: Vec<u32>) -> PyResult<PyObject> {
     Ok(PyTuple::new(py, nodes)?.into())
@@ -286,7 +286,7 @@ fn mapped_name_from_node(
     };
     let mut names = BTreeMap::new();
     for (node, value) in feature.items()? {
-        if let crate::compiled::MappedNodeValue::Str(value) = value {
+        if let crate::mapped::MappedNodeValue::Str(value) = value {
             names.insert(node, value.to_string());
         }
     }
@@ -749,8 +749,8 @@ fn section_heading(
                 .transpose()
                 .map(|value| {
                     value.map(|value| match value {
-                        crate::compiled::MappedNodeValue::Str(value) => FeatureValue::string(value),
-                        crate::compiled::MappedNodeValue::Int(value) => FeatureValue::Int(value),
+                        crate::mapped::MappedNodeValue::Str(value) => FeatureValue::string(value),
+                        crate::mapped::MappedNodeValue::Int(value) => FeatureValue::Int(value),
                     })
                 })
         })
@@ -1576,7 +1576,7 @@ impl PySearch {
     /// Print the legend of the relational operators usable in search templates.
     #[allow(non_snake_case)]
     fn relationsLegend(&self, py: Python<'_>) -> PyResult<()> {
-        write_console(py, false, true, crate::search::relations_legend())
+        write_console(py, false, true, crate::search::RELATIONS_LEGEND)
     }
 
     /// Performance parameters (empty: the planner has no tunable parameters).

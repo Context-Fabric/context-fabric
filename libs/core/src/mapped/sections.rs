@@ -1,12 +1,30 @@
-use crate::compiled::{
-    EdgeFeatureView, MappedCompiledCorpus, MappedNodeValue, MappedU32s, OwnedEdgeFeature,
-    OwnedNodeFeature, OwnedStringPoolFeature, StringPoolNodeFeatureView,
-};
-use crate::corpus::{SectionOptions, WalkEvent};
-use crate::error::{CfError, Result};
-use crate::feature::FeatureValue;
+//! Locality (`L.u/d/n/p/i`), sections (`T.sectionFromNode`,
+//! `T.nodeFromSection`) and walking (`N.walk`) over the mapped corpus.
+
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, RwLock};
+
+use crate::error::{CfError, Result};
+use crate::format::MappedU32s;
+use crate::mapped::{
+    EdgeFeatureView, MappedCompiledCorpus, OwnedEdgeFeature, OwnedNodeFeature,
+    OwnedStringPoolFeature, StringPoolNodeFeatureView,
+};
+use crate::value::FeatureValue;
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SectionOptions {
+    pub last_slot: bool,
+    pub fillup: bool,
+    pub level: Option<usize>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WalkEvent {
+    Start(u32),
+    End(u32),
+    Slot(u32),
+}
 
 /// The slot type plus the `otext` section and structure configuration, parsed
 /// once and shared by `Arc` between a [`SectionsContext`] and every
@@ -185,9 +203,7 @@ impl SectionsContext {
                     handles.section_feature_handles.get(index)
                 };
                 match handle {
-                    Some(Some(handle)) => Ok(handle
-                        .value(section_node)?
-                        .map(mapped_value_to_feature_value)),
+                    Some(Some(handle)) => Ok(handle.value(section_node)?.map(FeatureValue::from)),
                     _ => Ok(None),
                 }
             })
@@ -886,16 +902,9 @@ impl<'a> MappedSections<'a> {
             return Ok(feature.str_value(node)?.map(FeatureValue::string));
         }
         if let Some(feature) = self.corpus.mixed_node_feature(feature_name)? {
-            return Ok(feature.value(node)?.map(mapped_value_to_feature_value));
+            return Ok(feature.value(node)?.map(FeatureValue::from));
         }
         Ok(None)
-    }
-}
-
-fn mapped_value_to_feature_value(value: MappedNodeValue<'_>) -> FeatureValue {
-    match value {
-        MappedNodeValue::Str(value) => FeatureValue::string(value),
-        MappedNodeValue::Int(value) => FeatureValue::Int(value),
     }
 }
 

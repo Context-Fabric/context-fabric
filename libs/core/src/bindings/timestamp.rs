@@ -230,7 +230,7 @@ impl PyTimestamp {
     ///     level: Initial indentation level.
     #[new]
     #[pyo3(signature = (silent=Silent::DEFAULT, level=None), text_signature = "(silent='auto', level=None)")]
-    fn new(silent: Silent, level: Option<usize>) -> PyResult<Self> {
+    pub(crate) fn new(silent: Silent, level: Option<usize>) -> PyResult<Self> {
         let mut stamp = Self::with_silent(silent.0);
         stamp.level = level.unwrap_or(0);
         stamp.timestamps.insert(stamp.level, Instant::now());

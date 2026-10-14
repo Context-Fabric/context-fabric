@@ -1,3 +1,5 @@
+//! `Fabric` and the API object it loads (`Corpus`, Text-Fabric's `api`).
+
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
@@ -6,12 +8,6 @@ use pyo3::exceptions::PyAttributeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyList, PySet, PyString, PyTuple};
 use pyo3::{PyTraverseError, PyVisit};
-
-use crate::compiled::MappedCompiledCorpus;
-use crate::config::{OSLOTS, OTYPE};
-use crate::explore::FeatureInventory;
-use crate::fabric::Fabric;
-use crate::feature::{EdgeFeature, FeatureValue, NodeFeature, TfFeature};
 
 use super::accessors::{PyLocality, PyNodes, PySearch, PyText};
 use super::api_ref::ApiRef;
@@ -23,6 +19,11 @@ use super::timestamp::{
     AUTO, CacheTarget, PRINT_ONLY, PyTimestamp, SILENT_D, Silent, VERBOSE, write_console,
 };
 use super::visibility::FeatureVisibility;
+use crate::config::{OSLOTS, OTYPE};
+use crate::fabric::Fabric;
+use crate::mapped::MappedCompiledCorpus;
+use crate::tf::{EdgeFeature, FeatureInventory, NodeFeature, TfFeature};
+use crate::value::FeatureValue;
 
 fn strings_from_optional_python(value: Option<&Bound<'_, PyAny>>) -> PyResult<Option<Vec<String>>> {
     let Some(value) = value else {
@@ -263,7 +264,7 @@ impl PyFabric {
     #[new]
     #[allow(non_snake_case)]
     #[pyo3(signature = (locations=None, modules=None, silent=Silent::DEFAULT, _withGc=false), text_signature = "(locations=None, modules=None, silent='auto', _withGc=False)")]
-    fn new(
+    pub(crate) fn new(
         py: Python<'_>,
         locations: Option<&Bound<'_, PyAny>>,
         modules: Option<&Bound<'_, PyAny>>,

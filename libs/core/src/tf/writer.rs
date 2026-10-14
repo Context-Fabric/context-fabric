@@ -6,7 +6,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::error::{CfError, Result};
-use crate::feature::{TfFeature, tf_from_value};
+use crate::tf::{TfFeature, tf_from_value};
 
 impl TfFeature {
     /// Writes the feature as a `.tf` file at `path`: the `@node` / `@edge` /

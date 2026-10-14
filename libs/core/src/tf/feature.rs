@@ -1,61 +1,9 @@
+//! Node and edge features as parsed from `.tf` files.
+
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
-use serde::{Serialize, Serializer};
-
-use crate::error::{CfError, Result};
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum FeatureValue {
-    Str(Arc<str>),
-    Int(i64),
-}
-
-impl Serialize for FeatureValue {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            Self::Str(value) => serializer.serialize_str(value),
-            Self::Int(value) => serializer.serialize_i64(*value),
-        }
-    }
-}
-
-impl FeatureValue {
-    pub fn string(value: impl AsRef<str>) -> Self {
-        Self::Str(Arc::from(value.as_ref()))
-    }
-
-    pub fn as_str(&self) -> Option<&str> {
-        match self {
-            Self::Str(value) => Some(value),
-            Self::Int(_) => None,
-        }
-    }
-}
-
-/// Sorts `(value, count)` rows in Text-Fabric's `freqList` order
-/// (`tf/core/nodefeature.py`): highest count first, ties by ascending value.
-/// Values of one feature share a type, so the derived `Ord` compares ints
-/// numerically and strings by code point, like Python.
-pub(crate) fn sort_frequency_rows(rows: &mut [(FeatureValue, usize)]) {
-    rows.sort_unstable_by(|(left, left_count), (right, right_count)| {
-        right_count.cmp(left_count).then_with(|| left.cmp(right))
-    });
-}
-
-/// [`sort_frequency_rows`] for edge values, where a missing value (`None`) sorts
-/// after every value (Text-Fabric cannot order `None` against values at all).
-pub(crate) fn sort_optional_frequency_rows(rows: &mut [(Option<FeatureValue>, usize)]) {
-    rows.sort_unstable_by(|(left, left_count), (right, right_count)| {
-        right_count
-            .cmp(left_count)
-            .then_with(|| left.is_none().cmp(&right.is_none()))
-            .then_with(|| left.cmp(right))
-    });
-}
+use crate::value::FeatureValue;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeFeature {
@@ -149,12 +97,6 @@ pub struct EdgeFeature {
     rank: Option<Arc<Vec<u32>>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EdgeFrequency {
-    Count(usize),
-    Values(Vec<(Option<FeatureValue>, usize)>),
-}
-
 impl EdgeFeature {
     pub fn new_with_values(
         name: String,
@@ -225,53 +167,4 @@ fn rank_key(node: u32, rank: Option<&Vec<u32>>) -> (u32, u32) {
         .and_then(|rank| rank.get(node.saturating_sub(1) as usize).copied())
         .unwrap_or(node);
     (canonical, node)
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TfFeature {
-    Node(NodeFeature),
-    Edge(EdgeFeature),
-    Config {
-        name: String,
-        metadata: BTreeMap<String, Option<String>>,
-    },
-}
-
-pub(crate) fn parse_value(
-    raw: &str,
-    value_type: &str,
-    path: &std::path::Path,
-    line: usize,
-) -> Result<Option<FeatureValue>> {
-    if value_type == "int" {
-        if raw.is_empty() {
-            return Ok(None);
-        }
-        let parsed = raw.parse::<i64>().map_err(|_| CfError::Parse {
-            path: path.to_path_buf(),
-            line,
-            message: format!("expected integer value, got {raw:?}"),
-        })?;
-        Ok(Some(FeatureValue::Int(parsed)))
-    } else {
-        Ok(Some(FeatureValue::string(value_from_tf(raw))))
-    }
-}
-
-pub fn value_from_tf(raw: &str) -> String {
-    raw.split("\\\\")
-        .map(|part| part.replace("\\t", "\t").replace("\\n", "\n"))
-        .collect::<Vec<_>>()
-        .join("\\")
-}
-
-pub fn tf_from_value(value: &FeatureValue) -> String {
-    match value {
-        FeatureValue::Str(value) => value
-            .split('\\')
-            .map(|part| part.replace('\t', "\\t").replace('\n', "\\n"))
-            .collect::<Vec<_>>()
-            .join("\\\\"),
-        FeatureValue::Int(value) => value.to_string(),
-    }
 }

@@ -1,3 +1,5 @@
+//! [`CfError`], the error type of every fallible operation.
+
 use std::path::PathBuf;
 
 #[derive(Debug, thiserror::Error)]

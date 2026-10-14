@@ -1,3 +1,5 @@
+//! The `F`, `E` and `C` APIs: node, edge and computed feature objects.
+
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex, OnceLock};
 
@@ -7,17 +9,17 @@ use pyo3::exceptions::{PyAttributeError, PyImportError, PyTypeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyFrozenSet, PyInt, PyList, PySet, PyString, PyTuple};
 
+use super::api_ref::ApiRef;
 use super::node_arg::node_number;
-use crate::compiled::{
-    EdgeFeatureView, MappedCompiledCorpus, MappedNodeValue, OwnedEdgeFeature, OwnedNodeFeature,
+use super::visibility::FeatureVisibility;
+use crate::config::{OSLOTS, OTYPE};
+use crate::index::Boundary;
+use crate::mapped::{
+    Chunk, ChunkLengthKey, ChunkPositionKey, ComputedFeatureData, EdgeFeatureView, EdgeFrequency,
+    MappedCompiledCorpus, MappedNodeValue, OwnedEdgeFeature, OwnedNodeFeature,
     StringPoolNodeFeatureView,
 };
-use crate::config::{OSLOTS, OTYPE};
-use crate::corpus::{Boundary, Chunk, ChunkLengthKey, ChunkPositionKey, ComputedFeatureData};
-use crate::feature::{EdgeFrequency, FeatureValue};
-
-use super::api_ref::ApiRef;
-use super::visibility::FeatureVisibility;
+use crate::value::FeatureValue;
 
 /// Names of the computed data blocks every corpus has under `C`, sorted like
 /// TF's `Call()`; `structure` joins them when a structure is configured.
@@ -801,7 +803,7 @@ impl PyEdgeFeature {
     fn edge_value_to_py(
         &self,
         py: Python<'_>,
-        feature: &crate::compiled::EdgeFeatureView<'_>,
+        feature: &crate::mapped::EdgeFeatureView<'_>,
         source: u32,
         target: u32,
     ) -> PyResult<PyObject> {
@@ -1220,7 +1222,7 @@ pub(crate) struct PyComputed {
 }
 
 impl PyComputed {
-    fn new(data: PyObject, api: ApiRef) -> Self {
+    pub(crate) fn new(data: PyObject, api: ApiRef) -> Self {
         Self { data, api }
     }
 }
@@ -1301,7 +1303,7 @@ impl PyComputeds {
     fn structure_to_py(
         &self,
         py: Python<'_>,
-        data: &crate::precompute::StructureData,
+        data: &crate::index::StructureData,
     ) -> PyResult<PyObject> {
         use super::accessors::heading_to_py;
         let heading_from_node = PyDict::new(py);
@@ -1349,7 +1351,7 @@ impl PyComputeds {
     /// Per section level, whether its section feature is int-valued.
     fn section_key_types(&self) -> PyResult<Vec<bool>> {
         let metadata = self.corpus.metadata();
-        Ok(crate::mapped_sections::MappedSections::new(&self.corpus)?
+        Ok(crate::mapped::MappedSections::new(&self.corpus)?
             .section_features()
             .iter()
             .map(|name| {

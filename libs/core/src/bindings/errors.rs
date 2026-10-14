@@ -1,3 +1,5 @@
+//! Maps [`CfError`] to Python exceptions.
+
 use pyo3::exceptions::{PyException, PyFileNotFoundError, PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 

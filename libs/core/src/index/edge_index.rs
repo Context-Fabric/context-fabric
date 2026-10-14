@@ -18,9 +18,9 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::path::Path;
 
-use crate::compiled::{invalid_compiled, read_u32_from, write_u32_vec};
 use crate::error::Result;
-use crate::row_index::RowLookup;
+use crate::format::{invalid_compiled, read_u32_from, write_u32_vec};
+use crate::index::row_index::RowLookup;
 
 /// The owned reverse CSR built at compile time from a feature's forward rows.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

@@ -1,3 +1,5 @@
+//! The `cfabric._core` Python extension module.
+
 mod accessors;
 mod api_ref;
 mod errors;
