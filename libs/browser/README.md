@@ -27,6 +27,7 @@ Options:
 - `--timeout`: time limit per search in seconds (default 60).
 - `--max-results`: results kept per search (default 500,000).
 - `--no-open`: don't open a web browser.
+- `--window`: show the browser in a window of its own instead of a web browser (needs pywebview: `pip install cfabric-browser[desktop]`). Closing the window stops the server. Without `--port` it uses the first free port from 8107, so several windows can run at once. The window keeps its settings, search history and saved workspaces in `~/.cfabric/window`.
 - `--no-library`: don't let users open other corpora found on this computer. Then at least one corpus must be given.
 - `--hide ORG/REPO`: leave a corpus out of the *Open a corpus* list (repeatable). To do this permanently, list them in `~/.cfabric/browser.yaml`:
 
@@ -115,7 +116,7 @@ Tests: `pytest tests/` in `libs/browser` (they start real search workers on a sm
 
 ### Standalone program
 
-`packaging/cfabric-browser.spec` builds a program that runs without a Python installation (with PyInstaller; about 60 MB on Windows). Started without corpora, for example by double-clicking it, it opens the browser with the list of corpora on this computer. Build it in a separate virtual environment with normal, not editable, installs: PyInstaller does not find editable installs. On Windows, make that environment with a Python from python.org: PyInstaller cannot bundle the Microsoft Store Python.
+`packaging/cfabric-browser.spec` builds a program that runs without a Python installation (with PyInstaller; about 65 MB on Windows). It shows the browser in a window of its own (`--window`), without a console. Started without corpora, for example by double-clicking it, it offers the corpora on this computer. Build it in a separate virtual environment with normal, not editable, installs: PyInstaller does not find editable installs. On Windows, make that environment with a Python from python.org: PyInstaller cannot bundle the Microsoft Store Python.
 
 ```bash
 cd libs/browser
@@ -126,4 +127,4 @@ build/env/Scripts/pyinstaller packaging/cfabric-browser.spec --noconfirm
 dist/cfabric-browser/cfabric-browser bhsa
 ```
 
-The program's entry point is `cfabric_browser/__main__.py` (also `python -m cfabric_browser`), which calls `multiprocessing.freeze_support()` so that search workers start correctly in the frozen program.
+Its entry point is `packaging/cfabric-browser.py`, which adds `--window`. Like `cfabric_browser/__main__.py` (`python -m cfabric_browser`), it calls `multiprocessing.freeze_support()` so that search workers start correctly in the frozen program.

@@ -6,7 +6,9 @@
 #
 #     pyinstaller packaging/cfabric-browser.spec
 #
-# The program ends up in dist/cfabric-browser/.
+# The program ends up in dist/cfabric-browser/. It shows the browser in a window of
+# its own (pywebview, see cfabric-browser.py); started without corpora, it offers
+# the corpora on this computer.
 
 from pathlib import Path
 
@@ -24,11 +26,12 @@ hiddenimports = [
     *collect_submodules("cfabric"),
     *collect_submodules("cfabric_browser"),
     *collect_submodules("uvicorn"),
+    *collect_submodules("webview"),
 ]
 
 a = Analysis(
-    [str(package / "__main__.py")],
-    datas=collect_data_files("cfabric_browser"),
+    [str(Path(SPECPATH) / "cfabric-browser.py")],
+    datas=[*collect_data_files("cfabric_browser"), *collect_data_files("webview")],
     hiddenimports=hiddenimports,
     excludes=["tkinter"],
 )
@@ -39,6 +42,6 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name="cfabric-browser",
-    console=True,
+    console=False,  # a window, no console
 )
 coll = COLLECT(exe, a.binaries, a.datas, name="cfabric-browser")

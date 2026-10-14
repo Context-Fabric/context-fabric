@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `--window`: the browser in a window of its own (pywebview) instead of a web browser; closing it stops the server. The window keeps its web storage (settings, saved workspaces) in `~/.cfabric/window`, and takes the first free port from 8107 so that it keeps the same address. The standalone program opens this window, without a console
 - Start without corpora: `cfabric-browser` on its own opens an empty browser that offers the corpora on this computer (*Open a corpus*) straight away; the first corpus opened goes into the first pane. With `--no-library`, a corpus is still required
 - Standalone program: `packaging/cfabric-browser.spec` builds `cfabric-browser` with PyInstaller into a program that needs no Python installation (`pip install .[desktop]`); `python -m cfabric_browser` also starts the browser
 - `cfabric-browser` command: serve one or more corpora given by name (`bhsa`), repository or data directory
