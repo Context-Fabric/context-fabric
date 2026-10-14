@@ -10,22 +10,11 @@ Covers the TF-parity behaviour of:
 * ``S.showPlan`` emitting the engine's real plan summary.
 * ``N.walk(events=True)`` yielding ``(node, kind)`` pairs (tf/core/nodes.py:278).
 
-The mini-corpus tests always run; the BHSA tests run only when the prebuilt
-mapped cache ``/tmp/cf_bhsa.cfr`` and the BHSA ``tf`` directory are present.
+The mini-corpus tests always run; the BHSA tests run only when the BHSA corpus
+is available (see ``bhsa_api`` in ``tests/conftest.py``).
 """
 
 from __future__ import annotations
-
-import os
-from pathlib import Path
-
-import pytest
-
-from cfabric import Fabric
-
-BHSA_CACHE = Path("/tmp/cf_bhsa.cfr")
-BHSA_TF = Path(__file__).resolve().parents[4] / "libs" / "benchmarks" / ".corpora" / "bhsa" / "tf"
-
 
 # --------------------------------------------------------------------------- #
 # Mini-corpus surface (always available via the shared conftest fixtures)
@@ -108,22 +97,9 @@ def test_walk_events_pairs(loaded_api):
 
 
 # --------------------------------------------------------------------------- #
-# BHSA surface (skipped unless the prebuilt mapped cache exists)
+# BHSA surface (skipped unless the BHSA corpus is available)
 # --------------------------------------------------------------------------- #
 
-bhsa_available = BHSA_CACHE.exists() and BHSA_TF.exists()
-bhsa_reason = "BHSA mapped cache /tmp/cf_bhsa.cfr or tf dir not available"
-
-
-@pytest.fixture(scope="module")
-def bhsa_api():
-    if not bhsa_available:
-        pytest.skip(bhsa_reason)
-    fabric = Fabric(locations=str(BHSA_TF), silent="deep")
-    return fabric.openMapped(str(BHSA_CACHE))
-
-
-@pytest.mark.skipif(not bhsa_available, reason=bhsa_reason)
 def test_bhsa_section_tuple_and_from_node(bhsa_api):
     T = bhsa_api.T
     assert T.sectionTypes == ("book", "chapter", "verse")
@@ -138,7 +114,6 @@ def test_bhsa_section_tuple_and_from_node(bhsa_api):
     assert T.sectionFromNode(verse) == ("Genesis", 1, 1)
 
 
-@pytest.mark.skipif(not bhsa_available, reason=bhsa_reason)
 def test_bhsa_text_iterable(bhsa_api):
     T = bhsa_api.T
     verse = T.nodeFromSection(("Genesis", 1, 1))
@@ -149,7 +124,6 @@ def test_bhsa_text_iterable(bhsa_api):
     assert T.text(list(slots)) == single
 
 
-@pytest.mark.skipif(not bhsa_available, reason=bhsa_reason)
 def test_bhsa_glean_verse_and_words(bhsa_api):
     T = bhsa_api.T
     verse = T.nodeFromSection(("Genesis", 1, 1))
