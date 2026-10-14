@@ -164,11 +164,34 @@ export interface NodeInfo {
   slots: [number, number];
   slotCount: number;
   text: string | null;
+  /** The essentials: gloss, lexeme, part of speech, morphology, in words. */
+  summary: SummaryItem[];
   features: Record<string, string | number>;
   edges: Record<string, { from: { node: number; value?: unknown }[]; to: { node: number; value?: unknown }[] }>;
   up: { node: number; type: string }[];
   down: { node: number; type: string }[];
   downCounts: Record<string, number>;
+}
+
+export interface SummaryItem {
+  label: string;
+  value: string;
+  /** The feature it comes from; `gloss in bhsa` for a gloss from another corpus. */
+  feature: string;
+}
+
+/** The corpus a borrowed gloss comes from (the DSS has its glosses from the BHSA). */
+export function borrowedFrom(item: SummaryItem): string | null {
+  return item.feature.startsWith("gloss in ") ? item.feature.slice("gloss in ".length) : null;
+}
+
+/** What the card shown when hovering over a word needs. */
+export interface NodeSummary {
+  node: number;
+  type: string;
+  ref: string;
+  text: string | null;
+  summary: SummaryItem[];
 }
 
 export interface FeatureEntry {

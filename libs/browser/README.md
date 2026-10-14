@@ -48,6 +48,10 @@ Queries use Text-Fabric's search template language, run by Context-Fabric's sear
 
 Problems in a template are reported per line. That includes problems inside quantifiers such as `/without/`, which the engine itself only logs, and then returns results as if the quantifier excluded nothing.
 
+## Words
+
+Hovering over a word shows a card with its essentials: gloss, lexeme, transliteration, part of speech and morphology (stem, tense, person, gender, number, state, suffix), in words rather than codes, and, with *Show differences*, what it differs from. Each is read from the first feature of its role that has a value; values such as `NA` and `absent` are left out (`cfabric_browser/summary.py`). The DSS has its own analysis and the ETCBC's (features ending in `_etcbc`, as in the BHSA): the ETCBC's comes first (e.g. `sp_etcbc`, which tells prepositions and proper nouns apart), the DSS's own where the ETCBC has nothing. The DSS has no glosses: they come from the lexicon of another open corpus (the BHSA), by the word's ETCBC lexeme and language (`lex_etcbc`, `lang_etcbc`), marked `· bhsa`. Clicking a word opens the inspector with the same essentials, all other features (folded away; without empty values, and without the `g_` features unless asked for), its relations and what it lies in.
+
 ## Lexicon
 
 A corpus with lexeme nodes (`lex`) that have glosses, such as the BHSA, gets a third view besides *Read* and *Search*: *Lexicon*, after SHEBANQ's *Words* page.
@@ -94,6 +98,7 @@ All functions of the interface are available as a JSON API; interactive document
 | `GET /api/corpora/{c}/lexicon/{n}/occurrences.tsv` | Every occurrence: section, word and verse text; `excel=true` for Excel |
 | `GET /api/library`, `POST /api/corpora` | Corpora found on this computer; open one by its id (e.g. `ETCBC/dss`) |
 | `GET /api/corpora/{c}/nodes/{n}[/info]` | Render tree of a node; all its features, edges and surroundings |
+| `GET /api/corpora/{c}/nodes/{n}/summary` | The essentials of a word, as on the card shown when hovering over it |
 | `POST /api/corpora/{c}/check` | Check a template without searching |
 | `POST /api/corpora/{c}/search` | Start a search (`{"template": …, "limit": …, "timeout": …}`) |
 | `GET /api/searches/{id}[/events]` | Status, or a live event stream of it |

@@ -73,6 +73,7 @@ class Lexicon:
     _verses: dict[tuple[int, str | None, str], list[tuple[int, list[int]]]] = field(
         default_factory=dict
     )
+    _byLex: dict[tuple[Any, Any], dict[str, Any]] = field(default_factory=dict)
 
     @classmethod
     def build(cls, api: Any) -> Lexicon | None:
@@ -104,6 +105,20 @@ class Lexicon:
 
     def entry(self, node: int) -> dict[str, Any] | None:
         return self.byNode.get(node)
+
+    def gloss(self, lex: str, language: str | None = None) -> str | None:
+        """The gloss of a lexeme by its transliteration (`BR>[`) and language
+        (without one, Hebrew); if the lexeme is not in that language, as in
+        another one (the DSS marks some words Aramaic whose lexeme the BHSA only
+        has in Hebrew)."""
+        if not self._byLex:
+            for e in self.entries:
+                self._byLex.setdefault((e.get("lex"), e.get("language")), e)
+                self._byLex.setdefault((e.get("lex"), None), e)
+        entry = self._byLex.get((lex, language or "Hebrew")) or self._byLex.get(
+            (lex, None)
+        )
+        return entry.get("gloss") if entry else None
 
     def words(self, node: int) -> list[int]:
         """The words of a lexeme, in canonical order."""

@@ -435,6 +435,19 @@ class CorpusService:
             self._lexicons[name] = lexicon
         return lexicon
 
+    def glosses(self, name: str) -> tuple[Any, str] | None:
+        """For a corpus without glosses (the DSS): a lookup of glosses by ETCBC
+        lexeme in an open corpus with a lexicon (the BHSA), and its name."""
+        if getattr(self.api(name).F, "gloss", None) is not None:
+            return None
+        for other in self.names():
+            if other == name:
+                continue
+            lexicon = self.lexicon(other)
+            if lexicon is not None:
+                return (lexicon.gloss, other)
+        return None
+
     def align(
         self,
         source: str,
