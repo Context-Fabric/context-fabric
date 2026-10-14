@@ -668,28 +668,26 @@ impl PyFabric {
     /// Load features into the current API if they are not loaded yet; see
     /// `Corpus.ensureLoaded`.
     #[allow(non_snake_case)]
-    fn ensureLoaded(&self, py: Python<'_>, features: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-        Ok(self
-            .current_api(py, "ensureLoaded")?
-            .call_method1("ensureLoaded", (features,))?
-            .unbind())
+    fn ensureLoaded(slf: &Bound<'_, Self>, features: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        // Release the borrow of the Fabric before delegating: the API records
+        // the newly loaded features on it.
+        let api = slf.borrow().current_api(slf.py(), "ensureLoaded")?;
+        Ok(api.call_method1("ensureLoaded", (features,))?.unbind())
     }
 
     /// Export the API members into `scope`; see `Corpus.makeAvailableIn`.
     #[allow(non_snake_case)]
-    fn makeAvailableIn(&self, py: Python<'_>, scope: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-        Ok(self
-            .current_api(py, "makeAvailableIn")?
-            .call_method1("makeAvailableIn", (scope,))?
-            .unbind())
+    fn makeAvailableIn(slf: &Bound<'_, Self>, scope: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        let api = slf.borrow().current_api(slf.py(), "makeAvailableIn")?;
+        Ok(api.call_method1("makeAvailableIn", (scope,))?.unbind())
     }
 
     /// Show the size of the loaded features; see `Corpus.footprint`.
     #[pyo3(signature = (recompute=false, bySize=true))]
     #[allow(non_snake_case)]
-    fn footprint(&self, py: Python<'_>, recompute: bool, bySize: bool) -> PyResult<()> {
-        self.current_api(py, "footprint")?
-            .call_method1("footprint", (recompute, bySize))?;
+    fn footprint(slf: &Bound<'_, Self>, recompute: bool, bySize: bool) -> PyResult<()> {
+        let api = slf.borrow().current_api(slf.py(), "footprint")?;
+        api.call_method1("footprint", (recompute, bySize))?;
         Ok(())
     }
 

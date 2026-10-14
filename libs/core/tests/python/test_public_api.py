@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib.metadata
 
 import cfabric
-
+import pytest
 from cfabric import BANNER, NAME, VERSION, Fabric
 from cfabric.describe import describe_corpus_overview, describe_feature, list_features
 from cfabric.results import CorpusInfo, FeatureInfo, NodeInfo, NodeList, SearchResult
@@ -101,12 +101,16 @@ def test_text_fabric_compatibility_surface(mini_corpus_path, loaded_api, capsys)
     assert loaded_api.E.oslots.dataInv[1] == (6, 8)
     assert loaded_api.E.distance.data[1][3] == 5
     assert loaded_api.E.distance.dataInv[2][1] == 0
-    assert loaded_api.E.distance.freqList(nodeTypesFrom=("word",), nodeTypesTo=("word",))
+    assert loaded_api.E.distance.freqList(
+        nodeTypesFrom=("word",), nodeTypesTo=("word",)
+    )
 
     events = loaded_api.N.walk(events=True)
     assert all(isinstance(item, tuple) and len(item) == 2 for item in events)
     # The non-end events (slots and container starts) replay walk() order.
-    assert loaded_api.N.walk() == tuple(node for (node, kind) in events if kind is not True)
+    assert loaded_api.N.walk() == tuple(
+        node for (node, kind) in events if kind is not True
+    )
     assert loaded_api.T.sectionFeats == list(loaded_api.T.sectionFeatures)
     # sectionTuple returns section NODE ids; sectionFromNode returns their values.
     assert loaded_api.T.sectionTuple(1) == (8, 6)
@@ -182,7 +186,9 @@ def test_describe_helpers(loaded_api):
     assert any(row["type"] == "word" for row in overview["node_types"])
 
     entries = list_features(loaded_api, kind="node")
-    assert any(entry.name == "word" and entry.description == "word text" for entry in entries)
+    assert any(
+        entry.name == "word" and entry.description == "word text" for entry in entries
+    )
 
     feature = describe_feature(loaded_api, "word", sample_limit=2).to_dict()
     assert feature["name"] == "word"
@@ -204,6 +210,52 @@ def test_public_extension_members_have_docstrings():
         if not (cls.__doc__ or "").strip():
             undocumented.append(class_name)
         for name, member in vars(cls).items():
-            if not name.startswith("_") and not (getattr(member, "__doc__", "") or "").strip():
+            if (
+                not name.startswith("_")
+                and not (getattr(member, "__doc__", "") or "").strip()
+            ):
                 undocumented.append(f"{class_name}.{name}")
     assert not undocumented, undocumented
+
+
+def test_fabric_forwards_api_shortcuts_after_loading(mini_corpus_path, capsys):
+    """TF attaches ensureLoaded / makeAvailableIn / footprint to the Fabric."""
+    fabric = Fabric(locations=str(mini_corpus_path), silent="deep")
+    with pytest.raises(AttributeError):
+        fabric.ensureLoaded("pos")
+    api = fabric.load("word")
+    assert fabric.ensureLoaded("pos") == {"pos"}
+    assert "pos" in api.Fall()
+    assert "pos" in fabric.featuresRequested
+    scope = {}
+    fabric.makeAvailableIn(scope)
+    assert scope["F"] is api.F
+    assert fabric.footprint() is None
+    assert "TOTAL" in capsys.readouterr().out
+
+
+def test_fabric_and_api_are_garbage_collected(mini_corpus_path):
+    """The Fabric <-> api reference cycle (TF.api / api.TF) is collectable."""
+    import gc
+    import weakref
+
+    fabric = Fabric(locations=str(mini_corpus_path), silent="deep")
+    api = fabric.loadAll()
+    api.S.study("word")
+    api_ref = weakref.ref(api)
+    del fabric, api
+    gc.collect()
+    assert api_ref() is None
+
+
+def test_api_members_report_a_collected_api(mini_corpus_path):
+    fabric = Fabric(locations=str(mini_corpus_path), silent="deep")
+    text = fabric.loadAll().T
+    assert text.api is fabric.api
+    del fabric
+    import gc
+
+    gc.collect()
+    assert text.text(1) == "hello"
+    with pytest.raises(ReferenceError):
+        _ = text.api

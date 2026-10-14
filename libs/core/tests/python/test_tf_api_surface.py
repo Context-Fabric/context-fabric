@@ -24,7 +24,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 from cfabric import Fabric
 
 tf_fabric = pytest.importorskip("tf.fabric")
@@ -53,11 +52,16 @@ CF_CLASS_FOR_TF_CLASS = {
 """Text-Fabric class name -> Context-Fabric class name of the counterpart."""
 
 INTERNAL = "Text-Fabric load/display internals, not part of the core API"
-VOLUMES = "volumes, collections, and MQL export are out of scope (README: Compatibility)"
+VOLUMES = (
+    "volumes, collections, and MQL export are out of scope (README: Compatibility)"
+)
 NO_STRUCTURE_INDEX = (
     "raw structure indexes; use headingFromNode / nodeFromHeading / top / up / down"
 )
-NO_SECTION_INDEX = "raw section-name indexes; use sectionFromNode / nodeFromSection / T.<sec0>Name"
+NO_UNLOADING = "feature data is memory-mapped; there is no per-feature (un)loading"
+NO_SECTION_INDEX = (
+    "raw section-name indexes; use sectionFromNode / nodeFromSection / T.<sec0>Name"
+)
 
 EXCLUDED: dict[tuple[str, str], str] = {
     ("Fabric", "cformats"): INTERNAL,
@@ -98,8 +102,8 @@ EXCLUDED: dict[tuple[str, str], str] = {
     ("Data", "binPath"): INTERNAL,
     ("Data", "tmObj"): INTERNAL,
     ("Data", "version"): INTERNAL,
-    ("Data", "load"): "feature data is memory-mapped; there is no per-feature (un)loading",
-    ("Data", "unload"): "feature data is memory-mapped; there is no per-feature (un)loading",
+    ("Data", "load"): NO_UNLOADING,
+    ("Data", "unload"): NO_UNLOADING,
     ("Data", "save"): "write features with TF.save",
     ("Data", "cleanDataBin"): "use TF.clearCache",
     ("Text", "hdFromNd"): NO_STRUCTURE_INDEX,
@@ -119,7 +123,7 @@ SHAPE_DIVERGENCES: dict[tuple[str, str], str] = {
         "C.levUp / C.levDown data is a lazy LevView indexed by node id "
         "(README: Compatibility), not a flat tuple"
     ),
-    ("OtypeFeature", "data"): "dict {node: type}; Text-Fabric packs non-slot types in a tuple",
+    ("OtypeFeature", "data"): "dict {node: type}; TF packs non-slot types in a tuple",
     ("OslotsFeature", "data"): "dict {node: slots}; Text-Fabric packs slots in a tuple",
     ("Text", "sectionFeatures"): (
         "tuple of section feature names; Text-Fabric holds the features' data dicts"
@@ -348,12 +352,14 @@ def test_return_container_types_match_text_fabric(fabrics, call, capsys):
     tf, cf = fabrics
     if call in KNOWN_RETURN_DIVERGENCES:
         pytest.skip(KNOWN_RETURN_DIVERGENCES[call])
-    tf_result = eval(call, {"TF": tf, "api": tf.api})  # noqa: S307 - fixed table
-    cf_result = eval(call, {"TF": cf, "api": cf.api})  # noqa: S307 - fixed table
+    tf_result = eval(call, {"TF": tf, "api": tf.api})
+    cf_result = eval(call, {"TF": cf, "api": cf.api})
     capsys.readouterr()
     assert type(cf_result).__name__ == type(tf_result).__name__ or (
         type(tf_result) is type(cf_result)
-    ), f"{call}: Context-Fabric {type(cf_result).__name__}, TF {type(tf_result).__name__}"
+    ), (
+        f"{call}: Context-Fabric {type(cf_result).__name__}, TF {type(tf_result).__name__}"
+    )
 
 
 def test_fabric_constructor_matches_text_fabric():
