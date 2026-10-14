@@ -12,10 +12,9 @@ pub use feature::{EdgeFeature, NodeFeature};
 pub use otext::Otext;
 pub use parser::{TfFeatureKind, TfFeatureMetadata, parse_tf_file, parse_tf_file_metadata};
 
-use std::collections::BTreeMap;
-
 use crate::error::{CfError, Result};
 use crate::value::FeatureValue;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TfFeature {

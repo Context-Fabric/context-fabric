@@ -13,10 +13,9 @@ use crate::search::quantifier::{
     substitute_parent_ref,
 };
 use crate::search::syntax::is_quantifier_init;
-use crate::search::template::split_query_whitespace;
 use crate::search::template::{
     parse_mapped_atom_operator, parse_mapped_feature_continuation_line,
-    parse_mapped_relation_operator, parse_simple_atom,
+    parse_mapped_relation_operator, parse_simple_atom, split_query_whitespace,
 };
 
 #[derive(Clone)]
