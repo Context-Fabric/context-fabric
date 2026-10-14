@@ -96,10 +96,18 @@ jobs:
         run: 7z x cfabric-browser-windows.zip -oprogram > /dev/null
       - name: Smoke test with Python out of reach
         run: |
-          # take every Python off the path, and make sure none is left
+          # take every folder with a Python off the path (the py launcher lives
+          # in C:\Windows), until none is left
           export PATH=$(echo "$PATH" | tr ':' '\n' | grep -viE "python|windowsapps" | paste -sd: -)
-          if command -v python || command -v python3 || command -v py; then
-            echo "a Python is still reachable"; exit 1
+          for name in python python3 py; do
+            tries=0
+            while found=$(command -v "$name") && [ $((tries += 1)) -le 10 ]; do
+              echo "taking $(dirname "$found") off the path ($found)"
+              export PATH=$(echo "$PATH" | tr ':' '\n' | grep -vixF "$(dirname "$found")" | paste -sd: -)
+            done
+          done
+          if command -v python python3 py; then
+            echo "::error title=Clean Windows::a Python is still reachable"; exit 1
           fi
           bash libs/browser/packaging/smoke-test.sh \
             program/cfabric-browser/cfabric-browser.exe \
