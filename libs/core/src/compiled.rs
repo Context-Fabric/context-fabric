@@ -258,6 +258,11 @@ impl MappedCompiledCorpus {
         &self.metadata
     }
 
+    /// The compiled cache file this corpus is mapped from.
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
     pub fn all_node_features(&self, warp: bool) -> Vec<String> {
         self.metadata
             .node_features
