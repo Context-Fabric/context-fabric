@@ -50,10 +50,12 @@ def test_computed_navigation_text_and_search(loaded_api):
     assert loaded_api.T.text(1) == "hello"
     assert loaded_api.T.sectionTypes == ("sentence", "phrase")
 
-    loaded_api.S.study("word")
-    assert loaded_api.S.exe is None
+    # As in TF, `api.S` (like every accessor) is one persistent object, so the
+    # executor of the last `study` stays on it.
     search = loaded_api.S
-    search.study("word")
+    assert search is loaded_api.S
+    assert search.exe is None
+    loaded_api.S.study("word")
     assert search.exe.good is True
     assert search.search("word", limit=2) == ((1,), (2,))
 
