@@ -32,10 +32,11 @@ keywords = [
     "corpus",
     "graph",
 ]
-dependencies = ["pyyaml>=5.3"]
+dependencies = ["numpy>=1.26"]
 
 [project.optional-dependencies]
 dev = [
+    "mypy>=1.18",
     "pytest>=7.0",
     "pytest-cov",
     "ruff",

@@ -1,0 +1,9 @@
+# Entries mypy stubtest cannot verify against the runtime extension.
+#
+# PyO3 implements `__getattr__` through the type's `tp_getattro` slot, so it is
+# not visible as an attribute at runtime; the stub declares it so type checkers
+# know `F.<feature>`, `E.<feature>`, `C.<name>`, and `T.<sec0>Name` resolve.
+cfabric._core.NodeFeatures.__getattr__
+cfabric._core.EdgeFeatures.__getattr__
+cfabric._core.Computeds.__getattr__
+cfabric._core.Text.__getattr__
