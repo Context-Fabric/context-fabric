@@ -35,7 +35,9 @@ keywords = [
 dependencies = ["pyyaml>=5.3"]
 
 [project.optional-dependencies]
+numpy = ["numpy>=1.24"]
 dev = [
+    "numpy>=1.24",
     "pytest>=7.0",
     "pytest-cov",
     "ruff",

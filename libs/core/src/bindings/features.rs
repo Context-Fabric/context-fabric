@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use numpy::IntoPyArray;
 use pyo3::basic::CompareOp;
-use pyo3::exceptions::{PyAttributeError, PyTypeError};
+use pyo3::exceptions::{PyAttributeError, PyImportError, PyTypeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyInt, PyList, PyString, PyTuple};
 
@@ -146,6 +146,15 @@ fn mapped_value_from_feature(value: &FeatureValue) -> MappedNodeValue<'_> {
 /// allocation).
 fn use_dense_gather(n_nodes: usize, row_count: usize) -> bool {
     row_count > 0 && n_nodes.saturating_mul(8) >= row_count
+}
+
+/// Stores `value` for `node` in a dense table sized `maxNode + 1`. Node numbers
+/// come from the mapped file; a row beyond `maxNode` (only possible in a
+/// corrupted cache) is ignored rather than indexing out of bounds.
+fn set_node_entry<T>(table: &mut [T], node: u32, value: T) {
+    if let Some(entry) = table.get_mut(node as usize) {
+        *entry = value;
+    }
 }
 
 /// Collects any Python iterable of node ids (`list` / `tuple` / `range` / `set`
@@ -419,7 +428,7 @@ impl PyNodeFeature {
                     let mut table: Vec<Option<&str>> = vec![None; max_node + 1];
                     for row in view.rows() {
                         let (node, value) = row?;
-                        table[node as usize] = Some(value);
+                        set_node_entry(&mut table, node, Some(value));
                     }
                     nodes
                         .iter()
@@ -443,7 +452,7 @@ impl PyNodeFeature {
                     let mut table: Vec<Option<MappedNodeValue<'_>>> = vec![None; max_node + 1];
                     for row in view.rows() {
                         let (node, value) = row?;
-                        table[node as usize] = Some(value);
+                        set_node_entry(&mut table, node, Some(value));
                     }
                     nodes
                         .iter()
@@ -475,6 +484,15 @@ impl PyNodeFeature {
     /// feature is not int-valued.
     #[pyo3(signature = (nodes, fill=0))]
     fn vs_array(&self, py: Python<'_>, nodes: &Bound<'_, PyAny>, fill: i64) -> PyResult<PyObject> {
+        // NumPy is an optional dependency. Import it up front: the numpy crate
+        // panics (instead of raising) when its C API capsule cannot be loaded.
+        py.import("numpy").map_err(|error| {
+            let import_error = PyImportError::new_err(
+                "vs_array requires NumPy; install it with: pip install 'context-fabric[numpy]'",
+            );
+            import_error.set_cause(py, Some(error));
+            import_error
+        })?;
         if self.valueType().as_deref() != Some("int") {
             return Err(PyTypeError::new_err(format!(
                 "vs_array requires an int-valued feature; '{}' is not int-valued",
@@ -493,7 +511,7 @@ impl PyNodeFeature {
                 for row in view.rows() {
                     let (node, value) = row?;
                     if let MappedNodeValue::Int(value) = value {
-                        table[node as usize] = value;
+                        set_node_entry(&mut table, node, value);
                     }
                 }
                 out.extend(

@@ -14,6 +14,8 @@ Context-Fabric, including for integers outside the node-number range.
 from __future__ import annotations
 
 import itertools
+import subprocess
+import sys
 import shutil
 from collections.abc import Callable, Iterable
 from pathlib import Path
@@ -195,3 +197,46 @@ def test_corrupted_caches_raise_value_error(api, tmp_path):
         damaged.write_bytes(blob)
         with pytest.raises(ValueError, match="damaged.cfr"):
             Fabric(silent="deep").openMapped(str(damaged))
+
+
+def test_vs_array_without_numpy_raises_import_error(tmp_path):
+    """numpy is optional; its absence must not surface as a Rust panic."""
+    corpus = Path(__file__).resolve().parents[1] / "fixtures" / "mini_corpus"
+    shutil.copytree(corpus, tmp_path / "mini", ignore=shutil.ignore_patterns(".cf*"))
+    script = (
+        "import sys\n"
+        "sys.modules['numpy'] = None  # make `import numpy` fail\n"
+        "from cfabric import Fabric\n"
+        f"api = Fabric(locations={str(tmp_path / 'mini')!r}, silent='deep').loadAll()\n"
+        "try:\n"
+        "    api.F.score.vs_array([1, 2])\n"
+        "except ImportError as error:\n"
+        "    print('ImportError', error)\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script], capture_output=True, text=True, cwd=tmp_path, check=False
+    )
+    assert "panicked" not in result.stderr, result.stderr
+    assert result.stdout.startswith("ImportError"), result.stdout + result.stderr
+    assert "context-fabric[numpy]" in result.stdout
+
+
+def test_batch_lookups_ignore_rows_beyond_max_node_in_a_corrupted_cache(tmp_path):
+    """A row naming a node past maxNode must not index out of bounds."""
+    corpus = Path(__file__).resolve().parents[1] / "fixtures" / "mini_corpus"
+    cache = tmp_path / "mini.cfr"
+    Fabric(locations=str(corpus), silent="deep").compile(str(cache))
+    data = bytearray(cache.read_bytes())
+    # Node feature header: name (u32 length + bytes), encoding tag (u8), row
+    # count, aux count, payload length (u32 each); the payload starts with its
+    # own row count, followed by the first row's node number.
+    name = b"score"
+    header = len(name).to_bytes(4, "little") + name
+    first_row_node = data.index(header) + len(header) + 1 + 4 * 3 + 4
+    assert int.from_bytes(data[first_row_node : first_row_node + 4], "little") == 1
+    data[first_row_node : first_row_node + 4] = (10**6).to_bytes(4, "little")
+    cache.write_bytes(bytes(data))
+
+    api = Fabric(silent="deep").openMapped(str(cache))
+    assert api.F.score.vs(list(range(1, 9)))[0] is None
+    assert api.F.score.vs_array(list(range(1, 9)))[0] == 0
