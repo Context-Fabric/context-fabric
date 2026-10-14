@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, HashMap};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::ops::Range;
@@ -10,9 +10,7 @@ use memmap2::Mmap;
 use crate::atomic_file::write_atomically;
 use crate::config::CFR_VERSION;
 use crate::corpus::{
-    Chunk, ChunkLengthKey, ChunkPositionKey, ComputedFeatureData, Corpus, FeatureCatalogEntry,
-    FeatureDescription, FeatureKind, FeatureValueSample, LoadedFeatureInfo, LoadedFeatureKind,
-    StructureTree,
+    Chunk, ChunkLengthKey, ChunkPositionKey, ComputedFeatureData, Corpus, StructureTree,
 };
 use crate::edge_index::{ReverseEdgeCsr, ReverseEdgeLayout};
 use crate::error::{CfError, Result};
@@ -171,7 +169,6 @@ struct MixedParts {
 /// Owned, parsed metadata for an edge feature, including a lazily-built
 /// `(source, target) -> value offset` index for O(log n) `edge_value` lookups.
 struct EdgeParts {
-    metadata: BTreeMap<String, Option<String>>,
     row_count: usize,
     row_offsets: RowOffsets,
     lookup: RowLookup,
@@ -240,14 +237,6 @@ fn metadata_value<'a>(
     })
 }
 
-fn remove_value_type_metadata(metadata: &mut BTreeMap<String, Option<String>>) -> String {
-    metadata
-        .remove("valueType")
-        .or_else(|| metadata.remove("value_type"))
-        .flatten()
-        .unwrap_or_default()
-}
-
 #[derive(Clone)]
 struct MappedLevel {
     node_type: String,
@@ -282,11 +271,6 @@ impl MappedCompiledCorpus {
         &self.metadata
     }
 
-    /// The compiled cache file this corpus is mapped from.
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-
     pub fn all_node_features(&self, warp: bool) -> Vec<String> {
         self.metadata
             .node_features
@@ -296,11 +280,6 @@ impl MappedCompiledCorpus {
             .collect()
     }
 
-    #[allow(non_snake_case)]
-    pub fn Fall(&self, warp: bool) -> Vec<String> {
-        self.all_node_features(warp)
-    }
-
     pub fn all_edge_features(&self, warp: bool) -> Vec<String> {
         self.metadata
             .edge_features
@@ -308,23 +287,6 @@ impl MappedCompiledCorpus {
             .filter(|feature| warp || feature.name != "oslots")
             .map(|feature| feature.name.clone())
             .collect()
-    }
-
-    #[allow(non_snake_case)]
-    pub fn Eall(&self, warp: bool) -> Vec<String> {
-        self.all_edge_features(warp)
-    }
-
-    pub fn all_computed_features(&self) -> Vec<String> {
-        self.computed_names()
-            .iter()
-            .map(|name| name.to_string())
-            .collect()
-    }
-
-    #[allow(non_snake_case)]
-    pub fn Call(&self) -> Vec<String> {
-        self.all_computed_features()
     }
 
     pub fn computed_feature(&self, name: &str) -> Result<Option<ComputedFeatureData>> {
@@ -394,18 +356,8 @@ impl MappedCompiledCorpus {
             .collect())
     }
 
-    #[allow(non_snake_case)]
-    pub fn otypeRank(&self) -> Result<BTreeMap<String, u32>> {
-        self.otype_rank()
-    }
-
     pub fn max_node(&self) -> u32 {
         self.metadata.rank_len as u32
-    }
-
-    #[allow(non_snake_case)]
-    pub fn maxNode(&self) -> u32 {
-        self.max_node()
     }
 
     pub fn slot_type(&self) -> Result<String> {
@@ -413,10 +365,6 @@ impl MappedCompiledCorpus {
             .string_pool_node_feature("otype")?
             .ok_or_else(|| CfError::MissingFeature("otype".to_string()))?;
         Ok(otype.str_value(1)?.unwrap_or_default().to_string())
-    }
-
-    pub fn search(&self) -> crate::mapped_search::MappedSearch<'_> {
-        crate::mapped_search::MappedSearch::new(self)
     }
 
     pub fn nodes_of_type(&self, node_type: &str) -> Result<Vec<u32>> {
@@ -460,10 +408,6 @@ impl MappedCompiledCorpus {
             .cloned())
     }
 
-    pub fn text(&self, node: u32, format: Option<&str>) -> Result<String> {
-        crate::mapped_text::MappedText::new(self)?.text(node, format)
-    }
-
     /// The precomputed structure (`C.structure` in Text-Fabric), parsed from the
     /// compiled section on first use; `None` when no usable structure is
     /// configured.
@@ -488,11 +432,6 @@ impl MappedCompiledCorpus {
             .get()
             .expect("structure cache just initialized")
             .as_ref())
-    }
-
-    #[allow(non_snake_case)]
-    pub fn structureData(&self) -> Result<Option<&StructureData>> {
-        self.structure_data()
     }
 
     /// The configured `(structure type, structure feature)` pairs (`T.headings`),
@@ -584,20 +523,10 @@ impl MappedCompiledCorpus {
             .and_then(|data| data.heading_from_node.get(&node).cloned()))
     }
 
-    #[allow(non_snake_case)]
-    pub fn headingFromNode(&self, node: u32) -> Result<Option<Vec<StructureHeading>>> {
-        self.heading_from_node(node)
-    }
-
     pub fn node_from_heading(&self, heading: &[StructureHeading]) -> Result<Option<u32>> {
         Ok(self
             .structure_data()?
             .and_then(|data| data.node_from_heading.get(heading).copied()))
-    }
-
-    #[allow(non_snake_case)]
-    pub fn nodeFromHeading(&self, heading: &[StructureHeading]) -> Result<Option<u32>> {
-        self.node_from_heading(heading)
     }
 
     /// `T.structurePretty(node, fullHeading)`; see [`StructureData::pretty`].
@@ -615,16 +544,6 @@ impl MappedCompiledCorpus {
             return Ok(None);
         }
         Ok(data.pretty(node, full_heading, &|_| true))
-    }
-
-    #[allow(non_snake_case)]
-    pub fn structurePretty(&self, node: Option<u32>, full_heading: bool) -> Result<Option<String>> {
-        self.structure_pretty(node, full_heading)
-    }
-
-    #[allow(non_snake_case)]
-    pub fn slotType(&self) -> Result<String> {
-        self.slot_type()
     }
 
     /// The highest slot node (TF `maxSlot`). In TF's data model the slots are
@@ -656,275 +575,6 @@ impl MappedCompiledCorpus {
             None => 0,
         };
         Ok(*self.max_slot_cache.get_or_init(|| max_slot))
-    }
-
-    #[allow(non_snake_case)]
-    pub fn maxSlot(&self) -> Result<u32> {
-        self.max_slot()
-    }
-
-    #[allow(non_snake_case)]
-    pub fn Cs(&self, name: &str) -> Result<Option<ComputedFeatureData>> {
-        self.computed_feature(name)
-    }
-
-    pub fn is_loaded(
-        &self,
-        features: Option<&[&str]>,
-    ) -> Result<BTreeMap<String, Option<LoadedFeatureInfo>>> {
-        let feature_names = match features {
-            Some(features) => features.iter().map(|name| (*name).to_string()).collect(),
-            None => self.loaded_feature_names(),
-        };
-        let mut loaded = BTreeMap::new();
-        for name in feature_names {
-            let info = self.loaded_feature_info(&name)?;
-            loaded.insert(name, info);
-        }
-        Ok(loaded)
-    }
-
-    #[allow(non_snake_case)]
-    pub fn isLoaded(
-        &self,
-        features: Option<&[&str]>,
-    ) -> Result<BTreeMap<String, Option<LoadedFeatureInfo>>> {
-        self.is_loaded(features)
-    }
-
-    pub fn node_feature_types(&self, feature_name: &str) -> Result<Vec<String>> {
-        if self.metadata.node_feature(feature_name).is_none() {
-            return Ok(Vec::new());
-        }
-        let nodes = self.node_feature_row_nodes(feature_name)?;
-        let mut node_types = Vec::new();
-        for level in self.mapped_levels()? {
-            if nodes
-                .iter()
-                .any(|node| (level.min_node..=level.max_node).contains(node))
-            {
-                node_types.push(level.node_type);
-            }
-        }
-        Ok(node_types)
-    }
-
-    pub fn edge_feature_source_types(&self, feature_name: &str) -> Result<Vec<String>> {
-        let Some(feature) = self.edge_feature(feature_name)? else {
-            return Ok(Vec::new());
-        };
-        let mut source_nodes = Vec::new();
-        for row_offset in feature.parts.row_offsets.iter(feature.bytes) {
-            source_nodes.push(read_u32_from(feature.path, feature.bytes, row_offset)?);
-        }
-        let mut node_types = Vec::new();
-        for level in self.mapped_levels()? {
-            if source_nodes
-                .iter()
-                .any(|node| (level.min_node..=level.max_node).contains(node))
-            {
-                node_types.push(level.node_type);
-            }
-        }
-        Ok(node_types)
-    }
-
-    pub fn edge_feature_target_types(&self, feature_name: &str) -> Result<Vec<String>> {
-        let Some(feature) = self.edge_feature(feature_name)? else {
-            return Ok(Vec::new());
-        };
-        let mut target_nodes = Vec::new();
-        for row_offset in feature.parts.row_offsets.iter(feature.bytes) {
-            let target_count = read_u32_from(feature.path, feature.bytes, row_offset + 4)? as usize;
-            let targets_start = row_offset + 8;
-            for index in 0..target_count {
-                target_nodes.push(read_u32_from(
-                    feature.path,
-                    feature.bytes,
-                    targets_start + (index * 4),
-                )?);
-            }
-        }
-        let mut node_types = Vec::new();
-        for level in self.mapped_levels()? {
-            if target_nodes
-                .iter()
-                .any(|node| (level.min_node..=level.max_node).contains(node))
-            {
-                node_types.push(level.node_type);
-            }
-        }
-        Ok(node_types)
-    }
-
-    pub fn all_node_feature_types(&self) -> Result<BTreeMap<String, Vec<String>>> {
-        let mut rows = BTreeMap::new();
-        for feature in &self.metadata.node_features {
-            rows.insert(
-                feature.name.clone(),
-                self.node_feature_types(&feature.name)?,
-            );
-        }
-        Ok(rows)
-    }
-
-    pub fn all_edge_feature_source_types(&self) -> Result<BTreeMap<String, Vec<String>>> {
-        let mut rows = BTreeMap::new();
-        for feature in &self.metadata.edge_features {
-            rows.insert(
-                feature.name.clone(),
-                self.edge_feature_source_types(&feature.name)?,
-            );
-        }
-        Ok(rows)
-    }
-
-    pub fn all_edge_feature_target_types(&self) -> Result<BTreeMap<String, Vec<String>>> {
-        let mut rows = BTreeMap::new();
-        for feature in &self.metadata.edge_features {
-            rows.insert(
-                feature.name.clone(),
-                self.edge_feature_target_types(&feature.name)?,
-            );
-        }
-        Ok(rows)
-    }
-
-    pub fn feature_catalog(
-        &self,
-        kind: Option<FeatureKind>,
-        node_types: Option<&[&str]>,
-    ) -> Result<Vec<FeatureCatalogEntry>> {
-        let mut rows = Vec::new();
-        if kind.is_none_or(|kind| kind == FeatureKind::Node) {
-            for feature in &self.metadata.node_features {
-                let applies_to_requested_type = match node_types {
-                    Some(requested) => {
-                        let feature_types = self.node_feature_types(&feature.name)?;
-                        requested
-                            .iter()
-                            .any(|node_type| feature_types.iter().any(|item| item == node_type))
-                    }
-                    None => true,
-                };
-                if applies_to_requested_type {
-                    rows.push(FeatureCatalogEntry {
-                        name: feature.name.clone(),
-                        kind: FeatureKind::Node,
-                        value_type: feature.value_type().unwrap_or("str").to_string(),
-                        description: feature.description().unwrap_or_default().to_string(),
-                    });
-                }
-            }
-        }
-        if kind.is_none_or(|kind| kind == FeatureKind::Edge) {
-            for feature in &self.metadata.edge_features {
-                let applies_to_requested_type = match node_types {
-                    Some(requested) => {
-                        let feature_types = self.edge_feature_source_types(&feature.name)?;
-                        requested
-                            .iter()
-                            .any(|node_type| feature_types.iter().any(|item| item == node_type))
-                    }
-                    None => true,
-                };
-                if applies_to_requested_type {
-                    rows.push(FeatureCatalogEntry {
-                        name: feature.name.clone(),
-                        kind: FeatureKind::Edge,
-                        value_type: feature.value_type().unwrap_or("str").to_string(),
-                        description: feature.description().unwrap_or_default().to_string(),
-                    });
-                }
-            }
-        }
-        Ok(rows)
-    }
-
-    pub fn describe_feature(
-        &self,
-        feature_name: &str,
-        sample_limit: usize,
-    ) -> Result<FeatureDescription> {
-        if let Some(feature) = self.metadata.node_feature(feature_name) {
-            let frequency_list = self.node_frequency_list(feature_name, None)?;
-            return Ok(FeatureDescription {
-                name: feature.name.clone(),
-                kind: Some(FeatureKind::Node),
-                value_type: feature.value_type().unwrap_or("str").to_string(),
-                description: feature.description().unwrap_or_default().to_string(),
-                node_types: self.node_feature_types(feature_name)?,
-                unique_values: frequency_list.len(),
-                sample_values: frequency_list
-                    .into_iter()
-                    .take(sample_limit)
-                    .map(|(value, count)| FeatureValueSample {
-                        value: Some(value),
-                        count,
-                    })
-                    .collect(),
-                has_values: None,
-                error: None,
-            });
-        }
-
-        if let Some(feature) = self.metadata.edge_feature(feature_name) {
-            let has_values = feature.edge_value_count > 0;
-            let (unique_values, sample_values) = if has_values {
-                match self.edge_frequency_list(feature_name, None, None)? {
-                    EdgeFrequency::Values(frequency_list) => {
-                        let unique_values = frequency_list.len();
-                        let sample_values = frequency_list
-                            .into_iter()
-                            .take(sample_limit)
-                            .map(|(value, count)| FeatureValueSample { value, count })
-                            .collect();
-                        (unique_values, sample_values)
-                    }
-                    EdgeFrequency::Count(_) => (0, Vec::new()),
-                }
-            } else {
-                (0, Vec::new())
-            };
-            return Ok(FeatureDescription {
-                name: feature.name.clone(),
-                kind: Some(FeatureKind::Edge),
-                value_type: feature.value_type().unwrap_or("str").to_string(),
-                description: feature.description().unwrap_or_default().to_string(),
-                node_types: self.edge_feature_source_types(feature_name)?,
-                unique_values,
-                sample_values,
-                has_values: Some(has_values),
-                error: None,
-            });
-        }
-
-        Ok(FeatureDescription {
-            name: feature_name.to_string(),
-            kind: None,
-            value_type: String::new(),
-            description: String::new(),
-            node_types: Vec::new(),
-            unique_values: 0,
-            sample_values: Vec::new(),
-            has_values: None,
-            error: Some(format!("Feature '{feature_name}' not found")),
-        })
-    }
-
-    pub fn describe_features(
-        &self,
-        feature_names: &[&str],
-        sample_limit: usize,
-    ) -> Result<BTreeMap<String, FeatureDescription>> {
-        let mut descriptions = BTreeMap::new();
-        for feature_name in feature_names {
-            descriptions.insert(
-                (*feature_name).to_string(),
-                self.describe_feature(feature_name, sample_limit)?,
-            );
-        }
-        Ok(descriptions)
     }
 
     pub fn node_frequency_list(
@@ -997,23 +647,6 @@ impl MappedCompiledCorpus {
         Ok(sorted_feature_value_counts(counts))
     }
 
-    pub fn node_freq_list(
-        &self,
-        feature_name: &str,
-        node_types: Option<&[&str]>,
-    ) -> Result<Vec<(FeatureValue, usize)>> {
-        self.node_frequency_list(feature_name, node_types)
-    }
-
-    #[allow(non_snake_case)]
-    pub fn node_freqList(
-        &self,
-        feature_name: &str,
-        node_types: Option<&[&str]>,
-    ) -> Result<Vec<(FeatureValue, usize)>> {
-        self.node_frequency_list(feature_name, node_types)
-    }
-
     pub fn edge_frequency_list(
         &self,
         feature_name: &str,
@@ -1071,25 +704,6 @@ impl MappedCompiledCorpus {
         Ok(EdgeFrequency::Values(sorted_optional_feature_value_counts(
             counts,
         )))
-    }
-
-    pub fn edge_freq_list(
-        &self,
-        feature_name: &str,
-        node_types_from: Option<&[&str]>,
-        node_types_to: Option<&[&str]>,
-    ) -> Result<EdgeFrequency> {
-        self.edge_frequency_list(feature_name, node_types_from, node_types_to)
-    }
-
-    #[allow(non_snake_case)]
-    pub fn edge_freqList(
-        &self,
-        feature_name: &str,
-        node_types_from: Option<&[&str]>,
-        node_types_to: Option<&[&str]>,
-    ) -> Result<EdgeFrequency> {
-        self.edge_frequency_list(feature_name, node_types_from, node_types_to)
     }
 
     fn string_pool_parts(&self, name: &str) -> Result<Option<Arc<StringPoolParts>>> {
@@ -1203,11 +817,6 @@ impl MappedCompiledCorpus {
         }
     }
 
-    #[allow(non_snake_case)]
-    pub fn Fs(&self, name: &str) -> Result<Option<MappedNodeFeatureView<'_>>> {
-        self.node_feature(name)
-    }
-
     pub fn edge_feature(&self, name: &str) -> Result<Option<EdgeFeatureView<'_>>> {
         Ok(self.edge_parts(name)?.map(|parts| EdgeFeatureView {
             path: &self.path,
@@ -1216,11 +825,6 @@ impl MappedCompiledCorpus {
             rank_start: self.metadata.rank_start,
             rank_len: self.metadata.rank_len,
         }))
-    }
-
-    #[allow(non_snake_case)]
-    pub fn Es(&self, name: &str) -> Result<Option<EdgeFeatureView<'_>>> {
-        self.edge_feature(name)
     }
 
     /// Resolve a string-pool node feature into an *owned* handle that holds the
@@ -1270,100 +874,6 @@ impl MappedCompiledCorpus {
             return Ok(None);
         };
         ConfigFeatureView::new(&self.path, &self.mmap, feature).map(Some)
-    }
-
-    fn computed_names(&self) -> [&'static str; 4] {
-        ["levels", "order", "rank", "boundary"]
-    }
-
-    fn loaded_feature_names(&self) -> Vec<String> {
-        let mut names = BTreeSet::new();
-        names.extend(
-            self.metadata
-                .node_features
-                .iter()
-                .map(|feature| feature.name.clone()),
-        );
-        names.extend(
-            self.metadata
-                .edge_features
-                .iter()
-                .map(|feature| feature.name.clone()),
-        );
-        names.extend(
-            self.metadata
-                .config_features
-                .iter()
-                .map(|feature| feature.name.clone()),
-        );
-        names.extend(self.computed_names().iter().map(|name| name.to_string()));
-        names.into_iter().collect()
-    }
-
-    fn loaded_feature_info(&self, name: &str) -> Result<Option<LoadedFeatureInfo>> {
-        if let Some(feature) = self.metadata.node_feature(name) {
-            let mut metadata = feature.metadata.clone();
-            let value_type = remove_value_type_metadata(&mut metadata);
-            return Ok(Some(LoadedFeatureInfo {
-                kind: LoadedFeatureKind::Node,
-                value_type,
-                metadata,
-                edge_values: None,
-            }));
-        }
-        if let Some(feature) = self.metadata.edge_feature(name) {
-            let mut metadata = feature.metadata.clone();
-            let value_type = remove_value_type_metadata(&mut metadata);
-            return Ok(Some(LoadedFeatureInfo {
-                kind: LoadedFeatureKind::Edge,
-                value_type,
-                metadata,
-                edge_values: Some(name != "oslots" && feature.edge_value_count > 0),
-            }));
-        }
-        if self.metadata.config_feature(name).is_some() {
-            let metadata = self
-                .config_feature(name)?
-                .expect("metadata existence checked above")
-                .metadata()?;
-            let mut metadata = metadata;
-            let value_type = remove_value_type_metadata(&mut metadata);
-            return Ok(Some(LoadedFeatureInfo {
-                kind: LoadedFeatureKind::Config,
-                value_type,
-                metadata,
-                edge_values: None,
-            }));
-        }
-        if self.computed_names().contains(&name) {
-            return Ok(Some(LoadedFeatureInfo {
-                kind: LoadedFeatureKind::Computed,
-                value_type: String::new(),
-                metadata: BTreeMap::new(),
-                edge_values: None,
-            }));
-        }
-        Ok(None)
-    }
-
-    fn node_feature_row_nodes(&self, feature_name: &str) -> Result<Vec<u32>> {
-        let Some(feature) = self.metadata.node_feature(feature_name) else {
-            return Ok(Vec::new());
-        };
-        match feature.encoding {
-            NodeFeatureEncoding::StringPool => self
-                .string_pool_node_feature(feature_name)?
-                .expect("metadata existence checked above")
-                .rows()
-                .map(|row| row.map(|(node, _)| node))
-                .collect(),
-            NodeFeatureEncoding::Mixed => self
-                .mixed_node_feature(feature_name)?
-                .expect("metadata existence checked above")
-                .rows()
-                .map(|row| row.map(|(node, _)| node))
-                .collect(),
-        }
     }
 
     /// Cached levels. The clone per call is ~a dozen small structs — negligible
@@ -1541,18 +1051,8 @@ impl MappedCompiledCorpus {
         .map(Some)
     }
 
-    #[allow(non_snake_case)]
-    pub fn sortKey(&self, node: u32) -> Result<Option<u32>> {
-        self.sort_key(node)
-    }
-
     pub fn sort_key_tuple(&self, nodes: &[u32]) -> Result<Vec<Option<u32>>> {
         nodes.iter().map(|node| self.sort_key(*node)).collect()
-    }
-
-    #[allow(non_snake_case)]
-    pub fn sortKeyTuple(&self, nodes: &[u32]) -> Result<Vec<Option<u32>>> {
-        self.sort_key_tuple(nodes)
     }
 
     pub fn sort_nodes(&self, nodes: &mut [u32]) -> Result<()> {
@@ -1571,17 +1071,6 @@ impl MappedCompiledCorpus {
         Ok(())
     }
 
-    pub fn sorted_nodes(&self, nodes: impl IntoIterator<Item = u32>) -> Result<Vec<u32>> {
-        let mut nodes = nodes.into_iter().collect::<Vec<_>>();
-        self.sort_nodes(&mut nodes)?;
-        Ok(nodes)
-    }
-
-    #[allow(non_snake_case)]
-    pub fn sortNodes(&self, nodes: impl IntoIterator<Item = u32>) -> Result<Vec<u32>> {
-        self.sorted_nodes(nodes)
-    }
-
     pub fn sort_key_chunk(&self, chunk: Chunk) -> Result<ChunkPositionKey> {
         Ok(ChunkPositionKey::new(
             chunk.start,
@@ -1591,11 +1080,6 @@ impl MappedCompiledCorpus {
         ))
     }
 
-    #[allow(non_snake_case)]
-    pub fn sortKeyChunk(&self, chunk: Chunk) -> Result<ChunkPositionKey> {
-        self.sort_key_chunk(chunk)
-    }
-
     pub fn sort_key_chunk_length(&self, chunk: Chunk) -> Result<ChunkLengthKey> {
         Ok(ChunkLengthKey::new(
             chunk.end.saturating_sub(chunk.start),
@@ -1603,11 +1087,6 @@ impl MappedCompiledCorpus {
             self.type_rank(chunk.node)?,
             chunk.node,
         ))
-    }
-
-    #[allow(non_snake_case)]
-    pub fn sortKeyChunkLength(&self, chunk: Chunk) -> Result<ChunkLengthKey> {
-        self.sort_key_chunk_length(chunk)
     }
 
     fn type_rank(&self, node: u32) -> Result<u32> {
@@ -1643,38 +1122,11 @@ pub enum MappedNodeFeatureView<'a> {
 }
 
 impl<'a> MappedNodeFeatureView<'a> {
-    pub fn row_count(&self) -> usize {
-        match self {
-            Self::StringPool(feature) => feature.row_count(),
-            Self::Mixed(feature) => feature.row_count(),
-        }
-    }
-
-    pub fn meta(&self) -> &BTreeMap<String, Option<String>> {
-        match self {
-            Self::StringPool(feature) => feature.meta(),
-            Self::Mixed(feature) => feature.meta(),
-        }
-    }
-
     pub fn metadata_value(&self, key: &str) -> Option<&str> {
         match self {
             Self::StringPool(feature) => feature.metadata_value(key),
             Self::Mixed(feature) => feature.metadata_value(key),
         }
-    }
-
-    pub fn value_type(&self) -> Option<&str> {
-        self.metadata_value("valueType")
-    }
-
-    #[allow(non_snake_case)]
-    pub fn valueType(&self) -> Option<&str> {
-        self.value_type()
-    }
-
-    pub fn description(&self) -> Option<&str> {
-        self.metadata_value("description")
     }
 
     pub fn value(&self, node: u32) -> Result<Option<MappedNodeValue<'a>>> {
@@ -1694,105 +1146,6 @@ impl<'a> MappedNodeFeatureView<'a> {
             (Self::StringPool(_), MappedNodeValue::Int(_)) => Ok(Vec::new()),
             (Self::Mixed(feature), expected) => feature.s(expected),
         }
-    }
-
-    pub fn nodes_with_value(&self, expected: MappedNodeValue<'_>) -> Result<Vec<u32>> {
-        self.s(expected)
-    }
-
-    pub fn select(&self, expected: MappedNodeValue<'_>) -> Result<Vec<u32>> {
-        self.nodes_with_value(expected)
-    }
-
-    pub fn filter_by_value(
-        &self,
-        nodes: &[u32],
-        expected: MappedNodeValue<'_>,
-    ) -> Result<Vec<u32>> {
-        match (self, expected) {
-            (Self::StringPool(feature), MappedNodeValue::Str(expected)) => {
-                feature.filter_by_value(nodes, expected)
-            }
-            (Self::StringPool(_), MappedNodeValue::Int(_)) => Ok(Vec::new()),
-            (Self::Mixed(feature), expected) => feature.filter_by_value(nodes, expected),
-        }
-    }
-
-    pub fn filter_by_values(
-        &self,
-        nodes: &[u32],
-        expected: &[MappedNodeValue<'_>],
-    ) -> Result<Vec<u32>> {
-        match self {
-            Self::StringPool(feature) => {
-                let strings: Vec<_> = expected
-                    .iter()
-                    .filter_map(|value| match value {
-                        MappedNodeValue::Str(value) => Some(*value),
-                        MappedNodeValue::Int(_) => None,
-                    })
-                    .collect();
-                feature.filter_by_values(nodes, &strings)
-            }
-            Self::Mixed(feature) => feature.filter_by_values(nodes, expected),
-        }
-    }
-
-    pub fn filter_has_value(&self, nodes: &[u32]) -> Result<Vec<u32>> {
-        match self {
-            Self::StringPool(feature) => feature.filter_has_value(nodes),
-            Self::Mixed(feature) => feature.filter_has_value(nodes),
-        }
-    }
-
-    pub fn filter_missing_value(&self, nodes: &[u32]) -> Result<Vec<u32>> {
-        match self {
-            Self::StringPool(feature) => feature.filter_missing_value(nodes),
-            Self::Mixed(feature) => feature.filter_missing_value(nodes),
-        }
-    }
-
-    pub fn filter_less_than(
-        &self,
-        nodes: &[u32],
-        expected: MappedNodeValue<'_>,
-    ) -> Result<Vec<u32>> {
-        match (self, expected) {
-            (Self::StringPool(feature), MappedNodeValue::Str(expected)) => {
-                feature.filter_less_than(nodes, expected)
-            }
-            (Self::StringPool(_), MappedNodeValue::Int(_)) => Ok(Vec::new()),
-            (Self::Mixed(feature), expected) => feature.filter_less_than(nodes, expected),
-        }
-    }
-
-    pub fn filter_greater_than(
-        &self,
-        nodes: &[u32],
-        expected: MappedNodeValue<'_>,
-    ) -> Result<Vec<u32>> {
-        match (self, expected) {
-            (Self::StringPool(feature), MappedNodeValue::Str(expected)) => {
-                feature.filter_greater_than(nodes, expected)
-            }
-            (Self::StringPool(_), MappedNodeValue::Int(_)) => Ok(Vec::new()),
-            (Self::Mixed(feature), expected) => feature.filter_greater_than(nodes, expected),
-        }
-    }
-
-    pub fn value_interval(&self, expected: MappedNodeValue<'_>) -> Result<Option<(u32, u32)>> {
-        match (self, expected) {
-            (Self::StringPool(feature), MappedNodeValue::Str(expected)) => {
-                feature.value_interval(expected)
-            }
-            (Self::StringPool(_), MappedNodeValue::Int(_)) => Ok(None),
-            (Self::Mixed(feature), expected) => feature.value_interval(expected),
-        }
-    }
-
-    #[allow(non_snake_case)]
-    pub fn sInterval(&self, expected: MappedNodeValue<'_>) -> Result<Option<(u32, u32)>> {
-        self.value_interval(expected)
     }
 
     pub fn items(&self) -> Result<Vec<(u32, MappedNodeValue<'a>)>> {
@@ -1863,15 +1216,6 @@ impl OwnedStringPoolFeature {
     pub fn str_value(&self, node: u32) -> Result<Option<String>> {
         Ok(self.view().str_value(node)?.map(str::to_string))
     }
-
-    /// Direct `(pool_id, value)` read; see
-    /// [`StringPoolNodeFeatureView::str_value_id`].
-    pub fn str_value_id(&self, node: u32) -> Result<Option<(u32, String)>> {
-        Ok(self
-            .view()
-            .str_value_id(node)?
-            .map(|(id, value)| (id, value.to_string())))
-    }
 }
 
 /// Owned, long-lived handle for a mixed (string/int) node feature.
@@ -1881,10 +1225,6 @@ pub struct OwnedMixedFeature {
 }
 
 impl OwnedMixedFeature {
-    pub fn corpus(&self) -> &MappedCompiledCorpus {
-        &self.corpus
-    }
-
     pub fn view(&self) -> MixedNodeFeatureView<'_> {
         MixedNodeFeatureView {
             path: &self.corpus.path,
@@ -1921,10 +1261,6 @@ pub struct OwnedEdgeFeature {
 }
 
 impl OwnedEdgeFeature {
-    pub fn corpus(&self) -> &MappedCompiledCorpus {
-        &self.corpus
-    }
-
     pub fn view(&self) -> EdgeFeatureView<'_> {
         EdgeFeatureView {
             path: &self.corpus.path,
@@ -1953,25 +1289,8 @@ impl<'a> StringPoolNodeFeatureView<'a> {
         sort_nodes_by_mmap_rank(self.path, self.bytes, self.rank_start, self.rank_len, nodes);
     }
 
-    pub fn meta(&self) -> &BTreeMap<String, Option<String>> {
-        &self.parts.metadata
-    }
-
     pub fn metadata_value(&self, key: &str) -> Option<&str> {
         metadata_value(&self.parts.metadata, key)
-    }
-
-    pub fn value_type(&self) -> Option<&str> {
-        self.metadata_value("valueType")
-    }
-
-    #[allow(non_snake_case)]
-    pub fn valueType(&self) -> Option<&str> {
-        self.value_type()
-    }
-
-    pub fn description(&self) -> Option<&str> {
-        self.metadata_value("description")
     }
 
     pub fn str_value(&self, node: u32) -> Result<Option<&'a str>> {
@@ -2102,99 +1421,6 @@ impl<'a> StringPoolNodeFeatureView<'a> {
             .collect()
     }
 
-    pub fn nodes_with_value(&self, expected: &str) -> Result<Vec<u32>> {
-        self.s(expected)
-    }
-
-    pub fn select(&self, expected: &str) -> Result<Vec<u32>> {
-        self.nodes_with_value(expected)
-    }
-
-    pub fn filter_by_value(&self, nodes: &[u32], expected: &str) -> Result<Vec<u32>> {
-        let mut matches = Vec::new();
-        for node in nodes {
-            if self.str_value(*node)? == Some(expected) {
-                matches.push(*node);
-            }
-        }
-        Ok(matches)
-    }
-
-    pub fn filter_by_values(&self, nodes: &[u32], expected: &[&str]) -> Result<Vec<u32>> {
-        if expected.is_empty() {
-            return Ok(Vec::new());
-        }
-        let mut matches = Vec::new();
-        for node in nodes {
-            if self
-                .str_value(*node)?
-                .is_some_and(|value| expected.contains(&value))
-            {
-                matches.push(*node);
-            }
-        }
-        Ok(matches)
-    }
-
-    pub fn filter_has_value(&self, nodes: &[u32]) -> Result<Vec<u32>> {
-        let mut matches = Vec::new();
-        for node in nodes {
-            if self.str_value(*node)?.is_some() {
-                matches.push(*node);
-            }
-        }
-        Ok(matches)
-    }
-
-    pub fn filter_missing_value(&self, nodes: &[u32]) -> Result<Vec<u32>> {
-        let mut matches = Vec::new();
-        for node in nodes {
-            if self.str_value(*node)?.is_none() {
-                matches.push(*node);
-            }
-        }
-        Ok(matches)
-    }
-
-    pub fn filter_less_than(&self, nodes: &[u32], expected: &str) -> Result<Vec<u32>> {
-        let mut matches = Vec::new();
-        for node in nodes {
-            if self.str_value(*node)?.is_some_and(|value| value < expected) {
-                matches.push(*node);
-            }
-        }
-        Ok(matches)
-    }
-
-    pub fn filter_greater_than(&self, nodes: &[u32], expected: &str) -> Result<Vec<u32>> {
-        let mut matches = Vec::new();
-        for node in nodes {
-            if self.str_value(*node)?.is_some_and(|value| value > expected) {
-                matches.push(*node);
-            }
-        }
-        Ok(matches)
-    }
-
-    pub fn value_interval(&self, expected: &str) -> Result<Option<(u32, u32)>> {
-        let mut interval: Option<(u32, u32)> = None;
-        for row in self.rows() {
-            let (node, value) = row?;
-            if value == expected {
-                interval = Some(match interval {
-                    Some((first, _)) => (first, node),
-                    None => (node, node),
-                });
-            }
-        }
-        Ok(interval)
-    }
-
-    #[allow(non_snake_case)]
-    pub fn sInterval(&self, expected: &str) -> Result<Option<(u32, u32)>> {
-        self.value_interval(expected)
-    }
-
     pub fn rows(&self) -> StringPoolNodeRows<'a, '_> {
         StringPoolNodeRows {
             feature: self,
@@ -2256,25 +1482,8 @@ impl<'a> MixedNodeFeatureView<'a> {
         sort_nodes_by_mmap_rank(self.path, self.bytes, self.rank_start, self.rank_len, nodes);
     }
 
-    pub fn meta(&self) -> &BTreeMap<String, Option<String>> {
-        &self.parts.metadata
-    }
-
     pub fn metadata_value(&self, key: &str) -> Option<&str> {
         metadata_value(&self.parts.metadata, key)
-    }
-
-    pub fn value_type(&self) -> Option<&str> {
-        self.metadata_value("valueType")
-    }
-
-    #[allow(non_snake_case)]
-    pub fn valueType(&self) -> Option<&str> {
-        self.value_type()
-    }
-
-    pub fn description(&self) -> Option<&str> {
-        self.metadata_value("description")
     }
 
     pub fn value(&self, node: u32) -> Result<Option<MappedNodeValue<'a>>> {
@@ -2309,127 +1518,6 @@ impl<'a> MixedNodeFeatureView<'a> {
         // Canonical (rank) order, matching the in-memory `NodeFeature::s`.
         self.sort_by_rank(&mut nodes);
         Ok(nodes)
-    }
-
-    pub fn nodes_with_value(&self, expected: MappedNodeValue<'_>) -> Result<Vec<u32>> {
-        self.s(expected)
-    }
-
-    pub fn select(&self, expected: MappedNodeValue<'_>) -> Result<Vec<u32>> {
-        self.nodes_with_value(expected)
-    }
-
-    pub fn filter_by_value(
-        &self,
-        nodes: &[u32],
-        expected: MappedNodeValue<'_>,
-    ) -> Result<Vec<u32>> {
-        let mut matches = Vec::new();
-        for node in nodes {
-            if self
-                .value(*node)?
-                .is_some_and(|value| mapped_node_values_equal(value, expected))
-            {
-                matches.push(*node);
-            }
-        }
-        Ok(matches)
-    }
-
-    pub fn filter_by_values(
-        &self,
-        nodes: &[u32],
-        expected: &[MappedNodeValue<'_>],
-    ) -> Result<Vec<u32>> {
-        if expected.is_empty() {
-            return Ok(Vec::new());
-        }
-        let mut matches = Vec::new();
-        for node in nodes {
-            if self.value(*node)?.is_some_and(|value| {
-                expected
-                    .iter()
-                    .any(|expected| mapped_node_values_equal(value, *expected))
-            }) {
-                matches.push(*node);
-            }
-        }
-        Ok(matches)
-    }
-
-    pub fn filter_has_value(&self, nodes: &[u32]) -> Result<Vec<u32>> {
-        let mut matches = Vec::new();
-        for node in nodes {
-            if self.value(*node)?.is_some() {
-                matches.push(*node);
-            }
-        }
-        Ok(matches)
-    }
-
-    pub fn filter_missing_value(&self, nodes: &[u32]) -> Result<Vec<u32>> {
-        let mut matches = Vec::new();
-        for node in nodes {
-            if self.value(*node)?.is_none() {
-                matches.push(*node);
-            }
-        }
-        Ok(matches)
-    }
-
-    pub fn filter_less_than(
-        &self,
-        nodes: &[u32],
-        expected: MappedNodeValue<'_>,
-    ) -> Result<Vec<u32>> {
-        let mut matches = Vec::new();
-        for node in nodes {
-            if self
-                .value(*node)?
-                .and_then(|value| compare_mapped_node_values(value, expected))
-                .is_some_and(|ordering| ordering.is_lt())
-            {
-                matches.push(*node);
-            }
-        }
-        Ok(matches)
-    }
-
-    pub fn filter_greater_than(
-        &self,
-        nodes: &[u32],
-        expected: MappedNodeValue<'_>,
-    ) -> Result<Vec<u32>> {
-        let mut matches = Vec::new();
-        for node in nodes {
-            if self
-                .value(*node)?
-                .and_then(|value| compare_mapped_node_values(value, expected))
-                .is_some_and(|ordering| ordering.is_gt())
-            {
-                matches.push(*node);
-            }
-        }
-        Ok(matches)
-    }
-
-    pub fn value_interval(&self, expected: MappedNodeValue<'_>) -> Result<Option<(u32, u32)>> {
-        let mut interval: Option<(u32, u32)> = None;
-        for row in self.rows() {
-            let (node, value) = row?;
-            if mapped_node_values_equal(value, expected) {
-                interval = Some(match interval {
-                    Some((first, _)) => (first, node),
-                    None => (node, node),
-                });
-            }
-        }
-        Ok(interval)
-    }
-
-    #[allow(non_snake_case)]
-    pub fn sInterval(&self, expected: MappedNodeValue<'_>) -> Result<Option<(u32, u32)>> {
-        self.value_interval(expected)
     }
 
     pub fn rows(&self) -> MixedNodeRows<'a, '_> {
@@ -2533,7 +1621,6 @@ fn build_edge_parts(path: &Path, bytes: &[u8], feature: &CompiledEdgeFeature) ->
     let row_offsets =
         mapped_row_offsets(path, feature.row_index, feature.payload_start, row_count)?;
     Ok(EdgeParts {
-        metadata: feature.metadata.clone(),
         row_count,
         row_offsets,
         lookup: RowLookup::default(),
@@ -2557,46 +1644,8 @@ pub struct EdgeFeatureView<'a> {
 }
 
 impl<'a> EdgeFeatureView<'a> {
-    pub fn row_count(&self) -> usize {
-        self.parts.row_count
-    }
-
-    pub fn row_offset_count(&self) -> usize {
-        self.parts.row_offsets.len()
-    }
-
-    pub fn meta(&self) -> &BTreeMap<String, Option<String>> {
-        &self.parts.metadata
-    }
-
-    pub fn metadata_value(&self, key: &str) -> Option<&str> {
-        metadata_value(&self.parts.metadata, key)
-    }
-
-    pub fn value_type(&self) -> Option<&str> {
-        self.metadata_value("valueType")
-    }
-
-    #[allow(non_snake_case)]
-    pub fn valueType(&self) -> Option<&str> {
-        self.value_type()
-    }
-
-    pub fn description(&self) -> Option<&str> {
-        self.metadata_value("description")
-    }
-
-    pub fn edge_value_count(&self) -> usize {
-        self.parts.edge_value_count
-    }
-
     pub fn has_edge_values(&self) -> bool {
         self.parts.edge_value_count > 0
-    }
-
-    #[allow(non_snake_case)]
-    pub fn hasEdgeValues(&self) -> bool {
-        self.has_edge_values()
     }
 
     /// Byte offset of `source`'s row, if it has one.
@@ -2689,50 +1738,6 @@ impl<'a> EdgeFeatureView<'a> {
         self.sorted_targets(source)
     }
 
-    pub fn all_targets<I>(&self, sources: I) -> Result<BTreeSet<u32>>
-    where
-        I: IntoIterator<Item = u32>,
-    {
-        let mut targets = BTreeSet::new();
-        for source in sources {
-            targets.extend(self.forward(source)?);
-        }
-        Ok(targets)
-    }
-
-    pub fn get_all_targets<I>(&self, sources: I) -> Result<BTreeSet<u32>>
-    where
-        I: IntoIterator<Item = u32>,
-    {
-        self.all_targets(sources)
-    }
-
-    pub fn filter_sources_with_targets_in<I, J>(
-        &self,
-        sources: I,
-        targets: J,
-    ) -> Result<(BTreeSet<u32>, BTreeSet<u32>)>
-    where
-        I: IntoIterator<Item = u32>,
-        J: IntoIterator<Item = u32>,
-    {
-        let target_set: BTreeSet<u32> = targets.into_iter().collect();
-        if target_set.is_empty() {
-            return Ok((BTreeSet::new(), BTreeSet::new()));
-        }
-        let mut matching_sources = BTreeSet::new();
-        let mut matching_targets = BTreeSet::new();
-        for source in sources {
-            for target in self.forward(source)? {
-                if target_set.contains(&target) {
-                    matching_sources.insert(source);
-                    matching_targets.insert(target);
-                }
-            }
-        }
-        Ok((matching_sources, matching_targets))
-    }
-
     pub fn forward_with_values(
         &self,
         source: u32,
@@ -2800,14 +1805,6 @@ impl<'a> EdgeFeatureView<'a> {
 
     pub fn b_with_values(&self, node: u32) -> Result<Vec<(u32, Option<MappedNodeValue<'a>>)>> {
         self.both_with_values(node)
-    }
-
-    pub fn edge_count(&self) -> Result<usize> {
-        let mut count = 0_usize;
-        for row_offset in self.parts.row_offsets.iter(self.bytes) {
-            count += read_u32_from(self.path, self.bytes, row_offset + 4)? as usize;
-        }
-        Ok(count)
     }
 
     pub fn items(&self) -> Result<Vec<(u32, Vec<u32>)>> {
@@ -2931,10 +1928,6 @@ impl<'a> ConfigFeatureView<'a> {
         })
     }
 
-    pub fn metadata_count(&self) -> usize {
-        self.metadata_count
-    }
-
     pub fn get(&self, expected_key: &str) -> Result<Option<Option<&'a str>>> {
         for row in self.items() {
             let (key, value) = row?;
@@ -2960,10 +1953,6 @@ impl<'a> ConfigFeatureView<'a> {
             metadata.insert(key.to_string(), value.map(str::to_string));
         }
         Ok(metadata)
-    }
-
-    pub fn meta(&self) -> Result<BTreeMap<String, Option<String>>> {
-        self.metadata()
     }
 
     pub fn items(&self) -> ConfigMetadataItems<'a> {
@@ -3391,17 +2380,6 @@ fn mapped_node_values_equal(left: MappedNodeValue<'_>, right: MappedNodeValue<'_
         (MappedNodeValue::Str(left), MappedNodeValue::Str(right)) => left == right,
         (MappedNodeValue::Int(left), MappedNodeValue::Int(right)) => left == right,
         _ => false,
-    }
-}
-
-fn compare_mapped_node_values(
-    left: MappedNodeValue<'_>,
-    right: MappedNodeValue<'_>,
-) -> Option<std::cmp::Ordering> {
-    match (left, right) {
-        (MappedNodeValue::Str(left), MappedNodeValue::Str(right)) => Some(left.cmp(right)),
-        (MappedNodeValue::Int(left), MappedNodeValue::Int(right)) => Some(left.cmp(&right)),
-        _ => None,
     }
 }
 

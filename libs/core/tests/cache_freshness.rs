@@ -5,7 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
-use context_fabric_core::Fabric;
+use context_fabric_core::{Fabric, MappedCompiledCorpus};
 
 fn copy_mini_corpus(into: &Path) -> PathBuf {
     let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/mini_corpus");
@@ -120,4 +120,24 @@ fn cache_and_manifest_are_readable_by_other_users() {
         let mode = fs::metadata(&path).unwrap().permissions().mode();
         assert_eq!(mode & 0o044, 0o044, "{} mode {mode:o}", path.display());
     }
+}
+
+/// A default cache in another `.cfr` format version is stale: `loadAll`
+/// rebuilds it in the current format instead of failing to open it.
+#[test]
+fn default_caches_of_another_format_version_are_rebuilt() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let corpus_dir = copy_mini_corpus(temp_dir.path());
+    let fabric = Fabric::new(&corpus_dir);
+    let cache_path = fabric.cfr_cache_path();
+    drop(fabric.load_all().unwrap());
+
+    let mut bytes = fs::read(&cache_path).unwrap();
+    bytes[..8].copy_from_slice(b"CFRUST02");
+    fs::write(&cache_path, &bytes).unwrap();
+    assert!(MappedCompiledCorpus::open(&cache_path).is_err());
+
+    let rebuilt = fabric.load_all().unwrap();
+    assert_eq!(rebuilt.max_node(), 8);
+    assert_eq!(&fs::read(&cache_path).unwrap()[..8], b"CFRUST04");
 }

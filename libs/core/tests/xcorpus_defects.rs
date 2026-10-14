@@ -14,8 +14,8 @@ use std::fs;
 use std::path::Path;
 
 use context_fabric_core::{
-    Corpus, Fabric, FeatureValue, MappedCompiledCorpus, MappedSections, MappedText,
-    compile_features, precompute,
+    Fabric, FeatureValue, MappedCompiledCorpus, MappedSections, MappedText, TextContext,
+    TextOptions, apply_level_constraints, compile_features,
 };
 
 fn write_files(dir: &Path, files: &[(&str, &str)]) {
@@ -122,11 +122,6 @@ fn text_format_keeps_present_empty_value_instead_of_falling_back() {
     assert_eq!(text.text(2, None).unwrap(), "B.");
     // Phrase renders both slots concatenated.
     assert_eq!(text.text(3, None).unwrap(), "AB.");
-
-    // The in-memory Corpus text path shares the same fallback semantics.
-    let corpus = Corpus::load(&source).unwrap();
-    assert_eq!(corpus.text(1, None), "A");
-    assert_eq!(corpus.text(2, None), "B.");
 }
 
 #[test]
@@ -135,9 +130,6 @@ fn text_context_preserves_present_empty_fallback() {
     // path the Python `T.text` binding now uses; it must reproduce the BUG-2
     // present-empty-vs-absent fallback byte-for-byte.
     use std::sync::Arc;
-
-    use context_fabric_core::corpus::TextOptions;
-    use context_fabric_core::mapped_text::TextContext;
 
     let temp = tempfile::tempdir().unwrap();
     let source = temp.path().join("qere");
@@ -213,37 +205,26 @@ fn level_constraints_override_size_based_otype_rank() {
         ranks["big"] < ranks["small"],
         "levelConstraints big<small should rank big below small: {ranks:?}",
     );
-
-    // The in-memory Corpus path (used while compiling) honors it too.
-    let temp = tempfile::tempdir().unwrap();
-    let source = temp.path().join("levels");
-    fs::create_dir_all(&source).unwrap();
-    for (name, contents) in level_corpus_files(Some("big < small")) {
-        fs::write(source.join(name), contents).unwrap();
-    }
-    let corpus = Corpus::load(&source).unwrap();
-    let mem_ranks = corpus.otype_rank();
-    assert!(mem_ranks["big"] < mem_ranks["small"], "{mem_ranks:?}");
 }
 
 #[test]
 fn apply_level_constraints_matches_tf_pop_insert_semantics() {
     // Biggest-first order with slot last, as TF's `result` is built.
     let mut rows = vec!["big", "small", "word"];
-    precompute::apply_level_constraints(&mut rows, "big < small", |row| row);
+    apply_level_constraints(&mut rows, "big < small", |row| row);
     assert_eq!(rows, vec!["small", "big", "word"]);
 
     // Multiple `;`-separated constraints are applied left to right, each
     // recomputing positions (TF rebuilds `resultIndex` after every move).
     let mut multi = vec!["a", "b", "c", "slot"];
-    precompute::apply_level_constraints(&mut multi, "a < c ; b < c", |row| row);
+    apply_level_constraints(&mut multi, "a < c ; b < c", |row| row);
     // a<c: pop a@0, insert@2 -> [b, c, a, slot]; then b<c: pop b@0, insert@1 ->
     // [c, b, a, slot].
     assert_eq!(multi, vec!["c", "b", "a", "slot"]);
 
     // A constraint naming an unknown type is a no-op.
     let mut unknown = vec!["x", "y", "slot"];
-    precompute::apply_level_constraints(&mut unknown, "x < zzz", |row| row);
+    apply_level_constraints(&mut unknown, "x < zzz", |row| row);
     assert_eq!(unknown, vec!["x", "y", "slot"]);
 }
 
@@ -290,7 +271,9 @@ fn node_from_section_language_override_and_fast_miss() {
 
     // Default (configured `number`) resolution: sura 1 -> node 4.
     assert_eq!(
-        sections.node_from_section(&[FeatureValue::Int(1)]).unwrap(),
+        sections
+            .node_from_section_langed(&[FeatureValue::Int(1)], None)
+            .unwrap(),
         Some(4),
     );
     // Language override: resolve the section-0 node via the `ename` feature.
@@ -300,16 +283,16 @@ fn node_from_section_language_override_and_fast_miss() {
             .unwrap(),
         Some(4),
     );
-    // A miss returns None immediately (v3 index present) — no linear rescan.
+    // A miss returns None immediately from the sections index.
     assert_eq!(
         sections
-            .node_from_section(&[FeatureValue::Int(999)])
+            .node_from_section_langed(&[FeatureValue::Int(999)], None)
             .unwrap(),
         None,
     );
     assert_eq!(
         sections
-            .node_from_section(&[FeatureValue::Int(1), FeatureValue::Int(999)])
+            .node_from_section_langed(&[FeatureValue::Int(1), FeatureValue::Int(999)], None)
             .unwrap(),
         None,
     );

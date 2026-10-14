@@ -5,7 +5,7 @@ use crate::compiled::{
     EdgeFeatureView, MappedCompiledCorpus, MappedNodeValue, OwnedEdgeFeature, OwnedNodeFeature,
     OwnedStringPoolFeature, StringPoolNodeFeatureView,
 };
-use crate::corpus::{TextFormatInfo, TextFormatSample, TextOptions, TextRepresentationInfo};
+use crate::corpus::TextOptions;
 use crate::error::{CfError, Result};
 use crate::mapped_sections::SectionsContext;
 use crate::precompute::StructureHeading;
@@ -78,22 +78,12 @@ impl<'a> MappedText<'a> {
             .collect()
     }
 
-    #[allow(non_snake_case)]
-    pub fn textWithOptions(&self, node: u32, options: &TextOptions) -> Result<String> {
-        self.text_with_options(node, options)
-    }
-
     pub fn text_nodes(&self, nodes: &[u32], format: Option<&str>) -> Result<String> {
         nodes
             .iter()
             .map(|node| self.text(*node, format))
             .collect::<Result<Vec<_>>>()
             .map(|parts| parts.concat())
-    }
-
-    #[allow(non_snake_case)]
-    pub fn textNodes(&self, nodes: &[u32], format: Option<&str>) -> Result<String> {
-        self.text_nodes(nodes, format)
     }
 
     pub fn split_format(&self, template: &str) -> Result<(String, String)> {
@@ -109,11 +99,6 @@ impl<'a> MappedText<'a> {
         }
     }
 
-    #[allow(non_snake_case)]
-    pub fn splitFormat(&self, template: &str) -> Result<(String, String)> {
-        self.split_format(template)
-    }
-
     pub fn split_default_format(&self, template: &str) -> Result<Option<String>> {
         let Some((node_type, suffix)) = template.rsplit_once('-') else {
             return Ok(None);
@@ -122,127 +107,6 @@ impl<'a> MappedText<'a> {
             (suffix == "default" && self.node_types()?.contains(node_type))
                 .then(|| node_type.to_string()),
         )
-    }
-
-    #[allow(non_snake_case)]
-    pub fn splitDefaultFormat(&self, template: &str) -> Result<Option<String>> {
-        self.split_default_format(template)
-    }
-
-    pub fn text_representations(&self) -> Result<TextRepresentationInfo> {
-        let pairs = self.text_format_pairs()?;
-        if pairs.is_empty() {
-            return Ok(TextRepresentationInfo {
-                description: "No text format metadata available or no orig/trans pairs defined"
-                    .to_string(),
-                formats: Vec::new(),
-            });
-        }
-
-        let mut formats = Vec::new();
-        for (base_name, original_name, transliterated_name, original_spec, transliterated_spec) in
-            pairs
-        {
-            let (samples, unique_characters) =
-                self.text_format_samples(&original_name, &transliterated_name)?;
-            if samples.is_empty() {
-                continue;
-            }
-            formats.push(TextFormatInfo {
-                name: base_name,
-                original_spec,
-                transliteration_spec: transliterated_spec,
-                total_samples: samples.len(),
-                samples,
-                unique_characters,
-            });
-        }
-
-        Ok(TextRepresentationInfo {
-            description: "Shows how text values are encoded in this corpus. Samples provide exhaustive character coverage for understanding the relationship between original script and transliterated forms.".to_string(),
-            formats,
-        })
-    }
-
-    fn text_format_pairs(&self) -> Result<Vec<(String, String, String, String, String)>> {
-        let Some(otext) = self.corpus.config_feature("otext")? else {
-            return Ok(Vec::new());
-        };
-        let mut originals = BTreeMap::<String, (String, String)>::new();
-        let mut transliterations = BTreeMap::<String, (String, String)>::new();
-        for row in otext.items() {
-            let (key, value) = row?;
-            let Some(format_name) = key.strip_prefix("fmt:") else {
-                continue;
-            };
-            let Some(spec) = value else {
-                continue;
-            };
-            if format_name.contains("-orig-") {
-                originals.insert(
-                    format_name.replace("-orig-", "-"),
-                    (format_name.to_string(), spec.to_string()),
-                );
-            } else if format_name.contains("-trans-") {
-                transliterations.insert(
-                    format_name.replace("-trans-", "-"),
-                    (format_name.to_string(), spec.to_string()),
-                );
-            }
-        }
-
-        Ok(originals
-            .into_iter()
-            .filter_map(|(base_name, (original_name, original_spec))| {
-                let (transliterated_name, transliterated_spec) =
-                    transliterations.get(&base_name)?.clone();
-                Some((
-                    base_name,
-                    original_name,
-                    transliterated_name,
-                    original_spec,
-                    transliterated_spec,
-                ))
-            })
-            .collect())
-    }
-
-    fn text_format_samples(
-        &self,
-        original_name: &str,
-        transliterated_name: &str,
-    ) -> Result<(Vec<TextFormatSample>, usize)> {
-        let mut samples = Vec::new();
-        let mut covered_chars = HashSet::new();
-        let mut seen_originals = HashSet::new();
-        let max_slot = self.corpus.max_slot()?;
-        for slot in 1..=max_slot {
-            let original = self.text(slot, Some(original_name))?.trim().to_string();
-            if original.is_empty() || seen_originals.contains(&original) {
-                continue;
-            }
-            let new_chars = original
-                .chars()
-                .filter(|ch| !covered_chars.contains(ch))
-                .collect::<Vec<_>>();
-            if new_chars.is_empty() {
-                continue;
-            }
-            let transliterated = self
-                .text(slot, Some(transliterated_name))?
-                .trim()
-                .to_string();
-            if transliterated.is_empty() {
-                continue;
-            }
-            covered_chars.extend(new_chars);
-            seen_originals.insert(original.clone());
-            samples.push(TextFormatSample {
-                original,
-                transliterated,
-            });
-        }
-        Ok((samples, covered_chars.len()))
     }
 
     fn resolve_text_format(

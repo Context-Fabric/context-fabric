@@ -6,7 +6,7 @@
 
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use context_fabric_core::Fabric;
 
@@ -46,9 +46,29 @@ fn read_only_corpus_compiles_into_the_user_cache_directory() {
     let corpus_api = fabric.load_all().expect("read-only corpus must still load");
     assert_eq!(corpus_api.max_node(), 8);
     assert!(!corpus.join(".cfr").exists());
-    assert!(corpus_api.path().starts_with(&user_cache));
+    let caches = compiled_caches(&user_cache);
+    assert_eq!(caches.len(), 1, "{caches:?}");
+    let compiled_at = fs::metadata(&caches[0]).unwrap().modified().unwrap();
 
     // A second load reuses the fallback cache.
-    let reloaded = fabric.load_all().unwrap();
-    assert_eq!(reloaded.path(), corpus_api.path());
+    fabric.load_all().unwrap();
+    assert_eq!(compiled_caches(&user_cache), caches);
+    assert_eq!(
+        fs::metadata(&caches[0]).unwrap().modified().unwrap(),
+        compiled_at
+    );
+}
+
+/// Every `.cfr` file below `dir`.
+fn compiled_caches(dir: &Path) -> Vec<PathBuf> {
+    let mut found = Vec::new();
+    for entry in fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            found.extend(compiled_caches(&path));
+        } else if path.extension().is_some_and(|extension| extension == "cfr") {
+            found.push(path);
+        }
+    }
+    found
 }

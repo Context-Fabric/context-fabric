@@ -73,16 +73,6 @@ impl ReverseEdgeCsr {
         csr
     }
 
-    /// Sources of `target` in canonical order (empty when it has none).
-    pub fn sources(&self, target: u32) -> &[u32] {
-        match self.targets.binary_search(&target) {
-            Ok(index) => {
-                &self.sources[self.offsets[index] as usize..self.offsets[index + 1] as usize]
-            }
-            Err(_) => &[],
-        }
-    }
-
     pub fn write<W: Write>(&self, writer: &mut W, path: &Path) -> Result<()> {
         write_u32_vec(writer, &self.targets, path)?;
         write_u32_vec(writer, &self.offsets, path)?;
@@ -198,19 +188,16 @@ mod tests {
             &forward(&[(4, &[1, 2]), (5, &[1, 1]), (6, &[1]), (3, &[2])]),
             &rank,
         );
-        assert_eq!(csr.sources(1), &[5, 4, 6]);
-        assert_eq!(csr.sources(2), &[3, 4]);
-        assert_eq!(csr.sources(3), &[] as &[u32]);
-        assert_eq!(csr.sources(99), &[] as &[u32]);
-
         let (bytes, layout) = round_trip(&csr);
         let path = Path::new("test.cfr");
-        for target in [0, 1, 2, 3, 99] {
+        let expected: [(u32, &[u32]); 5] =
+            [(0, &[]), (1, &[5, 4, 6]), (2, &[3, 4]), (3, &[]), (99, &[])];
+        for (target, sources) in expected {
             assert_eq!(
                 layout
                     .sources(path, &bytes, &RowLookup::default(), target)
                     .expect("lookup"),
-                csr.sources(target),
+                sources,
                 "target {target}"
             );
         }

@@ -16,45 +16,6 @@ pub struct FeatureInventory {
     pub metadata: BTreeMap<String, BTreeMap<String, Option<String>>>,
 }
 
-impl FeatureInventory {
-    pub fn nodes(&self) -> &[String] {
-        &self.nodes
-    }
-
-    pub fn edges(&self) -> &[String] {
-        &self.edges
-    }
-
-    pub fn configs(&self) -> &[String] {
-        &self.configs
-    }
-
-    pub fn computeds(&self) -> &[String] {
-        &self.computeds
-    }
-
-    pub fn categories(&self) -> BTreeMap<String, Vec<String>> {
-        BTreeMap::from([
-            ("computeds".to_string(), self.computeds.clone()),
-            ("configs".to_string(), self.configs.clone()),
-            ("edges".to_string(), self.edges.clone()),
-            ("nodes".to_string(), self.nodes.clone()),
-        ])
-    }
-
-    pub fn feature_paths(&self, name: &str) -> Option<&[PathBuf]> {
-        self.paths.get(name).map(Vec::as_slice)
-    }
-
-    pub fn feature_metadata(&self, name: &str) -> Option<&BTreeMap<String, Option<String>>> {
-        self.metadata.get(name)
-    }
-}
-
-pub fn explore_features(path: impl AsRef<Path>) -> Result<FeatureInventory> {
-    explore_feature_paths([path.as_ref().to_path_buf()])
-}
-
 pub fn explore_feature_paths<I, P>(paths: I) -> Result<FeatureInventory>
 where
     I: IntoIterator<Item = P>,

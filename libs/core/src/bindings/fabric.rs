@@ -11,8 +11,7 @@ use crate::compiled::MappedCompiledCorpus;
 use crate::config::{OSLOTS, OTYPE};
 use crate::explore::FeatureInventory;
 use crate::fabric::Fabric;
-use crate::feature::{EdgeFeature, FeatureValue, NodeFeature};
-use crate::io::{TfData, TfDataContent};
+use crate::feature::{EdgeFeature, FeatureValue, NodeFeature, TfFeature};
 
 use super::accessors::{PyLocality, PyNodes, PySearch, PyText};
 use super::api_ref::ApiRef;
@@ -751,12 +750,8 @@ impl PyFabric {
                     let node = node_obj.extract::<u32>()?;
                     values.insert(node, py_to_feature_value(&value_obj, &value_type)?);
                 }
-                let feature = NodeFeature::new(name.clone(), meta, values);
-                let mut tf = TfData::new(write_dir.join(format!("{name}.tf")));
-                tf.is_edge = Some(false);
-                tf.is_config = Some(false);
-                tf.data = Some(TfDataContent::Node(feature));
-                tf.save_result()?;
+                TfFeature::Node(NodeFeature::new(name.clone(), meta, values))
+                    .write_tf(&write_dir.join(format!("{name}.tf")))?;
             }
         }
 
@@ -766,8 +761,12 @@ impl PyFabric {
                 let name = name_obj.extract::<String>()?;
                 edge_names.push(name.clone());
                 let mut meta = merged_meta(&generic, metaData, &name)?;
-                let edge_values_flag = is_truthy_meta(meta.get("edgeValues"));
-                meta.remove("edgeValues");
+                // Kept as the bare `@edgeValues` flag when set.
+                if is_truthy_meta(meta.get("edgeValues")) {
+                    meta.insert("edgeValues".to_string(), None);
+                } else {
+                    meta.remove("edgeValues");
+                }
                 let value_type = meta
                     .get("valueType")
                     .and_then(Option::as_deref)
@@ -799,14 +798,13 @@ impl PyFabric {
                         values.insert(source, targets);
                     }
                 }
-                let has_values = edge_values_flag || !edge_values.is_empty();
-                let feature = EdgeFeature::new_with_values(name.clone(), meta, values, edge_values);
-                let mut tf = TfData::new(write_dir.join(format!("{name}.tf")));
-                tf.is_edge = Some(true);
-                tf.is_config = Some(false);
-                tf.edge_values = has_values;
-                tf.data = Some(TfDataContent::Edge(feature));
-                tf.save_result()?;
+                TfFeature::Edge(EdgeFeature::new_with_values(
+                    name.clone(),
+                    meta,
+                    values,
+                    edge_values,
+                ))
+                .write_tf(&write_dir.join(format!("{name}.tf")))?;
             }
         }
 
@@ -825,14 +823,11 @@ impl PyFabric {
                     }
                 }
                 meta.remove("edgeValues");
-                let mut tf = TfData::new(write_dir.join(format!("{key}.tf")));
-                tf.is_edge = Some(false);
-                tf.is_config = Some(true);
-                tf.data = Some(TfDataContent::Config {
+                TfFeature::Config {
                     name: key.clone(),
                     metadata: meta,
-                });
-                tf.save_result()?;
+                }
+                .write_tf(&write_dir.join(format!("{key}.tf")))?;
             }
         }
 

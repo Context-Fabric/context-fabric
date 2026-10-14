@@ -7,8 +7,7 @@ use crate::compiled::{
     StringPoolNodeFeatureView,
 };
 use crate::error::{CfError, Result};
-use crate::mapped_text::MappedText;
-use crate::search::{SearchSets, SearchStudy, relations_legend};
+use crate::search::{SearchSets, SearchStudy};
 
 /// Where the backtracking join emits complete assignments: materialized rows
 /// for `search`/`fetch`, a bare counter for `count`. Counting skips the
@@ -49,10 +48,6 @@ impl<'a> MappedSearch<'a> {
         self.search_inner(template, None, limit)
     }
 
-    pub fn fetch(&self, template: &str, limit: Option<usize>) -> Result<Vec<Vec<u32>>> {
-        Ok(self.study(template)?.fetch(limit))
-    }
-
     pub fn count(&self, template: &str, limit: Option<usize>) -> Result<usize> {
         self.count_inner(template, None, limit)
     }
@@ -84,22 +79,6 @@ impl<'a> MappedSearch<'a> {
         self.count_plan(&plan, &otype, &oslots, sets, limit)
     }
 
-    pub fn glean(&self, nodes: &[u32]) -> Result<String> {
-        if nodes.is_empty() {
-            return Ok(String::new());
-        }
-        MappedText::new(self.corpus)?.text_nodes(nodes, None)
-    }
-
-    pub fn relations_legend(&self) -> &'static str {
-        relations_legend()
-    }
-
-    #[allow(non_snake_case)]
-    pub fn relationsLegend(&self) -> &'static str {
-        self.relations_legend()
-    }
-
     pub fn search_with_sets(
         &self,
         template: &str,
@@ -109,22 +88,8 @@ impl<'a> MappedSearch<'a> {
         self.search_inner(template, Some(sets), limit)
     }
 
-    pub fn fetch_with_sets(
-        &self,
-        template: &str,
-        sets: &SearchSets<'_>,
-        limit: Option<usize>,
-    ) -> Result<Vec<Vec<u32>>> {
-        Ok(self.study_with_sets(template, sets)?.fetch(limit))
-    }
-
     pub fn search_first_nodes(&self, template: &str, limit: Option<usize>) -> Result<Vec<u32>> {
         Ok(self.study(template)?.fetch_first_nodes(limit))
-    }
-
-    #[allow(non_snake_case)]
-    pub fn searchFirstNodes(&self, template: &str, limit: Option<usize>) -> Result<Vec<u32>> {
-        self.search_first_nodes(template, limit)
     }
 
     pub fn search_first_nodes_with_sets(
@@ -138,16 +103,6 @@ impl<'a> MappedSearch<'a> {
             .fetch_first_nodes(limit))
     }
 
-    #[allow(non_snake_case)]
-    pub fn searchFirstNodesWithSets(
-        &self,
-        template: &str,
-        sets: &SearchSets<'_>,
-        limit: Option<usize>,
-    ) -> Result<Vec<u32>> {
-        self.search_first_nodes_with_sets(template, sets, limit)
-    }
-
     pub fn search_prefixes(
         &self,
         template: &str,
@@ -155,16 +110,6 @@ impl<'a> MappedSearch<'a> {
         limit: Option<usize>,
     ) -> Result<Vec<Vec<u32>>> {
         Ok(self.study(template)?.fetch_prefixes(width, limit))
-    }
-
-    #[allow(non_snake_case)]
-    pub fn searchPrefixes(
-        &self,
-        template: &str,
-        width: usize,
-        limit: Option<usize>,
-    ) -> Result<Vec<Vec<u32>>> {
-        self.search_prefixes(template, width, limit)
     }
 
     pub fn search_prefixes_with_sets(
@@ -179,24 +124,8 @@ impl<'a> MappedSearch<'a> {
             .fetch_prefixes(width, limit))
     }
 
-    #[allow(non_snake_case)]
-    pub fn searchPrefixesWithSets(
-        &self,
-        template: &str,
-        sets: &SearchSets<'_>,
-        width: usize,
-        limit: Option<usize>,
-    ) -> Result<Vec<Vec<u32>>> {
-        self.search_prefixes_with_sets(template, sets, width, limit)
-    }
-
     pub fn show_plan(&self, template: &str, details: bool) -> Result<String> {
         Ok(self.study(template)?.show_plan(details))
-    }
-
-    #[allow(non_snake_case)]
-    pub fn showPlan(&self, template: &str, details: bool) -> Result<String> {
-        self.show_plan(template, details)
     }
 
     pub fn show_plan_with_sets(
@@ -206,16 +135,6 @@ impl<'a> MappedSearch<'a> {
         details: bool,
     ) -> Result<String> {
         Ok(self.study_with_sets(template, sets)?.show_plan(details))
-    }
-
-    #[allow(non_snake_case)]
-    pub fn showPlanWithSets(
-        &self,
-        template: &str,
-        sets: &SearchSets<'_>,
-        details: bool,
-    ) -> Result<String> {
-        self.show_plan_with_sets(template, sets, details)
     }
 
     pub fn study(&self, template: &str) -> Result<SearchStudy> {

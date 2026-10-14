@@ -2,7 +2,7 @@ use crate::compiled::{
     EdgeFeatureView, MappedCompiledCorpus, MappedNodeValue, MappedU32s, OwnedEdgeFeature,
     OwnedNodeFeature, OwnedStringPoolFeature, StringPoolNodeFeatureView,
 };
-use crate::corpus::{Boundary, SectionOptions, WalkEvent};
+use crate::corpus::{SectionOptions, WalkEvent};
 use crate::error::{CfError, Result};
 use crate::feature::FeatureValue;
 use std::collections::{HashMap, HashSet};
@@ -15,8 +15,6 @@ struct SectionConfig {
     slot_type: String,
     section_types: Vec<String>,
     section_features: Vec<String>,
-    structure_types: Vec<String>,
-    structure_features: Vec<String>,
 }
 
 impl SectionConfig {
@@ -38,8 +36,6 @@ impl SectionConfig {
         Ok(Self {
             section_types: config("sectionTypes")?,
             section_features: config("sectionFeatures")?,
-            structure_types: config("structureTypes")?,
-            structure_features: config("structureFeatures")?,
             slot_type,
         })
     }
@@ -376,36 +372,8 @@ impl<'a> MappedSections<'a> {
         &self.config.section_types
     }
 
-    #[allow(non_snake_case)]
-    pub fn sectionTypes(&self) -> &[String] {
-        self.section_types()
-    }
-
     pub fn section_features(&self) -> &[String] {
         &self.config.section_features
-    }
-
-    #[allow(non_snake_case)]
-    pub fn sectionFeatures(&self) -> &[String] {
-        self.section_features()
-    }
-
-    pub fn structure_types(&self) -> &[String] {
-        &self.config.structure_types
-    }
-
-    #[allow(non_snake_case)]
-    pub fn structureTypes(&self) -> &[String] {
-        self.structure_types()
-    }
-
-    pub fn structure_features(&self) -> &[String] {
-        &self.config.structure_features
-    }
-
-    #[allow(non_snake_case)]
-    pub fn structureFeatures(&self) -> &[String] {
-        self.structure_features()
     }
 
     pub fn section_tuple(&self, node: u32, options: &SectionOptions) -> Result<Vec<Option<u32>>> {
@@ -457,11 +425,6 @@ impl<'a> MappedSections<'a> {
         Ok(sections)
     }
 
-    #[allow(non_snake_case)]
-    pub fn sectionTuple(&self, node: u32, options: &SectionOptions) -> Result<Vec<Option<u32>>> {
-        self.section_tuple(node, options)
-    }
-
     pub fn section_from_node(
         &self,
         node: u32,
@@ -480,28 +443,6 @@ impl<'a> MappedSections<'a> {
                 self.node_feature_value(feature_name, section_node)
             })
             .collect()
-    }
-
-    #[allow(non_snake_case)]
-    pub fn sectionFromNode(
-        &self,
-        node: u32,
-        options: &SectionOptions,
-    ) -> Result<Vec<Option<FeatureValue>>> {
-        self.section_from_node(node, options)
-    }
-
-    pub fn section_ref(&self, node: u32) -> Result<String> {
-        Ok(self
-            .section_from_node(node, &SectionOptions::default())?
-            .into_iter()
-            .filter_map(|value| value.map(section_value_to_string))
-            .collect::<Vec<_>>()
-            .join(" "))
-    }
-
-    pub fn node_from_section(&self, section: &[FeatureValue]) -> Result<Option<u32>> {
-        self.node_from_section_langed(section, None)
     }
 
     /// Like [`node_from_section`](Self::node_from_section), but resolves the
@@ -580,11 +521,6 @@ impl<'a> MappedSections<'a> {
         Ok(None)
     }
 
-    #[allow(non_snake_case)]
-    pub fn nodeFromSection(&self, section: &[FeatureValue]) -> Result<Option<u32>> {
-        self.node_from_section(section)
-    }
-
     pub fn node_type(&self, node: u32) -> Result<Option<&'a str>> {
         self.otype.str_value(node)
     }
@@ -601,20 +537,6 @@ impl<'a> MappedSections<'a> {
             .targets(node)?
             .map(|targets| targets.collect())
             .unwrap_or_else(|| Ok(Vec::new()))
-    }
-
-    pub fn contains(&self, parent: u32, child: u32) -> Result<bool> {
-        if self.is_slot(child)? {
-            return self.contains_slot(parent, child);
-        }
-        let child_slots = self.slots(child)?;
-        if child_slots.is_empty() {
-            return Ok(false);
-        }
-        let parent_slots = self.slots(parent)?;
-        Ok(child_slots
-            .iter()
-            .all(|slot| parent_slots.binary_search(slot).is_ok()))
     }
 
     pub fn up(&self, node: u32, node_type: Option<&str>) -> Result<Vec<u32>> {
@@ -680,10 +602,6 @@ impl<'a> MappedSections<'a> {
         self.filter_locality_nodes(row, node_types)
     }
 
-    pub fn u_types(&self, node: u32, node_types: Option<&[&str]>) -> Result<Vec<u32>> {
-        self.up_types(node, node_types)
-    }
-
     pub fn down(&self, node: u32, node_type: Option<&str>) -> Result<Vec<u32>> {
         match node_type {
             Some(node_type) => self.down_types(node, Some(&[node_type])),
@@ -721,10 +639,6 @@ impl<'a> MappedSections<'a> {
         }
         self.sort_nodes(&mut result)?;
         Ok(result)
-    }
-
-    pub fn d_types(&self, node: u32, node_types: Option<&[&str]>) -> Result<Vec<u32>> {
-        self.down_types(node, node_types)
     }
 
     pub fn next(&self, node: u32, node_type: Option<&str>) -> Result<Vec<u32>> {
@@ -803,30 +717,6 @@ impl<'a> MappedSections<'a> {
         Ok(nodes)
     }
 
-    pub fn node_type_items(&self) -> Result<Vec<(u32, String)>> {
-        let mut rows = Vec::new();
-        for node in 1..=self.max_node() {
-            if let Some(node_type) = self.node_type(node)? {
-                rows.push((node, node_type.to_string()));
-            }
-        }
-        Ok(rows)
-    }
-
-    pub fn otype_items(&self) -> Result<Vec<(u32, String)>> {
-        self.node_type_items()
-    }
-
-    #[allow(non_snake_case)]
-    pub fn otypeItems(&self) -> Result<Vec<(u32, String)>> {
-        self.node_type_items()
-    }
-
-    #[allow(non_snake_case)]
-    pub fn allNodes(&self) -> Result<Vec<u32>> {
-        self.all_nodes()
-    }
-
     pub fn walk(&self, nodes: Option<&[u32]>) -> Result<Vec<u32>> {
         match nodes {
             Some(nodes) => {
@@ -863,26 +753,6 @@ impl<'a> MappedSections<'a> {
         }
 
         Ok(events)
-    }
-
-    #[allow(non_snake_case)]
-    pub fn walkEvents(&self, nodes: Option<&[u32]>) -> Result<Vec<WalkEvent>> {
-        self.walk_events(nodes)
-    }
-
-    pub fn boundary(&self) -> Result<Boundary> {
-        let max_slot = self.max_slot()?;
-        let mut first_slots = Vec::with_capacity(max_slot as usize);
-        let mut last_slots = Vec::with_capacity(max_slot as usize);
-        // First/last-slot membership from the stored boundary CSRs.
-        for slot in 1..=max_slot {
-            first_slots.push(self.corpus.boundary_first(slot)?.unwrap_or_default());
-            last_slots.push(self.corpus.boundary_last(slot)?.unwrap_or_default());
-        }
-        Ok(Boundary {
-            first_slots,
-            last_slots,
-        })
     }
 
     /// Resolves the section-0 (e.g. book) node whose section-0 feature value
@@ -936,20 +806,6 @@ impl<'a> MappedSections<'a> {
             }
         }
         Ok(found)
-    }
-
-    fn contains_slot(&self, parent: u32, slot: u32) -> Result<bool> {
-        self.oslots
-            .targets(parent)?
-            .map(|targets| {
-                for target in targets {
-                    if target? == slot {
-                        return Ok(true);
-                    }
-                }
-                Ok(false)
-            })
-            .unwrap_or(Ok(false))
     }
 
     fn node_type_allowed(&self, node: u32, node_types: Option<&[&str]>) -> Result<bool> {
@@ -1048,13 +904,6 @@ fn section_key(value: &FeatureValue) -> std::borrow::Cow<'_, str> {
     match value {
         FeatureValue::Str(text) => std::borrow::Cow::Borrowed(text),
         FeatureValue::Int(number) => std::borrow::Cow::Owned(number.to_string()),
-    }
-}
-
-fn section_value_to_string(value: FeatureValue) -> String {
-    match value {
-        FeatureValue::Str(value) => value.to_string(),
-        FeatureValue::Int(value) => value.to_string(),
     }
 }
 
