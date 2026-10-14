@@ -24,6 +24,8 @@ stop() {
 
 fail() {
   echo "FAIL: $*"
+  # in GitHub Actions also as an annotation, which can be read without a login
+  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::error title=Smoke test::$*"
   stop
   exit 1
 }
