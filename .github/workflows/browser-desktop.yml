@@ -1,0 +1,106 @@
+name: Browser desktop program
+
+# Builds cfabric-browser as a standalone program (PyInstaller, pywebview) on
+# Windows, macOS and Linux, smoke-tests each build, and tests the Windows build
+# once more on a runner where Python is out of reach.
+
+on:
+  push:
+    branches: [master, main, 'desktop-*']
+    paths:
+      - 'libs/browser/**'
+      - 'libs/core/cfabric/**'
+      - '.github/workflows/browser-desktop.yml'
+  pull_request:
+    branches: [master, main]
+    paths:
+      - 'libs/browser/**'
+      - 'libs/core/cfabric/**'
+      - '.github/workflows/browser-desktop.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: windows, os: windows-latest }
+          - { name: macos-arm64, os: macos-latest }
+          - { name: macos-x64, os: macos-15-intel }
+          - { name: linux, os: ubuntu-latest }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: libs/browser
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: libs/browser/frontend/package-lock.json
+      - name: Build the interface
+        working-directory: libs/browser/frontend
+        run: |
+          npm ci
+          npm run build
+      - name: Install (not editable, PyInstaller does not see editable installs)
+        run: pip install ../core ".[desktop]"
+      - name: Build the program
+        run: pyinstaller packaging/cfabric-browser.spec --noconfirm
+      - name: Smoke test
+        run: |
+          program=dist/cfabric-browser/cfabric-browser
+          [ -f "$program.exe" ] && program=$program.exe
+          bash packaging/smoke-test.sh "$program" ../core/tests/fixtures/display_corpus
+      - name: Size
+        run: du -sh dist/*
+      - name: Pack (keeps file permissions)
+        run: |
+          mkdir -p ../../out
+          case "${{ matrix.name }}" in
+            windows) 7z a -tzip ../../out/cfabric-browser-windows.zip ./dist/cfabric-browser > /dev/null ;;
+            macos-*) ditto -c -k --keepParent dist/Context-Fabric.app ../../out/Context-Fabric-${{ matrix.name }}.zip ;;
+            linux) tar -czf ../../out/cfabric-browser-linux.tar.gz -C dist cfabric-browser ;;
+          esac
+          ls -l ../../out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cfabric-browser-${{ matrix.name }}
+          path: out/*
+          retention-days: 14
+
+  clean-windows:
+    name: Run on Windows without Python
+    needs: build
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            libs/browser/packaging
+            libs/core/tests/fixtures
+      - uses: actions/download-artifact@v4
+        with:
+          name: cfabric-browser-windows
+      - name: Unpack
+        run: 7z x cfabric-browser-windows.zip -oprogram > /dev/null
+      - name: Smoke test with Python out of reach
+        run: |
+          # take every Python off the path, and make sure none is left
+          export PATH=$(echo "$PATH" | tr ':' '\n' | grep -viE "python|windowsapps" | paste -sd: -)
+          if command -v python || command -v python3 || command -v py; then
+            echo "a Python is still reachable"; exit 1
+          fi
+          bash libs/browser/packaging/smoke-test.sh \
+            program/cfabric-browser/cfabric-browser.exe \
+            libs/core/tests/fixtures/display_corpus
