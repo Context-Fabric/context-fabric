@@ -141,3 +141,35 @@ def test_mapped_corpus_is_usable_after_fork(api):
 
 
 _FORKED_API = None
+
+
+_CONCURRENT_LOAD = """
+import sys
+from cfabric import Fabric
+api = Fabric(locations=sys.argv[1], silent="deep").loadAll(silent="deep")
+print(len(api.S.search(sys.argv[2])))
+"""
+
+
+def test_processes_compiling_the_same_cache_concurrently_all_succeed(tmp_path):
+    """Each process publishes a complete cache atomically; none sees a partial one."""
+    import subprocess
+
+    corpus = _write_synthetic_corpus(tmp_path / "shared")
+    processes = [
+        subprocess.Popen(
+            [sys.executable, "-c", _CONCURRENT_LOAD, str(corpus), TEMPLATE],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd=tmp_path,
+        )
+        for _ in range(6)
+    ]
+    outputs = [process.communicate(timeout=300) for process in processes]
+    for process, (stdout, stderr) in zip(processes, outputs):
+        assert process.returncode == 0, stderr
+    counts = {stdout.strip() for stdout, _ in outputs}
+    assert len(counts) == 1 and int(counts.pop()) > 0
+    leftovers = [path.name for path in (corpus / ".cfr").rglob("*.partial")]
+    assert leftovers == []

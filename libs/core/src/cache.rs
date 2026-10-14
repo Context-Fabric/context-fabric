@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::atomic_file::write_atomically;
 use crate::compiled::inspect_compiled;
-use crate::config::CFR_VERSION;
+use crate::config::{CFR_VERSION, VERSION};
 use crate::downloader::get_cache_dir;
 use crate::error::{CfError, Result};
 
@@ -45,6 +45,9 @@ struct SourceFile {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceManifest {
     cfr_version: String,
+    /// Engine release that wrote the cache: a new release recompiles once, so
+    /// a layout change can never be read with a stale reader.
+    engine_version: String,
     module_paths: Vec<PathBuf>,
     files: Vec<SourceFile>,
 }
@@ -91,6 +94,7 @@ impl SourceManifest {
         files.sort_by(|left, right| (left.module, &left.name).cmp(&(right.module, &right.name)));
         Ok(Self {
             cfr_version: CFR_VERSION.to_string(),
+            engine_version: VERSION.to_string(),
             module_paths,
             files,
         })
@@ -265,6 +269,23 @@ mod tests {
         assert_eq!(fnv1a_64(b""), 0xcbf2_9ce4_8422_2325);
         assert_eq!(fnv1a_64(b"a"), 0xaf63_dc4c_8601_ec8c);
         assert_eq!(fnv1a_64(b"foobar"), 0x8594_4171_f739_67e8);
+    }
+
+    #[test]
+    fn a_cache_written_by_another_engine_release_is_stale() {
+        let dir = tempfile::tempdir().unwrap();
+        let module = dir.path().join("corpus");
+        fs::create_dir_all(&module).unwrap();
+        fs::write(module.join("otype.tf"), "@node\n\n1\tword\n").unwrap();
+        let cache = dir.path().join("corpus.cfr");
+        let manifest = SourceManifest::scan(&[module]).unwrap();
+        manifest.write_for_cache(&cache).unwrap();
+        assert!(manifest.matches_cache(&cache));
+
+        let mut older = manifest.clone();
+        older.engine_version = "0.0.1".to_string();
+        older.write_for_cache(&cache).unwrap();
+        assert!(!manifest.matches_cache(&cache));
     }
 
     #[test]
