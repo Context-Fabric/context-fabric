@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::compiled::{
-    EdgeFeatureView, MappedCompiledCorpus, MappedNodeValue, OwnedEdgeFeature, OwnedMixedFeature,
+    EdgeFeatureView, MappedCompiledCorpus, MappedNodeValue, OwnedEdgeFeature, OwnedNodeFeature,
     OwnedStringPoolFeature, StringPoolNodeFeatureView,
 };
 use crate::corpus::{TextFormatInfo, TextFormatSample, TextOptions, TextRepresentationInfo};
@@ -558,28 +558,12 @@ impl<'a> MappedText<'a> {
     }
 }
 
-/// A feature handle cached inside a [`TextContext`]. Resolved once per distinct
-/// feature name referenced by any compiled format, so rendering never re-touches
-/// the corpus view cache. Preserves the absent (`None`) vs present-empty
-/// (`Some("")`) distinction that the format fallback semantics depend on.
-enum TextFeatureHandle {
-    StringPool(OwnedStringPoolFeature),
-    Mixed(OwnedMixedFeature),
-    Absent,
-}
-
-impl TextFeatureHandle {
-    fn value(&self, node: u32) -> Result<Option<String>> {
-        match self {
-            Self::StringPool(handle) => Ok(handle.view().str_value(node)?.map(str::to_string)),
-            Self::Mixed(handle) => Ok(handle
-                .view()
-                .value(node)?
-                .map(|value| mapped_value_to_string(Some(value)))),
-            Self::Absent => Ok(None),
-        }
-    }
-}
+/// A feature handle cached inside a [`TextContext`], `None` when the feature
+/// is absent. Resolved once per distinct feature name referenced by any
+/// compiled format, so rendering never re-touches the corpus view cache.
+/// Preserves the absent (`None`) vs present-empty (`Some("")`) distinction that
+/// the format fallback semantics depend on.
+type TextFeatureHandle = Option<OwnedNodeFeature>;
 
 /// One step of a compiled `otext` format spec.
 enum TextOp {
@@ -709,9 +693,18 @@ impl TextContext {
     }
 
     pub fn text_with_options(&self, node: u32, options: &TextOptions) -> Result<String> {
+        let mut rendered = String::new();
+        self.render_into(node, options, &mut rendered)?;
+        Ok(rendered)
+    }
+
+    /// Appends the text of `node` to `out` (what
+    /// [`text_with_options`](Self::text_with_options) returns), so callers
+    /// rendering many nodes can reuse one buffer.
+    pub fn render_into(&self, node: u32, options: &TextOptions, out: &mut String) -> Result<()> {
         let otype = self.otype.view();
         let Some(node_type) = otype.str_value(node)? else {
-            return Ok(String::new());
+            return Ok(());
         };
         // Resolve the format name and whether it is the implicit node-default.
         let (format_name, implicit_node_default) = match options.format.as_deref() {
@@ -726,12 +719,12 @@ impl TextContext {
                 } else if self.has_text_orig_full {
                     ("text-orig-full".to_string(), false)
                 } else {
-                    return Ok(String::new());
+                    return Ok(());
                 }
             }
         };
         let Some(format) = self.format(&format_name)? else {
-            return Ok(String::new());
+            return Ok(());
         };
 
         let down_type = match options.descend {
@@ -753,11 +746,10 @@ impl TextContext {
             None => vec![node],
         };
 
-        let mut rendered = String::new();
         for text_node in nodes {
-            self.render_node(text_node, &format, &mut rendered)?;
+            self.render_node(text_node, &format, out)?;
         }
-        Ok(rendered)
+        Ok(())
     }
 
     fn render_node(&self, node: u32, format: &CompiledFormat, out: &mut String) -> Result<()> {
@@ -765,54 +757,14 @@ impl TextContext {
             match op {
                 TextOp::Literal(literal) => out.push_str(literal),
                 TextOp::Placeholder { features, default } => {
-                    out.push_str(&self.render_placeholder(
-                        &format.handles,
-                        node,
-                        features,
-                        default,
-                    )?);
+                    match placeholder_value(&format.handles, node, features)? {
+                        Some(value) => push_value(out, value),
+                        None => out.push_str(default),
+                    }
                 }
             }
         }
         Ok(())
-    }
-
-    /// Mirrors `MappedText::placeholder_value` exactly, including the
-    /// absent/present-empty fallback semantics, but over cached handles.
-    fn render_placeholder(
-        &self,
-        handles: &[TextFeatureHandle],
-        node: u32,
-        features: &[usize],
-        default: &str,
-    ) -> Result<String> {
-        match features {
-            [single] => Ok(handles[*single]
-                .value(node)?
-                .unwrap_or_else(|| default.to_string())),
-            [first, second] => {
-                if let Some(value) = handles[*first].value(node)? {
-                    return Ok(value);
-                }
-                if let Some(value) = handles[*second].value(node)? {
-                    return Ok(value);
-                }
-                Ok(default.to_string())
-            }
-            _ => {
-                let mut found = None;
-                for index in features {
-                    if let Some(value) = handles[*index].value(node)? {
-                        found = Some(value);
-                        break;
-                    }
-                }
-                Ok(match found {
-                    Some(value) if !value.is_empty() => value,
-                    _ => default.to_string(),
-                })
-            }
-        }
     }
 
     fn is_slot(&self, node: u32) -> Result<bool> {
@@ -916,17 +868,53 @@ fn resolve_handle(
     if let Some(index) = handle_index.get(name) {
         return Ok(*index);
     }
-    let handle = if let Some(feature) = corpus.owned_string_pool_feature(name)? {
-        TextFeatureHandle::StringPool(feature)
-    } else if let Some(feature) = corpus.owned_mixed_feature(name)? {
-        TextFeatureHandle::Mixed(feature)
-    } else {
-        TextFeatureHandle::Absent
-    };
+    let handle = corpus.owned_node_feature(name)?;
     let index = handles.len();
     handles.push(handle);
     handle_index.insert(name.to_string(), index);
     Ok(index)
+}
+
+/// The value a `{feat1/feat2/...}` placeholder renders for `node`, or `None`
+/// for its default. Mirrors `MappedText::placeholder_value` exactly: with one
+/// or two features the first *present* value wins (even when empty); with more,
+/// the first present value wins only when non-empty.
+fn placeholder_value<'h>(
+    handles: &'h [TextFeatureHandle],
+    node: u32,
+    features: &[usize],
+) -> Result<Option<MappedNodeValue<'h>>> {
+    let value_of = |index: usize| -> Result<Option<MappedNodeValue<'h>>> {
+        match &handles[index] {
+            Some(handle) => handle.value(node),
+            None => Ok(None),
+        }
+    };
+    if features.len() <= 2 {
+        for index in features {
+            if let Some(value) = value_of(*index)? {
+                return Ok(Some(value));
+            }
+        }
+        return Ok(None);
+    }
+    for index in features {
+        if let Some(value) = value_of(*index)? {
+            let empty = matches!(value, MappedNodeValue::Str(text) if text.is_empty());
+            return Ok((!empty).then_some(value));
+        }
+    }
+    Ok(None)
+}
+
+fn push_value(out: &mut String, value: MappedNodeValue<'_>) {
+    match value {
+        MappedNodeValue::Str(text) => out.push_str(text),
+        MappedNodeValue::Int(number) => {
+            use std::fmt::Write;
+            let _ = write!(out, "{number}");
+        }
+    }
 }
 
 /// Same split as `MappedText::split_format`, but against a pre-built node-type

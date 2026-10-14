@@ -1176,6 +1176,15 @@ impl MappedCompiledCorpus {
         }))
     }
 
+    /// Owned counterpart of [`node_feature`](Self::node_feature): the feature's
+    /// handle in whichever encoding it was compiled with.
+    pub fn owned_node_feature(self: &Arc<Self>, name: &str) -> Result<Option<OwnedNodeFeature>> {
+        if let Some(feature) = self.owned_string_pool_feature(name)? {
+            return Ok(Some(OwnedNodeFeature::StringPool(feature)));
+        }
+        Ok(self.owned_mixed_feature(name)?.map(OwnedNodeFeature::Mixed))
+    }
+
     /// Owned counterpart of [`edge_feature`](Self::edge_feature).
     pub fn owned_edge_feature(self: &Arc<Self>, name: &str) -> Result<Option<OwnedEdgeFeature>> {
         Ok(self.edge_parts(name)?.map(|parts| OwnedEdgeFeature {
@@ -1817,6 +1826,24 @@ impl OwnedMixedFeature {
             parts: Arc::clone(&self.parts),
             rank_start: self.corpus.metadata.rank_start,
             rank_len: self.corpus.metadata.rank_len,
+        }
+    }
+}
+
+/// Owned, long-lived handle for a node feature of either encoding. Resolve it
+/// once with [`MappedCompiledCorpus::owned_node_feature`] and read values per
+/// node with no view-cache traffic.
+pub enum OwnedNodeFeature {
+    StringPool(OwnedStringPoolFeature),
+    Mixed(OwnedMixedFeature),
+}
+
+impl OwnedNodeFeature {
+    /// The node's value, borrowed from the memory map.
+    pub fn value(&self, node: u32) -> Result<Option<MappedNodeValue<'_>>> {
+        match self {
+            Self::StringPool(feature) => feature.view().v(node),
+            Self::Mixed(feature) => feature.view().value(node),
         }
     }
 }

@@ -687,12 +687,11 @@ impl PyText {
         if let Ok(single) = node.extract::<u32>() {
             return Ok(engine.text_with_options(single, &options)?);
         }
-        let nodes = nodes_from_py(Some(node))?.unwrap_or_default();
-        let parts = nodes
-            .into_iter()
-            .map(|node| engine.text_with_options(node, &options))
-            .collect::<crate::error::Result<Vec<String>>>()?;
-        Ok(parts.concat())
+        let mut rendered = String::new();
+        for node in nodes_from_py(Some(node))?.unwrap_or_default() {
+            engine.render_into(node, &options, &mut rendered)?;
+        }
+        Ok(rendered)
     }
 
     /// Batch text rendering (ADDITIVE; W4). `items` is an iterable whose elements
@@ -710,26 +709,26 @@ impl PyText {
         fmt: Option<&str>,
         descend: Option<bool>,
     ) -> PyResult<PyObject> {
-        let engine = MappedText::new(&self.corpus)?;
+        let engine = self.text_context()?;
         let options = TextOptions::new(fmt.map(str::to_string), descend);
         let iter = items.try_iter().map_err(|_| {
             PyTypeError::new_err("text_many expects an iterable of nodes or node-iterables")
         })?;
-        let mut out: Vec<String> = Vec::with_capacity(items.len().unwrap_or(0));
+        let out = PyList::empty(py);
+        let mut rendered = String::new();
         for item in iter {
             let item = item?;
+            rendered.clear();
             if let Ok(single) = item.extract::<u32>() {
-                out.push(engine.text_with_options(single, &options)?);
-                continue;
+                engine.render_into(single, &options, &mut rendered)?;
+            } else {
+                for node in super::features::collect_nodes(&item)? {
+                    engine.render_into(node, &options, &mut rendered)?;
+                }
             }
-            let nodes = super::features::collect_nodes(&item)?;
-            let parts = nodes
-                .into_iter()
-                .map(|node| engine.text_with_options(node, &options))
-                .collect::<crate::error::Result<Vec<String>>>()?;
-            out.push(parts.concat());
+            out.append(PyString::new(py, &rendered))?;
         }
-        Ok(PyList::new(py, out)?.into())
+        Ok(out.into_any().unbind())
     }
 
     #[allow(non_snake_case)]
