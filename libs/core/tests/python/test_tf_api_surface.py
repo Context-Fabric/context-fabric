@@ -369,3 +369,9 @@ def test_text_fabric_import_path():
     from cfabric.fabric import Fabric as FabricFromModule
 
     assert FabricFromModule is Fabric
+
+
+def test_is_loaded_report_matches_text_fabric(fabrics):
+    tf, cf = fabrics
+    names = "word distance oslots otext __levels__ nope"
+    assert cf.api.isLoaded(names, pretty=False) == tf.api.isLoaded(names, pretty=False)

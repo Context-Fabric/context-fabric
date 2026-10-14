@@ -1672,6 +1672,17 @@ struct LoadedInfo {
     edge_values: Option<bool>,
 }
 
+/// Render `path` with the home directory abbreviated to `~`, like TF's `ux`.
+fn home_relative(path: &std::path::Path) -> String {
+    let rendered = path.display().to_string();
+    match std::env::var("HOME") {
+        Ok(home) if !home.is_empty() && rendered.starts_with(&home) => {
+            format!("~{}", &rendered[home.len()..])
+        }
+        _ => rendered,
+    }
+}
+
 fn loaded_info(
     corpus: Option<&PyCorpus>,
     inventory: &FeatureInventory,
@@ -1684,7 +1695,7 @@ fn loaded_info(
         .get(name)
         .and_then(|paths| paths.last())
         .and_then(|path| path.parent())
-        .map(|dir| dir.display().to_string());
+        .map(home_relative);
     let metadata = corpus.corpus.metadata();
     let (kind, meta, edge_values) = if corpus.exposed_node_feature(name) {
         let meta = file_meta
@@ -1708,7 +1719,7 @@ fn loaded_info(
             .get(OTYPE)
             .and_then(|paths| paths.last())
             .and_then(|path| path.parent())
-            .map(|dir| dir.display().to_string());
+            .map(home_relative);
         return Some(LoadedInfo {
             kind: "computed",
             value_type: String::new(),
@@ -1724,6 +1735,8 @@ fn loaded_info(
         return None;
     };
     let mut meta = meta.unwrap_or_default();
+    // TF parses `@edgeValues` into a flag instead of keeping it as metadata.
+    meta.remove("edgeValues");
     let value_type = meta.remove("valueType").flatten().unwrap_or_default();
     Some(LoadedInfo {
         kind,
