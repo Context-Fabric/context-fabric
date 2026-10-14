@@ -7,11 +7,15 @@ Based on Text-Fabric parameters.
 
 import os
 import sys
+from importlib.metadata import PackageNotFoundError, version
 from zipfile import ZIP_DEFLATED
 
 
-VERSION = "0.5.0"
-"""Program version."""
+try:
+    VERSION = version("context-fabric")
+except PackageNotFoundError:
+    VERSION = "0+unknown"
+"""Program version, read from the installed package metadata."""
 
 NAME = "Context-Fabric"
 """The name of this program."""

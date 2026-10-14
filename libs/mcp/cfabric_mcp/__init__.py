@@ -14,6 +14,7 @@ Usage:
 
 import logging
 import sys
+from importlib.metadata import PackageNotFoundError, version
 
 # Configure logging for MCP server
 # Use stderr since stdout is reserved for MCP protocol messages
@@ -36,6 +37,9 @@ logger.propagate = False
 from cfabric_mcp.server import mcp, main
 from cfabric_mcp.corpus_manager import corpus_manager, CorpusManager
 
-__version__ = "0.1.0"
+try:
+    __version__ = version("cfabric-mcp")
+except PackageNotFoundError:
+    __version__ = "0+unknown"
 
 __all__ = ["mcp", "main", "corpus_manager", "CorpusManager", "logger", "__version__"]

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.8] - 2026-10-14
+
+### Added
+- Ordered multi-location corpora: when a corpus is composed from several locations or modules, `.cfm` caching is skipped so that no single location's cache stands in for the whole composition (#8, #9)
+
+### Fixed
+- An invalid structure configuration (duplicate structure levels, or a level/feature count mismatch) no longer aborts loading with `ValueError`; the corpus loads with structure disabled (#7)
+- `T.nodeFromHeading()` returns `None` instead of raising `AttributeError` when structure is not configured (#7)
+- Section lookup (`T.nodeFromSection()`) works after loading selected features from a compiled `.cfm` corpus; the section index is now built when the API is created from `.cfm` files, including for single-level sections (#9)
+- `cfabric.__version__` now reports the installed package version
+
 ## [0.5.7] - 2026-01-15 ([ck])
 
 ### Fixed
