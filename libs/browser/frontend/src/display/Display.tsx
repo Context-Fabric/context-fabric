@@ -11,6 +11,8 @@ interface DisplayContextValue {
   config: DisplayConfig;
   settings: ViewSettings;
   onInspect?: (node: number) => void;
+  /** A word is hovered over (null: no longer), for the card with its essentials. */
+  onHover?: (node: number | null, target?: Element) => void;
   /** Words that differ from the text in another pane. */
   marks?: Map<number, DiffKind>;
   /** Per marked word: what it differs from. */
@@ -23,12 +25,13 @@ export function DisplayProvider({
   config,
   settings,
   onInspect,
+  onHover,
   marks,
   markTitles,
   children,
 }: DisplayContextValue & { children: ReactNode }) {
   return (
-    <DisplayContext.Provider value={{ config, settings, onInspect, marks, markTitles }}>
+    <DisplayContext.Provider value={{ config, settings, onInspect, onHover, marks, markTitles }}>
       {children}
     </DisplayContext.Provider>
   );
@@ -63,6 +66,14 @@ function diffClass(marks: Map<number, DiffKind> | undefined, node: number): stri
   return kind ? `diff diff-${kind}` : "";
 }
 
+/** Mouse and focus handlers that report a word to `onHover`. */
+function hoverProps(onHover: DisplayContextValue["onHover"], node: number) {
+  if (!onHover) return {};
+  const enter = (e: { currentTarget: Element }) => onHover(node, e.currentTarget);
+  const leave = () => onHover(null);
+  return { onMouseEnter: enter, onMouseLeave: leave, onFocus: enter, onBlur: leave };
+}
+
 function highlightClass(color: string | undefined): string {
   if (color === undefined) return "";
   return color ? "hl-custom" : "hl";
@@ -77,7 +88,7 @@ function isBaseType(config: DisplayConfig, type: string): boolean {
 // Where slots are below word level (signs in SP and DSS), the base type (word) is
 // the unit to click: its signs are drawn inside it and are not inspected one by one.
 function PlainFragment({ fragment, inBase = false }: { fragment: Fragment; inBase?: boolean }) {
-  const { config, onInspect, marks, markTitles } = useDisplay();
+  const { config, onInspect, onHover, marks, markTitles } = useDisplay();
   const isText = fragment.text !== undefined;
   const isBase = !inBase && !isText && isBaseType(config, fragment.type);
   const cls = `${highlightClass(fragment.highlight)} ${fragment.dim ? "dim" : ""}`.trim();
@@ -92,8 +103,10 @@ function PlainFragment({ fragment, inBase = false }: { fragment: Fragment; inBas
       <span
         className={`plain-word ${cls} ${diffClass(marks, fragment.node)}`}
         style={highlightStyle(fragment.highlight)}
-        title={markTitles?.get(fragment.node)}
+        // the hover card shows what the word differs from
+        title={onHover ? undefined : markTitles?.get(fragment.node)}
         onClick={() => onInspect(fragment.node)}
+        {...hoverProps(onHover, fragment.node)}
       >
         {content}
       </span>
@@ -141,7 +154,7 @@ function Features({ features }: { features: FeatureValue[] }) {
 }
 
 function PrettyFragment({ fragment, direction }: { fragment: Fragment; direction: "rtl" | "ltr" }) {
-  const { config, settings, onInspect, marks, markTitles } = useDisplay();
+  const { config, settings, onInspect, onHover, marks, markTitles } = useDisplay();
   const typeDisplay = config.types[fragment.type];
   const level = typeDisplay?.level ?? 1;
   const flow = typeDisplay?.flow ?? "hor";
@@ -186,7 +199,12 @@ function PrettyFragment({ fragment, direction }: { fragment: Fragment; direction
           className={`frag-word ${scriptClass(config, direction)} ${diffClass(marks, fragment.node)} ${fragment.dim ? "dim" : ""}`}
           dir={direction}
           onClick={() => onInspect?.(fragment.node)}
-          title={markTitles?.get(fragment.node) ?? (settings.showNodes ? undefined : `${fragment.type} ${fragment.node}`)}
+          title={
+            onHover
+              ? undefined
+              : (markTitles?.get(fragment.node) ?? (settings.showNodes ? undefined : `${fragment.type} ${fragment.node}`))
+          }
+          {...hoverProps(onHover, fragment.node)}
         >
           {fragment.text}
         </button>
@@ -200,7 +218,8 @@ function PrettyFragment({ fragment, direction }: { fragment: Fragment; direction
           className={`frag-word frag-base ${scriptClass(config, direction)} ${diffClass(marks, fragment.node)} ${fragment.dim ? "dim" : ""}`}
           dir={direction}
           onClick={() => onInspect?.(fragment.node)}
-          title={settings.showNodes ? undefined : `${fragment.type} ${fragment.node}`}
+          title={onHover || settings.showNodes ? undefined : `${fragment.type} ${fragment.node}`}
+          {...hoverProps(onHover, fragment.node)}
         >
           {fragment.text}
         </button>

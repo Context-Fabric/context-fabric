@@ -7,6 +7,7 @@ import type {
   Lexeme,
   LexiconEntry,
   NodeInfo,
+  NodeSummary,
   Occurrence,
   Problem,
   ReadBy,
@@ -154,6 +155,9 @@ export const api = {
     }>(
       `${corpusPath(corpus)}/passage${query({ ref, ...params })}`,
     ),
+
+  nodeSummary: (corpus: string, node: number) =>
+    request<NodeSummary>(`${corpusPath(corpus)}/nodes/${node}/summary`),
 
   nodeInfo: (corpus: string, node: number) =>
     request<NodeInfo>(`${corpusPath(corpus)}/nodes/${node}/info`),

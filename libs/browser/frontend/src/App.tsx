@@ -2,6 +2,7 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { DisplayProvider, displayRef } from "./display/Display";
+import { HoverCard, useHover } from "./HoverCard";
 import { Inspector } from "./Inspector";
 import { LexiconView } from "./lexicon/LexiconView";
 import { Library } from "./Library";
@@ -282,6 +283,11 @@ function PaneView({
   const setView = (view: View) => onChange({ view }, true);
   // a corpus without a lexicon (after switching corpus) is read instead
   const view: View = pane.view === "lexicon" && card && !card.lexicon ? "read" : pane.view;
+  const [hovered, onHover] = useHover();
+  // the word under the card goes when the pane shows something else
+  useEffect(() => {
+    onHover(null);
+  }, [onHover, pane.corpus, view, pane.ref, pane.by, pane.lex, pane.search, pane.result]);
   // a corpus' own default format applies unless the reader chose one it has
   const paneSettings =
     card && settings.fmt && !card.display.textFormats.includes(settings.fmt) ? { ...settings, fmt: null } : settings;
@@ -344,6 +350,7 @@ function PaneView({
             config={card.display}
             settings={paneSettings}
             onInspect={(n) => onInspect(card.name, n)}
+            onHover={onHover}
             marks={view === "read" ? diff?.marks : undefined}
             markTitles={view === "read" ? diff?.titles : undefined}
           >
@@ -406,6 +413,13 @@ function PaneView({
                 compact={compact}
               />
             )}
+            {hovered ? (
+              <HoverCard
+                corpus={card}
+                hovered={hovered}
+                note={view === "read" ? diff?.titles?.get(hovered.node) : undefined}
+              />
+            ) : null}
           </DisplayProvider>
         )}
       </div>

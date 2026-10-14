@@ -43,6 +43,7 @@ from cfabric_browser.queries import (
     template_constraints,
     template_features,
 )
+from cfabric_browser.summary import summary
 from cfabric_browser.witnesses import dress_signs, format_ref, parse_ref, place
 from cfabric_browser.workers import FINISHED, SearchJob, SearchPool
 
@@ -454,6 +455,35 @@ def build_router(
         ).to_dict()
         return tree
 
+    def word_summary(corpus: str, node: int) -> list[dict[str, str]]:
+        """The essentials of a word; in a corpus without glosses (the DSS),
+        with the gloss from the lexicon of another open corpus (the BHSA)."""
+        api = corpus_api(corpus)
+        config = service.config(corpus)
+        empty = {str(v) for v in config.none_values if v is not None}
+        glosses = service.glosses(corpus)
+        if glosses is None:
+            return summary(api, node, empty)
+        (gloss_for, source) = glosses
+        return summary(api, node, empty, gloss_for, f"gloss in {source}")
+
+    @router.get("/corpora/{corpus}/nodes/{node}/summary")
+    def node_summary(corpus: str, node: int, lang: str = "en") -> dict[str, Any]:
+        """The essentials of a node, for the card shown when hovering over a
+        word: its text, and its gloss, lexeme, part of speech and morphology in
+        words (see `cfabric_browser.summary`)."""
+        api = corpus_api(corpus)
+        check_node(api, node)
+        config = service.config(corpus)
+        slots = api.E.oslots.s(node)
+        return {
+            "node": node,
+            "type": api.F.otype.v(node),
+            "ref": section_ref_for(api, config, node, lang=lang),
+            "text": api.T.text(node) if len(slots) <= 200 else None,
+            "summary": word_summary(corpus, node),
+        }
+
     @router.get("/corpora/{corpus}/nodes/{node}/info")
     def node_info(corpus: str, node: int, lang: str = "en") -> dict[str, Any]:
         """Everything about one node, for the node inspector."""
@@ -500,6 +530,7 @@ def build_router(
             "slots": [int(slots[0]), int(slots[-1])],
             "slotCount": len(slots),
             "text": text,
+            "summary": word_summary(corpus, node),
             "features": features,
             "edges": edges,
             "up": up,

@@ -178,6 +178,17 @@ class TestLexicon:
             ["Genesis", "1", "2", "6"],
         ]
 
+    def test_gloss_by_lexeme(self, tmp_path):
+        write_tf(tmp_path / "Hebrew" / "bible" / "tf" / "1.0")
+        roots = (str(tmp_path),)
+        service = CorpusService([resolve_corpus("Hebrew/bible", roots)], roots=roots)
+        lexicon = service.lexicon("bible")
+        assert lexicon.gloss("BR>[") == "create"
+        assert lexicon.gloss(">RQ/", "Aramaic") == "earth"
+        # not in that language: as in another one
+        assert lexicon.gloss("BR>[", "Aramaic") == "create"
+        assert lexicon.gloss("XYZ/") is None
+
     def test_not_a_lexeme(self, client):
         assert client.get("/api/corpora/bible/lexicon/1").status_code == 404
 
