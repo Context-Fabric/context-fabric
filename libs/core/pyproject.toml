@@ -68,10 +68,6 @@ include = [
 exclude = [
     "**/.cfr/**",
     "**/__pycache__/**",
-    # Development notes and benchmark scripts are not part of the distribution.
-    { path = "NOTES.md", format = "sdist" },
-    { path = "PERFORMANCE_CUTOVER.md", format = "sdist" },
-    { path = "RUST_PORT_PLAN.md", format = "sdist" },
 ]
 
 [tool.cibuildwheel]
