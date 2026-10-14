@@ -6,6 +6,7 @@ import socket
 import sys
 import threading
 import time
+import webbrowser
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,7 @@ def run_window(app: Any, host: str, port: int, url: str) -> int:
     """Serve `app` in a background thread and show it in a window until closed."""
     try:
         import webview
+        from webview.errors import WebViewException
     except ImportError:
         print(
             "cfabric-browser: --window needs pywebview:"
@@ -60,7 +62,18 @@ def run_window(app: Any, host: str, port: int, url: str) -> int:
         "Context-Fabric", url, width=1400, height=900, min_size=(640, 480)
     )
     STORAGE.mkdir(parents=True, exist_ok=True)
-    webview.start(private_mode=False, storage_path=str(STORAGE))
+    try:
+        webview.start(private_mode=False, storage_path=str(STORAGE))
+    except WebViewException as e:
+        # no window toolkit (on Linux pywebview needs GTK or Qt): use a web browser
+        print(f"No window possible ({e}); opening a web browser instead.", flush=True)
+        print(f"Context-Fabric browser at {url}  (Ctrl+C to stop)", flush=True)
+        webbrowser.open(url)
+        try:
+            while thread.is_alive():
+                thread.join(timeout=0.5)
+        except KeyboardInterrupt:
+            pass
 
     # the window is closed: stop the server, which stops the search workers
     server.should_exit = True

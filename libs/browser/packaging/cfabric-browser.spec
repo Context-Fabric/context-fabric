@@ -6,10 +6,11 @@
 #
 #     pyinstaller packaging/cfabric-browser.spec
 #
-# The program ends up in dist/cfabric-browser/. It shows the browser in a window of
+# The program ends up in dist/cfabric-browser/ (on macOS also dist/Context-Fabric.app). It shows the browser in a window of
 # its own (pywebview, see cfabric-browser.py); started without corpora, it offers
 # the corpora on this computer.
 
+import sys
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
@@ -45,3 +46,11 @@ exe = EXE(
     console=False,  # a window, no console
 )
 coll = COLLECT(exe, a.binaries, a.datas, name="cfabric-browser")
+if sys.platform == "darwin":
+    # a double-clickable application, dist/Context-Fabric.app
+    app = BUNDLE(
+        coll,
+        name="Context-Fabric.app",
+        bundle_identifier="ai.context-fabric.browser",
+        version=cfabric_browser.__version__,
+    )

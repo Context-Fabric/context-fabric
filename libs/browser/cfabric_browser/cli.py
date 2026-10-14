@@ -47,7 +47,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--window",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=False,
         help="show the browser in a window of its own (needs pywebview);"
         " closing it stops the server",
     )
