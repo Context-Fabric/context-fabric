@@ -4,7 +4,7 @@ import type { ReadBy, ViewSettings } from "./types";
 // Everything that identifies what you are looking at lives in the URL, so a view
 // can be bookmarked and shared. Display preferences are kept per browser.
 
-export type View = "read" | "search";
+export type View = "read" | "search" | "lexicon";
 
 /** What one pane shows. A workspace has one or more panes side by side. */
 export interface Pane {
@@ -15,6 +15,7 @@ export interface Pane {
   query: string; // search template
   search: string | null; // id of the current search
   result: number | null; // expanded result
+  lex: number | null; // lexeme shown in the lexicon
 }
 
 export interface Workspace {
@@ -26,7 +27,7 @@ export interface Workspace {
 export const MAX_PANES = 4;
 
 export function emptyPane(corpus: string | null = null): Pane {
-  return { corpus, view: "read", ref: null, by: "sections", query: "", search: null, result: null };
+  return { corpus, view: "read", ref: null, by: "sections", query: "", search: null, result: null, lex: null };
 }
 
 // URL keys per pane: c0, v0, ref0, ... ; links without an index are pane 0.
@@ -36,14 +37,16 @@ function parsePane(p: URLSearchParams, i: number): Pane | null {
   const view = key("v");
   if (corpus === null && view === null && i > 0) return null;
   const result = key("r");
+  const lex = key("lx");
   return {
     corpus,
-    view: view === "search" ? "search" : "read",
+    view: view === "search" || view === "lexicon" ? view : "read",
     ref: key("ref"),
     by: key("by") === "books" ? "books" : "sections",
     query: key("q") ?? "",
     search: key("s"),
     result: result === null ? null : Number(result),
+    lex: lex === null ? null : Number(lex),
   };
 }
 
@@ -68,6 +71,7 @@ export function serialize(ws: Workspace): string {
     if (pane.query) p.set(`q${i}`, pane.query);
     if (pane.search) p.set(`s${i}`, pane.search);
     if (pane.result !== null) p.set(`r${i}`, String(pane.result));
+    if (pane.lex !== null) p.set(`lx${i}`, String(pane.lex));
   });
   if (ws.sync) p.set("sync", "1");
   if (ws.diff) p.set("diff", "1");

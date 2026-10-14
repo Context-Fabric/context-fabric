@@ -335,3 +335,21 @@ class TestCommandLine:
     def test_no_library_needs_a_corpus(self, capsys):
         assert main(["--no-library"]) == 2
         assert "--no-library" in capsys.readouterr().err
+
+
+class TestOnly:
+    """A library limited to a few corpora, e.g. for a test version."""
+
+    def test_discover_only(self, roots):
+        found = discover(roots, only=["hebrew/HEB", "Other/notes"])
+        assert [c["id"] for c in found] == ["Hebrew/heb", "Other/notes"]
+
+    def test_library_and_opening(self, roots):
+        service = CorpusService([], roots=roots, only=["Hebrew/heb"])
+        app = create_app(service, SearchPool([]), manage_pool=False)
+        with TestClient(app) as c:
+            corpora = c.get("/api/library").json()["corpora"]
+            assert [x["id"] for x in corpora] == ["Hebrew/heb"]
+            # a corpus outside the limit cannot be opened either
+            assert c.post("/api/corpora", json={"id": "Greek/gr"}).status_code == 404
+            assert c.post("/api/corpora", json={"id": "Hebrew/heb"}).status_code == 201

@@ -83,7 +83,37 @@ export interface CorpusCard {
   sectionTypes: string[];
   /** Whether the corpus can also be read by biblical book (DSS). */
   bookView: boolean;
+  /** Whether the corpus has a lexicon with glosses (BHSA). */
+  lexicon: boolean;
   display: DisplayConfig;
+}
+
+/** A lexeme in the lexicon; fields the corpus lacks are missing or null. */
+export interface LexiconEntry {
+  node: number;
+  lex: string; // transliteration, e.g. BR>[
+  form?: string | null; // vocalised
+  cons?: string | null; // consonants
+  letter: string | null; // the first letter
+  gloss?: string | null;
+  sp?: string | null; // part of speech
+  language?: string | null;
+  freq: number;
+  rank?: number | null;
+  nametype?: string | null;
+}
+
+export interface Lexeme extends LexiconEntry {
+  verses: number;
+  books: { book: string; count: number }[];
+}
+
+/** A verse a lexeme occurs in, as running text with its words marked. */
+export interface Occurrence {
+  node: number;
+  ref: string;
+  words: number[];
+  tree: RenderTree;
 }
 
 export interface SectionItem {

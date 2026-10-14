@@ -29,6 +29,7 @@ Options:
 - `--no-open`: don't open a web browser.
 - `--window` (`--no-window`): show the browser in a window of its own instead of a web browser (needs pywebview: `pip install cfabric-browser[desktop]`). Closing the window stops the server. Without `--port` it uses the first free port from 8107, so several windows can run at once. The window keeps its settings, search history and saved workspaces in `~/.cfabric/window`.
 - `--no-library`: don't let users open other corpora found on this computer. Then at least one corpus must be given.
+- `--only ORG/REPO`: limit the *Open a corpus* list to these corpora (repeatable), e.g. for a test with a few corpora; others can't be opened from the browser either. Permanently: `library: only:` in `~/.cfabric/browser.yaml`.
 - `--hide ORG/REPO`: leave a corpus out of the *Open a corpus* list (repeatable). To do this permanently, list them in `~/.cfabric/browser.yaml`:
 
   ```yaml
@@ -46,6 +47,16 @@ The server listens on `127.0.0.1` only. Pass `--host` to change that, and only w
 Queries use Text-Fabric's search template language, run by Context-Fabric's search engine. Queries written for the TF browser work unchanged and give the same results.
 
 Problems in a template are reported per line. That includes problems inside quantifiers such as `/without/`, which the engine itself only logs, and then returns results as if the quantifier excluded nothing.
+
+## Lexicon
+
+A corpus with lexeme nodes (`lex`) that have glosses, such as the BHSA, gets a third view besides *Read* and *Search*: *Lexicon*, after SHEBANQ's *Words* page.
+
+- Lexemes per language (Hebrew, Aramaic) and first letter, in Hebrew alphabetical order (sin and shin as one letter), with their vocalised form, transliteration, gloss, part of speech and frequency.
+- *Find* searches all letters at once, by Hebrew (with or without vowels), transliteration or gloss; lexemes can also be limited to a part of speech, and sorted by frequency.
+- A lexeme shows every verse it occurs in, as running text with its words marked (a verse with several occurrences once, with `×2`), how often it occurs per book (choose a book to see only its verses), and links to search for it (`word lex=BR>[ language=Hebrew`) and to download its occurrences as TSV. Clicking a verse reads it; with *Sync passages*, the other panes follow.
+
+The features used are, per role, the first one the corpus has: `lex`, `voc_lex_utf8` or `lex_utf8`, `gloss`, `sp`, `language`, `freq_lex` (otherwise the words are counted), `rank_lex` and `nametype` (`cfabric_browser/lexicon.py`).
 
 ## Display settings
 
@@ -77,6 +88,10 @@ All functions of the interface are available as a JSON API; interactive document
 | `GET /api/corpora/{c}/witnesses?ref=Genesis 1` | A chapter or verse in the book view: per verse, the text of each scroll that contains it |
 | `GET /api/agreement?a=bhsa&aref=…&b=sp&bref=…&c=dss&cref=…` | At each place where `a` and `b` differ, which scrolls of `c` (book view) agree with `a`, with `b`, or with neither |
 | `GET /api/compare?a=bhsa&aref=Genesis 1&b=sp&bref=Genesis 1` | Words that differ between two corresponding Hebrew passages, compared on their consonants verse by verse: `matres` (only matres lectionis) or `variant` |
+| `GET /api/corpora/{c}/lexicon` | All lexemes of a corpus with a lexicon (BHSA), in alphabetical order per language |
+| `GET /api/corpora/{c}/lexicon/{n}` | One lexeme, with its number of verses and how often it occurs per book |
+| `GET /api/corpora/{c}/lexicon/{n}/occurrences?offset=&limit=&book=` | A page of the verses it occurs in, as plain render trees with its words highlighted |
+| `GET /api/corpora/{c}/lexicon/{n}/occurrences.tsv` | Every occurrence: section, word and verse text; `excel=true` for Excel |
 | `GET /api/library`, `POST /api/corpora` | Corpora found on this computer; open one by its id (e.g. `ETCBC/dss`) |
 | `GET /api/corpora/{c}/nodes/{n}[/info]` | Render tree of a node; all its features, edges and surroundings |
 | `POST /api/corpora/{c}/check` | Check a template without searching |
@@ -127,7 +142,7 @@ build/env/Scripts/pyinstaller packaging/cfabric-browser.spec --noconfirm
 dist/cfabric-browser/cfabric-browser bhsa
 ```
 
-Its entry point is `packaging/cfabric-browser.py`, which adds `--window` (`--no-window` overrides it). As it has no console, it writes its output and errors to `~/.cfabric/logs/cfabric-browser.log`, and on Windows shows a message when it cannot start. If no window toolkit is available (on Linux, pywebview needs GTK or Qt), it opens a web browser instead.
+Its entry point is `packaging/cfabric-browser.py`, which adds `--window` (`--no-window` overrides it) and, for the test version, `--only` for the corpora in its `CORPORA` list (BHSA, SP and DSS); empty that list to offer all corpora. As it has no console, it writes its output and errors to `~/.cfabric/logs/cfabric-browser.log`, and on Windows shows a message when it cannot start. If no window toolkit is available (on Linux, pywebview needs GTK or Qt), it opens a web browser instead.
 
 The program icons in `packaging/icons/` are drawn from the Context-Fabric mark (`frontend/public/favicon.svg`) by `packaging/make_icons.py` (needs Pillow); run it again when the mark changes.
 
