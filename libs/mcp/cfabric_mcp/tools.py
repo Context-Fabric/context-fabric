@@ -18,7 +18,7 @@ from cfabric.describe import (
     list_features as core_list_features,
 )
 
-from cfabric_mcp.cache import get_cache
+from cfabric_mcp.cache import CachedSearchResult, get_cache
 from cfabric_mcp.corpus_manager import corpus_manager
 
 if TYPE_CHECKING:
@@ -35,6 +35,61 @@ MAX_PASSAGES_LIMIT = 100  # Max sections per get_passages call
 
 # Transport mode - set by server at startup
 _transport: str = "stdio"
+
+
+class _CachedSearch:
+    """A search executed through the shared result cache.
+
+    The cache retains at most a bounded prefix of the matches. When this call
+    executed the search itself, the complete match list is kept for the
+    duration of the call so that consumers needing every match (statistics,
+    CSV exports) do not have to run the query a second time.
+    """
+
+    def __init__(
+        self,
+        search_api: Any,
+        template: str,
+        cached: CachedSearchResult,
+        fresh_results: list[tuple[int, ...]] | None,
+    ) -> None:
+        self._search_api = search_api
+        self._template = template
+        self.cached = cached
+        self._fresh_results = fresh_results
+
+    @classmethod
+    def run(cls, search_api: Any, corpus_name: str, template: str) -> _CachedSearch:
+        """Execute `template`, or reuse the cached result for it."""
+        fresh_results: list[tuple[int, ...]] | None = None
+
+        def execute_search() -> list[tuple[int, ...]]:
+            nonlocal fresh_results
+            try:
+                results = search_api.search(template)
+            except Exception as e:
+                logger.error("search execution failed: %s", e)
+                return []
+            fresh_results = list(results) if results is not None else []
+            return fresh_results
+
+        cached = get_cache().get_or_execute(corpus_name, template, execute_search)
+        return cls(search_api, template, cached, fresh_results)
+
+    def all_results(self) -> list[tuple[int, ...]]:
+        """Return every match, sorted like the cached results.
+
+        Re-runs the query only when the cache holds a truncated prefix and
+        the complete matches from this call are not available.
+
+        Raises:
+            Exception: Any failure raised by the underlying search.
+        """
+        if not self.cached.is_truncated:
+            return self.cached.results
+        if self._fresh_results is None:
+            self._fresh_results = list(self._search_api.search(self._template))
+        return sorted(self._fresh_results)
 
 
 def set_transport(transport: str) -> None:
@@ -286,22 +341,8 @@ def search(
         }
 
     # Use cache for search execution
-    cache = get_cache()
-    uncached_results: list[tuple[int, ...]] | None = None
-
-    def execute_search() -> list[tuple[int, ...]]:
-        nonlocal uncached_results
-        try:
-            results = S.search(template)
-            if results is None:
-                return []
-            uncached_results = list(results)
-            return uncached_results
-        except Exception as e:
-            logger.error("search: execution failed: %s", e)
-            return []
-
-    cached = cache.get_or_execute(corpus_name, template, execute_search)
+    search_run = _CachedSearch.run(S, corpus_name, template)
+    cached = search_run.cached
     results = cached.results  # Already sorted by cache
     total_count = cached.total_count
 
@@ -327,18 +368,11 @@ def search(
         return {"total_count": total_count, "template": template}
 
     elif return_type == "statistics":
-        if cached.is_truncated:
-            # A retained prefix cannot yield complete feature distributions.
-            if uncached_results is not None:
-                results = uncached_results
-            else:
-                try:
-                    results = list(S.search(template))
-                except Exception as e:  # noqa: BLE001 - expose upstream query failures
-                    return {
-                        "error": f"Statistics search failed: {e}",
-                        "template": template,
-                    }
+        # A retained prefix cannot yield complete feature distributions.
+        try:
+            results = search_run.all_results()
+        except Exception as e:  # noqa: BLE001 - expose upstream query failures
+            return {"error": f"Statistics search failed: {e}", "template": template}
         return _format_statistics(
             api, results, template, aggregate_features, group_by_section, top_n
         )
@@ -642,33 +676,15 @@ def search_csv(
         return {"error": "Invalid search template", "errors": errors, "template": template}
 
     # Execute search (uses cache)
-    cache = get_cache()
-    uncached_results: list[tuple[int, ...]] | None = None
-
-    def execute_search() -> list[tuple[int, ...]]:
-        nonlocal uncached_results
-        try:
-            results = S.search(template)
-            if results is None:
-                return []
-            uncached_results = list(results)
-            return uncached_results
-        except Exception as e:
-            logger.error("search_csv: execution failed: %s", e)
-            return []
-
-    cached = cache.get_or_execute(corpus_name, template, execute_search)
+    search_run = _CachedSearch.run(S, corpus_name, template)
+    cached = search_run.cached
     results = cached.results
     total_count = cached.total_count
-    if cached.is_truncated and limit > len(results):
-        if uncached_results is not None:
-            results = sorted(uncached_results)
-        else:
-            try:
-                results = sorted(S.search(template))
-            except Exception as e:  # noqa: BLE001 - do not write an incomplete export
-                return {"error": f"CSV search failed: {e}", "template": template}
-        total_count = len(results)
+    if limit > len(results):
+        try:
+            results = search_run.all_results()
+        except Exception as e:  # noqa: BLE001 - do not write an incomplete export
+            return {"error": f"CSV search failed: {e}", "template": template}
 
     if total_count == 0:
         # Write empty file

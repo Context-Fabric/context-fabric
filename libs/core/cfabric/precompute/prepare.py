@@ -45,12 +45,12 @@ StructureResult = tuple[
     dict[int, int],
     dict[int, tuple[int, ...]],
 ]
+NoStructureResult = tuple[None, None, None, None, None, None]
 """Returned by `structure` when the configured structure is unusable.
 
 Mirrors the arity of `StructureResult` so callers can always unpack six
 values; `None` is the sentinel the `Text` API already tests for.
 """
-NoStructureResult = tuple[None, None, None, None, None, None]
 
 NO_STRUCTURE: NoStructureResult = (None, None, None, None, None, None)
 

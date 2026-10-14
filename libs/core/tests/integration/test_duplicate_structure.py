@@ -4,18 +4,40 @@ Such a corpus is rejected by the `structure` pre-computation step. That
 rejection must degrade to "no structural elements", not abort the load.
 """
 
+import shutil
+
 import pytest
 from cfabric.core.fabric import Fabric
 
+DUPLICATE_STRUCTURE_OTEXT = """@config
+@fmt:text-orig-full={word}
+@sectionFeatures=sentence_id,phrase_id
+@sectionTypes=sentence,phrase
+@structureFeatures=sentence_id,phrase_id,phrase_id
+@structureTypes=sentence,phrase,phrase
+"""
+
 
 @pytest.fixture(scope="module")
-def duplicate_structure_path(fixtures_dir):
-    """mini_corpus with `@structureTypes=sentence,phrase,phrase`."""
-    return str(fixtures_dir / "duplicate_structure")
+def duplicate_structure_path(fixtures_dir, tmp_path_factory):
+    """mini_corpus with `@structureTypes=sentence,phrase,phrase`.
+
+    Built fresh without compiled caches so every run exercises the `.tf`
+    load path, where `structure` runs.
+    """
+    corpus = tmp_path_factory.mktemp("duplicate_structure")
+    shutil.copytree(
+        fixtures_dir / "mini_corpus",
+        corpus,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns(".cfm", ".tf"),
+    )
+    (corpus / "otext.tf").write_text(DUPLICATE_STRUCTURE_OTEXT, encoding="utf-8")
+    return str(corpus)
 
 
 @pytest.fixture(scope="module")
-def duplicate_structure_api(duplicate_structure_path, tmp_path_factory):
+def duplicate_structure_api(duplicate_structure_path):
     CF = Fabric(locations=duplicate_structure_path, silent="deep")
     api = CF.loadAll(silent="deep")
     assert api is not False, "Failed to load duplicate_structure corpus"

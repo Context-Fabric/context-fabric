@@ -19,6 +19,7 @@ class TestCachedSearchResult:
             corpus="test",
             template="word",
             results=[(1,), (2,)],
+            total_count=2,
             created_at=time.time(),
             expires_at=time.time() + 300,  # 5 minutes from now
         )
@@ -31,6 +32,7 @@ class TestCachedSearchResult:
             corpus="test",
             template="word",
             results=[(1,), (2,)],
+            total_count=2,
             created_at=time.time() - 400,
             expires_at=time.time() - 100,  # Expired 100 seconds ago
         )
@@ -43,6 +45,7 @@ class TestCachedSearchResult:
             corpus="test",
             template="word",
             results=[(1,)],
+            total_count=1,
             created_at=time.time() - 100,
             expires_at=time.time() + 200,
             last_accessed=time.time() - 100,
