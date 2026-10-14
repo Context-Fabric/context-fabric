@@ -1,9 +1,10 @@
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyString, PyTuple};
+use pyo3::{PyClass, PyClassInitializer};
 
 use crate::compiled::MappedCompiledCorpus;
 use crate::fabric::Fabric;
@@ -11,7 +12,7 @@ use crate::feature::{EdgeFeature, FeatureValue, NodeFeature};
 use crate::io::{TfData, TfDataContent};
 
 use super::accessors::{PyLocality, PyNodes, PySearch, PyText};
-use super::features::{PyComputeds, PyEdgeFeature, PyEdgeFeatures, PyNodeFeature, PyNodeFeatures};
+use super::features::{PyComputeds, PyEdgeFeatures, PyNodeFeatures};
 
 fn strings_from_optional_python(value: Option<&Bound<'_, PyAny>>) -> PyResult<Option<Vec<String>>> {
     let Some(value) = value else {
@@ -463,10 +464,38 @@ impl PyFabric {
     }
 }
 
+/// The API object. Its accessors (`F`, `E`, `L`, `N`, `T`, `S`, `C`) are built
+/// once and the same object is returned on every access, as in TF, so their
+/// lazily-built state (feature handles, intern tables, sections and text
+/// contexts) survives the common `api.T.text(n)` / `api.L.u(n)` idioms.
 #[pyclass(name = "Corpus")]
 pub(crate) struct PyCorpus {
     corpus: Arc<MappedCompiledCorpus>,
     visible_features: Vec<String>,
+    accessors: Accessors,
+}
+
+#[derive(Default)]
+struct Accessors {
+    node_features: OnceLock<Py<PyNodeFeatures>>,
+    edge_features: OnceLock<Py<PyEdgeFeatures>>,
+    locality: OnceLock<Py<PyLocality>>,
+    nodes: OnceLock<Py<PyNodes>>,
+    text: OnceLock<Py<PyText>>,
+    search: OnceLock<Py<PySearch>>,
+    computeds: OnceLock<Py<PyComputeds>>,
+}
+
+/// The accessor in `cell`, created by `make` on first access.
+fn accessor<T>(py: Python<'_>, cell: &OnceLock<Py<T>>, make: impl FnOnce() -> T) -> PyResult<Py<T>>
+where
+    T: PyClass + Into<PyClassInitializer<T>>,
+{
+    if let Some(existing) = cell.get() {
+        return Ok(existing.clone_ref(py));
+    }
+    let created = Py::new(py, make())?;
+    Ok(cell.get_or_init(|| created).clone_ref(py))
 }
 
 impl PyCorpus {
@@ -474,6 +503,7 @@ impl PyCorpus {
         Self {
             corpus: Arc::new(corpus),
             visible_features,
+            accessors: Accessors::default(),
         }
     }
 
@@ -487,80 +517,88 @@ impl PyCorpus {
 impl PyCorpus {
     #[getter]
     #[allow(non_snake_case)]
-    fn F(&self) -> PyNodeFeatures {
-        PyNodeFeatures::new(Arc::clone(&self.corpus))
+    fn F(&self, py: Python<'_>) -> PyResult<Py<PyNodeFeatures>> {
+        accessor(py, &self.accessors.node_features, || {
+            PyNodeFeatures::new(Arc::clone(&self.corpus))
+        })
     }
 
     #[getter]
     #[allow(non_snake_case)]
-    fn E(&self) -> PyEdgeFeatures {
-        PyEdgeFeatures::new(Arc::clone(&self.corpus))
+    fn E(&self, py: Python<'_>) -> PyResult<Py<PyEdgeFeatures>> {
+        accessor(py, &self.accessors.edge_features, || {
+            PyEdgeFeatures::new(Arc::clone(&self.corpus))
+        })
     }
 
     #[getter]
     #[allow(non_snake_case)]
-    fn L(&self) -> PyLocality {
-        PyLocality::new(Arc::clone(&self.corpus))
+    fn L(&self, py: Python<'_>) -> PyResult<Py<PyLocality>> {
+        accessor(py, &self.accessors.locality, || {
+            PyLocality::new(Arc::clone(&self.corpus))
+        })
     }
 
     #[getter]
     #[allow(non_snake_case)]
-    fn N(&self) -> PyNodes {
-        PyNodes::new(Arc::clone(&self.corpus))
+    fn N(&self, py: Python<'_>) -> PyResult<Py<PyNodes>> {
+        accessor(py, &self.accessors.nodes, || {
+            PyNodes::new(Arc::clone(&self.corpus))
+        })
     }
 
     #[getter]
     #[allow(non_snake_case)]
-    fn T(&self) -> PyText {
-        PyText::new(Arc::clone(&self.corpus))
+    fn T(&self, py: Python<'_>) -> PyResult<Py<PyText>> {
+        accessor(py, &self.accessors.text, || {
+            PyText::new(Arc::clone(&self.corpus))
+        })
     }
 
     #[getter]
     #[allow(non_snake_case)]
-    fn S(&self) -> PySearch {
-        PySearch::new(Arc::clone(&self.corpus))
+    fn S(&self, py: Python<'_>) -> PyResult<Py<PySearch>> {
+        accessor(py, &self.accessors.search, || {
+            PySearch::new(Arc::clone(&self.corpus))
+        })
     }
 
     #[getter]
     #[allow(non_snake_case)]
-    fn C(&self) -> PyComputeds {
-        PyComputeds::new(Arc::clone(&self.corpus))
+    fn C(&self, py: Python<'_>) -> PyResult<Py<PyComputeds>> {
+        accessor(py, &self.accessors.computeds, || {
+            PyComputeds::new(Arc::clone(&self.corpus))
+        })
     }
 
     #[allow(non_snake_case)]
     #[pyo3(signature = (name=None))]
     fn Cs(&self, py: Python<'_>, name: Option<&str>) -> PyResult<PyObject> {
-        let computeds = PyComputeds::new(Arc::clone(&self.corpus));
+        let computeds = self.C(py)?;
         if let Some(name) = name {
-            return computeds.get(py, name);
+            return computeds.borrow(py).get(py, name);
         }
-        Ok(computeds.into_pyobject(py)?.into())
+        Ok(computeds.into_any())
     }
 
     #[allow(non_snake_case)]
     #[pyo3(signature = (name, warn=true))]
-    fn Fs(&self, name: &str, warn: bool) -> Option<PyNodeFeature> {
+    fn Fs(&self, py: Python<'_>, name: &str, warn: bool) -> PyResult<Option<PyObject>> {
         let _ = warn;
-        if !self.exposes(name) {
-            return None;
+        if !self.exposes(name) || self.corpus.metadata().node_feature(name).is_none() {
+            return Ok(None);
         }
-        self.corpus
-            .metadata()
-            .node_feature(name)
-            .map(|_| PyNodeFeature::new(name.to_string(), Arc::clone(&self.corpus)))
+        Ok(Some(self.F(py)?.bind(py).getattr(name)?.unbind()))
     }
 
     #[allow(non_snake_case)]
     #[pyo3(signature = (name, warn=true))]
-    fn Es(&self, name: &str, warn: bool) -> Option<PyEdgeFeature> {
+    fn Es(&self, py: Python<'_>, name: &str, warn: bool) -> PyResult<Option<PyObject>> {
         let _ = warn;
-        if !self.exposes(name) {
-            return None;
+        if !self.exposes(name) || self.corpus.metadata().edge_feature(name).is_none() {
+            return Ok(None);
         }
-        self.corpus
-            .metadata()
-            .edge_feature(name)
-            .map(|_| PyEdgeFeature::new(name.to_string(), Arc::clone(&self.corpus)))
+        Ok(Some(self.E(py)?.bind(py).getattr(name)?.unbind()))
     }
 
     fn node_feature_names(&self, py: Python<'_>) -> PyResult<PyObject> {
@@ -650,14 +688,13 @@ impl PyCorpus {
     #[allow(non_snake_case)]
     fn makeAvailableIn(&self, py: Python<'_>, scope: &Bound<'_, PyAny>) -> PyResult<()> {
         if let Ok(dict) = scope.downcast::<PyDict>() {
-            dict.set_item("F", self.F())?;
-            dict.set_item("E", self.E())?;
-            dict.set_item("L", self.L())?;
-            dict.set_item("N", self.N())?;
-            dict.set_item("T", self.T())?;
-            dict.set_item("S", self.S())?;
-            dict.set_item("C", self.C())?;
-            let _ = py;
+            dict.set_item("F", self.F(py)?)?;
+            dict.set_item("E", self.E(py)?)?;
+            dict.set_item("L", self.L(py)?)?;
+            dict.set_item("N", self.N(py)?)?;
+            dict.set_item("T", self.T(py)?)?;
+            dict.set_item("S", self.S(py)?)?;
+            dict.set_item("C", self.C(py)?)?;
         }
         Ok(())
     }
