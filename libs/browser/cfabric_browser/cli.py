@@ -22,10 +22,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "Corpora can be given as a data directory, a repository in "
             "Text-Fabric layout, or a name such as 'bhsa' or 'ETCBC/dss' that "
             "is looked up in ~/text-fabric-data/github and ~/github. "
-            "Prefix with 'name=' to choose the name shown in the browser."
+            "Prefix with 'name=' to choose the name shown in the browser. "
+            "Without corpora, the browser starts empty and offers the corpora on "
+            "this computer to open."
         ),
     )
-    parser.add_argument("corpora", nargs="+", metavar="CORPUS")
+    parser.add_argument("corpora", nargs="*", metavar="CORPUS")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--workers", type=int, default=2, help="parallel searches")
@@ -57,6 +59,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if not args.corpora and args.no_library:
+        # nothing to show and no way to open anything
+        print(
+            "cfabric-browser: give at least one corpus, or leave out --no-library",
+            file=sys.stderr,
+        )
+        return 2
     logging.basicConfig(level=logging.WARNING, format="%(message)s")
 
     import uvicorn
@@ -87,6 +96,8 @@ def main(argv: list[str] | None = None) -> int:
         t = time.perf_counter()
         service.config(spec.name)
         print(f"  ready in {time.perf_counter() - t:.1f}s", flush=True)
+    if not specs:
+        print("No corpora given: open them in the browser.", flush=True)
 
     pool = SearchPool(
         [(s.name, str(s.path)) for s in specs],

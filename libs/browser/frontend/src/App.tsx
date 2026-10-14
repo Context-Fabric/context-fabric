@@ -407,6 +407,16 @@ export function App() {
     if (missing.size) actions.updatePanes(missing);
   }, [ws.panes, firstCorpus, actions]);
 
+  // started without corpora: offer the library straight away, once
+  const noCorpora = corporaQuery.data !== undefined && corpora.length === 0;
+  const offeredLibrary = useRef(false);
+  useEffect(() => {
+    if (noCorpora && !offeredLibrary.current) {
+      offeredLibrary.current = true;
+      setLibrary(true);
+    }
+  }, [noCorpora]);
+
   const names = [...new Set(ws.panes.map((p) => p.corpus).filter((c): c is string => Boolean(c)))];
   const cards = useQuery({
     queryKey: ["cards", ...names],
@@ -593,7 +603,7 @@ export function App() {
           ) : null}
           <button
             type="button"
-            disabled={ws.panes.length >= MAX_PANES}
+            disabled={noCorpora || ws.panes.length >= MAX_PANES}
             onClick={() => {
               const last = ws.panes[ws.panes.length - 1];
               const other = corpora.find((c) => !ws.panes.some((p) => p.corpus === c)) ?? last.corpus;
@@ -630,7 +640,22 @@ export function App() {
       </header>
       <div className="flex min-h-0 flex-1">
         <main className="flex min-h-0 min-w-0 flex-1 flex-col md:flex-row">
-          {ws.panes.map((pane, i) => {
+          {noCorpora ? (
+            <div className="p-10">
+              <h1 className="mb-2 text-[20px] font-semibold">No corpus is open</h1>
+              <p className="mb-4 max-w-prose text-stone">
+                Open one of the corpora on this computer to read, search and compare it.
+              </p>
+              <button
+                type="button"
+                onClick={() => setLibrary(true)}
+                className="rounded bg-ink px-3 py-1.5 text-[14px] text-vellum hover:opacity-90"
+              >
+                Open a corpus
+              </button>
+            </div>
+          ) : null}
+          {noCorpora ? null : ws.panes.map((pane, i) => {
             const entry = cardOf(pane.corpus);
             return (
               <PaneView
@@ -675,7 +700,11 @@ export function App() {
           onClose={() => setLibrary(false)}
           onOpen={(corpus) => {
             setLibrary(false);
-            if (!ws.panes.some((p) => p.corpus === corpus)) addPane(emptyPane(corpus));
+            if (ws.panes.some((p) => p.corpus === corpus)) return;
+            // a pane still without a corpus (the browser started empty) gets it
+            const empty = ws.panes.findIndex((p) => !p.corpus);
+            if (empty >= 0) actions.updatePane(empty, { corpus }, true);
+            else addPane(emptyPane(corpus));
           }}
         />
       ) : null}
