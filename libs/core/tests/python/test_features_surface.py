@@ -135,35 +135,37 @@ def test_all_only_on_otype(api):
 # --------------------------------------------------------------------------- #
 def test_levup_lazy_view(api):
     levup = api.C.levUp.data
-    # indexed by node id directly (divergence from TF's data[n-1]).
-    assert levup[6] == (8,)  # phrase 6 embedded in sentence 8
-    assert levup[1] == (6, 8)  # word 1 embedded in phrase 6 and sentence 8
-    assert levup.row(1) == levup[1]
-    assert 6 in levup
+    # indexed like TF: data[n - 1] are the embedders of node n.
+    assert levup[6 - 1] == (8,)  # phrase 6 embedded in sentence 8
+    assert levup[1 - 1] == (6, 8)  # word 1 embedded in phrase 6 and sentence 8
+    assert levup.row(1) == levup[0]
+    assert len(levup) == api.F.otype.maxNode
 
 
 def test_levup_parity_with_tf(api, tf_api):
     cf = api.C.levUp.data
     tf = tf_api.C.levUp.data
-    for node in range(1, api.F.otype.maxNode + 1):
-        assert tuple(cf[node]) == tuple(tf[node - 1]), node
+    assert len(cf) == len(tf)
+    for index in range(len(tf)):
+        assert tuple(cf[index]) == tuple(tf[index]), index
 
 
 def test_levdown_lazy_view(api):
     levdown = api.C.levDown.data
+    max_slot = api.F.otype.maxSlot
     # levDown only contains non-slot embeddees (matching TF), so sentence 8
     # contains its phrases but not its words.
-    assert set(levdown[8]) == {6, 7}
-    # slots have no embeddees
-    assert levdown[1] == ()
+    assert set(levdown[8 - max_slot - 1]) == {6, 7}
+    assert levdown.row(8) == levdown[8 - max_slot - 1]
+    assert len(levdown) == api.F.otype.maxNode - max_slot
 
 
 def test_levdown_parity_with_tf(api, tf_api):
     cf = api.C.levDown.data
     tf = tf_api.C.levDown.data
-    max_slot = api.F.otype.maxSlot
-    for node in range(max_slot + 1, api.F.otype.maxNode + 1):
-        assert tuple(cf[node]) == tuple(tf[node - max_slot - 1]), node
+    assert len(cf) == len(tf)
+    for index in range(len(tf)):
+        assert tuple(cf[index]) == tuple(tf[index]), index
 
 
 # --------------------------------------------------------------------------- #

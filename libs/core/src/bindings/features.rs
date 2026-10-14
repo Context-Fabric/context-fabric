@@ -6,7 +6,7 @@ use numpy::IntoPyArray;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyAttributeError, PyTypeError};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyInt, PyList, PyString, PyTuple};
+use pyo3::types::{PyDict, PyFrozenSet, PyInt, PyList, PySet, PyString, PyTuple};
 
 use crate::compiled::{MappedCompiledCorpus, MappedNodeValue, NodeFeatureEncoding};
 use crate::corpus::{Boundary, Chunk, ChunkLengthKey, ChunkPositionKey, ComputedFeatureData};
@@ -300,13 +300,26 @@ impl PyNodeFeature {
         self.metaData()
     }
 
+    /// TF `F.f.data`: `{node: value}`. For `otype`, TF's tuple of the node types
+    /// of the non-slot nodes, indexed by `node - maxSlot - 1`.
     #[getter]
     fn data(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let Some(feature) = self.corpus.node_feature(&self.name)? else {
+            return Ok(PyDict::new(py).into());
+        };
+        if self.name == "otype" {
+            let max_slot = self.corpus.max_slot()?;
+            let types = feature
+                .items()?
+                .into_iter()
+                .filter(|(node, _)| *node > max_slot)
+                .map(|(_, value)| mapped_value_to_py(py, value))
+                .collect::<PyResult<Vec<PyObject>>>()?;
+            return Ok(PyTuple::new(py, types)?.into());
+        }
         let data = PyDict::new(py);
-        if let Some(feature) = self.corpus.node_feature(&self.name)? {
-            for (node, value) in feature.items()? {
-                data.set_item(node, mapped_value_to_py(py, value)?)?;
-            }
+        for (node, value) in feature.items()? {
+            data.set_item(node, mapped_value_to_py(py, value)?)?;
         }
         Ok(data.into())
     }
@@ -516,7 +529,12 @@ impl PyNodeFeature {
         Ok(PyTuple::new(py, nodes)?.into())
     }
 
+    /// TF `F.f.items()`: `F.f.data.items()`; for `otype`, an iterator of
+    /// `(node, type)` over all nodes.
     fn items(&self, py: Python<'_>) -> PyResult<PyObject> {
+        if self.name != "otype" {
+            return self.data(py)?.call_method0(py, "items");
+        }
         let rows = self
             .corpus
             .node_feature(&self.name)?
@@ -532,7 +550,7 @@ impl PyNodeFeature {
                 PyTuple::new(py, row).map(Into::into)
             })
             .collect::<PyResult<Vec<PyObject>>>()?;
-        Ok(PyTuple::new(py, rows)?.into())
+        Ok(PyTuple::new(py, rows)?.try_iter()?.into_any().unbind())
     }
 
     #[getter]
@@ -684,6 +702,21 @@ impl PyEdgeFeature {
             .collect::<PyResult<Vec<PyObject>>>()?;
         Ok(PyTuple::new(py, rows)?.into())
     }
+
+    /// The value of edge `source -> target` (`None` when it has none).
+    fn edge_value_to_py(
+        &self,
+        py: Python<'_>,
+        feature: &crate::compiled::EdgeFeatureView<'_>,
+        source: u32,
+        target: u32,
+    ) -> PyResult<PyObject> {
+        Ok(feature
+            .edge_value(source, target)?
+            .map(|value| mapped_value_to_py(py, value))
+            .transpose()?
+            .unwrap_or_else(|| py.None()))
+    }
 }
 
 #[pymethods]
@@ -708,33 +741,42 @@ impl PyEdgeFeature {
         self.metaData()
     }
 
+    /// TF `E.f.data`: `{source: frozenset(targets)}`, or `{source: {target:
+    /// value}}` for an edge feature with values, by ascending source. For
+    /// `oslots`, TF's tuple of slot tuples indexed by `node - maxSlot - 1`.
     #[getter]
     fn data(&self, py: Python<'_>) -> PyResult<PyObject> {
-        let data = PyDict::new(py);
         let Some(feature) = self.corpus.edge_feature(&self.name)? else {
-            return Ok(data.into());
+            return Ok(PyDict::new(py).into());
         };
-        if feature.has_edge_values() {
-            for (source, targets) in feature.items()? {
+        let mut rows = feature.items()?;
+        rows.sort_unstable_by_key(|(source, _)| *source);
+        if self.name == "oslots" {
+            let slots = rows
+                .into_iter()
+                .map(|(_, slots)| PyTuple::new(py, slots).map(Into::into))
+                .collect::<PyResult<Vec<PyObject>>>()?;
+            return Ok(PyTuple::new(py, slots)?.into());
+        }
+        let data = PyDict::new(py);
+        for (source, mut targets) in rows {
+            if feature.has_edge_values() {
+                targets.sort_unstable();
                 let target_map = PyDict::new(py);
                 for target in targets {
-                    let value = feature
-                        .edge_value(source, target)?
-                        .map(|value| mapped_value_to_py(py, value))
-                        .transpose()?
-                        .unwrap_or_else(|| py.None());
-                    target_map.set_item(target, value)?;
+                    target_map
+                        .set_item(target, self.edge_value_to_py(py, &feature, source, target)?)?;
                 }
                 data.set_item(source, target_map)?;
-            }
-        } else {
-            for (source, targets) in feature.items()? {
-                data.set_item(source, PyTuple::new(py, targets)?)?;
+            } else {
+                data.set_item(source, PyFrozenSet::new(py, targets)?)?;
             }
         }
         Ok(data.into())
     }
 
+    /// TF `E.f.dataInv`: `{target: set(sources)}`, or `{target: {source:
+    /// value}}` for an edge feature with values, by ascending target.
     #[getter]
     #[allow(non_snake_case)]
     fn dataInv(&self, py: Python<'_>) -> PyResult<PyObject> {
@@ -748,24 +790,17 @@ impl PyEdgeFeature {
                 inverse.entry(target).or_default().push(source);
             }
         }
-        if feature.has_edge_values() {
-            for (target, mut sources) in inverse {
-                sources.sort_unstable();
+        for (target, mut sources) in inverse {
+            sources.sort_unstable();
+            if feature.has_edge_values() {
                 let source_map = PyDict::new(py);
                 for source in sources {
-                    let value = feature
-                        .edge_value(source, target)?
-                        .map(|value| mapped_value_to_py(py, value))
-                        .transpose()?
-                        .unwrap_or_else(|| py.None());
-                    source_map.set_item(source, value)?;
+                    source_map
+                        .set_item(source, self.edge_value_to_py(py, &feature, source, target)?)?;
                 }
                 data.set_item(target, source_map)?;
-            }
-        } else {
-            for (target, mut sources) in inverse {
-                sources.sort_unstable();
-                data.set_item(target, PyTuple::new(py, sources)?)?;
+            } else {
+                data.set_item(target, PySet::new(py, sources)?)?;
             }
         }
         Ok(data.into())
@@ -828,23 +863,24 @@ impl PyEdgeFeature {
         }
     }
 
+    /// TF `E.f.items()`: `E.f.data.items()`; for `oslots`, an iterator of
+    /// `(node, slots)` over the non-slot nodes.
     fn items(&self, py: Python<'_>) -> PyResult<PyObject> {
-        let rows = self
-            .corpus
-            .edge_feature(&self.name)?
-            .map(|feature| feature.items())
-            .transpose()?
-            .unwrap_or_default()
-            .into_iter()
-            .map(|(source, targets)| {
-                let row: Vec<PyObject> = vec![
-                    source.into_pyobject(py)?.into(),
-                    PyTuple::new(py, targets)?.into(),
-                ];
+        let data = self.data(py)?;
+        if self.name != "oslots" {
+            return Ok(data.call_method0(py, "items")?);
+        }
+        let first = self.corpus.max_slot()? + 1;
+        let rows = data
+            .bind(py)
+            .try_iter()?
+            .zip(first..)
+            .map(|(slots, node)| {
+                let row: Vec<PyObject> = vec![node.into_pyobject(py)?.into(), slots?.unbind()];
                 PyTuple::new(py, row).map(Into::into)
             })
             .collect::<PyResult<Vec<PyObject>>>()?;
-        Ok(PyTuple::new(py, rows)?.into())
+        Ok(PyTuple::new(py, rows)?.try_iter()?.into_any().unbind())
     }
 
     #[pyo3(signature = (node_types_from=None, node_types_to=None))]
@@ -938,31 +974,34 @@ impl PyEdgeFeatures {
     }
 }
 
-/// Lazy mapping that backs `C.levUp.data` / `C.levDown.data`.
-///
-/// SHAPE DIVERGENCE FROM TF: in text-fabric `C.levUp.data` is a flat tuple of
-/// `maxNode` tuples where `data[n - 1]` are the embedders of node `n`, and
-/// `C.levDown.data[n - maxSlot - 1]` are the embeddees of non-slot node `n`.
-/// Materializing those (1.4M tuples on BHSA) eagerly defeats the mmap-first
-/// design, so we expose a lazy object instead: index it by the node id directly
-/// (`C.levUp.data[n]` -> embedders of `n`, `C.levDown.data[n]` -> embeddees of
-/// `n`). Rows are read on demand from the `CFRLEVU1` / `CFRLEVD1` mmap CSRs.
+/// Lazy sequence that backs `C.levUp.data` / `C.levDown.data`, indexed like
+/// Text-Fabric's tuples: `C.levUp.data[n - 1]` are the embedders of node `n`
+/// (every node), `C.levDown.data[n - maxSlot - 1]` the non-slot embeddees of
+/// non-slot node `n`. Rows are read on demand from the `CFRLEVU1` / `CFRLEVD1`
+/// mmap CSRs instead of materializing every node's tuple (1.4M on BHSA).
+/// `row(n)` reads the row of node `n` directly.
 #[pyclass(name = "LevView")]
 pub(crate) struct PyLevView {
     corpus: Arc<MappedCompiledCorpus>,
     down: bool,
 }
 
-#[pymethods]
 impl PyLevView {
-    fn __getitem__(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
-        // Bound-check by node id so default Python iteration terminates rather
-        // than looping forever (this is a mapping keyed by node, not a sequence).
-        if node < 1 || node > self.corpus.max_node() {
-            return Err(pyo3::exceptions::PyIndexError::new_err(format!(
-                "node {node} out of range"
-            )));
-        }
+    /// The node of the first row: 1 for `levUp`, `maxSlot + 1` for `levDown`.
+    fn first_node(&self) -> PyResult<u32> {
+        Ok(if self.down {
+            self.corpus.max_slot()? + 1
+        } else {
+            1
+        })
+    }
+
+    fn len(&self) -> PyResult<usize> {
+        let first = self.first_node()?;
+        Ok((self.corpus.max_node() + 1).saturating_sub(first) as usize)
+    }
+
+    fn node_row(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
         let row = if self.down {
             self.corpus.lev_down_row(node)?
         } else {
@@ -971,18 +1010,33 @@ impl PyLevView {
         .unwrap_or_default();
         Ok(PyTuple::new(py, row)?.into())
     }
+}
 
-    /// Embedders (`levUp`) or embeddees (`levDown`) of `node` as a tuple.
+#[pymethods]
+impl PyLevView {
+    fn __getitem__(&self, py: Python<'_>, index: isize) -> PyResult<PyObject> {
+        let len = self.len()? as isize;
+        let position = if index < 0 { index + len } else { index };
+        if !(0..len).contains(&position) {
+            return Err(pyo3::exceptions::PyIndexError::new_err(
+                "level data index out of range",
+            ));
+        }
+        self.node_row(py, self.first_node()? + position as u32)
+    }
+
+    /// Embedders (`levUp`) or embeddees (`levDown`) of node `node` as a tuple.
     fn row(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
-        self.__getitem__(py, node)
+        if node < self.first_node()? || node > self.corpus.max_node() {
+            return Err(pyo3::exceptions::PyIndexError::new_err(format!(
+                "node {node} has no level data row"
+            )));
+        }
+        self.node_row(py, node)
     }
 
-    fn __len__(&self) -> usize {
-        self.corpus.max_node() as usize
-    }
-
-    fn __contains__(&self, node: u32) -> bool {
-        node >= 1 && node <= self.corpus.max_node()
+    fn __len__(&self) -> PyResult<usize> {
+        self.len()
     }
 }
 

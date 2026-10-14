@@ -97,7 +97,7 @@ class NodeFeature:
     name: str
     metaData: dict[str, str | None]
     meta: dict[str, str | None]
-    data: dict[int, str | int]
+    data: dict[int, str | int] | tuple[str, ...]
     valueType: str | None
     description: str | None
     slotType: str | None
@@ -110,7 +110,7 @@ class NodeFeature:
     def vs(self, nodes: Iterable[int]) -> list[str | int | None]: ...
     def vs_array(self, nodes: Iterable[int], fill: int = 0) -> np.ndarray: ...
     def s(self, value: str | int) -> tuple[int, ...]: ...
-    def items(self) -> tuple[tuple[int, str | int], ...]: ...
+    def items(self) -> Iterable[tuple[int, str | int]]: ...
     def freq_list(self, node_types: object | None = None) -> tuple[tuple[str | int, int], ...]: ...
     def freqList(self, nodeTypes: object | None = None) -> tuple[tuple[str | int, int], ...]: ...
 
@@ -118,8 +118,8 @@ class EdgeFeature:
     name: str
     metaData: dict[str, str | None]
     meta: dict[str, str | None]
-    data: dict[int, tuple[int, ...] | dict[int, str | int | None]]
-    dataInv: dict[int, tuple[int, ...] | dict[int, str | int | None]]
+    data: dict[int, frozenset[int] | dict[int, str | int | None]] | tuple[tuple[int, ...], ...]
+    dataInv: dict[int, set[int] | dict[int, str | int | None]]
     valueType: str | None
     description: str | None
     doValues: bool
@@ -128,7 +128,9 @@ class EdgeFeature:
     def t(self, node: int) -> tuple[int | tuple[int, str | int | None], ...]: ...
     def s(self, node: int) -> tuple[int, ...]: ...
     def b(self, node: int) -> tuple[int | tuple[int, str | int | None], ...]: ...
-    def items(self) -> tuple[tuple[int, tuple[int, ...]], ...]: ...
+    def items(
+        self,
+    ) -> Iterable[tuple[int, frozenset[int] | dict[int, str | int | None] | tuple[int, ...]]]: ...
     def freq_list(
         self,
         node_types_from: object | None = None,
@@ -268,18 +270,17 @@ class ChunkLengthKey:
     """Opaque, orderable sort key returned by ``Nodes.sortKeyChunkLength``."""
 
 class LevView:
-    """Lazy view backing ``C.levUp.data`` / ``C.levDown.data``.
+    """Lazy sequence backing ``C.levUp.data`` / ``C.levDown.data``.
 
-    Indexed by node id (1-based): ``C.levUp.data[n]`` are the embedders of node
-    ``n`` and ``C.levDown.data[n]`` are the embeddees of node ``n``. This differs
-    from text-fabric, where ``C.levUp.data`` is a flat 0-indexed tuple. Rows are
+    Indexed like text-fabric's tuples: ``C.levUp.data[n - 1]`` are the embedders
+    of node ``n`` and ``C.levDown.data[n - maxSlot - 1]`` the non-slot embeddees
+    of non-slot node ``n``. ``row(n)`` reads node ``n``'s row directly. Rows are
     read on demand from the mmap to avoid materializing every node's tuple.
     """
 
-    def __getitem__(self, node: int) -> tuple[int, ...]: ...
+    def __getitem__(self, index: int) -> tuple[int, ...]: ...
     def row(self, node: int) -> tuple[int, ...]: ...
     def __len__(self) -> int: ...
-    def __contains__(self, node: int) -> bool: ...
 
 class Computed:
     data: object

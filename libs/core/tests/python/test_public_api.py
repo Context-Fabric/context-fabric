@@ -18,7 +18,7 @@ def test_top_level_exports(mini_corpus_path):
 def test_feature_access_and_lists(loaded_api):
     assert loaded_api.F.word.v(1) == "hello"
     assert loaded_api.F.word.s("hello") == (1,)
-    assert loaded_api.F.word.items()[0] == (1, "hello")
+    assert next(iter(loaded_api.F.word.items())) == (1, "hello")
     assert loaded_api.F.word.valueType == "str"
     assert loaded_api.F.word.description == "word text"
     assert loaded_api.F.word.metaData["description"] == "word text"
@@ -78,8 +78,8 @@ def test_text_fabric_compatibility_surface(mini_corpus_path, loaded_api):
     assert loaded_api.F.word.meta == loaded_api.F.word.metaData
     assert loaded_api.F.word.data[1] == "hello"
     assert loaded_api.F.word.freqList(nodeTypes=("word",))
-    assert loaded_api.E.oslots.data[8] == (1, 2, 3, 4, 5)
-    assert loaded_api.E.oslots.dataInv[1] == (6, 8)
+    assert loaded_api.E.oslots.data[8 - loaded_api.F.otype.maxSlot - 1] == (1, 2, 3, 4, 5)
+    assert loaded_api.E.oslots.dataInv[1] == {6, 8}
     assert loaded_api.E.distance.data[1][3] == 5
     assert loaded_api.E.distance.dataInv[2][1] == 0
     assert loaded_api.E.distance.freqList(nodeTypesFrom=("word",), nodeTypesTo=("word",))
