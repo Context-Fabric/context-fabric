@@ -304,12 +304,10 @@ fn value_to_heading(value: &Value) -> Result<StructureHeading, Box<dyn std::erro
         .as_str()
         .ok_or("heading item first value must be a string")?
         .to_string();
-    let heading = if let Some(text) = items[1].as_str() {
-        text.to_string()
-    } else if let Some(number) = items[1].as_i64() {
-        number.to_string()
+    let heading = if items[1].is_null() {
+        None
     } else {
-        return Err("heading item second value must be a string or integer".into());
+        Some(value_to_feature_value(&items[1])?)
     };
     Ok(StructureHeading { node_type, heading })
 }
@@ -344,11 +342,11 @@ fn heading_to_json(heading: &[StructureHeading]) -> Value {
         heading
             .iter()
             .map(|item| {
-                let value = item
-                    .heading
-                    .parse::<i64>()
-                    .map(Value::from)
-                    .unwrap_or_else(|_| Value::from(item.heading.clone()));
+                let value = match &item.heading {
+                    Some(FeatureValue::Str(value)) => Value::from(value.as_ref()),
+                    Some(FeatureValue::Int(value)) => Value::from(*value),
+                    None => Value::Null,
+                };
                 json!([item.node_type, value])
             })
             .collect(),

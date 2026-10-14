@@ -7,6 +7,7 @@ use crate::compiled::{
 };
 use crate::corpus::{TextFormatInfo, TextFormatSample, TextOptions, TextRepresentationInfo};
 use crate::error::{CfError, Result};
+use crate::precompute::StructureHeading;
 
 pub struct MappedText<'a> {
     corpus: &'a MappedCompiledCorpus,
@@ -496,7 +497,7 @@ impl<'a> MappedText<'a> {
         let Some(data) = self.corpus.structure_data()? else {
             return Ok("No structural elements configured".to_string());
         };
-        let headings = self.structure_headings()?;
+        let headings = self.corpus.structure_headings()?;
         let n_structure = data.heading_from_node.len();
         let mut out = String::new();
         out.push_str("A heading is a tuple of pairs (node type, feature value)\n");
@@ -523,11 +524,7 @@ impl<'a> MappedText<'a> {
                 "WARNING: {n_multiple} structure headings with hdMult occurrences (total {t_multiple})\n"
             ));
             for (key, nodes) in data.multiple.iter().take(10) {
-                let key_rep = key
-                    .iter()
-                    .map(|part| format!("{}:{}", part.node_type, part.heading))
-                    .collect::<Vec<_>>()
-                    .join("-");
+                let key_rep = StructureHeading::repr(key);
                 let n_nodes = nodes.len();
                 out.push_str(&format!("\t{key_rep} has {n_nodes} occurrences\n"));
                 let sample = nodes
@@ -543,22 +540,6 @@ impl<'a> MappedText<'a> {
             }
         }
         Ok(out)
-    }
-
-    fn structure_headings(&self) -> Result<Vec<(String, String)>> {
-        let Some(otext) = self.corpus.config_feature("otext")? else {
-            return Ok(Vec::new());
-        };
-        let parse = |raw: &str| -> Vec<String> {
-            raw.split(',')
-                .map(str::trim)
-                .filter(|item| !item.is_empty())
-                .map(str::to_string)
-                .collect()
-        };
-        let types = parse(otext.get("structureTypes")?.flatten().unwrap_or(""));
-        let feats = parse(otext.get("structureFeatures")?.flatten().unwrap_or(""));
-        Ok(types.into_iter().zip(feats).collect())
     }
 }
 

@@ -1,4 +1,3 @@
-use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -20,7 +19,10 @@ use crate::precompute::{self, SectionsData, StructureData, StructureHeading};
 const MAGIC: &[u8; 8] = b"CFRUST02";
 const FEATURE_METADATA_MAGIC: &[u8; 8] = b"CFRMETA1";
 const EDGE_VALUES_MAGIC: &[u8; 8] = b"CFREDGE1";
-const STRUCTURE_MAGIC: &[u8; 8] = b"CFRSTRC2";
+const STRUCTURE_MAGIC: &[u8; 8] = b"CFRSTRC3";
+/// Structure section of caches before typed heading values; such a cache must be
+/// recompiled.
+const LEGACY_STRUCTURE_MAGIC: &[u8; 8] = b"CFRSTRC2";
 // `.cfr` v3 appended sections (precomputed CSR indexes, mmap-resident, 0 RSS).
 const LEV_UP_MAGIC: &[u8; 8] = b"CFRLEVU1";
 const LEV_DOWN_MAGIC: &[u8; 8] = b"CFRLEVD1";
@@ -183,6 +185,7 @@ pub struct MappedCompiledCorpus {
     metadata: CompiledMetadata,
     caches: RwLock<ViewCaches>,
     sections_cache: OnceLock<Option<SectionsData>>,
+    structure_cache: OnceLock<Option<StructureData>>,
     /// Computed once: `compute_mapped_levels` scans every `otype` row and reads
     /// each non-slot node's `oslots` row (~1M edge reads on BHSA), far too slow
     /// to repeat per `freqList`/`otypeRank` call.
@@ -248,6 +251,7 @@ impl MappedCompiledCorpus {
             metadata,
             caches: RwLock::new(ViewCaches::default()),
             sections_cache: OnceLock::new(),
+            structure_cache: OnceLock::new(),
             levels_cache: OnceLock::new(),
             type_nodes_cache: OnceLock::new(),
             v3_warned: Once::new(),
@@ -457,40 +461,116 @@ impl MappedCompiledCorpus {
         crate::mapped_text::MappedText::new(self)?.text(node, format)
     }
 
-    pub fn structure_data(&self) -> Result<Option<StructureData>> {
-        let Some(structure_start) = self.metadata.structure_start else {
-            return Ok(None);
+    /// The precomputed structure (`C.structure` in Text-Fabric), parsed from the
+    /// compiled section on first use; `None` when no usable structure is
+    /// configured.
+    pub fn structure_data(&self) -> Result<Option<&StructureData>> {
+        if let Some(cached) = self.structure_cache.get() {
+            return Ok(cached.as_ref());
+        }
+        let value = match self.metadata.structure_start {
+            Some(structure_start) => Reader {
+                path: &self.path,
+                bytes: &self.mmap,
+                offset: structure_start,
+            }
+            .read_structure_section()?,
+            None => None,
         };
-        let mut reader = Reader {
-            path: &self.path,
-            bytes: &self.mmap,
-            offset: structure_start,
-        };
-        reader.read_structure_section()
+        let _ = self.structure_cache.set(value);
+        Ok(self
+            .structure_cache
+            .get()
+            .expect("structure cache just initialized")
+            .as_ref())
     }
 
     #[allow(non_snake_case)]
-    pub fn structureData(&self) -> Result<Option<StructureData>> {
+    pub fn structureData(&self) -> Result<Option<&StructureData>> {
         self.structure_data()
     }
 
+    /// The configured `(structure type, structure feature)` pairs (`T.headings`),
+    /// empty when no usable structure is configured.
+    pub fn structure_headings(&self) -> Result<Vec<(String, String)>> {
+        if self.structure_data()?.is_none() {
+            return Ok(Vec::new());
+        }
+        let types = self.otext_list("structureTypes")?;
+        let features = self.otext_list("structureFeatures")?;
+        Ok(types.into_iter().zip(features).collect())
+    }
+
+    /// Whether `node`'s type is one of the configured structure types; Text-Fabric's
+    /// structure accessors answer `None` for every other node.
+    pub fn is_structure_node(&self, node: u32) -> Result<bool> {
+        let Some(otype) = self.string_pool_node_feature("otype")? else {
+            return Ok(false);
+        };
+        let Some(node_type) = otype.str_value(node)? else {
+            return Ok(false);
+        };
+        Ok(self
+            .otext_list("structureTypes")?
+            .iter()
+            .any(|structure_type| structure_type == node_type))
+    }
+
+    fn otext_list(&self, key: &str) -> Result<Vec<String>> {
+        Ok(self
+            .config_feature("otext")?
+            .and_then(|otext| otext.metadata_value(key).transpose())
+            .transpose()?
+            .map(|value| {
+                value
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|item| !item.is_empty())
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default())
+    }
+
+    /// `T.structure(node)`; see [`StructureData::tree`].
     pub fn structure(&self, node: Option<u32>) -> Result<Option<StructureTree>> {
         let Some(data) = self.structure_data()? else {
             return Ok(None);
         };
-        Ok(match node {
-            Some(node) => structure_tree_from_data(node, &data),
-            None => Some(StructureTree::Forest(
-                data.top
-                    .iter()
-                    .filter_map(|node| structure_tree_from_data(*node, &data))
-                    .collect(),
-            )),
-        })
+        if let Some(node) = node
+            && !self.is_structure_node(node)?
+        {
+            return Ok(None);
+        }
+        Ok(data.tree(node, &|_| true))
     }
 
     pub fn top(&self) -> Result<Option<Vec<u32>>> {
-        Ok(self.structure_data()?.map(|data| data.top))
+        Ok(self.structure_data()?.map(|data| data.top.clone()))
+    }
+
+    /// `T.up`: the parent structural node; `None` without structure, for nodes
+    /// of other types, and for top-level nodes.
+    pub fn structure_up(&self, node: u32) -> Result<Option<u32>> {
+        let Some(data) = self.structure_data()? else {
+            return Ok(None);
+        };
+        Ok(if self.is_structure_node(node)? {
+            data.parent(node)
+        } else {
+            None
+        })
+    }
+
+    /// `T.down`: the structural children; `None` without structure and for nodes
+    /// of other types.
+    pub fn structure_down(&self, node: u32) -> Result<Option<Vec<u32>>> {
+        let Some(data) = self.structure_data()? else {
+            return Ok(None);
+        };
+        Ok(self
+            .is_structure_node(node)?
+            .then(|| data.children(node).to_vec()))
     }
 
     pub fn heading_from_node(&self, node: u32) -> Result<Option<Vec<StructureHeading>>> {
@@ -515,6 +595,7 @@ impl MappedCompiledCorpus {
         self.node_from_heading(heading)
     }
 
+    /// `T.structurePretty(node, fullHeading)`; see [`StructureData::pretty`].
     pub fn structure_pretty(
         &self,
         node: Option<u32>,
@@ -523,21 +604,12 @@ impl MappedCompiledCorpus {
         let Some(data) = self.structure_data()? else {
             return Ok(None);
         };
-        let tree = match node {
-            Some(node) => structure_tree_from_data(node, &data),
-            None => Some(StructureTree::Forest(
-                data.top
-                    .iter()
-                    .filter_map(|node| structure_tree_from_data(*node, &data))
-                    .collect(),
-            )),
-        };
-        let Some(tree) = tree else {
+        if let Some(node) = node
+            && !self.is_structure_node(node)?
+        {
             return Ok(None);
-        };
-        let mut lines = Vec::new();
-        structure_pretty_lines(&tree, &data, full_heading, "  ", &mut lines);
-        Ok(Some(lines.join("\n")))
+        }
+        Ok(data.pretty(node, full_heading, &|_| true))
     }
 
     #[allow(non_snake_case)]
@@ -2970,6 +3042,12 @@ fn inspect_compiled_bytes(path: &Path, bytes: &[u8]) -> Result<CompiledMetadata>
             }
         }
     }
+    if !reader.is_done() && reader.peek_magic(LEGACY_STRUCTURE_MAGIC) {
+        return Err(reader.invalid(
+            "compiled cache was written by an older context-fabric (structure section \
+             CFRSTRC2); recompile it",
+        ));
+    }
     let structure_start = if !reader.is_done() && reader.peek_magic(STRUCTURE_MAGIC) {
         reader.inspect_structure_section()?
     } else {
@@ -3178,10 +3256,7 @@ fn mapped_value_to_feature_value(value: MappedNodeValue<'_>) -> FeatureValue {
 
 fn sorted_feature_value_counts(counts: HashMap<FeatureValue, usize>) -> Vec<(FeatureValue, usize)> {
     let mut rows: Vec<_> = counts.into_iter().collect();
-    // Cached key: `sort_token` formats a fresh String, far too expensive to
-    // recompute per comparison on high-cardinality features. Keys are distinct
-    // (one per distinct value), so ordering matches the uncached sort exactly.
-    rows.sort_by_cached_key(|(value, count)| (Reverse(*count), value.sort_token()));
+    crate::feature::sort_frequency_rows(&mut rows);
     rows
 }
 
@@ -3189,9 +3264,7 @@ fn sorted_optional_feature_value_counts(
     counts: HashMap<Option<FeatureValue>, usize>,
 ) -> Vec<(Option<FeatureValue>, usize)> {
     let mut rows: Vec<_> = counts.into_iter().collect();
-    rows.sort_by_cached_key(|(value, count)| {
-        (Reverse(*count), optional_feature_value_sort_token(value))
-    });
+    crate::feature::sort_optional_frequency_rows(&mut rows);
     rows
 }
 
@@ -3209,67 +3282,6 @@ fn mapped_node_type_allowed(
                 .iter()
                 .any(|node_type| *node_type == level.node_type)
     })
-}
-
-fn optional_feature_value_sort_token(value: &Option<FeatureValue>) -> String {
-    match value {
-        Some(value) => value.sort_token(),
-        None => "n:".to_string(),
-    }
-}
-
-fn structure_tree_from_data(node: u32, data: &StructureData) -> Option<StructureTree> {
-    if !data.heading_from_node.contains_key(&node) {
-        return None;
-    }
-    Some(StructureTree::Node {
-        node,
-        children: data
-            .down
-            .get(&node)
-            .into_iter()
-            .flatten()
-            .filter_map(|child| structure_tree_from_data(*child, data))
-            .collect(),
-    })
-}
-
-fn structure_heading_repr(heading: &[StructureHeading]) -> String {
-    heading
-        .iter()
-        .map(|item| format!("{}:{}", item.node_type, item.heading))
-        .collect::<Vec<_>>()
-        .join("-")
-}
-
-fn structure_pretty_lines(
-    tree: &StructureTree,
-    data: &StructureData,
-    full_heading: bool,
-    indent: &str,
-    lines: &mut Vec<String>,
-) {
-    match tree {
-        StructureTree::Forest(children) => {
-            for child in children {
-                structure_pretty_lines(child, data, full_heading, indent, lines);
-            }
-        }
-        StructureTree::Node { node, children } => {
-            if let Some(heading) = data.heading_from_node.get(node) {
-                let parts = if full_heading {
-                    heading.as_slice()
-                } else {
-                    heading.last().map(std::slice::from_ref).unwrap_or(&[])
-                };
-                lines.push(format!("{indent}{}", structure_heading_repr(parts)));
-            }
-            let child_indent = format!("{indent}    ");
-            for child in children {
-                structure_pretty_lines(child, data, full_heading, &child_indent, lines);
-            }
-        }
-    }
 }
 
 fn skip_mixed_node_row(path: &Path, bytes: &[u8], offset: usize) -> Result<usize> {
@@ -3656,7 +3668,7 @@ fn write_heading<W: Write>(
     write_u32(writer, heading.len() as u32, path)?;
     for item in heading {
         write_string(writer, &item.node_type, path)?;
-        write_string(writer, &item.heading, path)?;
+        write_optional_feature_value(writer, item.heading.as_ref(), path)?;
     }
     Ok(())
 }
@@ -3790,6 +3802,21 @@ fn write_edge_feature<W: Write>(writer: &mut W, feature: &EdgeFeature, path: &Pa
         source,
     })?;
     Ok(())
+}
+
+/// Writes `None` as tag `2`, otherwise the [`write_feature_value`] encoding.
+fn write_optional_feature_value<W: Write>(
+    writer: &mut W,
+    value: Option<&FeatureValue>,
+    path: &Path,
+) -> Result<()> {
+    match value {
+        Some(value) => write_feature_value(writer, value, path),
+        None => writer.write_all(&[2]).map_err(|source| CfError::Io {
+            path: path.to_path_buf(),
+            source,
+        }),
+    }
 }
 
 fn write_feature_value<W: Write>(writer: &mut W, value: &FeatureValue, path: &Path) -> Result<()> {
@@ -4161,6 +4188,20 @@ impl<'a> Reader<'a> {
         })
     }
 
+    /// Reads a [`write_optional_feature_value`] encoding.
+    fn read_optional_feature_value(&mut self) -> Result<Option<FeatureValue>> {
+        match self.read_u8()? {
+            0 => Ok(Some(FeatureValue::string(self.read_string()?))),
+            1 => {
+                let mut bytes = [0_u8; 8];
+                bytes.copy_from_slice(self.take(8)?);
+                Ok(Some(FeatureValue::Int(i64::from_le_bytes(bytes))))
+            }
+            2 => Ok(None),
+            _ => Err(self.invalid("invalid optional feature value tag")),
+        }
+    }
+
     fn skip_feature_value(&mut self) -> Result<()> {
         match self.read_u8()? {
             0 => self.skip_string(),
@@ -4202,7 +4243,7 @@ impl<'a> Reader<'a> {
         for _ in 0..len {
             heading.push(StructureHeading {
                 node_type: self.read_string()?,
-                heading: self.read_string()?,
+                heading: self.read_optional_feature_value()?,
             });
         }
         Ok(heading)

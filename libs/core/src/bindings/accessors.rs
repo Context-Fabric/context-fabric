@@ -130,34 +130,24 @@ fn option_feature_value_to_py(py: Python<'_>, value: Option<&FeatureValue>) -> P
     }
 }
 
+/// TF `T.structure` shape: a node is `(node, (child, ...))` and the whole
+/// corpus a tuple of those, all tuples.
 fn structure_tree_to_py(py: Python<'_>, tree: &StructureTree) -> PyResult<PyObject> {
+    let children_to_py = |children: &[StructureTree]| -> PyResult<PyObject> {
+        let items = children
+            .iter()
+            .map(|child| structure_tree_to_py(py, child))
+            .collect::<PyResult<Vec<_>>>()?;
+        Ok(PyTuple::new(py, items)?.into())
+    };
     match tree {
-        StructureTree::Forest(children) => {
-            let items = children
-                .iter()
-                .map(|child| structure_tree_to_py(py, child))
-                .collect::<PyResult<Vec<_>>>()?;
-            Ok(PyList::new(py, items)?.into())
-        }
+        StructureTree::Forest(children) => children_to_py(children),
         StructureTree::Node { node, children } => {
-            let items = children
-                .iter()
-                .map(|child| structure_tree_to_py(py, child))
-                .collect::<PyResult<Vec<_>>>()?;
-            let row: Vec<PyObject> = vec![
-                node.into_pyobject(py)?.into(),
-                PyList::new(py, items)?.into(),
-            ];
+            let row: Vec<PyObject> =
+                vec![node.into_pyobject(py)?.into(), children_to_py(children)?];
             Ok(PyTuple::new(py, row)?.into())
         }
     }
-}
-
-fn heading_value_to_py(py: Python<'_>, heading: &str) -> PyResult<PyObject> {
-    if let Ok(value) = heading.parse::<i64>() {
-        return Ok(value.into_pyobject(py)?.into());
-    }
-    Ok(PyString::new(py, heading).into())
 }
 
 fn heading_to_py(py: Python<'_>, heading: &[StructureHeading]) -> PyResult<PyObject> {
@@ -166,7 +156,7 @@ fn heading_to_py(py: Python<'_>, heading: &[StructureHeading]) -> PyResult<PyObj
         .map(|item| {
             let row: Vec<PyObject> = vec![
                 PyString::new(py, &item.node_type).into(),
-                heading_value_to_py(py, &item.heading)?,
+                option_feature_value_to_py(py, item.heading.as_ref())?,
             ];
             PyTuple::new(py, row).map(Into::into)
         })
@@ -174,17 +164,21 @@ fn heading_to_py(py: Python<'_>, heading: &[StructureHeading]) -> PyResult<PyObj
     Ok(PyTuple::new(py, rows)?.into())
 }
 
+/// A heading as passed to `T.nodeFromHeading`: `((nodeType, value), ...)` where a
+/// value is an int, a str, or `None`. Values keep their type, so (as in TF) a
+/// str `"1"` does not find a heading whose feature value is the int `1`.
 fn heading_from_py(items: &Bound<'_, PyAny>) -> PyResult<Vec<StructureHeading>> {
     let rows = items.extract::<Vec<(String, Bound<'_, PyAny>)>>()?;
-    Ok(rows
-        .into_iter()
+    rows.into_iter()
         .map(|(node_type, heading)| {
-            let heading = heading
-                .extract::<String>()
-                .or_else(|_| heading.extract::<i64>().map(|value| value.to_string()))?;
+            let heading = if heading.is_none() {
+                None
+            } else {
+                Some(feature_value_from_py(&heading)?)
+            };
             Ok(StructureHeading { node_type, heading })
         })
-        .collect::<PyResult<Vec<_>>>()?)
+        .collect()
 }
 
 fn section_from_py(items: &Bound<'_, PyAny>) -> PyResult<Vec<FeatureValue>> {
@@ -666,10 +660,11 @@ impl PyText {
         Ok(MappedText::new(&self.corpus)?.structure_info()?)
     }
 
+    /// TF `T.headings`: the configured `(structure type, structure feature)`
+    /// pairs as a tuple, `()` when no structure is configured.
     #[getter]
     fn headings(&self, py: Python<'_>) -> PyResult<PyObject> {
-        let headings = PyDict::new(py);
-        Ok(headings.into())
+        Ok(PyTuple::new(py, self.corpus.structure_headings()?)?.into())
     }
 
     #[pyo3(signature = (node, fmt=None, descend=None))]
@@ -827,12 +822,17 @@ impl PyText {
             .transpose()?)
     }
 
-    fn up(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
-        nodes_to_tuple(py, MappedSections::new(&self.corpus)?.u(node, None)?)
+    /// TF `T.up`: the parent structural node, or `None`.
+    fn up(&self, node: u32) -> PyResult<Option<u32>> {
+        Ok(self.corpus.structure_up(node)?)
     }
 
-    fn down(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
-        nodes_to_tuple(py, MappedSections::new(&self.corpus)?.d(node, None)?)
+    /// TF `T.down`: the tuple of structural children, or `None`.
+    fn down(&self, py: Python<'_>, node: u32) -> PyResult<Option<PyObject>> {
+        self.corpus
+            .structure_down(node)?
+            .map(|nodes| nodes_to_tuple(py, nodes))
+            .transpose()
     }
 
     #[allow(non_snake_case)]

@@ -909,25 +909,24 @@ impl Corpus {
         self.structure_data()
     }
 
+    /// Whether `node`'s type is one of the configured structure types; Text-Fabric's
+    /// structure accessors answer `None` for every other node.
+    pub fn is_structure_node(&self, node: u32) -> bool {
+        self.node_type(node).is_some_and(|node_type| {
+            self.structure_types()
+                .iter()
+                .any(|structure_type| structure_type == node_type)
+        })
+    }
+
     pub fn structure(&self, node: Option<u32>) -> Option<StructureTree> {
-        let data = self.structure_data()?;
-        match node {
-            Some(node) => self.structure_tree_from_data(node, &data),
-            None => Some(StructureTree::Forest(
-                data.top
-                    .iter()
-                    .filter_map(|node| self.structure_tree_from_data(*node, &data))
-                    .collect(),
-            )),
-        }
+        self.structure_data()?
+            .tree(node, &|node| self.is_structure_node(node))
     }
 
     pub fn structure_pretty(&self, node: Option<u32>, full_heading: bool) -> Option<String> {
-        let data = self.structure_data()?;
-        let tree = self.structure(node)?;
-        let mut lines = Vec::new();
-        self.structure_pretty_lines(&tree, &data, full_heading, "  ", &mut lines);
-        Some(lines.join("\n"))
+        self.structure_data()?
+            .pretty(node, full_heading, &|node| self.is_structure_node(node))
     }
 
     #[allow(non_snake_case)]
@@ -957,18 +956,22 @@ impl Corpus {
         Some(self.structure_data()?.top)
     }
 
+    /// `T.up`: the parent structural node of a structure node.
     pub fn structure_up(&self, node: u32) -> Option<u32> {
-        self.structure_data()?.up.get(&node).copied()
+        let data = self.structure_data()?;
+        if !self.is_structure_node(node) {
+            return None;
+        }
+        data.parent(node)
     }
 
+    /// `T.down`: the structural children of a structure node.
     pub fn structure_down(&self, node: u32) -> Option<Vec<u32>> {
-        Some(
-            self.structure_data()?
-                .down
-                .get(&node)
-                .cloned()
-                .unwrap_or_default(),
-        )
+        let data = self.structure_data()?;
+        if !self.is_structure_node(node) {
+            return None;
+        }
+        Some(data.children(node).to_vec())
     }
 
     pub fn heading_from_node(&self, node: u32) -> Option<Vec<StructureHeading>> {
@@ -990,53 +993,6 @@ impl Corpus {
     #[allow(non_snake_case)]
     pub fn nodeFromHeading(&self, heading: &[StructureHeading]) -> Option<u32> {
         self.node_from_heading(heading)
-    }
-
-    fn structure_tree_from_data(&self, node: u32, data: &StructureData) -> Option<StructureTree> {
-        if !data.heading_from_node.contains_key(&node) {
-            return None;
-        }
-        Some(StructureTree::Node {
-            node,
-            children: data
-                .down
-                .get(&node)
-                .into_iter()
-                .flatten()
-                .filter_map(|child| self.structure_tree_from_data(*child, data))
-                .collect(),
-        })
-    }
-
-    fn structure_pretty_lines(
-        &self,
-        tree: &StructureTree,
-        data: &StructureData,
-        full_heading: bool,
-        indent: &str,
-        lines: &mut Vec<String>,
-    ) {
-        match tree {
-            StructureTree::Forest(children) => {
-                for child in children {
-                    self.structure_pretty_lines(child, data, full_heading, indent, lines);
-                }
-            }
-            StructureTree::Node { node, children } => {
-                if let Some(heading) = data.heading_from_node.get(node) {
-                    let parts = if full_heading {
-                        heading.as_slice()
-                    } else {
-                        heading.last().map(std::slice::from_ref).unwrap_or(&[])
-                    };
-                    lines.push(format!("{indent}{}", structure_heading_repr(parts)));
-                }
-                let child_indent = format!("{indent}    ");
-                for child in children {
-                    self.structure_pretty_lines(child, data, full_heading, &child_indent, lines);
-                }
-            }
-        }
     }
 
     pub fn section_tuple(&self, node: u32, options: &SectionOptions) -> Vec<Option<u32>> {
@@ -2007,7 +1963,7 @@ impl Corpus {
             }
         }
         let mut rows: Vec<_> = counts.into_iter().collect();
-        rows.sort_unstable_by_key(|(value, count)| (std::cmp::Reverse(*count), value.sort_token()));
+        crate::feature::sort_frequency_rows(&mut rows);
         Ok(rows)
     }
 
@@ -2065,12 +2021,7 @@ impl Corpus {
             }
         }
         let mut rows: Vec<_> = counts.into_iter().collect();
-        rows.sort_unstable_by_key(|(value, count)| {
-            (
-                std::cmp::Reverse(*count),
-                optional_feature_value_sort_token(value),
-            )
-        });
+        crate::feature::sort_optional_frequency_rows(&mut rows);
         Ok(EdgeFrequency::Values(rows))
     }
 
@@ -2617,13 +2568,6 @@ fn min_difference(left: &[u32], right: &[u32]) -> Option<u32> {
         .find(|value| right.binary_search(value).is_err())
 }
 
-fn optional_feature_value_sort_token(value: &Option<FeatureValue>) -> String {
-    match value {
-        Some(value) => value.sort_token(),
-        None => "n:".to_string(),
-    }
-}
-
 fn render_format_literal(raw: &str) -> String {
     let mut rendered = String::new();
     let mut chars = raw.chars();
@@ -2676,12 +2620,4 @@ fn section_value_to_string(value: FeatureValue) -> String {
         FeatureValue::Str(value) => value.to_string(),
         FeatureValue::Int(value) => value.to_string(),
     }
-}
-
-fn structure_heading_repr(heading: &[StructureHeading]) -> String {
-    heading
-        .iter()
-        .map(|part| format!("{}:{}", part.node_type, part.heading))
-        .collect::<Vec<_>>()
-        .join("-")
 }

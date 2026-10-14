@@ -99,8 +99,9 @@ def test_text_fabric_compatibility_surface(mini_corpus_path, loaded_api):
         "": {"language": "default", "languageEnglish": "default"}
     }
     assert loaded_api.T.structureInfo() == "No structural elements configured"
-    assert loaded_api.T.up(1) == loaded_api.L.u(1)
-    assert loaded_api.T.down(8) == loaded_api.L.d(8)
+    # No structure configured: TF's structure navigation answers None.
+    assert loaded_api.T.up(1) is None
+    assert loaded_api.T.down(8) is None
 
     search = loaded_api.S
     search.study("word")
