@@ -3,7 +3,7 @@ use std::sync::{Arc, OnceLock};
 
 use pyo3::exceptions::{PyAttributeError, PyTypeError};
 use pyo3::prelude::*;
-use pyo3::types::{PyBool, PyDict, PyIterator, PyList, PySet, PyString, PyTuple};
+use pyo3::types::{PyBool, PyDict, PyInt, PyIterator, PyList, PySet, PyString, PyTuple};
 
 use crate::compiled::MappedCompiledCorpus;
 use crate::corpus::{SectionOptions, StructureTree, TextOptions, WalkEvent};
@@ -16,6 +16,7 @@ use crate::search::SearchSets;
 
 use super::api_ref::ApiRef;
 use super::features::feature_value_from_py;
+use super::node_arg::{node_number, optional_node_number};
 use super::timestamp::{Silent, write_console};
 
 fn nodes_to_tuple(py: Python<'_>, nodes: Vec<u32>) -> PyResult<PyObject> {
@@ -341,7 +342,12 @@ impl PyLocality {
     /// Embedders of node `n` (nodes whose slots contain those of `n`), optionally
     /// restricted to node type(s) `otype`.
     #[pyo3(signature = (n, otype=None))]
-    fn u(&self, py: Python<'_>, n: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+    fn u(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] n: u32,
+        otype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyObject> {
         let node = n;
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
@@ -357,7 +363,12 @@ impl PyLocality {
     /// Embeddees of node `n` (nodes whose slots are contained in those of `n`),
     /// optionally restricted to node type(s) `otype`.
     #[pyo3(signature = (n, otype=None))]
-    fn d(&self, py: Python<'_>, n: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+    fn d(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] n: u32,
+        otype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyObject> {
         let node = n;
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
@@ -373,7 +384,12 @@ impl PyLocality {
     /// Nodes that start right after node `n` ends, optionally restricted to node
     /// type(s) `otype`.
     #[pyo3(signature = (n, otype=None))]
-    fn n(&self, py: Python<'_>, n: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+    fn n(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] n: u32,
+        otype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyObject> {
         let node = n;
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
@@ -389,7 +405,12 @@ impl PyLocality {
     /// Nodes that end right before node `n` starts, optionally restricted to node
     /// type(s) `otype`.
     #[pyo3(signature = (n, otype=None))]
-    fn p(&self, py: Python<'_>, n: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+    fn p(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] n: u32,
+        otype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyObject> {
         let node = n;
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
@@ -405,7 +426,12 @@ impl PyLocality {
     /// Nodes that share at least one slot with node `n`, optionally restricted
     /// to node type(s) `otype`.
     #[pyo3(signature = (n, otype=None))]
-    fn i(&self, py: Python<'_>, n: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+    fn i(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] n: u32,
+        otype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyObject> {
         let node = n;
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
@@ -505,7 +531,7 @@ impl PyNodes {
 
     /// Sort key of node `n` in the canonical order (`sorted(nodes, key=N.sortKey)`).
     #[allow(non_snake_case)]
-    fn sortKey(&self, n: u32) -> PyResult<Option<u32>> {
+    fn sortKey(&self, #[pyo3(from_py_with = node_number)] n: u32) -> PyResult<Option<u32>> {
         Ok(self.corpus.sort_key(n)?)
     }
 
@@ -756,7 +782,7 @@ impl PyText {
     /// Name of the section-0 node containing node `n` (exposed as `T.<sec0>Name`).
     #[allow(non_snake_case)]
     #[pyo3(signature = (n, lang="en"))]
-    fn _sec0Name(&self, n: u32, lang: &str) -> Option<String> {
+    fn _sec0Name(&self, #[pyo3(from_py_with = node_number)] n: u32, lang: &str) -> Option<String> {
         self.section_0_name(n, lang)
     }
 
@@ -941,9 +967,10 @@ impl PyText {
         // concatenated with no separator (`"".join(material)`, text.py:1182).
         let engine = self.text_context()?;
         let options = TextOptions::new(fmt.map(str::to_string), descend);
-        let nodes = match nodes.extract::<u32>() {
-            Ok(single) => vec![single],
-            Err(_) => nodes_from_py(Some(nodes))?.unwrap_or_default(),
+        let nodes = if nodes.is_instance_of::<PyInt>() {
+            vec![node_number(nodes)?]
+        } else {
+            nodes_from_py(Some(nodes))?.unwrap_or_default()
         };
         if explain {
             let func_rep = if func.is_some() { "" } else { "no " };
@@ -1010,8 +1037,8 @@ impl PyText {
         let mut out: Vec<String> = Vec::with_capacity(items.len().unwrap_or(0));
         for item in iter {
             let item = item?;
-            if let Ok(single) = item.extract::<u32>() {
-                out.push(engine.text_with_options(single, &options)?);
+            if item.is_instance_of::<PyInt>() {
+                out.push(engine.text_with_options(node_number(&item)?, &options)?);
                 continue;
             }
             let nodes = super::features::collect_nodes(&item)?;
@@ -1039,7 +1066,7 @@ impl PyText {
     fn sectionFromNode(
         &self,
         py: Python<'_>,
-        n: u32,
+        #[pyo3(from_py_with = node_number)] n: u32,
         lastSlot: bool,
         lang: &str,
         fillup: bool,
@@ -1074,7 +1101,7 @@ impl PyText {
     fn sectionTuple(
         &self,
         py: Python<'_>,
-        n: u32,
+        #[pyo3(from_py_with = node_number)] n: u32,
         lastSlot: bool,
         fillup: bool,
         level: Option<usize>,
@@ -1115,7 +1142,11 @@ impl PyText {
 
     /// The structure heading of node `n`: `((type, heading), ...)`.
     #[allow(non_snake_case)]
-    fn headingFromNode(&self, py: Python<'_>, n: u32) -> PyResult<Option<PyObject>> {
+    fn headingFromNode(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] n: u32,
+    ) -> PyResult<Option<PyObject>> {
         self.corpus
             .heading_from_node(n)?
             .map(|heading| heading_to_py(py, &heading))
@@ -1131,7 +1162,11 @@ impl PyText {
 
     /// The structure tree of `node` (or of the whole dataset) as nested tuples.
     #[pyo3(signature = (node=None))]
-    fn structure(&self, py: Python<'_>, node: Option<u32>) -> PyResult<Option<PyObject>> {
+    fn structure(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = optional_node_number)] node: Option<u32>,
+    ) -> PyResult<Option<PyObject>> {
         self.corpus
             .structure(node)?
             .map(|tree| structure_tree_to_py(py, &tree))
@@ -1148,19 +1183,27 @@ impl PyText {
     }
 
     /// The structural parent of node `n`.
-    fn up(&self, py: Python<'_>, n: u32) -> PyResult<PyObject> {
+    fn up(&self, py: Python<'_>, #[pyo3(from_py_with = node_number)] n: u32) -> PyResult<PyObject> {
         nodes_to_tuple(py, MappedSections::new(&self.corpus)?.u(n, None)?)
     }
 
     /// The structural children of node `n`.
-    fn down(&self, py: Python<'_>, n: u32) -> PyResult<PyObject> {
+    fn down(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] n: u32,
+    ) -> PyResult<PyObject> {
         nodes_to_tuple(py, MappedSections::new(&self.corpus)?.d(n, None)?)
     }
 
     /// The structure of `node` (or of the whole dataset) as an indented string.
     #[allow(non_snake_case)]
     #[pyo3(signature = (node=None, fullHeading=false))]
-    fn structurePretty(&self, node: Option<u32>, fullHeading: bool) -> PyResult<Option<String>> {
+    fn structurePretty(
+        &self,
+        #[pyo3(from_py_with = optional_node_number)] node: Option<u32>,
+        fullHeading: bool,
+    ) -> PyResult<Option<String>> {
         Ok(self.corpus.structure_pretty(node, fullHeading)?)
     }
 }
@@ -1198,6 +1241,27 @@ impl PySearch {
         }
     }
 
+    /// Counts results of the studied `template` (GIL-free engine work).
+    fn count_studied(&self, template: &str, limit: Option<usize>) -> crate::error::Result<usize> {
+        let engine = MappedSearch::new(&self.corpus);
+        // Full-tuple counting runs the join in count-only mode (no row
+        // materialization); shallow counting needs the rows for dedup.
+        if self.shallow == 0 {
+            return match borrow_search_sets(&self.sets) {
+                Some(sets) => engine.count_with_sets(template, &sets, limit),
+                None => engine.count(template, limit),
+            };
+        }
+        let study = match borrow_search_sets(&self.sets) {
+            Some(sets) => engine.study_with_sets(template, &sets)?,
+            None => engine.study(template)?,
+        };
+        Ok(match self.shallow {
+            1 => study.count_first_nodes(limit),
+            width => study.count_prefixes(width, limit),
+        })
+    }
+
     /// Run a search and shape the result per TF `shallow` semantics
     /// (`tf/search/stitch.py:872-879`): width 0 -> tuple of full tuples,
     /// width 1 -> set of first components, width k>1 -> set of k-prefix tuples.
@@ -1211,12 +1275,14 @@ impl PySearch {
     ) -> PyResult<PyObject> {
         let engine = MappedSearch::new(&self.corpus);
         let sets = borrow_search_sets(owned_sets);
+        // The engine work runs without the GIL; only building the Python
+        // result objects needs it.
         match shallow {
             0 => {
-                let rows = match sets.as_ref() {
-                    Some(sets) => engine.search_with_sets(template, sets, limit)?,
-                    None => engine.search(template, limit)?,
-                };
+                let rows = py.allow_threads(|| match sets.as_ref() {
+                    Some(sets) => engine.search_with_sets(template, sets, limit),
+                    None => engine.search(template, limit),
+                })?;
                 let tuples = rows
                     .into_iter()
                     .map(|row| PyTuple::new(py, row).map(Into::into))
@@ -1224,17 +1290,17 @@ impl PySearch {
                 Ok(PyTuple::new(py, tuples)?.into())
             }
             1 => {
-                let nodes = match sets.as_ref() {
-                    Some(sets) => engine.search_first_nodes_with_sets(template, sets, limit)?,
-                    None => engine.search_first_nodes(template, limit)?,
-                };
+                let nodes = py.allow_threads(|| match sets.as_ref() {
+                    Some(sets) => engine.search_first_nodes_with_sets(template, sets, limit),
+                    None => engine.search_first_nodes(template, limit),
+                })?;
                 Ok(PySet::new(py, &nodes)?.into())
             }
             width => {
-                let rows = match sets.as_ref() {
-                    Some(sets) => engine.search_prefixes_with_sets(template, sets, width, limit)?,
-                    None => engine.search_prefixes(template, width, limit)?,
-                };
+                let rows = py.allow_threads(|| match sets.as_ref() {
+                    Some(sets) => engine.search_prefixes_with_sets(template, sets, width, limit),
+                    None => engine.search_prefixes(template, width, limit),
+                })?;
                 let tuples = rows
                     .into_iter()
                     .map(|row| PyTuple::new(py, row).map(Into::into))
@@ -1282,6 +1348,7 @@ impl PySearch {
     )]
     fn study(
         &mut self,
+        py: Python<'_>,
         searchTemplate: &str,
         strategy: Option<&Bound<'_, PyAny>>,
         sets: Option<&Bound<'_, PyAny>>,
@@ -1293,10 +1360,10 @@ impl PySearch {
         let _ = silent;
         let owned_sets = search_sets_from_py(sets)?;
         let engine = MappedSearch::new(&self.corpus);
-        let result = match borrow_search_sets(&owned_sets) {
+        let result = py.allow_threads(|| match borrow_search_sets(&owned_sets) {
             Some(sets) => engine.search_with_sets(searchTemplate, &sets, Some(1)),
             None => engine.search(searchTemplate, Some(1)),
-        };
+        });
         self.template = Some(searchTemplate.to_string());
         self.sets = owned_sets;
         self.shallow = shallow.0;
@@ -1359,28 +1426,17 @@ impl PySearch {
     ///     progress: Accepted for TF compatibility (no progress reporting).
     ///     limit: Stop counting at this many results.
     #[pyo3(signature = (progress=None, limit=None))]
-    fn count(&self, progress: Option<usize>, limit: Option<usize>) -> PyResult<usize> {
+    fn count(
+        &self,
+        py: Python<'_>,
+        progress: Option<usize>,
+        limit: Option<usize>,
+    ) -> PyResult<usize> {
         let _ = progress;
         let template = self.template.as_deref().ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err("no search template has been studied")
         })?;
-        let engine = MappedSearch::new(&self.corpus);
-        // Full-tuple counting runs the join in count-only mode (no row
-        // materialization); shallow counting needs the rows for dedup.
-        if self.shallow == 0 {
-            return Ok(match borrow_search_sets(&self.sets) {
-                Some(sets) => engine.count_with_sets(template, &sets, limit)?,
-                None => engine.count(template, limit)?,
-            });
-        }
-        let study = match borrow_search_sets(&self.sets) {
-            Some(sets) => engine.study_with_sets(template, &sets)?,
-            None => engine.study(template)?,
-        };
-        Ok(match self.shallow {
-            1 => study.count_first_nodes(limit),
-            width => study.count_prefixes(width, limit),
-        })
+        Ok(py.allow_threads(|| self.count_studied(template, limit))?)
     }
 
     /// Print the search plan of the template prepared by `study`.

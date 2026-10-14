@@ -72,8 +72,6 @@ CORPORA = ("bhsa", "n1904", "banks")
 PERF_CORPORA = ("bhsa", "n1904")  # banks (~100 nodes) is too small for timing
 PERF_ENGINES = ("tf", "cf_python", "cf_rust")
 WARM_REPEATS = 3
-# BHSA cache paths hard-coded by tests/python and the bench_* scripts.
-FIXED_BHSA_CACHE_PATHS = ("/tmp/cf_bhsa.cfr", "/tmp/cf_bhsa_v3_full.cfr", "/tmp/cf_bhsa_w4.cfr")
 # Timing-sensitive steps run first, before the long test suites heat the machine.
 ALL_STEPS = ("corpora", "perf", "perf_gate", "queries", "oracle", "golden", "rust", "pytest",
              "legacy", "bench_cli")
@@ -134,15 +132,6 @@ class Runner:
     def ensure_bhsa_cfr(self) -> None:
         self.ensure_cfr("bhsa")
 
-    def link_fixed_bhsa_caches(self) -> None:
-        """Point the hard-coded BHSA cache paths of tests and bench scripts at the scratch cache."""
-        self.ensure_bhsa_cfr()
-        for fixed in FIXED_BHSA_CACHE_PATHS:
-            link = Path(fixed)
-            if link.is_symlink() or link.exists():
-                link.unlink()
-            link.symlink_to(self.bhsa_cfr)
-
     # ------------------------------------------------------------------ steps
     def step_corpora(self) -> None:
         for corpus in CORPORA:
@@ -168,15 +157,14 @@ class Runner:
 
     def step_pytest(self) -> None:
         out = self.results / "pytest"
-        self.link_fixed_bhsa_caches()
+        self.ensure_bhsa_cfr()
+        corpora_env = {"CFABRIC_CORPORA": str(self.corpora), "CFABRIC_BHSA_CFR": str(self.bhsa_cfr)}
         suites = {
-            "core_python": (CORE, ["tests/python"], {}),
+            "core_python": (CORE, ["tests/python"], corpora_env),
             "core_parity": (CORE, ["tests/parity"], {
-                "CONTEXT_FABRIC_RUN_PARITY": "1", "CFABRIC_BHSA_CFR": str(self.bhsa_cfr),
-                "CFABRIC_BHSA_TF": str(self.tf_path("bhsa")), "CFQ_TIMEOUT": "300"}),
+                **corpora_env, "CONTEXT_FABRIC_RUN_PARITY": "1", "CFQ_TIMEOUT": "300"}),
             "benchmarks": (BENCH, ["tests"], {}),
             "mcp": (REPO / "libs" / "mcp", ["tests"], {}),
-            "repo_tests": (REPO, ["tests"], {}),
         }
         for name, (cwd, paths, env) in suites.items():
             self.run(f"pytest {name}", [str(self.rust_py), "-m", "pytest", *paths, "-q", "-rA",
@@ -283,11 +271,12 @@ class Runner:
         self.run("mapped subset raw rust", ["cargo", "run", "--release", "--quiet", "--bin",
                  "cf_rust_validate_bhsa_mapped_curated", "--", bhsa, str(curated_cache), "5"],
                  cwd=CORE, log=out / "cf_rust_validate_bhsa_mapped_curated.log")
-        self.link_fixed_bhsa_caches()
-        self.run("bench_scalar_latency", [str(self.rust_py), str(BENCH / "bench_scalar_latency.py")],
-                 log=out / "bench_scalar_latency.log")
-        self.run("bench_batch_apis", [str(self.rust_py), str(BENCH / "bench_batch_apis.py")],
-                 log=out / "bench_batch_apis.log")
+        self.ensure_bhsa_cfr()
+        bhsa_args = ["--tf", bhsa, "--cache", str(self.bhsa_cfr)]
+        self.run("bench_scalar_latency", [str(self.rust_py), str(BENCH / "bench_scalar_latency.py"),
+                 *bhsa_args], log=out / "bench_scalar_latency.log")
+        self.run("bench_batch_apis", [str(self.rust_py), str(BENCH / "bench_batch_apis.py"),
+                 *bhsa_args], log=out / "bench_batch_apis.log")
 
     def step_bench_cli(self) -> None:
         for label, venv in (("cf_rust", RUST_VENV), ("cf_python", CFPY_VENV)):

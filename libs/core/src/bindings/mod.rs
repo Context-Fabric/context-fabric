@@ -4,6 +4,7 @@ mod errors;
 mod fabric;
 mod feature_file;
 mod features;
+mod node_arg;
 mod timestamp;
 mod visibility;
 

@@ -1996,6 +1996,39 @@ fn public_path_helpers_match_python_file_utility_behaviors() {
     );
 }
 
+/// Absolute locations must never get the current directory prepended
+/// (regression: Windows drive-letter paths were treated as relative).
+#[test]
+fn expand_dir_keeps_absolute_locations_unchanged() {
+    let context = context_fabric_core::DirContext {
+        home_dir: "/home/user".to_string(),
+        cur_dir: "/home/user/corpora".to_string(),
+        parent_dir: "/home/user".to_string(),
+    };
+    assert_eq!(expandDir(&context, "/data/my-corpus"), "/data/my-corpus");
+    assert_eq!(
+        expandDir(&context, "my-corpus"),
+        "/home/user/corpora/my-corpus"
+    );
+    #[cfg(windows)]
+    {
+        let context = context_fabric_core::DirContext {
+            home_dir: "c:/Users/testuser".to_string(),
+            cur_dir: "c:/projects/corpora".to_string(),
+            parent_dir: "c:/projects".to_string(),
+        };
+        let expanded = expandDir(&context, "c:/data/my-corpus");
+        assert!(
+            !expanded.to_lowercase().starts_with("c:/projects"),
+            "{expanded}"
+        );
+        assert_eq!(
+            expanded.replace('\\', "/").to_lowercase(),
+            "c:/data/my-corpus"
+        );
+    }
+}
+
 #[test]
 fn public_filesystem_helpers_match_python_file_utility_behaviors() {
     let temp_dir = tempfile::tempdir().unwrap();
@@ -9530,6 +9563,14 @@ fn committed_golden_masters_are_regenerable_from_python_when_available() {
             "skipping Python golden authenticity test: missing {}",
             python.to_string_lossy()
         );
+        return;
+    }
+    let has_text_fabric = std::process::Command::new(&python)
+        .args(["-c", "import tf.fabric"])
+        .output()
+        .is_ok_and(|output| output.status.success());
+    if !has_text_fabric {
+        eprintln!("skipping Python golden authenticity test: Text-Fabric is not installed");
         return;
     }
     let corpora = ["bhsa", "n1904", "banks"]

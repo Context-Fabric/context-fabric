@@ -11,14 +11,16 @@ loop, for 100k-node batches:
 
 Goal: the batch path is >=10x faster than the CF per-call loop on 100k nodes.
 
-Run from ``/tmp`` so the source tree does not shadow the installed extension::
+Run from outside the repository so the source tree does not shadow the
+installed extension::
 
     source .venv/bin/activate
-    cd /tmp && python /Users/cody/github/context-fabric/libs/benchmarks/bench_batch_apis.py
+    cd "$(mktemp -d)" && python <repo>/libs/benchmarks/bench_batch_apis.py [--tf DIR] [--cache FILE]
 
-The BHSA cache is compiled fresh on first run (~60s) to ``/tmp/cf_bhsa_w4.cfr``::
-
-    Fabric(locations='.../bhsa/tf/2021').compile('/tmp/cf_bhsa_w4.cfr')
+``--tf`` defaults to ``libs/benchmarks/.corpora/bhsa/tf``. Without ``--cache``
+the corpus is loaded through the cache ``Fabric`` keeps next to the sources
+(compiled on first run, ~30 s); with ``--cache`` that ``.cfr`` file is opened
+(and compiled first if missing).
 
 text-fabric comparison: by default the per-call TF latencies are taken from
 ``baselines/bhsa_tf.json`` (measured once, see that file) and extrapolated to the
@@ -30,14 +32,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import random
 import statistics
 import time
 from pathlib import Path
 
-CACHE = "/tmp/cf_bhsa_w4.cfr"
-TF_LOCATION = "/Users/cody/github/etcbc/bhsa/tf/2021"
+DEFAULT_TF = Path(__file__).resolve().parent / ".corpora" / "bhsa" / "tf"
 BASELINE = Path(__file__).resolve().parent / "baselines" / "bhsa_tf.json"
 N = 100_000
 PASSES = 5
@@ -53,15 +53,19 @@ def measure(fn, *, passes: int = PASSES) -> float:
     return statistics.median(times)
 
 
-def ensure_cache() -> None:
-    if os.path.exists(CACHE):
-        return
+def open_corpus(tf: Path, cache: Path | None):
+    """Load BHSA from ``tf``, through ``cache`` when given (compiling it if missing)."""
     from cfabric import Fabric
 
-    print(f"compiling {CACHE} from {TF_LOCATION} ...")
-    t0 = time.perf_counter()
-    Fabric(locations=TF_LOCATION, silent="deep").compile(CACHE)
-    print(f"  compiled in {time.perf_counter() - t0:.1f}s")
+    fabric = Fabric(locations=str(tf), silent="deep")
+    if cache is None:
+        return fabric.loadAll(silent="deep")
+    if not cache.exists():
+        print(f"compiling {cache} from {tf} ...")
+        t0 = time.perf_counter()
+        fabric.compile(str(cache))
+        print(f"  compiled in {time.perf_counter() - t0:.1f}s")
+    return fabric.openMapped(str(cache))
 
 
 def nodes_of_type(F, otype: str, max_node: int) -> list[int]:
@@ -71,19 +75,18 @@ def nodes_of_type(F, otype: str, max_node: int) -> list[int]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--live-tf", action="store_true", help="time real TF loops")
+    parser.add_argument("--tf", type=Path, default=DEFAULT_TF, help="BHSA tf directory")
+    parser.add_argument("--cache", type=Path, default=None, help="explicit .cfr cache")
     args = parser.parse_args()
 
-    from cfabric._core import Fabric
-
-    ensure_cache()
     baseline = json.loads(BASELINE.read_text())
 
     t0 = time.perf_counter()
-    corpus = Fabric().openMapped(CACHE)
+    corpus = open_corpus(args.tf, args.cache)
     F, L, T = corpus.F, corpus.L, corpus.T
     max_node = F.otype.maxNode
     max_slot = F.otype.maxSlot
-    print(f"loaded {CACHE} in {time.perf_counter() - t0:.2f}s  "
+    print(f"loaded {args.cache or args.tf} in {time.perf_counter() - t0:.2f}s  "
           f"maxSlot={max_slot} maxNode={max_node}")
 
     rng = random.Random(20260610)
@@ -153,20 +156,20 @@ def main() -> int:
 
     # Optional: real TF loops (override the extrapolated estimates).
     if args.live_tf:
-        rows = _with_live_tf(rows, words, clause_sample, verse_sample)
+        rows = _with_live_tf(args.tf, rows, words, clause_sample, verse_sample)
 
     _print_table(rows)
     return 0
 
 
-def _with_live_tf(rows, words, clause_sample, verse_sample):
+def _with_live_tf(tf_dir, rows, words, clause_sample, verse_sample):
     try:
         from tf.fabric import Fabric as TFabric
     except Exception as exc:  # pragma: no cover - optional path
         print(f"--live-tf requested but text-fabric unavailable: {exc}")
         return rows
     print("loading text-fabric (live) ...")
-    TF = TFabric(locations=[TF_LOCATION], silent="deep")
+    TF = TFabric(locations=[str(tf_dir)], silent="deep")
     api = TF.load("otype sp number", silent="deep")
     Ft, Lt, Tt = api.F, api.L, api.T
     spv, numv, u, d, text = Ft.sp.v, Ft.number.v, Lt.u, Lt.d, Tt.text

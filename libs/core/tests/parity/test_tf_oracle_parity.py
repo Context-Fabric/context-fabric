@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 from cfabric import Fabric
 
 pytestmark = pytest.mark.skipif(
@@ -13,23 +12,11 @@ pytestmark = pytest.mark.skipif(
     reason="set CONTEXT_FABRIC_RUN_PARITY=1 to run Text-Fabric oracle parity tests",
 )
 
-ROOT = Path(__file__).resolve().parents[4]
-CORPORA = ROOT / "libs" / "benchmarks" / ".corpora"
-
-
 def _tf_fabric() -> Any:
     return pytest.importorskip("tf.fabric").Fabric
 
 
-def _corpus_path(name: str) -> Path:
-    path = CORPORA / name / "tf"
-    if not (path / "otype.tf").exists():
-        pytest.skip(f"missing corpus at {path}")
-    return path
-
-
-def _load_pair(name: str) -> tuple[Any, Any]:
-    path = _corpus_path(name)
+def _load_pair(path: Path) -> tuple[Any, Any]:
     tf_api = _tf_fabric()(locations=str(path), silent="deep").loadAll(silent="deep")
     cf_api = Fabric(locations=str(path), silent="deep").loadAll(silent="deep")
     return tf_api, cf_api
@@ -77,8 +64,8 @@ def _sample_nodes(api: Any, per_type: int = 5) -> list[int]:
 
 
 @pytest.mark.parametrize("corpus", ["banks", "n1904", "bhsa"])
-def test_text_navigation_and_nodes_match_text_fabric(corpus: str) -> None:
-    tf_api, cf_api = _load_pair(corpus)
+def test_text_navigation_and_nodes_match_text_fabric(corpus: str, corpus_tf_dir) -> None:
+    tf_api, cf_api = _load_pair(corpus_tf_dir(corpus))
     sample = _sample_nodes(cf_api, per_type=4)
 
     assert set(cf_api.N.otypeRank) == set(tf_api.N.otypeRank)
@@ -99,8 +86,8 @@ def test_text_navigation_and_nodes_match_text_fabric(corpus: str) -> None:
 
 
 @pytest.mark.parametrize("corpus", ["banks", "n1904", "bhsa"])
-def test_feature_values_and_frequencies_match_text_fabric(corpus: str) -> None:
-    tf_api, cf_api = _load_pair(corpus)
+def test_feature_values_and_frequencies_match_text_fabric(corpus: str, corpus_tf_dir) -> None:
+    tf_api, cf_api = _load_pair(corpus_tf_dir(corpus))
     sample = _sample_nodes(cf_api, per_type=4)
 
     for feature in cf_api.Fall(warp=False):
@@ -131,8 +118,8 @@ def test_feature_values_and_frequencies_match_text_fabric(corpus: str) -> None:
             assert _as_multiset(cf_feature.freqList()) == _as_multiset(tf_freq)
 
 
-def test_curated_bhsa_queries_match_text_fabric() -> None:
-    tf_api, cf_api = _load_pair("bhsa")
+def test_curated_bhsa_queries_match_text_fabric(bhsa_tf_dir) -> None:
+    tf_api, cf_api = _load_pair(bhsa_tf_dir)
     queries = pytest.importorskip(
         "cfabric_benchmarks.queries.curated"
     ).get_bhsa_queries()

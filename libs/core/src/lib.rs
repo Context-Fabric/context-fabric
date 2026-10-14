@@ -6,8 +6,10 @@
 static GLOBAL_ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 pub mod api;
+mod atomic_file;
 #[cfg(feature = "python")]
 pub mod bindings;
+pub mod cache;
 pub mod compiled;
 pub mod config;
 pub mod corpus;

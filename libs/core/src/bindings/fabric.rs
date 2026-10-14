@@ -531,7 +531,11 @@ impl PyFabric {
             slf.borrow_mut().requested.extend(requested);
             return Ok(PyBool::new(py, true).to_owned().into_any().unbind());
         }
-        let corpus = slf.borrow().inner.load(requested.clone())?;
+        // Loading may compile the cache (tens of seconds on large corpora):
+        // release the GIL so other Python threads keep running. The Fabric
+        // configuration is cloned so no borrow of `slf` is held meanwhile.
+        let inner = slf.borrow().inner.clone();
+        let corpus = py.allow_threads(|| inner.load(requested.clone()))?;
         let unknown = slf.borrow().unknown_features(&corpus, &requested);
         if !unknown.is_empty() {
             slf.borrow().report_unknown(py, &unknown)?;
@@ -563,7 +567,8 @@ impl PyFabric {
     fn loadAll(slf: &Bound<'_, Self>, silent: Silent) -> PyResult<Py<PyCorpus>> {
         let py = slf.py();
         let _ = silent;
-        let corpus = slf.borrow().inner.load_all()?;
+        let inner = slf.borrow().inner.clone();
+        let corpus = py.allow_threads(|| inner.load_all())?;
         let api = PyCorpus::create(
             py,
             corpus,
@@ -583,12 +588,14 @@ impl PyFabric {
     #[pyo3(signature = (output_path, features=None, silent=Silent::DEFAULT), text_signature = "($self, output_path, features=None, silent='auto')")]
     fn compile(
         &self,
+        py: Python<'_>,
         output_path: &str,
         features: Option<&Bound<'_, PyAny>>,
         silent: Silent,
     ) -> PyResult<bool> {
         let _ = silent;
-        self.inner.compile(output_path, feature_names(features)?)?;
+        let features = feature_names(features)?;
+        py.allow_threads(|| self.inner.compile(output_path, features))?;
         Ok(true)
     }
 

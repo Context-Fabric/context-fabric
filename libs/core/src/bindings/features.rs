@@ -4,10 +4,11 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use numpy::IntoPyArray;
 use pyo3::basic::CompareOp;
-use pyo3::exceptions::{PyAttributeError, PyTypeError};
+use pyo3::exceptions::{PyAttributeError, PyImportError, PyTypeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyInt, PyList, PyString, PyTuple};
 
+use super::node_arg::node_number;
 use crate::compiled::{MappedCompiledCorpus, MappedNodeValue, NodeFeatureEncoding};
 use crate::config::{OSLOTS, OTYPE};
 use crate::corpus::{Boundary, Chunk, ChunkLengthKey, ChunkPositionKey, ComputedFeatureData};
@@ -166,6 +167,15 @@ fn mapped_value_from_feature(value: &FeatureValue) -> MappedNodeValue<'_> {
 /// allocation).
 fn use_dense_gather(n_nodes: usize, row_count: usize) -> bool {
     row_count > 0 && n_nodes.saturating_mul(8) >= row_count
+}
+
+/// Stores `value` for `node` in a dense table sized `maxNode + 1`. Node numbers
+/// come from the mapped file; a row beyond `maxNode` (only possible in a
+/// corrupted cache) is ignored rather than indexing out of bounds.
+fn set_node_entry<T>(table: &mut [T], node: u32, value: T) {
+    if let Some(entry) = table.get_mut(node as usize) {
+        *entry = value;
+    }
 }
 
 /// Collects any Python iterable of node ids (`list` / `tuple` / `range` / `set`
@@ -421,7 +431,11 @@ impl PyNodeFeature {
     }
 
     /// The value of the feature for node `n`, or `None` if it has none.
-    fn v(&self, py: Python<'_>, n: u32) -> PyResult<Option<PyObject>> {
+    fn v(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] n: u32,
+    ) -> PyResult<Option<PyObject>> {
         let node = n;
         match self.cached_kind() {
             CachedKind::StringPool => {
@@ -448,14 +462,18 @@ impl PyNodeFeature {
 
     /// pyo3 call-overhead floor: a positional-only method that does no work, used
     /// by the benchmark to subtract the binding's per-call cost from `.v()`.
-    fn _noop(&self, node: u32) -> u32 {
+    fn _noop(&self, #[pyo3(from_py_with = node_number)] node: u32) -> u32 {
         node
     }
 
     /// Pre-optimization `.v()` path (generic dispatcher + a fresh `PyString` per
     /// call, no interning). Kept private for the benchmark's before/after table so
     /// both numbers come from the same binary; not part of the public API.
-    fn _v_legacy(&self, py: Python<'_>, node: u32) -> PyResult<Option<PyObject>> {
+    fn _v_legacy(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+    ) -> PyResult<Option<PyObject>> {
         self.corpus
             .node_feature(&self.name)?
             .map(|feature| feature.v(node))
@@ -482,7 +500,7 @@ impl PyNodeFeature {
                     let mut table: Vec<Option<&str>> = vec![None; max_node + 1];
                     for row in view.rows() {
                         let (node, value) = row?;
-                        table[node as usize] = Some(value);
+                        set_node_entry(&mut table, node, Some(value));
                     }
                     nodes
                         .iter()
@@ -506,7 +524,7 @@ impl PyNodeFeature {
                     let mut table: Vec<Option<MappedNodeValue<'_>>> = vec![None; max_node + 1];
                     for row in view.rows() {
                         let (node, value) = row?;
-                        table[node as usize] = Some(value);
+                        set_node_entry(&mut table, node, Some(value));
                     }
                     nodes
                         .iter()
@@ -538,6 +556,15 @@ impl PyNodeFeature {
     /// feature is not int-valued.
     #[pyo3(signature = (nodes, fill=0))]
     fn vs_array(&self, py: Python<'_>, nodes: &Bound<'_, PyAny>, fill: i64) -> PyResult<PyObject> {
+        // NumPy is an optional dependency. Import it up front: the numpy crate
+        // panics (instead of raising) when its C API capsule cannot be loaded.
+        py.import("numpy").map_err(|error| {
+            let import_error = PyImportError::new_err(
+                "vs_array requires NumPy; install it with: pip install 'context-fabric[numpy]'",
+            );
+            import_error.set_cause(py, Some(error));
+            import_error
+        })?;
         if self.valueType().as_deref() != Some("int") {
             return Err(PyTypeError::new_err(format!(
                 "vs_array requires an int-valued feature; '{}' is not int-valued",
@@ -556,7 +583,7 @@ impl PyNodeFeature {
                 for row in view.rows() {
                     let (node, value) = row?;
                     if let MappedNodeValue::Int(value) = value {
-                        table[node as usize] = value;
+                        set_node_entry(&mut table, node, value);
                     }
                 }
                 out.extend(
@@ -909,7 +936,7 @@ impl PyEdgeFeature {
     }
 
     /// Nodes reached by edges from node `n` (with values for valued edges).
-    fn f(&self, py: Python<'_>, n: u32) -> PyResult<PyObject> {
+    fn f(&self, py: Python<'_>, #[pyo3(from_py_with = node_number)] n: u32) -> PyResult<PyObject> {
         let node = n;
         let feature = self.corpus.edge_feature(&self.name)?.ok_or_else(|| {
             PyAttributeError::new_err(format!("no edge feature named {}", self.name))
@@ -922,7 +949,7 @@ impl PyEdgeFeature {
     }
 
     /// Nodes with edges to node `n` (with values for valued edges).
-    fn t(&self, py: Python<'_>, n: u32) -> PyResult<PyObject> {
+    fn t(&self, py: Python<'_>, #[pyo3(from_py_with = node_number)] n: u32) -> PyResult<PyObject> {
         let node = n;
         let feature = self.corpus.edge_feature(&self.name)?.ok_or_else(|| {
             PyAttributeError::new_err(format!("no edge feature named {}", self.name))
@@ -935,7 +962,7 @@ impl PyEdgeFeature {
     }
 
     /// Targets of node `n` without values (TF `E.oslots.s`: the slots of `n`).
-    fn s(&self, py: Python<'_>, n: u32) -> PyResult<PyObject> {
+    fn s(&self, py: Python<'_>, #[pyo3(from_py_with = node_number)] n: u32) -> PyResult<PyObject> {
         let node = n;
         let feature = self.corpus.edge_feature(&self.name)?.ok_or_else(|| {
             PyAttributeError::new_err(format!("no edge feature named {}", self.name))
@@ -944,7 +971,7 @@ impl PyEdgeFeature {
     }
 
     /// Nodes connected to node `n` in either direction (with values for valued edges).
-    fn b(&self, py: Python<'_>, n: u32) -> PyResult<PyObject> {
+    fn b(&self, py: Python<'_>, #[pyo3(from_py_with = node_number)] n: u32) -> PyResult<PyObject> {
         let node = n;
         let feature = self.corpus.edge_feature(&self.name)?.ok_or_else(|| {
             PyAttributeError::new_err(format!("no edge feature named {}", self.name))
@@ -1110,7 +1137,11 @@ pub(crate) struct PyLevView {
 
 #[pymethods]
 impl PyLevView {
-    fn __getitem__(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
+    fn __getitem__(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+    ) -> PyResult<PyObject> {
         // Bound-check by node id so default Python iteration terminates rather
         // than looping forever (this is a mapping keyed by node, not a sequence).
         if node < 1 || node > self.corpus.max_node() {
@@ -1128,7 +1159,11 @@ impl PyLevView {
     }
 
     /// Embedders (`levUp`) or embeddees (`levDown`) of `node` as a tuple.
-    fn row(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
+    fn row(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+    ) -> PyResult<PyObject> {
         self.__getitem__(py, node)
     }
 
@@ -1136,7 +1171,7 @@ impl PyLevView {
         self.corpus.max_node() as usize
     }
 
-    fn __contains__(&self, node: u32) -> bool {
+    fn __contains__(&self, #[pyo3(from_py_with = node_number)] node: u32) -> bool {
         node >= 1 && node <= self.corpus.max_node()
     }
 }

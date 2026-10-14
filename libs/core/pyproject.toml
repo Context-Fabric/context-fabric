@@ -7,7 +7,8 @@ name = "context-fabric"
 dynamic = ["version"]
 description = "Graph-based corpus engine for annotated text with efficient traversal and search"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     {name = "Cody Kingham"},
     {name = "Dirk Roorda"},
@@ -17,10 +18,10 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Rust",
     "Topic :: Text Processing :: Linguistic",
     "Topic :: Scientific/Engineering :: Information Analysis",
@@ -32,11 +33,13 @@ keywords = [
     "corpus",
     "graph",
 ]
-dependencies = ["numpy>=1.26"]
+dependencies = []
 
 [project.optional-dependencies]
+numpy = ["numpy>=1.26"]
 dev = [
     "mypy>=1.18",
+    "numpy>=1.26",
     "pytest>=7.0",
     "pytest-cov",
     "ruff",
@@ -61,15 +64,35 @@ python-source = "."
 include = [
     { path = "cfabric/py.typed", format = ["sdist", "wheel"] },
 ]
-exclude = ["**/.cfr/**", "**/__pycache__/**"]
+exclude = [
+    "**/.cfr/**",
+    "**/__pycache__/**",
+    # Development notes and benchmark scripts are not part of the distribution.
+    { path = "NOTES.md", format = "sdist" },
+    { path = "PERFORMANCE_CUTOVER.md", format = "sdist" },
+    { path = "RUST_PORT_PLAN.md", format = "sdist" },
+    { path = "scripts/**", format = "sdist" },
+]
 
 [tool.cibuildwheel]
+# One abi3 wheel per platform covers every CPython >= 3.13.
 build = "cp313-*"
 skip = "*-musllinux_*"
-test-command = "python -c \"import importlib.metadata as m; from cfabric import Fabric, VERSION; assert VERSION == m.version('context-fabric'); assert Fabric is not None\""
+# The suite includes the check that cfabric.VERSION matches the installed
+# distribution version (tests/python/test_public_api.py) and the stubtest check.
+test-requires = ["pytest", "numpy", "mypy"]
+test-command = "pytest {package}/tests/python -p no:cacheprovider -q"
 
-[tool.cibuildwheel.environment]
-MATURIN_FEATURES = "python,extension-module"
+[tool.cibuildwheel.linux]
+# manylinux containers ship without Rust.
+before-all = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal"
+environment = { PATH = "$HOME/.cargo/bin:$PATH" }
+
+[tool.cibuildwheel.macos]
+# Built on an arm64 runner; maturin cross-compiles x86_64 from ARCHFLAGS.
+archs = ["arm64", "x86_64"]
+before-all = "rustup target add aarch64-apple-darwin x86_64-apple-darwin"
+environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

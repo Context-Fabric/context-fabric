@@ -8,6 +8,7 @@ use std::sync::{Arc, Once, OnceLock, RwLock};
 
 use memmap2::Mmap;
 
+use crate::atomic_file::write_atomically;
 use crate::corpus::{
     Chunk, ChunkLengthKey, ChunkPositionKey, ComputedFeatureData, Corpus, FeatureCatalogEntry,
     FeatureDescription, FeatureKind, FeatureValueSample, LoadedFeatureInfo, LoadedFeatureKind,
@@ -258,6 +259,11 @@ impl MappedCompiledCorpus {
         &self.metadata
     }
 
+    /// The compiled cache file this corpus is mapped from.
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
     pub fn all_node_features(&self, warp: bool) -> Vec<String> {
         self.metadata
             .node_features
@@ -370,7 +376,11 @@ impl MappedCompiledCorpus {
     /// a `Vec<Vec<u32>>`.
     fn csr_all_rows(&self, start: usize) -> Result<Vec<Vec<u32>>> {
         let row_count = read_u32_from(&self.path, &self.mmap, start)? as usize;
-        let mut rows = Vec::with_capacity(row_count);
+        let mut rows = Vec::with_capacity(bounded_capacity(
+            row_count,
+            self.mmap.len().saturating_sub(start),
+            4,
+        ));
         for index in 1..=row_count as u32 {
             rows.push(read_csr_row(&self.path, &self.mmap, start, index)?.unwrap_or_default());
         }
@@ -1714,7 +1724,11 @@ fn build_string_pool_parts(
 ) -> Result<StringPoolParts> {
     let mut offset = feature.payload_start;
     let pool_count = read_u32_at(path, bytes, &mut offset)? as usize;
-    let mut pool_ranges = Vec::with_capacity(pool_count);
+    let mut pool_ranges = Vec::with_capacity(bounded_capacity(
+        pool_count,
+        feature.payload_end.saturating_sub(offset),
+        4,
+    ));
     for _ in 0..pool_count {
         pool_ranges.push(read_string_range_at(path, bytes, &mut offset)?);
     }
@@ -2100,7 +2114,11 @@ fn build_mixed_parts(
             "mixed row count does not match metadata",
         ));
     }
-    let mut row_offsets = Vec::with_capacity(row_count);
+    let mut row_offsets = Vec::with_capacity(bounded_capacity(
+        row_count,
+        feature.payload_end.saturating_sub(offset),
+        4,
+    ));
     for _ in 0..row_count {
         row_offsets.push(offset);
         offset = skip_mixed_node_row(path, bytes, offset)?;
@@ -2381,7 +2399,11 @@ fn build_edge_parts(path: &Path, bytes: &[u8], feature: &CompiledEdgeFeature) ->
             "edge row count does not match metadata",
         ));
     }
-    let mut row_offsets = Vec::with_capacity(row_count);
+    let mut row_offsets = Vec::with_capacity(bounded_capacity(
+        row_count,
+        bytes.len().saturating_sub(offset),
+        8,
+    ));
     for _ in 0..row_count {
         row_offsets.push(offset);
         offset = skip_edge_row(path, bytes, offset)?;
@@ -2517,12 +2539,24 @@ impl<'a> EdgeFeatureView<'a> {
     pub fn s(&self, source: u32) -> Result<Vec<u32>> {
         let targets = self.sorted_targets(source)?;
         // `oslots` slot-identity: a slot is its own slot, mirroring
-        // `feature::EdgeFeature::s` (feature.rs:382-389). Only `s` applies this;
-        // `forward`/`f` return raw adjacency.
-        if targets.is_empty() && self.parts.is_oslots {
+        // `feature::EdgeFeature::s`. Only `s` applies this; `forward`/`f` return
+        // raw adjacency. Nodes that are not slots (0, or beyond the last node)
+        // have no slots, as in TF.
+        if targets.is_empty() && self.parts.is_oslots && self.is_slot(source)? {
             return Ok(vec![source]);
         }
         Ok(targets)
+    }
+
+    /// Whether `node` is a slot, for the `oslots` feature: slots are the
+    /// nodes `1..first_source`, where `first_source` is the first (lowest)
+    /// non-slot node, since `oslots` has a row for every non-slot node.
+    fn is_slot(&self, node: u32) -> Result<bool> {
+        let first_source = match self.parts.row_offsets.first() {
+            Some(offset) => read_u32_from(self.path, self.bytes, *offset)?,
+            None => return Ok(false),
+        };
+        Ok(node >= 1 && node < first_source)
     }
 
     pub fn f(&self, source: u32) -> Result<Vec<u32>> {
@@ -2671,7 +2705,11 @@ impl<'a> EdgeFeatureView<'a> {
             let source = read_u32_from(self.path, self.bytes, *row_offset)?;
             let target_count = read_u32_from(self.path, self.bytes, row_offset + 4)? as usize;
             let targets_start = row_offset + 8;
-            let mut targets = Vec::with_capacity(target_count);
+            let mut targets = Vec::with_capacity(bounded_capacity(
+                target_count,
+                self.bytes.len().saturating_sub(targets_start),
+                4,
+            ));
             for index in 0..target_count {
                 targets.push(read_u32_from(
                     self.path,
@@ -2703,7 +2741,12 @@ impl<'a> EdgeFeatureView<'a> {
         if let Some(index) = self.parts.edge_value_index.get() {
             return Ok(index.as_slice());
         }
-        let mut index = Vec::with_capacity(self.parts.edge_value_count);
+        let remaining = self
+            .parts
+            .edge_values_start
+            .map_or(0, |start| self.bytes.len().saturating_sub(start));
+        let mut index =
+            Vec::with_capacity(bounded_capacity(self.parts.edge_value_count, remaining, 9));
         if let Some(mut offset) = self.parts.edge_values_start {
             for _ in 0..self.parts.edge_value_count {
                 let source = read_u32_from(self.path, self.bytes, offset)?;
@@ -3012,8 +3055,16 @@ fn map_file(path: &Path) -> Result<Mmap> {
         path: path.to_path_buf(),
         source,
     })?;
-    // The map is only read while this function parses the cache, and the parser
-    // does not retain borrowed slices after returning the materialized Corpus.
+    // SAFETY: `Mmap::map` is unsafe because the mapped bytes can change if the
+    // file is modified while mapped. Context-Fabric never modifies a `.cfr` in
+    // place: `write_compiled` stages a new file and atomically renames it over
+    // the destination, so live mappings keep the old inode's bytes unchanged.
+    // An external tool rewriting the file in place would break the `&[u8]`
+    // immutability contract; that is outside our control (as for every mmap
+    // user). Every read goes through bounds-checked accessors that copy into
+    // owned integers (no transmutes, aligned casts, or `from_raw_parts`), so
+    // the practical outcome is an "invalid compiled corpus" error or stale
+    // values, and a truncating writer can raise SIGBUS.
     Ok(unsafe {
         Mmap::map(&file).map_err(|source| CfError::Io {
             path: path.to_path_buf(),
@@ -3090,7 +3141,11 @@ fn read_csr_row(path: &Path, bytes: &[u8], start: usize, index: u32) -> Result<O
     let end = read_u32_from(path, bytes, offsets_base + (index as usize * 4))? as usize;
     let data_len_pos = offsets_base + (offsets_len * 4);
     let data_base = data_len_pos + 4;
-    let mut row = Vec::with_capacity(end.saturating_sub(begin));
+    let mut row = Vec::with_capacity(bounded_capacity(
+        end.saturating_sub(begin),
+        bytes.len().saturating_sub(data_base),
+        4,
+    ));
     for cursor in begin..end {
         row.push(read_u32_from(path, bytes, data_base + (cursor * 4))?);
     }
@@ -3317,6 +3372,17 @@ fn skip_edge_row(path: &Path, bytes: &[u8], offset: usize) -> Result<usize> {
         .ok_or_else(|| invalid_compiled(path, "compiled edge row offset overflow"))
 }
 
+/// Caps a capacity hint read from an untrusted count field at the number of
+/// `min_item_bytes`-sized items that can still fit in `remaining_bytes`.
+///
+/// A corrupted count (e.g. `u32::MAX`) would otherwise request a huge up-front
+/// allocation, and an allocation failure aborts the whole interpreter rather
+/// than returning an error. With the cap, the read loop runs off the end of the
+/// file and fails with a clean "unexpected end of compiled corpus" error.
+fn bounded_capacity(declared: usize, remaining_bytes: usize, min_item_bytes: usize) -> usize {
+    declared.min(remaining_bytes / min_item_bytes.max(1))
+}
+
 fn invalid_compiled(path: &Path, message: impl Into<String>) -> CfError {
     CfError::Parse {
         path: path.to_path_buf(),
@@ -3325,11 +3391,20 @@ fn invalid_compiled(path: &Path, message: impl Into<String>) -> CfError {
     }
 }
 
+/// Writes the compiled cache atomically (see [`write_atomically`]).
+///
+/// Never rewriting the destination in place matters because readers memory-map
+/// it: truncating a mapped file makes those readers see foreign bytes (or fault
+/// with SIGBUS past the new end). With a rename, open mappings keep the old
+/// inode, concurrent compilers each publish a complete file (last one wins),
+/// and a failed or interrupted compile leaves the previous cache untouched.
 fn write_compiled(corpus: &Corpus, output_path: &Path) -> Result<()> {
-    let file = File::create(output_path).map_err(|source| CfError::Io {
-        path: output_path.to_path_buf(),
-        source,
-    })?;
+    write_atomically(output_path, |file| {
+        write_compiled_contents(corpus, file, output_path)
+    })
+}
+
+fn write_compiled_contents(corpus: &Corpus, file: &File, output_path: &Path) -> Result<()> {
     let mut writer = BufWriter::new(file);
     writer.write_all(MAGIC).map_err(|source| CfError::Io {
         path: output_path.to_path_buf(),
@@ -3893,7 +3968,7 @@ impl<'a> Reader<'a> {
 
     fn inspect_config_features(&mut self) -> Result<Vec<CompiledConfigFeature>> {
         let feature_count = self.read_u32()? as usize;
-        let mut features = Vec::with_capacity(feature_count);
+        let mut features = Vec::with_capacity(self.capacity_for(feature_count, 8));
         for _ in 0..feature_count {
             let name = self.read_string()?;
             let payload_start = self.offset;
@@ -3947,7 +4022,7 @@ impl<'a> Reader<'a> {
             return Err(self.invalid("invalid edge value metadata magic"));
         }
         let feature_count = self.read_u32()? as usize;
-        let mut edge_values = HashMap::with_capacity(feature_count);
+        let mut edge_values = HashMap::with_capacity(self.capacity_for(feature_count, 8));
         for _ in 0..feature_count {
             let name = self.read_string()?;
             let value_count = self.read_u32()? as usize;
@@ -4189,7 +4264,7 @@ impl<'a> Reader<'a> {
 
     fn read_u32_vec(&mut self) -> Result<Vec<u32>> {
         let len = self.read_u32()? as usize;
-        let mut values = Vec::with_capacity(len);
+        let mut values = Vec::with_capacity(self.capacity_for(len, 4));
         for _ in 0..len {
             values.push(self.read_u32()?);
         }
@@ -4198,7 +4273,7 @@ impl<'a> Reader<'a> {
 
     fn read_heading(&mut self) -> Result<Vec<StructureHeading>> {
         let len = self.read_u32()? as usize;
-        let mut heading = Vec::with_capacity(len);
+        let mut heading = Vec::with_capacity(self.capacity_for(len, 8));
         for _ in 0..len {
             heading.push(StructureHeading {
                 node_type: self.read_string()?,
@@ -4229,6 +4304,16 @@ impl<'a> Reader<'a> {
         let slice = &self.bytes[self.offset..end];
         self.offset = end;
         Ok(slice)
+    }
+
+    /// Capacity hint for a collection whose length comes from an untrusted
+    /// count field at the current offset; see [`bounded_capacity`].
+    fn capacity_for(&self, declared: usize, min_item_bytes: usize) -> usize {
+        bounded_capacity(
+            declared,
+            self.bytes.len().saturating_sub(self.offset),
+            min_item_bytes,
+        )
     }
 
     fn skip_bytes(&mut self, len: usize) -> Result<()> {

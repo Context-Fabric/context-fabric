@@ -1,22 +1,17 @@
 """Validate T.formats / T.languages / T.structureInfo against text-fabric.
 
-These tests load the mapped BHSA cache (``/tmp/cf_bhsa.cfr``) and compare the
-text-metadata surface against text-fabric's golden values for the same dataset.
-They also include a (non-gating) verse-text render timing probe.
+These tests load BHSA (see ``bhsa_api`` in ``tests/conftest.py``) and compare
+the text-metadata surface against text-fabric's golden values for the same
+dataset. They also include a (non-gating) verse-text render timing probe.
 
-Skipped automatically when the mapped cache is unavailable.
+Skipped automatically when the BHSA corpus is unavailable.
 """
 
 from __future__ import annotations
 
 import time
-from pathlib import Path
 
 import pytest
-
-from cfabric import Fabric
-
-CACHE = Path("/tmp/cf_bhsa.cfr")
 
 # TF 13.0.19 golden values for the BHSA tf dataset shipped in this repo
 # (libs/benchmarks/.corpora/bhsa/tf), captured directly from text-fabric.
@@ -65,15 +60,9 @@ TF_LANGUAGES = {
 }
 
 
-def _load():
-    if not CACHE.exists():
-        pytest.skip(f"mapped BHSA cache not found at {CACHE}")
-    return Fabric(silent="deep").openMapped(str(CACHE))
-
-
 @pytest.fixture(scope="module")
-def api():
-    return _load()
+def api(bhsa_api):
+    return bhsa_api
 
 
 def test_formats_match_tf(api):
