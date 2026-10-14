@@ -50,8 +50,11 @@ def test_computed_navigation_text_and_search(loaded_api):
     assert loaded_api.T.text(1) == "hello"
     assert loaded_api.T.sectionTypes == ["sentence", "phrase"]
 
+    # One S per corpus, as in TF: study and fetch share state.
+    assert loaded_api.S is loaded_api.S
+    assert loaded_api.T is loaded_api.T
     loaded_api.S.study("word")
-    assert loaded_api.S.exe is None
+    assert loaded_api.S.exe.good is True
     search = loaded_api.S
     search.study("word")
     assert search.exe.good is True

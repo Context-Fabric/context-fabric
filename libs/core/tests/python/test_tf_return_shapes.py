@@ -133,3 +133,15 @@ def test_levup_levdown_are_indexed_like_text_fabric(api):
     _exact([tuple(row) for row in lev_down], [(), (), (6, 7)])
     with pytest.raises(IndexError):
         lev_down[3]
+
+
+def test_search_limit_zero_or_negative_means_no_limit(api):
+    # TF (tf/search/searchexe.py::fetch): a negative limit becomes 0 and a
+    # falsy limit falls back to the fail limit, still returning a tuple.
+    everything = ((1,), (2,), (3,), (4,), (5,))
+    _exact(api.S.search("word", limit=2), ((1,), (2,)))
+    _exact(api.S.search("word", limit=0), everything)
+    _exact(api.S.search("word", limit=-1), everything)
+    api.S.study("word")
+    _exact(api.S.fetch(limit=0), everything)
+    assert api.S.count(limit=-3) == 5

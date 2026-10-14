@@ -6,7 +6,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyIterator, PyList, PySet, PyString, PyTuple};
 
 use crate::compiled::MappedCompiledCorpus;
-use crate::config::DEFAULT_FORMAT;
+use crate::config::{DEFAULT_FORMAT, SEARCH_FAIL_FACTOR};
 use crate::corpus::{SectionOptions, StructureTree, TextOptions, WalkEvent};
 use crate::feature::FeatureValue;
 use crate::mapped_search::MappedSearch;
@@ -934,6 +934,16 @@ impl PySearch {
         }
     }
 
+    /// TF's result limit (`tf/search/searchexe.py::fetch`/`count`): a negative
+    /// limit counts as 0, and 0 means "no limit" up to the fail limit of
+    /// `SEARCH_FAIL_FACTOR * maxNode` results.
+    fn tf_limit(&self, limit: Option<i64>) -> Option<usize> {
+        limit.map(|limit| match usize::try_from(limit) {
+            Ok(limit) if limit > 0 => limit,
+            _ => SEARCH_FAIL_FACTOR as usize * self.corpus.max_node() as usize,
+        })
+    }
+
     /// Run a search and shape the result per TF `shallow` semantics
     /// (`tf/search/stitch.py:872-879`): width 0 -> tuple of full tuples,
     /// width 1 -> set of first components, width k>1 -> set of k-prefix tuples.
@@ -1020,7 +1030,7 @@ impl PySearch {
         &self,
         py: Python<'_>,
         template: &str,
-        limit: Option<usize>,
+        limit: Option<i64>,
         sets: Option<&Bound<'_, PyAny>>,
         shallow: Option<&Bound<'_, PyAny>>,
         silent: Option<&str>,
@@ -1029,20 +1039,28 @@ impl PySearch {
         let _ = (silent, here);
         let owned_sets = search_sets_from_py(sets)?;
         let shallow = normalize_shallow(shallow)?;
+        let limit = self.tf_limit(limit);
         self.run_search(py, template, limit, &owned_sets, shallow)
     }
 
     #[pyo3(signature = (limit=None))]
-    fn fetch(&self, py: Python<'_>, limit: Option<usize>) -> PyResult<PyObject> {
+    fn fetch(&self, py: Python<'_>, limit: Option<i64>) -> PyResult<PyObject> {
         let template = self.template.clone().ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err("no search template has been studied")
         })?;
-        self.run_search(py, &template, limit, &self.sets, self.shallow)
+        self.run_search(
+            py,
+            &template,
+            self.tf_limit(limit),
+            &self.sets,
+            self.shallow,
+        )
     }
 
     #[pyo3(signature = (progress=None, limit=None))]
-    fn count(&self, progress: Option<usize>, limit: Option<usize>) -> PyResult<usize> {
+    fn count(&self, progress: Option<usize>, limit: Option<i64>) -> PyResult<usize> {
         let _ = progress;
+        let limit = self.tf_limit(limit);
         let template = self.template.as_deref().ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err("no search template has been studied")
         })?;

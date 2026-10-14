@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use pyo3::prelude::*;
+use pyo3::sync::GILOnceCell;
 use pyo3::types::{PyDict, PyString, PyTuple};
 
 use crate::compiled::MappedCompiledCorpus;
@@ -467,6 +468,12 @@ impl PyFabric {
 pub(crate) struct PyCorpus {
     corpus: Arc<MappedCompiledCorpus>,
     visible_features: Vec<String>,
+    /// One `T` per corpus, like TF's `api.T`: it keeps its lazily built text and
+    /// section contexts across calls.
+    text: GILOnceCell<Py<PyText>>,
+    /// One `S` per corpus, like TF's `api.S`: `S.study(...)` then `S.fetch()`
+    /// work on the same search state.
+    search: GILOnceCell<Py<PySearch>>,
 }
 
 impl PyCorpus {
@@ -474,6 +481,8 @@ impl PyCorpus {
         Self {
             corpus: Arc::new(corpus),
             visible_features,
+            text: GILOnceCell::new(),
+            search: GILOnceCell::new(),
         }
     }
 
@@ -511,14 +520,20 @@ impl PyCorpus {
 
     #[getter]
     #[allow(non_snake_case)]
-    fn T(&self) -> PyText {
-        PyText::new(Arc::clone(&self.corpus))
+    fn T(&self, py: Python<'_>) -> PyResult<Py<PyText>> {
+        let text = self
+            .text
+            .get_or_try_init(py, || Py::new(py, PyText::new(Arc::clone(&self.corpus))))?;
+        Ok(text.clone_ref(py))
     }
 
     #[getter]
     #[allow(non_snake_case)]
-    fn S(&self) -> PySearch {
-        PySearch::new(Arc::clone(&self.corpus))
+    fn S(&self, py: Python<'_>) -> PyResult<Py<PySearch>> {
+        let search = self
+            .search
+            .get_or_try_init(py, || Py::new(py, PySearch::new(Arc::clone(&self.corpus))))?;
+        Ok(search.clone_ref(py))
     }
 
     #[getter]
@@ -654,10 +669,9 @@ impl PyCorpus {
             dict.set_item("E", self.E())?;
             dict.set_item("L", self.L())?;
             dict.set_item("N", self.N())?;
-            dict.set_item("T", self.T())?;
-            dict.set_item("S", self.S())?;
+            dict.set_item("T", self.T(py)?)?;
+            dict.set_item("S", self.S(py)?)?;
             dict.set_item("C", self.C())?;
-            let _ = py;
         }
         Ok(())
     }
