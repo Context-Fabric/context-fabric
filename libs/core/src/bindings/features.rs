@@ -8,6 +8,7 @@ use pyo3::exceptions::{PyAttributeError, PyTypeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyInt, PyList, PyString, PyTuple};
 
+use super::node_arg::node_number;
 use crate::compiled::{MappedCompiledCorpus, MappedNodeValue, NodeFeatureEncoding};
 use crate::corpus::{Boundary, Chunk, ChunkLengthKey, ChunkPositionKey, ComputedFeatureData};
 use crate::feature::{EdgeFrequency, FeatureValue};
@@ -350,7 +351,11 @@ impl PyNodeFeature {
         (self.name == "otype").then(|| self.corpus.max_node())
     }
 
-    fn v(&self, py: Python<'_>, node: u32) -> PyResult<Option<PyObject>> {
+    fn v(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+    ) -> PyResult<Option<PyObject>> {
         match self.cached_kind() {
             CachedKind::StringPool => {
                 // Dispatch straight to the string-pool accessor, skipping the
@@ -376,14 +381,18 @@ impl PyNodeFeature {
 
     /// pyo3 call-overhead floor: a positional-only method that does no work, used
     /// by the benchmark to subtract the binding's per-call cost from `.v()`.
-    fn _noop(&self, node: u32) -> u32 {
+    fn _noop(&self, #[pyo3(from_py_with = node_number)] node: u32) -> u32 {
         node
     }
 
     /// Pre-optimization `.v()` path (generic dispatcher + a fresh `PyString` per
     /// call, no interning). Kept private for the benchmark's before/after table so
     /// both numbers come from the same binary; not part of the public API.
-    fn _v_legacy(&self, py: Python<'_>, node: u32) -> PyResult<Option<PyObject>> {
+    fn _v_legacy(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+    ) -> PyResult<Option<PyObject>> {
         self.corpus
             .node_feature(&self.name)?
             .map(|feature| feature.v(node))
@@ -766,7 +775,11 @@ impl PyEdgeFeature {
             .and_then(|feature| feature.description().map(str::to_string))
     }
 
-    fn f(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
+    fn f(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+    ) -> PyResult<PyObject> {
         let feature = self.corpus.edge_feature(&self.name)?.ok_or_else(|| {
             PyAttributeError::new_err(format!("no edge feature named {}", self.name))
         })?;
@@ -777,7 +790,11 @@ impl PyEdgeFeature {
         }
     }
 
-    fn t(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
+    fn t(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+    ) -> PyResult<PyObject> {
         let feature = self.corpus.edge_feature(&self.name)?.ok_or_else(|| {
             PyAttributeError::new_err(format!("no edge feature named {}", self.name))
         })?;
@@ -788,14 +805,22 @@ impl PyEdgeFeature {
         }
     }
 
-    fn s(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
+    fn s(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+    ) -> PyResult<PyObject> {
         let feature = self.corpus.edge_feature(&self.name)?.ok_or_else(|| {
             PyAttributeError::new_err(format!("no edge feature named {}", self.name))
         })?;
         self.nodes_to_tuple(py, feature.s(node)?)
     }
 
-    fn b(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
+    fn b(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+    ) -> PyResult<PyObject> {
         let feature = self.corpus.edge_feature(&self.name)?.ok_or_else(|| {
             PyAttributeError::new_err(format!("no edge feature named {}", self.name))
         })?;
@@ -933,7 +958,11 @@ pub(crate) struct PyLevView {
 
 #[pymethods]
 impl PyLevView {
-    fn __getitem__(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
+    fn __getitem__(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+    ) -> PyResult<PyObject> {
         // Bound-check by node id so default Python iteration terminates rather
         // than looping forever (this is a mapping keyed by node, not a sequence).
         if node < 1 || node > self.corpus.max_node() {
@@ -951,7 +980,11 @@ impl PyLevView {
     }
 
     /// Embedders (`levUp`) or embeddees (`levDown`) of `node` as a tuple.
-    fn row(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
+    fn row(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+    ) -> PyResult<PyObject> {
         self.__getitem__(py, node)
     }
 
@@ -959,7 +992,7 @@ impl PyLevView {
         self.corpus.max_node() as usize
     }
 
-    fn __contains__(&self, node: u32) -> bool {
+    fn __contains__(&self, #[pyo3(from_py_with = node_number)] node: u32) -> bool {
         node >= 1 && node <= self.corpus.max_node()
     }
 }

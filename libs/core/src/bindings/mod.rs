@@ -2,6 +2,7 @@ mod accessors;
 mod errors;
 mod fabric;
 mod features;
+mod node_arg;
 
 use pyo3::prelude::*;
 

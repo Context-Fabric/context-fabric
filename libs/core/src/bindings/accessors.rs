@@ -15,6 +15,7 @@ use crate::precompute::StructureHeading;
 use crate::search::SearchSets;
 
 use super::features::feature_value_from_py;
+use super::node_arg::node_number;
 
 fn nodes_to_tuple(py: Python<'_>, nodes: Vec<u32>) -> PyResult<PyObject> {
     Ok(PyTuple::new(py, nodes)?.into())
@@ -321,7 +322,12 @@ impl PyLocality {
 #[pymethods]
 impl PyLocality {
     #[pyo3(signature = (node, otype=None))]
-    fn u(&self, py: Python<'_>, node: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+    fn u(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+        otype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyObject> {
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
         let sections = self.context()?.sections();
@@ -334,7 +340,12 @@ impl PyLocality {
     }
 
     #[pyo3(signature = (node, otype=None))]
-    fn d(&self, py: Python<'_>, node: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+    fn d(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+        otype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyObject> {
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
         let sections = self.context()?.sections();
@@ -347,7 +358,12 @@ impl PyLocality {
     }
 
     #[pyo3(signature = (node, otype=None))]
-    fn n(&self, py: Python<'_>, node: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+    fn n(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+        otype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyObject> {
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
         let sections = self.context()?.sections();
@@ -360,7 +376,12 @@ impl PyLocality {
     }
 
     #[pyo3(signature = (node, otype=None))]
-    fn p(&self, py: Python<'_>, node: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+    fn p(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+        otype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyObject> {
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
         let sections = self.context()?.sections();
@@ -373,7 +394,12 @@ impl PyLocality {
     }
 
     #[pyo3(signature = (node, otype=None))]
-    fn i(&self, py: Python<'_>, node: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+    fn i(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+        otype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyObject> {
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
         let sections = self.context()?.sections();
@@ -462,7 +488,7 @@ impl PyNodes {
     }
 
     #[allow(non_snake_case)]
-    fn sortKey(&self, node: u32) -> PyResult<Option<u32>> {
+    fn sortKey(&self, #[pyo3(from_py_with = node_number)] node: u32) -> PyResult<Option<u32>> {
         Ok(self.corpus.sort_key(node)?)
     }
 
@@ -737,7 +763,7 @@ impl PyText {
     fn sectionFromNode(
         &self,
         py: Python<'_>,
-        node: u32,
+        #[pyo3(from_py_with = node_number)] node: u32,
         lastSlot: bool,
         fillup: bool,
         level: Option<usize>,
@@ -763,7 +789,7 @@ impl PyText {
     fn sectionTuple(
         &self,
         py: Python<'_>,
-        node: u32,
+        #[pyo3(from_py_with = node_number)] node: u32,
         lastSlot: bool,
         fillup: bool,
         level: Option<usize>,
@@ -798,7 +824,11 @@ impl PyText {
     }
 
     #[allow(non_snake_case)]
-    fn headingFromNode(&self, py: Python<'_>, node: u32) -> PyResult<Option<PyObject>> {
+    fn headingFromNode(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+    ) -> PyResult<Option<PyObject>> {
         self.corpus
             .heading_from_node(node)?
             .map(|heading| heading_to_py(py, &heading))
@@ -827,11 +857,19 @@ impl PyText {
             .transpose()?)
     }
 
-    fn up(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
+    fn up(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+    ) -> PyResult<PyObject> {
         nodes_to_tuple(py, MappedSections::new(&self.corpus)?.u(node, None)?)
     }
 
-    fn down(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
+    fn down(
+        &self,
+        py: Python<'_>,
+        #[pyo3(from_py_with = node_number)] node: u32,
+    ) -> PyResult<PyObject> {
         nodes_to_tuple(py, MappedSections::new(&self.corpus)?.d(node, None)?)
     }
 
@@ -843,7 +881,11 @@ impl PyText {
 
     #[allow(non_snake_case)]
     #[pyo3(signature = (node, lang="en"))]
-    fn bookName(&self, node: u32, lang: &str) -> Option<String> {
+    fn bookName(
+        &self,
+        #[pyo3(from_py_with = node_number)] node: u32,
+        lang: &str,
+    ) -> Option<String> {
         let section_0_type = parse_csv_config(
             mapped_otext_value(&self.corpus, "sectionTypes")
                 .ok()

@@ -2539,12 +2539,24 @@ impl<'a> EdgeFeatureView<'a> {
     pub fn s(&self, source: u32) -> Result<Vec<u32>> {
         let targets = self.sorted_targets(source)?;
         // `oslots` slot-identity: a slot is its own slot, mirroring
-        // `feature::EdgeFeature::s` (feature.rs:382-389). Only `s` applies this;
-        // `forward`/`f` return raw adjacency.
-        if targets.is_empty() && self.parts.is_oslots {
+        // `feature::EdgeFeature::s`. Only `s` applies this; `forward`/`f` return
+        // raw adjacency. Nodes that are not slots (0, or beyond the last node)
+        // have no slots, as in TF.
+        if targets.is_empty() && self.parts.is_oslots && self.is_slot(source)? {
             return Ok(vec![source]);
         }
         Ok(targets)
+    }
+
+    /// Whether `node` is a slot, for the `oslots` feature: slots are the
+    /// nodes `1..first_source`, where `first_source` is the first (lowest)
+    /// non-slot node, since `oslots` has a row for every non-slot node.
+    fn is_slot(&self, node: u32) -> Result<bool> {
+        let first_source = match self.parts.row_offsets.first() {
+            Some(offset) => read_u32_from(self.path, self.bytes, *offset)?,
+            None => return Ok(false),
+        };
+        Ok(node >= 1 && node < first_source)
     }
 
     pub fn f(&self, source: u32) -> Result<Vec<u32>> {
