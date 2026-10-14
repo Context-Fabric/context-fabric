@@ -902,12 +902,13 @@ impl PyText {
         .into_iter()
         .next()?;
         let names = mapped_name_from_node(&self.corpus, lang).ok()?;
-        for node in self.corpus.nodes_of_type(&section_0_type).ok()? {
-            if names.get(&node).is_some_and(|candidate| candidate == name) {
-                return Some(node);
-            }
-        }
-        None
+        // The last node with the name, as in TF's `nodeFromName` dict.
+        self.corpus
+            .nodes_of_type(&section_0_type)
+            .ok()?
+            .into_iter()
+            .rev()
+            .find(|node| names.get(node).is_some_and(|candidate| candidate == name))
     }
 }
 

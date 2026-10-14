@@ -542,14 +542,20 @@ impl PyCorpus {
         PyComputeds::new(Arc::clone(&self.corpus))
     }
 
+    /// TF `Cs(name)`: the computed feature, or `None` when there is no such
+    /// computed feature (TF logs an error when `warn`). Without a name, all of `C`.
     #[allow(non_snake_case)]
-    #[pyo3(signature = (name=None))]
-    fn Cs(&self, py: Python<'_>, name: Option<&str>) -> PyResult<PyObject> {
+    #[pyo3(signature = (name=None, warn=true))]
+    fn Cs(&self, py: Python<'_>, name: Option<&str>, warn: bool) -> PyResult<PyObject> {
+        let _ = warn;
         let computeds = PyComputeds::new(Arc::clone(&self.corpus));
-        if let Some(name) = name {
-            return computeds.get(py, name);
+        let Some(name) = name else {
+            return Ok(computeds.into_pyobject(py)?.into());
+        };
+        if !computeds.names()?.contains(&name) {
+            return Ok(py.None());
         }
-        Ok(computeds.into_pyobject(py)?.into())
+        computeds.get(py, name)
     }
 
     #[allow(non_snake_case)]

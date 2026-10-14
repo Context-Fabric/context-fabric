@@ -271,8 +271,8 @@ impl SectionsContext {
     }
 
     /// The `value -> node` lookup for one section-0 feature (the base feature or
-    /// a `book@<lang>` variant), built once per feature. First occurrence in
-    /// canonical order wins, matching the linear scan it replaces.
+    /// a `book@<lang>` variant), built once per feature. When several nodes share
+    /// a value the last one wins, as in TF's `nodeFromName` dict.
     fn sec0_value_index(&self, feature_name: &str) -> Result<Arc<HashMap<FeatureValue, u32>>> {
         if let Some(index) = self
             .sec0_index
@@ -286,7 +286,7 @@ impl SectionsContext {
         let mut index = HashMap::new();
         for node in self.sec0_nodes()? {
             if let Some(value) = sections.node_feature_value(feature_name, *node)? {
-                index.entry(value).or_insert(*node);
+                index.insert(value, *node);
             }
         }
         let index = Arc::new(index);
@@ -627,8 +627,9 @@ impl<'a> MappedSections<'a> {
 
         // Linear fallback for pre-v3 caches (or section hierarchies deeper than
         // the three levels stored in CFRSECT1).
+        // The last matching node wins, as in TF's section dicts.
         let target_type = &self.section_types[section.len() - 1];
-        for node in self.otype.s(target_type)? {
+        for node in self.otype.s(target_type)?.into_iter().rev() {
             let matches = section
                 .iter()
                 .enumerate()
@@ -1068,7 +1069,8 @@ impl<'a> MappedSections<'a> {
                 None => return Ok(None),
             },
         };
-        for node in self.otype.s(section_0_type)? {
+        // The last node with the value, as in TF's `nodeFromName` dict.
+        for node in self.otype.s(section_0_type)?.into_iter().rev() {
             if self.node_feature_value(feature_name, node)?.as_ref() == Some(expected) {
                 return Ok(Some(node));
             }
