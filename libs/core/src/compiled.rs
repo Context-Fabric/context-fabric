@@ -17,6 +17,7 @@ use crate::edge_index::{ReverseEdgeCsr, ReverseEdgeLayout};
 use crate::error::{CfError, Result};
 use crate::feature::{EdgeFeature, EdgeFrequency, FeatureValue, NodeFeature};
 use crate::precompute::{self, SectionsData, StructureData, StructureHeading};
+use crate::row_index::{RowIndexKind, RowIndexLayout, RowLookup, RowOffsets};
 
 const MAGIC: &[u8; 8] = b"CFRUST02";
 const FEATURE_METADATA_MAGIC: &[u8; 8] = b"CFRMETA1";
@@ -29,6 +30,8 @@ const BOUNDARY_MAGIC: &[u8; 8] = b"CFRBND1\0";
 const SECTIONS_MAGIC: &[u8; 8] = b"CFRSECT1";
 // `.cfr` v4: per edge feature reverse (target -> sources) CSR, see `edge_index`.
 const REVERSE_EDGES_MAGIC: &[u8; 8] = b"CFRREVE1";
+// `.cfr` v4: per mixed/edge feature row offsets, see `row_index`.
+const ROW_INDEX_MAGIC: &[u8; 8] = b"CFRROWS1";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompiledMetadata {
@@ -82,6 +85,8 @@ pub struct CompiledNodeFeature {
     pub payload_start: usize,
     pub payload_end: usize,
     pub metadata: BTreeMap<String, Option<String>>,
+    /// Mixed features: the `CFRROWS1` row offsets, `None` for pre-v4 caches.
+    pub row_index: Option<RowIndexLayout>,
 }
 
 impl CompiledNodeFeature {
@@ -115,6 +120,8 @@ pub struct CompiledEdgeFeature {
     pub metadata: BTreeMap<String, Option<String>>,
     /// The `CFRREVE1` reverse index, `None` for pre-v4 caches.
     pub reverse_index: Option<ReverseEdgeLayout>,
+    /// The `CFRROWS1` row offsets, `None` for pre-v4 caches.
+    pub row_index: Option<RowIndexLayout>,
 }
 
 impl CompiledEdgeFeature {
@@ -147,13 +154,15 @@ struct StringPoolParts {
     row_count: usize,
     rows_start: usize,
     pool_ranges: Vec<Range<usize>>,
+    lookup: RowLookup,
 }
 
 /// Owned, parsed metadata for a mixed (string/int) node feature.
 struct MixedParts {
     metadata: BTreeMap<String, Option<String>>,
     row_count: usize,
-    row_offsets: Vec<usize>,
+    row_offsets: RowOffsets,
+    lookup: RowLookup,
 }
 
 /// Owned, parsed metadata for an edge feature, including a lazily-built
@@ -161,11 +170,13 @@ struct MixedParts {
 struct EdgeParts {
     metadata: BTreeMap<String, Option<String>>,
     row_count: usize,
-    row_offsets: Vec<usize>,
+    row_offsets: RowOffsets,
+    lookup: RowLookup,
     edge_value_count: usize,
     edge_values_start: Option<usize>,
     is_oslots: bool,
     reverse_index: Option<ReverseEdgeLayout>,
+    reverse_lookup: RowLookup,
     /// Sorted `(source, target, value_payload_offset)` triples, built on first
     /// `edge_value` call by a single scan of the edge-values section.
     edge_value_index: OnceLock<Vec<(u32, u32, usize)>>,
@@ -560,9 +571,10 @@ impl MappedCompiledCorpus {
         self.slot_type()
     }
 
-    /// The highest slot node (TF `maxSlot`). Slots are the nodes whose `otype`
-    /// equals node 1's type; the value is computed once per corpus handle by a
-    /// single pool-id pass over `otype` (no string decoding) and then cached.
+    /// The highest slot node (TF `maxSlot`). In TF's data model the slots are
+    /// exactly the nodes `1..=maxSlot`, all of node 1's type, so the boundary
+    /// is found by binary search over `otype` pool ids (a few reads, no scan)
+    /// and cached per corpus handle.
     pub fn max_slot(&self) -> Result<u32> {
         if let Some(max_slot) = self.max_slot_cache.get() {
             return Ok(*max_slot);
@@ -572,14 +584,18 @@ impl MappedCompiledCorpus {
             .ok_or_else(|| CfError::MissingFeature("otype".to_string()))?;
         let max_slot = match otype.pool_id(1)? {
             Some(slot_id) => {
-                let mut max_slot = 0;
-                otype.for_each_id_row(&mut |node, pool_id| {
-                    if pool_id == slot_id {
-                        max_slot = node;
+                // Invariant: `otype(node) == slot type` holds for 1..=max_slot
+                // and fails above it. `low` is always a slot.
+                let (mut low, mut high) = (1_u32, otype.last_node()?.unwrap_or(1));
+                while low < high {
+                    let mid = low + (high - low).div_ceil(2);
+                    if otype.pool_id(mid)? == Some(slot_id) {
+                        low = mid;
+                    } else {
+                        high = mid - 1;
                     }
-                    Ok(true)
-                })?;
-                max_slot
+                }
+                low
             }
             None => 0,
         };
@@ -642,8 +658,8 @@ impl MappedCompiledCorpus {
             return Ok(Vec::new());
         };
         let mut source_nodes = Vec::new();
-        for row_offset in &feature.parts.row_offsets {
-            source_nodes.push(read_u32_from(feature.path, feature.bytes, *row_offset)?);
+        for row_offset in feature.parts.row_offsets.iter(feature.bytes) {
+            source_nodes.push(read_u32_from(feature.path, feature.bytes, row_offset)?);
         }
         let mut node_types = Vec::new();
         for level in self.mapped_levels()? {
@@ -662,7 +678,7 @@ impl MappedCompiledCorpus {
             return Ok(Vec::new());
         };
         let mut target_nodes = Vec::new();
-        for row_offset in &feature.parts.row_offsets {
+        for row_offset in feature.parts.row_offsets.iter(feature.bytes) {
             let target_count = read_u32_from(feature.path, feature.bytes, row_offset + 4)? as usize;
             let targets_start = row_offset + 8;
             for index in 0..target_count {
@@ -957,8 +973,8 @@ impl MappedCompiledCorpus {
         let levels = self.mapped_levels()?;
         if feature_metadata.edge_value_count == 0 {
             let mut count = 0_usize;
-            for row_offset in &feature.parts.row_offsets {
-                let source = read_u32_from(feature.path, feature.bytes, *row_offset)?;
+            for row_offset in feature.parts.row_offsets.iter(feature.bytes) {
+                let source = read_u32_from(feature.path, feature.bytes, row_offset)?;
                 if !mapped_node_type_allowed(source, node_types_from, &levels) {
                     continue;
                 }
@@ -977,8 +993,8 @@ impl MappedCompiledCorpus {
         }
 
         let mut counts = HashMap::<Option<FeatureValue>, usize>::new();
-        for row_offset in &feature.parts.row_offsets {
-            let source = read_u32_from(feature.path, feature.bytes, *row_offset)?;
+        for row_offset in feature.parts.row_offsets.iter(feature.bytes) {
+            let source = read_u32_from(feature.path, feature.bytes, row_offset)?;
             if !mapped_node_type_allowed(source, node_types_from, &levels) {
                 continue;
             }
@@ -1364,6 +1380,24 @@ impl MappedCompiledCorpus {
         Ok(levels)
     }
 
+    /// Every node in canonical order, borrowed from the compiled `order`
+    /// array. `None` when the cache has no order array covering every node.
+    pub fn canonical_order(&self) -> Result<Option<MappedU32s<'_>>> {
+        let Some(order_start) = self.metadata.order_start else {
+            return Ok(None);
+        };
+        if self.metadata.order_len != self.metadata.rank_len {
+            return Ok(None);
+        }
+        let bytes = self
+            .mmap
+            .get(order_start..order_start + self.metadata.order_len * 4)
+            .ok_or_else(|| invalid_compiled(&self.path, "compiled order array out of bounds"))?;
+        Ok(Some(MappedU32s {
+            chunks: bytes.chunks_exact(4),
+        }))
+    }
+
     pub fn order(&self) -> Result<Vec<u32>> {
         let Some(order_start) = self.metadata.order_start else {
             return Ok(Vec::new());
@@ -1399,6 +1433,16 @@ impl MappedCompiledCorpus {
     /// Embedders of `node` in descending rank order (`levUp` CSR row), read
     /// directly from the mmap. Returns `None` for pre-v3 caches (caller should
     /// fall back to the scan path).
+    /// [`lev_up_row`](Self::lev_up_row) borrowed from the map, without
+    /// materializing a `Vec`. `None` for pre-v3 caches.
+    pub fn lev_up_values(&self, node: u32) -> Result<Option<MappedU32s<'_>>> {
+        let Some(start) = self.metadata.lev_up_start else {
+            self.warn_missing_v3("CFRLEVU1");
+            return Ok(None);
+        };
+        csr_row(&self.path, &self.mmap, start, node)
+    }
+
     pub fn lev_up_row(&self, node: u32) -> Result<Option<Vec<u32>>> {
         let Some(start) = self.metadata.lev_up_start else {
             self.warn_missing_v3("CFRLEVU1");
@@ -1765,6 +1809,7 @@ fn build_string_pool_parts(
         row_count,
         rows_start: offset,
         pool_ranges,
+        lookup: RowLookup::default(),
     })
 }
 
@@ -1915,7 +1960,7 @@ impl<'a> StringPoolNodeFeatureView<'a> {
     /// Row index of `node` in this feature's node-sorted rows.
     fn find_row(&self, node: u32) -> Result<Option<usize>> {
         let rows_start = self.parts.rows_start;
-        find_sorted_row(
+        self.parts.lookup.find(
             self.path,
             self.bytes,
             self.parts.row_count,
@@ -1931,6 +1976,18 @@ impl<'a> StringPoolNodeFeatureView<'a> {
         };
         std::str::from_utf8(&self.bytes[range.clone()])
             .map_err(|_| invalid_compiled(self.path, "invalid utf-8 string"))
+    }
+
+    /// The highest node with a value (rows are sorted by node).
+    pub fn last_node(&self) -> Result<Option<u32>> {
+        match self.parts.row_count.checked_sub(1) {
+            Some(last) => Ok(Some(read_u32_from(
+                self.path,
+                self.bytes,
+                self.parts.rows_start + last * 8,
+            )?)),
+            None => Ok(None),
+        }
     }
 
     /// Number of distinct pooled strings (pool ids are `0..pool_count`).
@@ -2135,15 +2192,22 @@ fn build_mixed_parts(
             "mixed row count does not match metadata",
         ));
     }
-    let mut row_offsets = Vec::with_capacity(row_count);
-    for _ in 0..row_count {
-        row_offsets.push(offset);
-        offset = skip_mixed_node_row(path, bytes, offset)?;
-    }
+    let row_offsets = match feature.row_index {
+        Some(layout) => mapped_row_offsets(path, layout, feature.payload_start, row_count)?,
+        None => {
+            let mut row_offsets = Vec::with_capacity(row_count);
+            for _ in 0..row_count {
+                row_offsets.push(offset);
+                offset = skip_mixed_node_row(path, bytes, offset)?;
+            }
+            RowOffsets::Scanned(row_offsets)
+        }
+    };
     Ok(MixedParts {
         metadata: feature.metadata.clone(),
         row_count,
         row_offsets,
+        lookup: RowLookup::default(),
     })
 }
 
@@ -2187,15 +2251,16 @@ impl<'a> MixedNodeFeatureView<'a> {
 
     pub fn value(&self, node: u32) -> Result<Option<MappedNodeValue<'a>>> {
         let row_offsets = &self.parts.row_offsets;
-        match find_sorted_row(
+        let row_offset = |index| row_offsets.get(self.bytes, index);
+        match self.parts.lookup.find(
             self.path,
             self.bytes,
             self.parts.row_count,
-            |index| row_offsets[index],
+            row_offset,
             node,
         )? {
             Some(index) => {
-                read_mixed_node_value_from(self.path, self.bytes, row_offsets[index] + 4).map(Some)
+                read_mixed_node_value_from(self.path, self.bytes, row_offset(index) + 4).map(Some)
             }
             None => Ok(None),
         }
@@ -2360,7 +2425,14 @@ impl<'a> Iterator for MixedNodeRows<'a, '_> {
     type Item = Result<(u32, MappedNodeValue<'a>)>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let row_offset = *self.feature.parts.row_offsets.get(self.index)?;
+        if self.index >= self.feature.parts.row_offsets.len() {
+            return None;
+        }
+        let row_offset = self
+            .feature
+            .parts
+            .row_offsets
+            .get(self.feature.bytes, self.index);
         self.index += 1;
         let node = match read_u32_from(self.feature.path, self.feature.bytes, row_offset) {
             Ok(node) => node,
@@ -2404,6 +2476,26 @@ impl<'a> Iterator for StringPoolNodeRows<'a, '_> {
     }
 }
 
+/// Row offsets served from a feature's `CFRROWS1` entry, checked to cover
+/// exactly `row_count` rows.
+fn mapped_row_offsets(
+    path: &Path,
+    layout: RowIndexLayout,
+    payload_start: usize,
+    row_count: usize,
+) -> Result<RowOffsets> {
+    if layout.len() != row_count {
+        return Err(invalid_compiled(
+            path,
+            "row index length does not match the feature's row count",
+        ));
+    }
+    Ok(RowOffsets::Mapped {
+        base: payload_start,
+        layout,
+    })
+}
+
 fn build_edge_parts(path: &Path, bytes: &[u8], feature: &CompiledEdgeFeature) -> Result<EdgeParts> {
     let mut offset = feature.payload_start;
     let row_count = read_u32_at(path, bytes, &mut offset)? as usize;
@@ -2413,19 +2505,27 @@ fn build_edge_parts(path: &Path, bytes: &[u8], feature: &CompiledEdgeFeature) ->
             "edge row count does not match metadata",
         ));
     }
-    let mut row_offsets = Vec::with_capacity(row_count);
-    for _ in 0..row_count {
-        row_offsets.push(offset);
-        offset = skip_edge_row(path, bytes, offset)?;
-    }
+    let row_offsets = match feature.row_index {
+        Some(layout) => mapped_row_offsets(path, layout, feature.payload_start, row_count)?,
+        None => {
+            let mut row_offsets = Vec::with_capacity(row_count);
+            for _ in 0..row_count {
+                row_offsets.push(offset);
+                offset = skip_edge_row(path, bytes, offset)?;
+            }
+            RowOffsets::Scanned(row_offsets)
+        }
+    };
     Ok(EdgeParts {
         metadata: feature.metadata.clone(),
         row_count,
         row_offsets,
+        lookup: RowLookup::default(),
         edge_value_count: feature.edge_value_count,
         edge_values_start: feature.edge_values_start,
         is_oslots: feature.name == "oslots",
         reverse_index: feature.reverse_index,
+        reverse_lookup: RowLookup::default(),
         edge_value_index: OnceLock::new(),
     })
 }
@@ -2486,14 +2586,18 @@ impl<'a> EdgeFeatureView<'a> {
     /// Byte offset of `source`'s row, if it has one.
     fn row_offset(&self, source: u32) -> Result<Option<usize>> {
         let row_offsets = &self.parts.row_offsets;
-        Ok(find_sorted_row(
-            self.path,
-            self.bytes,
-            self.parts.row_count,
-            |index| row_offsets[index],
-            source,
-        )?
-        .map(|index| row_offsets[index]))
+        let row_offset = |index| row_offsets.get(self.bytes, index);
+        Ok(self
+            .parts
+            .lookup
+            .find(
+                self.path,
+                self.bytes,
+                self.parts.row_count,
+                row_offset,
+                source,
+            )?
+            .map(row_offset))
     }
 
     pub fn targets(&self, source: u32) -> Result<Option<EdgeTargets<'a>>> {
@@ -2616,15 +2720,17 @@ impl<'a> EdgeFeatureView<'a> {
     /// `CFRREVE1` reverse index; pre-v4 caches fall back to scanning every row.
     pub fn t(&self, target: u32) -> Result<Vec<u32>> {
         match self.parts.reverse_index {
-            Some(layout) => layout.sources(self.path, self.bytes, target),
+            Some(layout) => {
+                layout.sources(self.path, self.bytes, &self.parts.reverse_lookup, target)
+            }
             None => self.t_by_scan(target),
         }
     }
 
     fn t_by_scan(&self, target: u32) -> Result<Vec<u32>> {
         let mut sources = Vec::new();
-        for row_offset in &self.parts.row_offsets {
-            let source = read_u32_from(self.path, self.bytes, *row_offset)?;
+        for row_offset in self.parts.row_offsets.iter(self.bytes) {
+            let source = read_u32_from(self.path, self.bytes, row_offset)?;
             let target_count = read_u32_from(self.path, self.bytes, row_offset + 4)? as usize;
             let targets_start = row_offset + 8;
             for index in 0..target_count {
@@ -2689,7 +2795,7 @@ impl<'a> EdgeFeatureView<'a> {
 
     pub fn edge_count(&self) -> Result<usize> {
         let mut count = 0_usize;
-        for row_offset in &self.parts.row_offsets {
+        for row_offset in self.parts.row_offsets.iter(self.bytes) {
             count += read_u32_from(self.path, self.bytes, row_offset + 4)? as usize;
         }
         Ok(count)
@@ -2697,8 +2803,8 @@ impl<'a> EdgeFeatureView<'a> {
 
     pub fn items(&self) -> Result<Vec<(u32, Vec<u32>)>> {
         let mut rows = Vec::with_capacity(self.parts.row_count);
-        for row_offset in &self.parts.row_offsets {
-            let source = read_u32_from(self.path, self.bytes, *row_offset)?;
+        for row_offset in self.parts.row_offsets.iter(self.bytes) {
+            let source = read_u32_from(self.path, self.bytes, row_offset)?;
             let target_count = read_u32_from(self.path, self.bytes, row_offset + 4)? as usize;
             let targets_start = row_offset + 8;
             let mut targets = Vec::with_capacity(target_count);
@@ -3007,14 +3113,27 @@ fn inspect_compiled_bytes(path: &Path, bytes: &[u8]) -> Result<CompiledMetadata>
     };
 
     let v3 = reader.inspect_v3_sections()?;
-    if !reader.is_done() && reader.peek_magic(REVERSE_EDGES_MAGIC) {
-        for (name, layout) in reader.inspect_reverse_edges_section()? {
-            if let Some(feature) = edge_features
+    for (name, layout) in &v3.reverse_edges {
+        if let Some(feature) = edge_features
+            .iter_mut()
+            .find(|feature| feature.name == *name)
+        {
+            feature.reverse_index = Some(*layout);
+        }
+    }
+    for (kind, name, layout) in &v3.row_indexes {
+        let row_index = match kind {
+            RowIndexKind::Node => node_features
                 .iter_mut()
-                .find(|feature| feature.name == name)
-            {
-                feature.reverse_index = Some(layout);
-            }
+                .find(|feature| feature.name == *name)
+                .map(|feature| &mut feature.row_index),
+            RowIndexKind::Edge => edge_features
+                .iter_mut()
+                .find(|feature| feature.name == *name)
+                .map(|feature| &mut feature.row_index),
+        };
+        if let Some(row_index) = row_index {
+            *row_index = Some(*layout);
         }
     }
 
@@ -3044,6 +3163,8 @@ struct V3SectionOffsets {
     lev_down_start: Option<usize>,
     boundary_first_start: Option<usize>,
     boundary_last_start: Option<usize>,
+    reverse_edges: Vec<(String, ReverseEdgeLayout)>,
+    row_indexes: Vec<(RowIndexKind, String, RowIndexLayout)>,
     sections_start: Option<usize>,
 }
 
@@ -3120,6 +3241,17 @@ fn read_i64_from(path: &Path, bytes: &[u8], offset: usize) -> Result<i64> {
 /// (its `row_count` field). Layout: `row_count`, length-prefixed offsets vec
 /// (`row_count + 1` entries), length-prefixed data vec.
 fn read_csr_row(path: &Path, bytes: &[u8], start: usize, index: u32) -> Result<Option<Vec<u32>>> {
+    Ok(csr_row(path, bytes, start, index)?.map(Iterator::collect))
+}
+
+/// Like [`read_csr_row`] but borrows the row from the map: the row's bounds
+/// are checked once, then its values are decoded lazily.
+fn csr_row<'a>(
+    path: &Path,
+    bytes: &'a [u8],
+    start: usize,
+    index: u32,
+) -> Result<Option<MappedU32s<'a>>> {
     let row_count = read_u32_from(path, bytes, start)? as usize;
     if index == 0 || index as usize > row_count {
         return Ok(None);
@@ -3128,49 +3260,37 @@ fn read_csr_row(path: &Path, bytes: &[u8], start: usize, index: u32) -> Result<O
     let offsets_base = start + 8;
     let begin = read_u32_from(path, bytes, offsets_base + ((index as usize - 1) * 4))? as usize;
     let end = read_u32_from(path, bytes, offsets_base + (index as usize * 4))? as usize;
-    let data_len_pos = offsets_base + (offsets_len * 4);
-    let data_base = data_len_pos + 4;
-    let mut row = Vec::with_capacity(end.saturating_sub(begin));
-    for cursor in begin..end {
-        row.push(read_u32_from(path, bytes, data_base + (cursor * 4))?);
-    }
-    Ok(Some(row))
+    let data_base = offsets_base + (offsets_len * 4) + 4;
+    let row = begin
+        .checked_mul(4)
+        .zip(end.checked_mul(4))
+        .and_then(|(from, to)| bytes.get(data_base + from..data_base + to))
+        .ok_or_else(|| invalid_compiled(path, "compiled CSR row out of bounds"))?;
+    Ok(Some(MappedU32s {
+        chunks: row.chunks_exact(4),
+    }))
 }
 
-/// Index of the row whose leading u32 (the node id) equals `node`, in a table of
-/// `row_count` rows sorted by node id where row `i` starts at `row_offset(i)`.
-/// Tries the dense position `node - first_node` first, an O(1) hit for any
-/// feature defined on a contiguous node range (every word, every non-slot
-/// node), then falls back to binary search.
-fn find_sorted_row(
-    path: &Path,
-    bytes: &[u8],
-    row_count: usize,
-    row_offset: impl Fn(usize) -> usize,
-    node: u32,
-) -> Result<Option<usize>> {
-    if row_count == 0 {
-        return Ok(None);
-    }
-    let first_node = read_u32_from(path, bytes, row_offset(0))?;
-    if let Some(guess) = node.checked_sub(first_node).map(|delta| delta as usize)
-        && guess < row_count
-        && read_u32_from(path, bytes, row_offset(guess))? == node
-    {
-        return Ok(Some(guess));
-    }
-    let mut low = 0_usize;
-    let mut high = row_count;
-    while low < high {
-        let mid = low + (high - low) / 2;
-        match read_u32_from(path, bytes, row_offset(mid))?.cmp(&node) {
-            std::cmp::Ordering::Less => low = mid + 1,
-            std::cmp::Ordering::Greater => high = mid,
-            std::cmp::Ordering::Equal => return Ok(Some(mid)),
-        }
-    }
-    Ok(None)
+/// Little-endian u32 values of a bounds-checked byte range of the map.
+pub struct MappedU32s<'a> {
+    chunks: std::slice::ChunksExact<'a, u8>,
 }
+
+impl Iterator for MappedU32s<'_> {
+    type Item = u32;
+
+    fn next(&mut self) -> Option<u32> {
+        self.chunks
+            .next()
+            .map(|chunk| u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.chunks.size_hint()
+    }
+}
+
+impl ExactSizeIterator for MappedU32s<'_> {}
 
 /// Reads a single node's rank directly from the mmap'd rank array, avoiding
 /// materialization of the whole rank Vec.
@@ -3411,14 +3531,18 @@ fn write_compiled(corpus: &Corpus, output_path: &Path) -> Result<()> {
         source,
     })?;
 
+    let mut row_indexes = Vec::new();
     write_u32(&mut writer, corpus.node_features.len() as u32, output_path)?;
     for feature in corpus.node_features.values() {
-        write_node_feature(&mut writer, feature, output_path)?;
+        if let Some(offsets) = write_node_feature(&mut writer, feature, output_path)? {
+            row_indexes.push((RowIndexKind::Node, feature.name.as_str(), offsets));
+        }
     }
 
     write_u32(&mut writer, corpus.edge_features.len() as u32, output_path)?;
     for feature in corpus.edge_features.values() {
-        write_edge_feature(&mut writer, feature, output_path)?;
+        let offsets = write_edge_feature(&mut writer, feature, output_path)?;
+        row_indexes.push((RowIndexKind::Edge, feature.name.as_str(), offsets));
     }
     write_u32_vec(
         &mut writer,
@@ -3439,8 +3563,7 @@ fn write_compiled(corpus: &Corpus, output_path: &Path) -> Result<()> {
     )?;
     write_edge_values_section(&mut writer, &corpus.edge_features, output_path)?;
     write_structure_section(&mut writer, corpus, output_path)?;
-    write_v3_sections(&mut writer, corpus, output_path)?;
-    write_reverse_edges_section(&mut writer, corpus, output_path)?;
+    write_v3_sections(&mut writer, corpus, &row_indexes, output_path)?;
     writer.flush().map_err(|source| CfError::Io {
         path: output_path.to_path_buf(),
         source,
@@ -3468,14 +3591,25 @@ fn write_csr<W: Write>(writer: &mut W, rows: &[Vec<u32>], path: &Path) -> Result
     Ok(())
 }
 
-/// Appends the `.cfr` v3 precomputed CSR index sections (`CFRLEVU1`,
-/// `CFRLEVD1`, `CFRBND1`, `CFRSECT1`). Plain u32 LE, no varint, so accessors
-/// random-access individual rows out of the mmap with no decode pass.
-fn write_v3_sections<W: Write>(writer: &mut W, corpus: &Corpus, path: &Path) -> Result<()> {
+/// One `CFRROWS1` entry: feature table, feature name, row offsets.
+type RowIndexEntry<'a> = (RowIndexKind, &'a str, Vec<u32>);
+
+/// Appends the precomputed index sections: `CFRLEVU1`, `CFRLEVD1`, `CFRBND1`
+/// (v3), `CFRREVE1` and `CFRROWS1` (v4), then `CFRSECT1`. Plain u32 LE, no
+/// varint, so accessors random-access individual rows out of the mmap with no
+/// decode pass. `CFRSECT1` stays last: opening a cache records its offset
+/// without parsing it.
+fn write_v3_sections<W: Write>(
+    writer: &mut W,
+    corpus: &Corpus,
+    row_indexes: &[RowIndexEntry<'_>],
+    path: &Path,
+) -> Result<()> {
     let max_slot = corpus.max_slot();
     let max_node = corpus.max_node();
     if max_node == 0 {
-        return Ok(());
+        write_reverse_edges_section(writer, corpus, path)?;
+        return write_row_index_section(writer, row_indexes, path);
     }
     let timing = std::env::var_os("CF_V3_TIMING").is_some();
     macro_rules! phase {
@@ -3540,6 +3674,12 @@ fn write_v3_sections<W: Write>(writer: &mut W, corpus: &Corpus, path: &Path) -> 
     write_csr(writer, &boundary.first_slots, path)?;
     write_csr(writer, &boundary.last_slots, path)?;
 
+    phase!(
+        "reverse_edges",
+        write_reverse_edges_section(writer, corpus, path)?
+    );
+    write_row_index_section(writer, row_indexes, path)?;
+
     if let Some(sections) = phase!(
         "sections",
         precompute::sections_with(corpus, &lev_up, &lev_down)
@@ -3551,6 +3691,32 @@ fn write_v3_sections<W: Write>(writer: &mut W, corpus: &Corpus, path: &Path) -> 
                 source,
             })?;
         write_sections_section(writer, &sections, path)?;
+    }
+    Ok(())
+}
+
+/// Appends `CFRROWS1` (layout in [`crate::row_index`]).
+fn write_row_index_section<W: Write>(
+    writer: &mut W,
+    row_indexes: &[RowIndexEntry<'_>],
+    path: &Path,
+) -> Result<()> {
+    writer
+        .write_all(ROW_INDEX_MAGIC)
+        .map_err(|source| CfError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    write_u32(writer, row_indexes.len() as u32, path)?;
+    for (kind, name, offsets) in row_indexes {
+        writer
+            .write_all(&[*kind as u8])
+            .map_err(|source| CfError::Io {
+                path: path.to_path_buf(),
+                source,
+            })?;
+        write_string(writer, name, path)?;
+        write_u32_vec(writer, offsets, path)?;
     }
     Ok(())
 }
@@ -3786,7 +3952,13 @@ fn write_metadata_map<W: Write>(
     Ok(())
 }
 
-fn write_node_feature<W: Write>(writer: &mut W, feature: &NodeFeature, path: &Path) -> Result<()> {
+/// Writes one node feature; returns the row offsets (relative to the payload
+/// start) of a mixed feature, whose rows vary in length, for `CFRROWS1`.
+fn write_node_feature<W: Write>(
+    writer: &mut W,
+    feature: &NodeFeature,
+    path: &Path,
+) -> Result<Option<Vec<u32>>> {
     write_string(writer, &feature.name, path)?;
     let all_strings = feature
         .values
@@ -3801,6 +3973,7 @@ fn write_node_feature<W: Write>(writer: &mut W, feature: &NodeFeature, path: &Pa
     write_u32(writer, feature.values.len() as u32, path)?;
 
     let mut payload = Vec::new();
+    let mut row_offsets = None;
     if all_strings {
         let mut pool: Vec<Arc<str>> = Vec::new();
         let mut pool_ids: HashMap<Arc<str>, u32> = HashMap::new();
@@ -3835,7 +4008,9 @@ fn write_node_feature<W: Write>(writer: &mut W, feature: &NodeFeature, path: &Pa
         write_u32(&mut payload, feature.values.len() as u32, path)?;
         let mut rows: Vec<_> = feature.values.iter().collect();
         rows.sort_unstable_by_key(|(node, _)| **node);
+        let mut offsets = Vec::with_capacity(rows.len());
         for (node, value) in rows {
+            offsets.push(payload_offset(&payload, path)?);
             write_u32(&mut payload, *node, path)?;
             match value {
                 FeatureValue::Str(value) => {
@@ -3859,23 +4034,32 @@ fn write_node_feature<W: Write>(writer: &mut W, feature: &NodeFeature, path: &Pa
                 }
             }
         }
+        row_offsets = Some(offsets);
     }
     write_u32(writer, payload.len() as u32, path)?;
     writer.write_all(&payload).map_err(|source| CfError::Io {
         path: path.to_path_buf(),
         source,
     })?;
-    Ok(())
+    Ok(row_offsets)
 }
 
-fn write_edge_feature<W: Write>(writer: &mut W, feature: &EdgeFeature, path: &Path) -> Result<()> {
+/// Writes one edge feature; returns its row offsets (relative to the payload
+/// start) for `CFRROWS1`.
+fn write_edge_feature<W: Write>(
+    writer: &mut W,
+    feature: &EdgeFeature,
+    path: &Path,
+) -> Result<Vec<u32>> {
     write_string(writer, &feature.name, path)?;
     write_u32(writer, feature.values.len() as u32, path)?;
     let mut payload = Vec::new();
     write_u32(&mut payload, feature.values.len() as u32, path)?;
     let mut rows: Vec<_> = feature.values.iter().collect();
     rows.sort_unstable_by_key(|(node, _)| **node);
+    let mut row_offsets = Vec::with_capacity(rows.len());
     for (node, targets) in rows {
+        row_offsets.push(payload_offset(&payload, path)?);
         write_u32(&mut payload, *node, path)?;
         write_u32(&mut payload, targets.len() as u32, path)?;
         for target in targets {
@@ -3887,7 +4071,13 @@ fn write_edge_feature<W: Write>(writer: &mut W, feature: &EdgeFeature, path: &Pa
         path: path.to_path_buf(),
         source,
     })?;
-    Ok(())
+    Ok(row_offsets)
+}
+
+/// The current payload length as a u32 row offset.
+fn payload_offset(payload: &[u8], path: &Path) -> Result<u32> {
+    u32::try_from(payload.len())
+        .map_err(|_| invalid_compiled(path, "feature payload exceeds the 4 GiB row-offset range"))
 }
 
 fn write_feature_value<W: Write>(writer: &mut W, value: &FeatureValue, path: &Path) -> Result<()> {
@@ -3986,6 +4176,7 @@ impl<'a> Reader<'a> {
             payload_start,
             payload_end: self.offset,
             metadata: BTreeMap::new(),
+            row_index: None,
         })
     }
 
@@ -4090,12 +4281,35 @@ impl<'a> Reader<'a> {
             offsets.boundary_first_start = Some(self.inspect_csr()?);
             offsets.boundary_last_start = Some(self.inspect_csr()?);
         }
+        if !self.is_done() && self.peek_magic(REVERSE_EDGES_MAGIC) {
+            offsets.reverse_edges = self.inspect_reverse_edges_section()?;
+        }
+        if !self.is_done() && self.peek_magic(ROW_INDEX_MAGIC) {
+            offsets.row_indexes = self.inspect_row_index_section()?;
+        }
+        // `CFRSECT1` is the last section: record where it starts and leave the
+        // parse to the first `sections_data()` call.
         if !self.is_done() && self.peek_magic(SECTIONS_MAGIC) {
             self.take(SECTIONS_MAGIC.len())?;
             offsets.sections_start = Some(self.offset);
-            self.read_sections_section()?;
         }
         Ok(offsets)
+    }
+
+    /// Parses the `CFRROWS1` entries (vectors are bounds-checked, not copied).
+    fn inspect_row_index_section(&mut self) -> Result<Vec<(RowIndexKind, String, RowIndexLayout)>> {
+        self.take(ROW_INDEX_MAGIC.len())?;
+        let count = self.read_u32()? as usize;
+        let mut entries = Vec::with_capacity(count);
+        for _ in 0..count {
+            let kind = RowIndexKind::from_tag(self.read_u8()?)
+                .ok_or_else(|| self.invalid("invalid row index kind"))?;
+            let name = self.read_string()?;
+            let (layout, end) = RowIndexLayout::inspect(self.path, self.bytes, self.offset)?;
+            self.offset = end;
+            entries.push((kind, name, layout));
+        }
+        Ok(entries)
     }
 
     /// Parses the `CFRREVE1` section header and each feature's reverse-index
@@ -4272,6 +4486,7 @@ impl<'a> Reader<'a> {
             edge_values_start: None,
             metadata: BTreeMap::new(),
             reverse_index: None,
+            row_index: None,
         })
     }
 

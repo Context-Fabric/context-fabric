@@ -3496,11 +3496,47 @@ fn fabric_load_all_creates_reuses_and_refreshes_mapped_cache() {
     assert!(third_mtime > second_mtime);
 }
 
-/// A cache written before the reverse edge index existed (no trailing
-/// `CFRREVE1` section) still answers `t()` by scanning, identically, and
-/// `loadAll` treats it as stale and rebuilds it.
+/// Every observable value of the mapped corpus that the v4 index sections
+/// (`CFRREVE1` reverse edges, `CFRROWS1` row offsets) serve: node feature
+/// values (mixed rows), forward / reverse / both edge lookups and edge values.
+fn indexed_observations(corpus: &MappedCompiledCorpus) -> Vec<String> {
+    let mut observed = Vec::new();
+    for feature in &corpus.metadata().node_features {
+        let view = corpus.node_feature(&feature.name).unwrap().unwrap();
+        for node in 0..=corpus.max_node() + 1 {
+            observed.push(format!(
+                "{} v({node}) {:?}",
+                feature.name,
+                view.v(node).unwrap()
+            ));
+        }
+    }
+    for feature in &corpus.metadata().edge_features {
+        let edge = corpus.edge_feature(&feature.name).unwrap().unwrap();
+        for node in 0..=corpus.max_node() + 1 {
+            observed.push(format!(
+                "{} f/t/b({node}) {:?} {:?} {:?} {:?}",
+                feature.name,
+                edge.f(node).unwrap(),
+                edge.t(node).unwrap(),
+                edge.b(node).unwrap(),
+                edge.t_with_values(node).unwrap(),
+            ));
+        }
+        observed.push(format!(
+            "{} items {:?}",
+            feature.name,
+            edge.items().unwrap()
+        ));
+    }
+    observed
+}
+
+/// A cache written before the v4 index sections existed (no `CFRREVE1` /
+/// `CFRROWS1`) still answers every lookup identically through the scan
+/// fallbacks, and `loadAll` treats it as stale and rebuilds it.
 #[test]
-fn caches_without_reverse_edge_index_fall_back_and_are_rebuilt() {
+fn caches_without_v4_index_sections_fall_back_and_are_rebuilt() {
     let source = repo_path("libs/core/tests/fixtures/mini_corpus");
     let temp_dir = tempfile::tempdir().unwrap();
     let corpus_dir = temp_dir.path().join("mini");
@@ -3513,40 +3549,52 @@ fn caches_without_reverse_edge_index_fall_back_and_are_rebuilt() {
     let _ = fs::remove_dir_all(corpus_dir.join(".cfr"));
     let fabric = Fabric::new(&corpus_dir);
     let cache_path = fabric.cfr_cache_path();
-    let indexed: Vec<(u32, Vec<u32>, Vec<u32>)> = {
-        let corpus = fabric.loadAll().unwrap();
-        let relation = corpus.edge_feature("relation").unwrap().unwrap();
-        (0..=corpus.max_node() + 1)
-            .map(|node| (node, relation.t(node).unwrap(), relation.b(node).unwrap()))
-            .collect()
-    };
-    assert!(indexed.iter().any(|(_, sources, _)| !sources.is_empty()));
+    let indexed = indexed_observations(&fabric.loadAll().unwrap());
+    assert!(
+        indexed
+            .iter()
+            .any(|line| line.starts_with("relation f/t/b(6) [] [1, 2, 3]"))
+    );
 
+    // Cut `CFRREVE1` through `CFRROWS1`, keeping the `CFRSECT1` section after them.
     let bytes = fs::read(&cache_path).unwrap();
-    let magic_at = bytes
+    let cut_at = bytes
         .windows(8)
         .rposition(|window| window == b"CFRREVE1")
         .expect("reverse edge section present");
-    fs::write(&cache_path, &bytes[..magic_at]).unwrap();
+    assert!(
+        bytes[cut_at..]
+            .windows(8)
+            .any(|window| window == b"CFRROWS1")
+    );
+    let cut_end = bytes[cut_at..]
+        .windows(8)
+        .position(|window| window == b"CFRSECT1")
+        .map_or(bytes.len(), |offset| cut_at + offset);
+    let legacy_bytes = [&bytes[..cut_at], &bytes[cut_end..]].concat();
+    fs::write(&cache_path, legacy_bytes).unwrap();
 
     let legacy = MappedCompiledCorpus::open(&cache_path).unwrap();
+    let metadata = legacy.metadata();
     assert!(
-        legacy
-            .metadata()
+        metadata
             .edge_features
             .iter()
-            .all(|feature| feature.reverse_index.is_none())
+            .all(|feature| { feature.reverse_index.is_none() && feature.row_index.is_none() })
     );
-    let relation = legacy.edge_feature("relation").unwrap().unwrap();
-    for (node, sources, both) in &indexed {
-        assert_eq!(&relation.t(*node).unwrap(), sources, "t({node})");
-        assert_eq!(&relation.b(*node).unwrap(), both, "b({node})");
-    }
+    assert!(
+        metadata
+            .node_features
+            .iter()
+            .all(|feature| feature.row_index.is_none())
+    );
+    assert_eq!(indexed_observations(&legacy), indexed);
     drop(legacy);
 
     fabric.loadAll().unwrap();
     let rebuilt = fs::read(&cache_path).unwrap();
     assert!(rebuilt.windows(8).any(|window| window == b"CFRREVE1"));
+    assert!(rebuilt.windows(8).any(|window| window == b"CFRROWS1"));
 }
 
 #[test]

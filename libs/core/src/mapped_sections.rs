@@ -1,6 +1,6 @@
 use crate::compiled::{
-    EdgeFeatureView, MappedCompiledCorpus, MappedNodeValue, OwnedEdgeFeature, OwnedNodeFeature,
-    OwnedStringPoolFeature, StringPoolNodeFeatureView,
+    EdgeFeatureView, MappedCompiledCorpus, MappedNodeValue, MappedU32s, OwnedEdgeFeature,
+    OwnedNodeFeature, OwnedStringPoolFeature, StringPoolNodeFeatureView,
 };
 use crate::corpus::{Boundary, SectionOptions, WalkEvent};
 use crate::error::{CfError, Result};
@@ -325,6 +325,14 @@ impl SectionsContext {
         // linear reference implementation.
         self.sections()
             .node_from_section_langed(section, sec0_feature)
+    }
+
+    /// Every embedder of `node` (`L.u` without a type filter) in `L.u` order,
+    /// borrowed from the `levUp` CSR without building a `Vec` or a
+    /// [`MappedSections`] view. `None` for pre-v3 caches; use
+    /// [`MappedSections::up_types`] then.
+    pub fn embedders(&self, node: u32) -> Result<Option<MappedU32s<'_>>> {
+        self.corpus.lev_up_values(node)
     }
 
     /// Build a thin [`MappedSections`] borrowing the cached owned handles. No
@@ -873,8 +881,8 @@ impl<'a> MappedSections<'a> {
     /// Every node in canonical order: the precomputed `order` array when the
     /// cache has one for every node, else a rank sort.
     pub fn all_nodes(&self) -> Result<Vec<u32>> {
-        if self.corpus.metadata().order_len == self.max_node() as usize {
-            return self.corpus.order();
+        if let Some(order) = self.corpus.canonical_order()? {
+            return Ok(order.collect());
         }
         let mut nodes: Vec<_> = (1..=self.max_node()).collect();
         self.sort_nodes(&mut nodes)?;

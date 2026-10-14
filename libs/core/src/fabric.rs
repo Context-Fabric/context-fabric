@@ -4,7 +4,8 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use crate::compiled::{
-    MappedCompiledCorpus, compile_features, compile_loaded_corpus, inspect_compiled,
+    MappedCompiledCorpus, NodeFeatureEncoding, compile_features, compile_loaded_corpus,
+    inspect_compiled,
 };
 use crate::config::{BANNER, CFR_VERSION, VERSION};
 use crate::corpus::Corpus;
@@ -340,12 +341,18 @@ pub fn is_cache_fresh(cache_path: &Path, module_paths: &[PathBuf]) -> Result<boo
     if source_has_structure_config(module_paths)? && metadata.structure_start.is_none() {
         return Ok(false);
     }
-    // Pre-v4 caches lack the reverse edge index that `E.<feature>.t` relies on.
-    if metadata
+    // Pre-v4 caches lack the reverse edge index (`E.<feature>.t`) and the row
+    // offsets of variable-length rows (mixed node and edge features).
+    let edges_indexed = metadata
         .edge_features
         .iter()
-        .any(|feature| feature.reverse_index.is_none())
-    {
+        .all(|feature| feature.reverse_index.is_some() && feature.row_index.is_some());
+    let mixed_indexed = metadata
+        .node_features
+        .iter()
+        .filter(|feature| feature.encoding == NodeFeatureEncoding::Mixed)
+        .all(|feature| feature.row_index.is_some());
+    if !edges_indexed || !mixed_indexed {
         return Ok(false);
     }
     Ok(true)

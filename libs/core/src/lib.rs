@@ -26,6 +26,7 @@ pub mod navigation;
 pub mod parser;
 pub mod precompute;
 pub mod results;
+pub mod row_index;
 pub mod search;
 pub mod storage;
 pub mod types;

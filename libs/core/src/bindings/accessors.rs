@@ -324,7 +324,13 @@ impl PyLocality {
     fn u(&self, py: Python<'_>, node: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
-        let sections = self.context()?.sections();
+        let context = self.context()?;
+        if refs.is_none()
+            && let Some(embedders) = context.embedders(node)?
+        {
+            return Ok(PyTuple::new(py, embedders)?.into());
+        }
+        let sections = context.sections();
         let nodes = match refs.as_deref() {
             Some([single]) => sections.u(node, Some(single))?,
             Some(values) => sections.up_types(node, Some(values))?,
@@ -504,6 +510,12 @@ impl PyNodes {
         events: bool,
     ) -> PyResult<PyObject> {
         let nodes = nodes_from_py(nodes)?;
+        if !events
+            && nodes.is_none()
+            && let Some(order) = self.corpus.canonical_order()?
+        {
+            return Ok(PyTuple::new(py, order)?.into());
+        }
         let sections = MappedSections::new(&self.corpus)?;
         if !events {
             return nodes_to_tuple(py, sections.walk(nodes.as_deref())?);

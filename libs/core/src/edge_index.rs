@@ -20,6 +20,7 @@ use std::path::Path;
 
 use crate::compiled::{invalid_compiled, read_u32_from, write_u32_vec};
 use crate::error::Result;
+use crate::row_index::RowLookup;
 
 /// The owned reverse CSR built at compile time from a feature's forward rows.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -140,28 +141,32 @@ impl ReverseEdgeLayout {
         ))
     }
 
-    /// Sources of `target` in canonical order, read from the map: one binary
-    /// search over the distinct targets plus one read per source.
-    pub fn sources(&self, path: &Path, bytes: &[u8], target: u32) -> Result<Vec<u32>> {
-        let mut low = 0_usize;
-        let mut high = self.target_count;
-        while low < high {
-            let mid = low + (high - low) / 2;
-            let candidate = read_u32_from(path, bytes, self.targets_start + mid * 4)?;
-            match candidate.cmp(&target) {
-                std::cmp::Ordering::Less => low = mid + 1,
-                std::cmp::Ordering::Greater => high = mid,
-                std::cmp::Ordering::Equal => {
-                    let begin = read_u32_from(path, bytes, self.offsets_start + mid * 4)? as usize;
-                    let end =
-                        read_u32_from(path, bytes, self.offsets_start + (mid + 1) * 4)? as usize;
-                    return (begin..end)
-                        .map(|index| read_u32_from(path, bytes, self.sources_start + index * 4))
-                        .collect();
-                }
-            }
-        }
-        Ok(Vec::new())
+    /// Sources of `target` in canonical order, read from the map: one lookup
+    /// among the distinct targets (`lookup` caches its sample; keep one per
+    /// layout) plus one read per source.
+    pub fn sources(
+        &self,
+        path: &Path,
+        bytes: &[u8],
+        lookup: &RowLookup,
+        target: u32,
+    ) -> Result<Vec<u32>> {
+        let targets_start = self.targets_start;
+        let Some(index) = lookup.find(
+            path,
+            bytes,
+            self.target_count,
+            |index| targets_start + index * 4,
+            target,
+        )?
+        else {
+            return Ok(Vec::new());
+        };
+        let begin = read_u32_from(path, bytes, self.offsets_start + index * 4)? as usize;
+        let end = read_u32_from(path, bytes, self.offsets_start + (index + 1) * 4)? as usize;
+        (begin..end)
+            .map(|position| read_u32_from(path, bytes, self.sources_start + position * 4))
+            .collect()
     }
 }
 
@@ -202,7 +207,9 @@ mod tests {
         let path = Path::new("test.cfr");
         for target in [0, 1, 2, 3, 99] {
             assert_eq!(
-                layout.sources(path, &bytes, target).expect("lookup"),
+                layout
+                    .sources(path, &bytes, &RowLookup::default(), target)
+                    .expect("lookup"),
                 csr.sources(target),
                 "target {target}"
             );
@@ -215,7 +222,7 @@ mod tests {
         let (bytes, layout) = round_trip(&csr);
         assert!(
             layout
-                .sources(Path::new("test.cfr"), &bytes, 1)
+                .sources(Path::new("test.cfr"), &bytes, &RowLookup::default(), 1)
                 .expect("lookup")
                 .is_empty()
         );
