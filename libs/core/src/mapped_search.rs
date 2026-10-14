@@ -1701,6 +1701,10 @@ struct CandidateSet {
     /// Node ids sorted ascending; membership is a binary search. ~7x smaller
     /// than the `HashSet<u32>` it replaces at these sizes.
     sorted_nodes: Vec<u32>,
+    /// The longest candidate interval (`last_slot - first_slot`). A candidate
+    /// reaching slot `s` must start at or after `s - max_span`, which bounds the
+    /// containment and overlap scans to a window of `by_first_slot`.
+    max_span: u32,
 }
 
 impl CandidateSet {
@@ -1725,11 +1729,17 @@ impl CandidateSet {
         });
         let mut sorted_nodes: Vec<u32> = entries.iter().map(|entry| entry.node).collect();
         sorted_nodes.sort_unstable();
+        let max_span = entries
+            .iter()
+            .filter_map(|entry| Some(entry.last_slot?.saturating_sub(entry.first_slot?)))
+            .max()
+            .unwrap_or(0);
         Self {
             entries,
             by_first_slot,
             by_last_slot,
             sorted_nodes,
+            max_span,
         }
     }
 
@@ -1814,12 +1824,8 @@ impl CandidateSet {
     /// Candidates whose interval contains `[first, last]` (first_slot <= first and
     /// last_slot >= last).
     fn nodes_containing(&self, first: u32, last: u32) -> Vec<u32> {
-        let end = self.by_first_slot.partition_point(|index| {
-            self.entries[*index as usize]
-                .first_slot
-                .is_some_and(|candidate_first| candidate_first <= first)
-        });
-        self.by_first_slot[..end]
+        let (start, end) = self.first_slot_window(last.saturating_sub(self.max_span), first);
+        self.by_first_slot[start..end]
             .iter()
             .filter_map(|index| {
                 let entry = &self.entries[*index as usize];
@@ -1831,18 +1837,30 @@ impl CandidateSet {
     /// Candidates whose interval overlaps `[first, last]` (first_slot <= last and
     /// last_slot >= first).
     fn nodes_overlapping(&self, first: u32, last: u32) -> Vec<u32> {
-        let end = self.by_first_slot.partition_point(|index| {
-            self.entries[*index as usize]
-                .first_slot
-                .is_some_and(|candidate_first| candidate_first <= last)
-        });
-        self.by_first_slot[..end]
+        let (start, end) = self.first_slot_window(first.saturating_sub(self.max_span), last);
+        self.by_first_slot[start..end]
             .iter()
             .filter_map(|index| {
                 let entry = &self.entries[*index as usize];
                 (entry.last_slot? >= first).then_some(entry.node)
             })
             .collect()
+    }
+
+    /// The `by_first_slot` index range of candidates with `first_slot` in
+    /// `[lo, hi]` (entries without a first slot sort last and are excluded).
+    fn first_slot_window(&self, lo: u32, hi: u32) -> (usize, usize) {
+        let start = self.by_first_slot.partition_point(|index| {
+            self.entries[*index as usize]
+                .first_slot
+                .is_some_and(|candidate_first| candidate_first < lo)
+        });
+        let end = self.by_first_slot.partition_point(|index| {
+            self.entries[*index as usize]
+                .first_slot
+                .is_some_and(|candidate_first| candidate_first <= hi)
+        });
+        (start, end.max(start))
     }
 }
 
