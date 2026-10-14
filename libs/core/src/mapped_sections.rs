@@ -874,7 +874,12 @@ impl<'a> MappedSections<'a> {
         self.filter_locality_nodes(result, node_types)
     }
 
+    /// Every node in canonical order: the precomputed `order` array when the
+    /// cache has one for every node, else a rank sort.
     pub fn all_nodes(&self) -> Result<Vec<u32>> {
+        if self.corpus.metadata().order_len == self.max_node() as usize {
+            return self.corpus.order();
+        }
         let mut nodes: Vec<_> = (1..=self.max_node()).collect();
         self.sort_nodes(&mut nodes)?;
         Ok(nodes)
