@@ -9529,6 +9529,14 @@ fn committed_golden_masters_are_regenerable_from_python_when_available() {
         );
         return;
     }
+    let has_text_fabric = std::process::Command::new(&python)
+        .args(["-c", "import tf.fabric"])
+        .output()
+        .is_ok_and(|output| output.status.success());
+    if !has_text_fabric {
+        eprintln!("skipping Python golden authenticity test: Text-Fabric is not installed");
+        return;
+    }
     let corpora = ["bhsa", "n1904", "banks"]
         .into_iter()
         .filter(|name| optional_corpus_tf(name).is_some())
