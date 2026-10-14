@@ -20,6 +20,7 @@ use std::time::UNIX_EPOCH;
 
 use serde::{Deserialize, Serialize};
 
+use crate::atomic_file::write_atomically;
 use crate::compiled::inspect_compiled;
 use crate::config::CFR_VERSION;
 use crate::downloader::get_cache_dir;
@@ -105,22 +106,10 @@ impl SourceManifest {
 
     /// Atomically writes this manifest beside `cache_path`.
     fn write_for_cache(&self, cache_path: &Path) -> Result<()> {
-        let path = manifest_path(cache_path);
-        let io_error = |source| CfError::Io {
-            path: path.clone(),
-            source,
-        };
-        let directory = path.parent().unwrap_or_else(|| Path::new("."));
-        let mut staged = tempfile::Builder::new()
-            .prefix(".sources-")
-            .suffix(".json.partial")
-            .tempfile_in(directory)
-            .map_err(io_error)?;
-        serde_json::to_writer(staged.as_file_mut(), self)?;
-        staged
-            .persist(&path)
-            .map_err(|error| io_error(error.error))?;
-        Ok(())
+        write_atomically(&manifest_path(cache_path), |file| {
+            serde_json::to_writer(file, self)?;
+            Ok(())
+        })
     }
 }
 

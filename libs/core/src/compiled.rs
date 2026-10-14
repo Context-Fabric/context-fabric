@@ -8,6 +8,7 @@ use std::sync::{Arc, Once, OnceLock, RwLock};
 
 use memmap2::Mmap;
 
+use crate::atomic_file::write_atomically;
 use crate::corpus::{
     Chunk, ChunkLengthKey, ChunkPositionKey, ComputedFeatureData, Corpus, FeatureCatalogEntry,
     FeatureDescription, FeatureKind, FeatureValueSample, LoadedFeatureInfo, LoadedFeatureKind,
@@ -3378,8 +3379,7 @@ fn invalid_compiled(path: &Path, message: impl Into<String>) -> CfError {
     }
 }
 
-/// Writes the compiled cache to a staging file in the destination directory and
-/// atomically renames it over `output_path` once complete.
+/// Writes the compiled cache atomically (see [`write_atomically`]).
 ///
 /// Never rewriting the destination in place matters because readers memory-map
 /// it: truncating a mapped file makes those readers see foreign bytes (or fault
@@ -3387,26 +3387,9 @@ fn invalid_compiled(path: &Path, message: impl Into<String>) -> CfError {
 /// inode, concurrent compilers each publish a complete file (last one wins),
 /// and a failed or interrupted compile leaves the previous cache untouched.
 fn write_compiled(corpus: &Corpus, output_path: &Path) -> Result<()> {
-    let io_error = |source| CfError::Io {
-        path: output_path.to_path_buf(),
-        source,
-    };
-    let directory = output_path
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    let mut builder = tempfile::Builder::new();
-    builder.prefix(".corpus-").suffix(".cfr.partial");
-    // Match `File::create` (0o666 minus umask) rather than tempfile's private
-    // 0o600, so caches in shared corpus directories stay readable by others.
-    #[cfg(unix)]
-    builder.permissions(std::os::unix::fs::PermissionsExt::from_mode(0o666));
-    let staged = builder.tempfile_in(directory).map_err(io_error)?;
-    write_compiled_contents(corpus, staged.as_file(), output_path)?;
-    staged
-        .persist(output_path)
-        .map_err(|error| io_error(error.error))?;
-    Ok(())
+    write_atomically(output_path, |file| {
+        write_compiled_contents(corpus, file, output_path)
+    })
 }
 
 fn write_compiled_contents(corpus: &Corpus, file: &File, output_path: &Path) -> Result<()> {

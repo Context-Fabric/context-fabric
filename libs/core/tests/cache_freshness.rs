@@ -104,3 +104,20 @@ fn an_unchanged_corpus_reuses_its_cache() {
     fabric.load_all().unwrap();
     assert_eq!(fs::metadata(&cache).unwrap().modified().unwrap(), first);
 }
+
+#[cfg(unix)]
+#[test]
+fn cache_and_manifest_are_readable_by_other_users() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let corpus = copy_mini_corpus(dir.path());
+    let fabric = Fabric::new(&corpus);
+    fabric.load_all().unwrap();
+    let cache = fabric.cfr_cache_path();
+    let mut manifest = cache.clone().into_os_string();
+    manifest.push(".sources.json");
+    for path in [cache, PathBuf::from(manifest)] {
+        let mode = fs::metadata(&path).unwrap().permissions().mode();
+        assert_eq!(mode & 0o044, 0o044, "{} mode {mode:o}", path.display());
+    }
+}
