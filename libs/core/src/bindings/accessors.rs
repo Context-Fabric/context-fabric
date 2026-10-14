@@ -954,6 +954,27 @@ impl PySearch {
         }
     }
 
+    /// Counts results of the studied `template` (GIL-free engine work).
+    fn count_studied(&self, template: &str, limit: Option<usize>) -> crate::error::Result<usize> {
+        let engine = MappedSearch::new(&self.corpus);
+        // Full-tuple counting runs the join in count-only mode (no row
+        // materialization); shallow counting needs the rows for dedup.
+        if self.shallow == 0 {
+            return match borrow_search_sets(&self.sets) {
+                Some(sets) => engine.count_with_sets(template, &sets, limit),
+                None => engine.count(template, limit),
+            };
+        }
+        let study = match borrow_search_sets(&self.sets) {
+            Some(sets) => engine.study_with_sets(template, &sets)?,
+            None => engine.study(template)?,
+        };
+        Ok(match self.shallow {
+            1 => study.count_first_nodes(limit),
+            width => study.count_prefixes(width, limit),
+        })
+    }
+
     /// Run a search and shape the result per TF `shallow` semantics
     /// (`tf/search/stitch.py:872-879`): width 0 -> tuple of full tuples,
     /// width 1 -> set of first components, width k>1 -> set of k-prefix tuples.
@@ -967,12 +988,14 @@ impl PySearch {
     ) -> PyResult<PyObject> {
         let engine = MappedSearch::new(&self.corpus);
         let sets = borrow_search_sets(owned_sets);
+        // The engine work runs without the GIL; only building the Python
+        // result objects needs it.
         match shallow {
             0 => {
-                let rows = match sets.as_ref() {
-                    Some(sets) => engine.search_with_sets(template, sets, limit)?,
-                    None => engine.search(template, limit)?,
-                };
+                let rows = py.allow_threads(|| match sets.as_ref() {
+                    Some(sets) => engine.search_with_sets(template, sets, limit),
+                    None => engine.search(template, limit),
+                })?;
                 let tuples = rows
                     .into_iter()
                     .map(|row| PyTuple::new(py, row).map(Into::into))
@@ -980,17 +1003,17 @@ impl PySearch {
                 Ok(PyTuple::new(py, tuples)?.into())
             }
             1 => {
-                let nodes = match sets.as_ref() {
-                    Some(sets) => engine.search_first_nodes_with_sets(template, sets, limit)?,
-                    None => engine.search_first_nodes(template, limit)?,
-                };
+                let nodes = py.allow_threads(|| match sets.as_ref() {
+                    Some(sets) => engine.search_first_nodes_with_sets(template, sets, limit),
+                    None => engine.search_first_nodes(template, limit),
+                })?;
                 Ok(PySet::new(py, &nodes)?.into())
             }
             width => {
-                let rows = match sets.as_ref() {
-                    Some(sets) => engine.search_prefixes_with_sets(template, sets, width, limit)?,
-                    None => engine.search_prefixes(template, width, limit)?,
-                };
+                let rows = py.allow_threads(|| match sets.as_ref() {
+                    Some(sets) => engine.search_prefixes_with_sets(template, sets, width, limit),
+                    None => engine.search_prefixes(template, width, limit),
+                })?;
                 let tuples = rows
                     .into_iter()
                     .map(|row| PyTuple::new(py, row).map(Into::into))
@@ -1011,6 +1034,7 @@ impl PySearch {
     #[pyo3(signature = (template, sets=None, shallow=None))]
     fn study(
         &mut self,
+        py: Python<'_>,
         template: &str,
         sets: Option<&Bound<'_, PyAny>>,
         shallow: Option<&Bound<'_, PyAny>>,
@@ -1018,10 +1042,10 @@ impl PySearch {
         let owned_sets = search_sets_from_py(sets)?;
         let shallow = normalize_shallow(shallow)?;
         let engine = MappedSearch::new(&self.corpus);
-        let result = match borrow_search_sets(&owned_sets) {
+        let result = py.allow_threads(|| match borrow_search_sets(&owned_sets) {
             Some(sets) => engine.search_with_sets(template, &sets, Some(1)),
             None => engine.search(template, Some(1)),
-        };
+        });
         self.template = Some(template.to_string());
         self.sets = owned_sets;
         self.shallow = shallow;
@@ -1061,28 +1085,17 @@ impl PySearch {
     }
 
     #[pyo3(signature = (progress=None, limit=None))]
-    fn count(&self, progress: Option<usize>, limit: Option<usize>) -> PyResult<usize> {
+    fn count(
+        &self,
+        py: Python<'_>,
+        progress: Option<usize>,
+        limit: Option<usize>,
+    ) -> PyResult<usize> {
         let _ = progress;
         let template = self.template.as_deref().ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err("no search template has been studied")
         })?;
-        let engine = MappedSearch::new(&self.corpus);
-        // Full-tuple counting runs the join in count-only mode (no row
-        // materialization); shallow counting needs the rows for dedup.
-        if self.shallow == 0 {
-            return Ok(match borrow_search_sets(&self.sets) {
-                Some(sets) => engine.count_with_sets(template, &sets, limit)?,
-                None => engine.count(template, limit)?,
-            });
-        }
-        let study = match borrow_search_sets(&self.sets) {
-            Some(sets) => engine.study_with_sets(template, &sets)?,
-            None => engine.study(template)?,
-        };
-        Ok(match self.shallow {
-            1 => study.count_first_nodes(limit),
-            width => study.count_prefixes(width, limit),
-        })
+        Ok(py.allow_threads(|| self.count_studied(template, limit))?)
     }
 
     #[allow(non_snake_case)]

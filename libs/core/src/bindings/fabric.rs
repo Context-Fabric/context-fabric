@@ -204,6 +204,7 @@ impl PyFabric {
     #[pyo3(signature = (features=None, add=false, silent=None))]
     fn load(
         &self,
+        py: Python<'_>,
         features: Option<&Bound<'_, PyAny>>,
         add: bool,
         silent: Option<&str>,
@@ -225,36 +226,42 @@ impl PyFabric {
             }
             state.clone()
         };
-        let corpus = if effective.is_empty() {
-            self.inner.load_all()?
-        } else {
-            self.inner.load(effective.clone())?
-        };
+        // Loading may compile the cache (tens of seconds on large corpora);
+        // release the GIL so other Python threads keep running.
+        let corpus = py.allow_threads(|| {
+            if effective.is_empty() {
+                self.inner.load_all()
+            } else {
+                self.inner.load(effective.clone())
+            }
+        })?;
         Ok(PyCorpus::new(corpus, effective))
     }
 
     #[allow(non_snake_case)]
     #[pyo3(signature = (silent=None))]
-    fn loadAll(&self, silent: Option<&str>) -> PyResult<PyCorpus> {
+    fn loadAll(&self, py: Python<'_>, silent: Option<&str>) -> PyResult<PyCorpus> {
         let _ = silent;
-        Ok(PyCorpus::new(self.inner.load_all()?, Vec::new()))
+        let corpus = py.allow_threads(|| self.inner.load_all())?;
+        Ok(PyCorpus::new(corpus, Vec::new()))
     }
 
     #[pyo3(signature = (silent=None))]
-    fn load_all(&self, silent: Option<&str>) -> PyResult<PyCorpus> {
-        let _ = silent;
-        Ok(PyCorpus::new(self.inner.load_all()?, Vec::new()))
+    fn load_all(&self, py: Python<'_>, silent: Option<&str>) -> PyResult<PyCorpus> {
+        self.loadAll(py, silent)
     }
 
     #[pyo3(signature = (output_path, features=None, silent=None))]
     fn compile(
         &self,
+        py: Python<'_>,
         output_path: &str,
         features: Option<&Bound<'_, PyAny>>,
         silent: Option<&str>,
     ) -> PyResult<bool> {
         let _ = silent;
-        self.inner.compile(output_path, feature_names(features)?)?;
+        let features = feature_names(features)?;
+        py.allow_threads(|| self.inner.compile(output_path, features))?;
         Ok(true)
     }
 
