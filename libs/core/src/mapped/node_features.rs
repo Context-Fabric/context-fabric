@@ -1,14 +1,13 @@
 //! Node feature views (string-pool and mixed encodings) over the mapped file.
 
-use std::collections::BTreeMap;
 use std::ops::Range;
 use std::path::Path;
 use std::sync::Arc;
 
 use crate::error::Result;
 use crate::format::{
-    CompiledNodeFeature, bounded_capacity, invalid_compiled, metadata_value,
-    read_mixed_node_value_from, read_string_range_at, read_u32_at, read_u32_from,
+    CompiledNodeFeature, bounded_capacity, invalid_compiled, read_mixed_node_value_from,
+    read_string_range_at, read_u32_at, read_u32_from,
 };
 use crate::index::row_index::{RowLookup, RowOffsets};
 use crate::mapped::MappedCompiledCorpus;
@@ -20,7 +19,6 @@ use crate::value::FeatureValue;
 /// feature and shared (behind an `Arc`) across every view, so repeated
 /// `string_pool_node_feature()` calls avoid re-scanning the mmap header.
 pub(crate) struct StringPoolParts {
-    metadata: BTreeMap<String, Option<String>>,
     pub(crate) row_count: usize,
     pub(crate) rows_start: usize,
     pub(crate) pool_ranges: Vec<Range<usize>>,
@@ -29,7 +27,6 @@ pub(crate) struct StringPoolParts {
 
 /// Owned, parsed metadata for a mixed (string/int) node feature.
 pub(crate) struct MixedParts {
-    metadata: BTreeMap<String, Option<String>>,
     row_count: usize,
     row_offsets: RowOffsets,
     lookup: RowLookup,
@@ -47,13 +44,6 @@ pub enum MappedNodeFeatureView<'a> {
 }
 
 impl<'a> MappedNodeFeatureView<'a> {
-    pub fn metadata_value(&self, key: &str) -> Option<&str> {
-        match self {
-            Self::StringPool(feature) => feature.metadata_value(key),
-            Self::Mixed(feature) => feature.metadata_value(key),
-        }
-    }
-
     pub fn value(&self, node: u32) -> Result<Option<MappedNodeValue<'a>>> {
         match self {
             Self::StringPool(feature) => feature.v(node),
@@ -130,7 +120,6 @@ pub(crate) fn build_string_pool_parts(
         ));
     }
     Ok(StringPoolParts {
-        metadata: feature.metadata.clone(),
         row_count,
         rows_start: offset,
         pool_ranges,
@@ -220,10 +209,6 @@ impl<'a> StringPoolNodeFeatureView<'a> {
 
     fn sort_by_rank(&self, nodes: &mut [u32]) {
         sort_nodes_by_mmap_rank(self.path, self.bytes, self.rank_start, self.rank_len, nodes);
-    }
-
-    pub fn metadata_value(&self, key: &str) -> Option<&str> {
-        metadata_value(&self.parts.metadata, key)
     }
 
     pub fn str_value(&self, node: u32) -> Result<Option<&'a str>> {
@@ -391,7 +376,6 @@ pub(crate) fn build_mixed_parts(
         .ok_or_else(|| invalid_compiled(path, "mixed feature without row offsets"))?;
     let row_offsets = mapped_row_offsets(path, layout, feature.payload_start, row_count)?;
     Ok(MixedParts {
-        metadata: feature.metadata.clone(),
         row_count,
         row_offsets,
         lookup: RowLookup::default(),
@@ -413,10 +397,6 @@ impl<'a> MixedNodeFeatureView<'a> {
 
     fn sort_by_rank(&self, nodes: &mut [u32]) {
         sort_nodes_by_mmap_rank(self.path, self.bytes, self.rank_start, self.rank_len, nodes);
-    }
-
-    pub fn metadata_value(&self, key: &str) -> Option<&str> {
-        metadata_value(&self.parts.metadata, key)
     }
 
     pub fn value(&self, node: u32) -> Result<Option<MappedNodeValue<'a>>> {

@@ -89,10 +89,6 @@ fn string_pool_features_read_values() {
     let dynamic_word = mapped.node_feature("word").unwrap().unwrap();
     assert!(matches!(dynamic_word, MappedNodeFeatureView::StringPool(_)));
     assert_eq!(
-        dynamic_word.metadata_value("description"),
-        Some("word text")
-    );
-    assert_eq!(
         dynamic_word.v(1).unwrap(),
         Some(MappedNodeValue::Str("hello"))
     );
@@ -109,7 +105,14 @@ fn string_pool_features_read_values() {
         Vec::<u32>::new()
     );
     assert_eq!(word.row_count(), 5);
-    assert_eq!(word.metadata_value("description"), Some("word text"));
+    assert_eq!(
+        mapped
+            .metadata()
+            .node_feature("word")
+            .unwrap()
+            .metadata_value("description"),
+        Some("word text")
+    );
     assert_eq!(word.str_value(1).unwrap(), Some("hello"));
     assert_eq!(word.v(1).unwrap(), Some(MappedNodeValue::Str("hello")));
     assert_eq!(word.str_value(5).unwrap(), Some("morning"));
@@ -134,20 +137,12 @@ fn string_pool_features_read_values() {
     let number = mapped.mixed_node_feature("number").unwrap().unwrap();
     let dynamic_number = mapped.node_feature("number").unwrap().unwrap();
     assert!(matches!(dynamic_number, MappedNodeFeatureView::Mixed(_)));
-    assert_eq!(
-        dynamic_number.metadata_value("description"),
-        Some("word count in phrase")
-    );
     assert_eq!(dynamic_number.v(3).unwrap(), Some(MappedNodeValue::Int(3)));
     assert_eq!(
         dynamic_number.s(MappedNodeValue::Int(2)).unwrap(),
         vec![2, 5]
     );
     assert_eq!(number.v(3).unwrap(), Some(MappedNodeValue::Int(3)));
-    assert_eq!(
-        number.metadata_value("description"),
-        Some("word count in phrase")
-    );
     assert_eq!(number.s(MappedNodeValue::Int(2)).unwrap(), vec![2, 5]);
     assert_eq!(number.items().unwrap()[2], (3, MappedNodeValue::Int(3)));
 
@@ -174,26 +169,28 @@ fn config_features_read_metadata() {
     compile_features(&source, &cache_path, &[]).unwrap();
 
     let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
-    let otext = mapped.config_feature("otext").unwrap().unwrap();
+    let metadata = mapped
+        .config_feature("otext")
+        .unwrap()
+        .unwrap()
+        .metadata()
+        .unwrap();
     assert_eq!(
-        otext.get("sectionTypes").unwrap().flatten(),
+        metadata.get("sectionTypes").and_then(Option::as_deref),
         Some("sentence,phrase")
     );
     assert_eq!(
-        otext.metadata_value("sectionTypes").unwrap(),
-        Some("sentence,phrase")
-    );
-    assert_eq!(
-        otext.get("fmt:text-orig-full").unwrap().flatten(),
+        metadata
+            .get("fmt:text-orig-full")
+            .and_then(Option::as_deref),
         Some("{word}")
     );
-    assert_eq!(otext.get("missing").unwrap(), None);
+    assert!(!metadata.contains_key("missing"));
 
-    let metadata = otext.metadata().unwrap();
-    assert_eq!(
-        metadata.get("sectionFeatures").and_then(Option::as_deref),
-        Some("sentence_id,phrase_id")
-    );
+    let otext = mapped.otext().unwrap();
+    assert_eq!(otext.section_types, ["sentence", "phrase"]);
+    assert_eq!(otext.section_features, ["sentence_id", "phrase_id"]);
+    assert_eq!(otext.formats["text-orig-full"], "{word}");
 }
 
 #[test]

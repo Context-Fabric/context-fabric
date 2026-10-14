@@ -7,6 +7,7 @@ use std::sync::{Arc, OnceLock, RwLock};
 use memmap2::Mmap;
 use serde::Serialize;
 
+use crate::config::OTEXT;
 use crate::error::{CfError, Result};
 use crate::format::{
     CompiledMetadata, NodeFeatureEncoding, bounded_capacity, invalid_compiled, map_file,
@@ -109,7 +110,7 @@ impl MappedCompiledCorpus {
         if let Some(otext) = self.otext_cache.get() {
             return Ok(otext);
         }
-        let otext = match self.config_feature("otext")? {
+        let otext = match self.config_feature(OTEXT)? {
             Some(view) => Otext::from_metadata(&view.metadata()?),
             None => Otext::default(),
         };
@@ -210,13 +211,6 @@ impl MappedCompiledCorpus {
             .string_pool_node_feature("otype")?
             .ok_or_else(|| CfError::MissingFeature("otype".to_string()))?;
         Ok(otype.str_value(1)?.unwrap_or_default().to_string())
-    }
-
-    pub fn nodes_of_type(&self, node_type: &str) -> Result<Vec<u32>> {
-        Ok(self
-            .string_pool_node_feature("otype")?
-            .ok_or_else(|| CfError::MissingFeature("otype".to_string()))?
-            .s(node_type)?)
     }
 
     /// Node ids of one type in ascending node order, served from a cache built

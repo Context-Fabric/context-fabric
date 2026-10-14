@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
 use crate::compile::is_superset;
+use crate::config::OTEXT;
 use crate::error::{CfError, Result};
 use crate::tf::{EdgeFeature, NodeFeature, Otext, TfFeature, parse_tf_file};
 use crate::value::FeatureValue;
@@ -266,7 +267,7 @@ impl Corpus {
 
     /// The `otext` config feature (empty when absent).
     pub fn otext(&self) -> Otext {
-        self.config_feature("otext")
+        self.config_feature(OTEXT)
             .map(Otext::from_metadata)
             .unwrap_or_default()
     }

@@ -401,8 +401,8 @@ fn normalizes_desc_and_eg_metadata_like_python_format_meta() {
     let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
     assert_eq!(
         mapped
+            .metadata()
             .node_feature("gloss")
-            .unwrap()
             .unwrap()
             .metadata_value("description"),
         Some("A feature (example)")
@@ -476,9 +476,10 @@ fn accepts_python_style_value_type_metadata_alias() {
 
     let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
     let mapped_feature = mapped.mixed_node_feature("legacy_number").unwrap().unwrap();
-    assert_eq!(mapped_feature.metadata_value("valueType"), Some("int"));
+    let entry = mapped.metadata().node_feature("legacy_number").unwrap();
+    assert_eq!(entry.metadata_value("valueType"), Some("int"));
     assert_eq!(
-        mapped_feature.metadata_value("description"),
+        entry.metadata_value("description"),
         Some("legacy typed number")
     );
     assert_eq!(mapped_feature.v(1).unwrap(), Some(MappedNodeValue::Int(7)));

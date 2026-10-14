@@ -16,8 +16,8 @@ fn loads_bhsa_and_runs_lexical_queries() {
     compile_features(path, &cache_path, &["otype", "oslots", "sp"]).unwrap();
     let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
 
-    assert_eq!(mapped.nodes_of_type("word").unwrap().len(), 426_590);
-    assert_eq!(mapped.nodes_of_type("book").unwrap().len(), 39);
+    assert_eq!(mapped.typed_nodes("word").unwrap().unwrap().len(), 426_590);
+    assert_eq!(mapped.typed_nodes("book").unwrap().unwrap().len(), 39);
     assert_eq!(mapped.max_slot().unwrap(), 426_590);
     let otype = mapped.string_pool_node_feature("otype").unwrap().unwrap();
     assert_eq!(otype.str_value(426_591).unwrap(), Some("book"));

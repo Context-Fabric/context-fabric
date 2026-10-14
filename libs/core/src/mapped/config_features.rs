@@ -35,24 +35,6 @@ impl<'a> ConfigFeatureView<'a> {
         })
     }
 
-    pub fn get(&self, expected_key: &str) -> Result<Option<Option<&'a str>>> {
-        for row in self.items() {
-            let (key, value) = row?;
-            if key == expected_key {
-                return Ok(Some(value));
-            }
-        }
-        Ok(None)
-    }
-
-    pub fn metadata_value(&self, key: &str) -> Result<Option<&'a str>> {
-        let value = self.get(key)?.flatten();
-        if value.is_some() || key != "valueType" {
-            return Ok(value);
-        }
-        Ok(self.get("value_type")?.flatten())
-    }
-
     pub fn metadata(&self) -> Result<BTreeMap<String, Option<String>>> {
         let mut metadata = BTreeMap::new();
         for row in self.items() {
