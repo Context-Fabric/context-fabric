@@ -334,8 +334,6 @@ class CorpusInfo:
 
 __all__ = [
     "NodeInfo",
-    "NodeList",
-    "SearchResult",
     "FeatureInfo",
     "CorpusInfo",
 ]

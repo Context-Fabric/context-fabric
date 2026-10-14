@@ -80,6 +80,7 @@ class Runner:
         self.scratch = scratch
         self.corpora = scratch / "corpora"
         self.bhsa_cfr = self.cfr_path("bhsa")
+        self.compiled: set[str] = set()
         self.rust_py = RUST_VENV / "bin" / "python"
         self.cfpy_py = CFPY_VENV / "bin" / "python"
         results.mkdir(parents=True, exist_ok=True)
@@ -115,8 +116,11 @@ class Runner:
         return self.scratch / f"cf_{corpus}.cfr"
 
     def ensure_cfr(self, corpus: str) -> Path:
+        """Compile the explicit cache once per run, so a cache left by an older build is never reused."""
         cache = self.cfr_path(corpus)
-        if not cache.exists():
+        if corpus not in self.compiled:
+            cache.unlink(missing_ok=True)
+            self.compiled.add(corpus)
             self.run(f"compile {corpus} cfr", [str(self.rust_py), "-c",
                      "import sys; from cfabric import Fabric; "
                      "Fabric(locations=sys.argv[1]).compile(sys.argv[2])",

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import importlib.metadata
 
 import cfabric
@@ -256,3 +257,10 @@ def test_api_members_report_a_collected_api(mini_corpus_path):
     assert text.text(1) == "hello"
     with pytest.raises(ReferenceError):
         _ = text.api
+
+
+@pytest.mark.parametrize("module_name", ["cfabric", "cfabric.results", "cfabric.describe"])
+def test_all_exports_resolve(module_name):
+    module = importlib.import_module(module_name)
+    missing = [name for name in getattr(module, "__all__", ()) if not hasattr(module, name)]
+    assert missing == []
