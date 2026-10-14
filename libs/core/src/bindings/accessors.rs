@@ -1495,10 +1495,13 @@ impl PySearch {
 #[pyclass(name = "SearchExe", module = "cfabric._core")]
 #[derive(Clone)]
 pub(crate) struct PySearchExe {
+    /// Whether the template is valid.
     #[pyo3(get)]
     good: bool,
+    /// Syntax errors as `(line, message)` pairs.
     #[pyo3(get, name = "badSyntax")]
     bad_syntax: Vec<(Option<usize>, String)>,
+    /// Semantic errors as `(line, message)` pairs.
     #[pyo3(get, name = "badSemantics")]
     bad_semantics: Vec<(Option<usize>, String)>,
 }

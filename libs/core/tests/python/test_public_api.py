@@ -190,3 +190,20 @@ def test_describe_helpers(loaded_api):
     assert feature["value_type"] == "str"
     assert feature["description"] == "word text"
     assert feature["sample_values"]
+
+
+def test_public_extension_members_have_docstrings():
+    """Every public class and member of `cfabric._core` documents itself."""
+    from cfabric import _core
+
+    undocumented = []
+    for class_name in _core.__all__:
+        cls = getattr(_core, class_name)
+        if not isinstance(cls, type):
+            continue
+        if not (cls.__doc__ or "").strip():
+            undocumented.append(class_name)
+        for name, member in vars(cls).items():
+            if not name.startswith("_") and not (getattr(member, "__doc__", "") or "").strip():
+                undocumented.append(f"{class_name}.{name}")
+    assert not undocumented, undocumented

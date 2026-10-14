@@ -243,6 +243,8 @@ struct InternTable {
     full: bool,
 }
 
+/// A node feature (TF `F.<feature>`): values per node. `F.otype` also has
+/// the warp members `slotType`, `maxSlot`, `maxNode`, `all`, `support`, `sInterval`.
 #[pyclass(name = "NodeFeature", module = "cfabric._core")]
 pub(crate) struct PyNodeFeature {
     name: String,
@@ -656,6 +658,7 @@ impl PyNodeFeature {
     }
 }
 
+/// The node features of an API (TF `F`): `F.<feature>` is a `NodeFeature`.
 #[pyclass(name = "NodeFeatures", module = "cfabric._core")]
 pub(crate) struct PyNodeFeatures {
     corpus: Arc<MappedCompiledCorpus>,
@@ -723,6 +726,8 @@ impl PyNodeFeatures {
     }
 }
 
+/// An edge feature (TF `E.<feature>`): edges between nodes, optionally with
+/// values. `E.oslots` also has the warp members `maxSlot` and `maxNode`.
 #[pyclass(name = "EdgeFeature", module = "cfabric._core")]
 pub(crate) struct PyEdgeFeature {
     name: String,
@@ -1024,6 +1029,7 @@ impl PyEdgeFeature {
     }
 }
 
+/// The edge features of an API (TF `E`): `E.<feature>` is an `EdgeFeature`.
 #[pyclass(name = "EdgeFeatures", module = "cfabric._core")]
 pub(crate) struct PyEdgeFeatures {
     corpus: Arc<MappedCompiledCorpus>,
@@ -1135,6 +1141,7 @@ impl PyLevView {
     }
 }
 
+/// A block of precomputed data (TF `C.<name>`), in `data`.
 #[pyclass(name = "Computed", module = "cfabric._core")]
 pub(crate) struct PyComputed {
     /// The precomputed data.
@@ -1158,6 +1165,8 @@ impl PyComputed {
     }
 }
 
+/// The precomputed data of an API (TF `C`): `levels`, `order`, `rank`,
+/// `boundary`, `levUp`, `levDown`, `sections`, `characters`.
 #[pyclass(name = "Computeds", module = "cfabric._core")]
 pub(crate) struct PyComputeds {
     corpus: Arc<MappedCompiledCorpus>,
@@ -1381,6 +1390,7 @@ fn extract_format_features(spec: &str) -> Vec<String> {
 
 #[pymethods]
 impl PyComputeds {
+    /// Node types with their level and node interval: `((type, avgSlots, first, last), ...)`.
     #[getter]
     fn levels(&self, py: Python<'_>) -> PyResult<PyComputed> {
         let rows = match self.corpus.computed_feature("levels")? {
@@ -1401,16 +1411,19 @@ impl PyComputeds {
         Ok(self.computed(py, PyTuple::new(py, rows)?.into()))
     }
 
+    /// All nodes in canonical order.
     #[getter]
     fn order(&self, py: Python<'_>) -> PyResult<PyComputed> {
         Ok(self.computed(py, PyTuple::new(py, self.corpus.order()?)?.into()))
     }
 
+    /// Position of each node in the canonical order (`rank[n - 1]`).
     #[getter]
     fn rank(&self, py: Python<'_>) -> PyResult<PyComputed> {
         Ok(self.computed(py, PyTuple::new(py, self.corpus.rank()?)?.into()))
     }
 
+    /// Nodes starting and ending at each slot: `(firstSlots, lastSlots)`.
     #[getter]
     fn boundary(&self, py: Python<'_>) -> PyResult<PyComputed> {
         let boundary = match self.corpus.computed_feature("boundary")? {
@@ -1423,23 +1436,27 @@ impl PyComputeds {
         Ok(self.computed(py, Self::boundary_to_py(py, boundary)?))
     }
 
+    /// Embedders of each node, as a `LevView` indexed by node id.
     #[getter]
     #[allow(non_snake_case)]
     fn levUp(&self, py: Python<'_>) -> PyResult<PyComputed> {
         self.lev_view(py, false)
     }
 
+    /// Embeddees of each node, as a `LevView` indexed by node id.
     #[getter]
     #[allow(non_snake_case)]
     fn levDown(&self, py: Python<'_>) -> PyResult<PyComputed> {
         self.lev_view(py, true)
     }
 
+    /// Section indexes: `{sec1, sec2, seqFromNode, nodeFromSeq}`.
     #[getter]
     fn sections(&self, py: Python<'_>) -> PyResult<PyComputed> {
         Ok(self.computed(py, self.sections_to_py(py)?))
     }
 
+    /// Character frequencies per text format: `{format: ((char, count), ...)}`.
     #[getter]
     fn characters(&self, py: Python<'_>) -> PyResult<PyComputed> {
         Ok(self.computed(py, self.characters_to_py(py)?))
