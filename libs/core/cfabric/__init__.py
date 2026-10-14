@@ -10,9 +10,9 @@ The core API mirrors Text-Fabric's (`tf.fabric.Fabric`)::
         print(api.T.text(node))
 """
 
-from cfabric._core import BANNER, NAME, VERSION, Fabric
-from cfabric.downloader import download, get_cache_dir, list_corpora
-from cfabric.results import CorpusInfo, FeatureInfo, NodeInfo, NodeList, SearchResult
+from cfabric._core import BANNER, NAME, VERSION, Fabric, get_cache_dir
+from cfabric.downloader import download, list_corpora
+from cfabric.results import CorpusInfo, FeatureInfo, NodeInfo
 
 __version__ = VERSION
 __all__ = [
@@ -24,8 +24,6 @@ __all__ = [
     "get_cache_dir",
     "list_corpora",
     "NodeInfo",
-    "NodeList",
-    "SearchResult",
     "FeatureInfo",
     "CorpusInfo",
     "__version__",

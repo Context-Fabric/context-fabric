@@ -147,7 +147,7 @@ impl CacheLocations {
                 .join(CACHE_DIR_NAME)
                 .join(CFR_VERSION)
                 .join(&file_name),
-            user_cache: get_cache_dir()
+            user_cache: user_cache_dir()
                 .join("cfr")
                 .join(key)
                 .join(CFR_VERSION)
@@ -300,4 +300,4 @@ mod tests {
 
 mod user_dir;
 
-pub use user_dir::get_cache_dir;
+pub use user_dir::user_cache_dir;

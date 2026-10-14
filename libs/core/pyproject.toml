@@ -37,6 +37,7 @@ dependencies = []
 
 [project.optional-dependencies]
 numpy = ["numpy>=1.26"]
+download = ["huggingface-hub>=0.20"]
 dev = [
     "mypy>=1.18",
     "numpy>=1.26",

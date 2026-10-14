@@ -6,7 +6,7 @@ import cfabric
 import pytest
 from cfabric import BANNER, NAME, VERSION, Fabric
 from cfabric.describe import describe_corpus_overview, describe_feature, list_features
-from cfabric.results import CorpusInfo, FeatureInfo, NodeInfo, NodeList, SearchResult
+from cfabric.results import CorpusInfo, FeatureInfo, NodeInfo
 
 
 def test_top_level_exports(mini_corpus_path):
@@ -167,12 +167,6 @@ def test_compiled_cache_round_trip(mini_corpus_path, tmp_path):
 def test_result_dataclasses(loaded_api):
     node = NodeInfo.from_api(loaded_api, 1)
     assert node.to_dict()["text"] == "hello"
-
-    nodes = NodeList.from_nodes(loaded_api, (1, 2), query="word")
-    assert nodes.total_count == 2
-
-    search = SearchResult.from_search(loaded_api, ((1,),), template="word")
-    assert search.total_count == 1
 
     feature = FeatureInfo.from_api(loaded_api, "word", "node")
     assert feature and feature.name == "word"

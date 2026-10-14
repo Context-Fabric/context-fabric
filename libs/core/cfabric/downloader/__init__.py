@@ -1,17 +1,13 @@
-"""Corpus downloader for Context-Fabric.
+"""Corpus downloads from the Hugging Face Hub.
 
-This module provides functionality to download corpora from Hugging Face Hub.
+Requires the ``download`` extra (``pip install 'context-fabric[download]'``)::
 
-Usage:
     >>> import cfabric
-    >>> path = cfabric.download('bhsa')
-    >>> CF = cfabric.Fabric(locations=path)
-
-See corpus-distribution-plan.md for full documentation.
+    >>> path = cfabric.download("researcher/cfabric-my-corpus")
+    >>> api = cfabric.Fabric(locations=path).loadAll()
 """
 
-from cfabric.downloader.registry import list_corpora, CORPUS_REGISTRY
 from cfabric.downloader.download import download
-from cfabric.downloader.paths import get_cache_dir
+from cfabric.downloader.registry import CORPUS_REGISTRY, list_corpora
 
-__all__ = ["download", "list_corpora", "get_cache_dir", "CORPUS_REGISTRY"]
+__all__ = ["download", "list_corpora", "CORPUS_REGISTRY"]

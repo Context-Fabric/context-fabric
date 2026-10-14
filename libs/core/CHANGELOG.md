@@ -22,6 +22,8 @@ surface is preserved (existing signatures and return types unchanged).
 - Compiled caches are validated against a source manifest stored beside them (module paths, name/size/mtime of every `.tf` file, engine version) instead of an mtime comparison; compositions of several locations get their own cache file; a read-only corpus directory compiles its cache under the user cache directory (`CFABRIC_CACHE` or the platform cache dir).
 - Loading, compiling, and searching release the GIL.
 - NumPy is optional: install `context-fabric[numpy]` for `vs_array`.
+- `cfabric.download` needs the `download` extra (`context-fabric[download]`, which installs `huggingface_hub`); without it the `ImportError` names the extra.
+- `cfabric.get_cache_dir()` is provided by the core, so it is the directory compiled caches of read-only corpora use (`CFABRIC_CACHE`, else the platform cache directory); it no longer depends on `platformdirs`.
 
 ### Added
 - **TF-core compatibility**: 34/34 real-world ETCBC query parity (counts and result sets match Text-Fabric); 407,719/409,288 public-API value checks pass against TF 13.0.19 on BHSA; valued edges; `TF.save` round-trip (TF reloads CF-authored `.tf`); `sets=`/`shallow=` search; multi-location corpus loading.
@@ -55,6 +57,10 @@ surface is preserved (existing signatures and return types unchanged).
   - Shapes: `L.i`, `N.sortNodes`, `Fall`/`Eall`/`Call`, `T.sectionTypes`/`sectionFeats`/`structureTypes`/`structureFeats` are lists; `N.walk` is an iterator; `C.levels` gives the slot type's size as the int `1`; `E.f.data`/`dataInv` hold frozensets/sets (or value dicts) and `items()` is `data.items()`, with values; `E.oslots.data`, `F.otype.data`, `C.levUp.data` and `C.levDown.data` are indexed like TF; `C.sections.data` keys sections by their typed values; `F.otype.sInterval`, `T.defaultFormat`; `Cs(name)` is `None` for unknown names.
   - `T.text` expands to the format's target type with `L.d` (it included same-slot and gap nodes); `freqList` breaks ties by value with ints compared numerically; `E.oslots.s(0)` is `()`; `T.nodeFromSection` reads the first three parts.
   - Search: `f*` imposes no condition; edge value conditions `-f>n>`, `-f<n>`, `-f#>`, `-f*>` work and `-f#v>` admits edges without a value; `limit=0`/negative means no limit; `api.S` and `api.T` are one object per corpus, so `S.study()` then `S.fetch()` works.
+
+### Removed
+- `cfabric.NodeList` and `cfabric.SearchResult` (no remaining users; `NodeInfo`, `FeatureInfo` and `CorpusInfo` stay).
+- `cfabric.download(compiled_only=True)`: it fetched the 0.5 `.cfm` caches, which this release cannot read; compiled caches are built locally.
 
 ### Known divergences from Text-Fabric
 - Result-*list* ordering is unspecified-but-deterministic; parity is defined by result counts and sets, not list order (TF's order is search-strategy dependent). Within-tuple column order matches template atom order.

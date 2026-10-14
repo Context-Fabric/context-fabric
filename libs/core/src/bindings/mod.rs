@@ -17,7 +17,16 @@ mod text;
 mod timestamp;
 mod visibility;
 
+use crate::cache::user_cache_dir;
 use crate::config::{BANNER, NAME, VERSION};
+
+/// The per-user cache directory: `CFABRIC_CACHE` when set, else the platform
+/// cache directory for `cfabric`. Compiled caches of read-only corpora are
+/// stored here.
+#[pyfunction]
+fn get_cache_dir() -> std::path::PathBuf {
+    user_cache_dir()
+}
 use pyo3::prelude::*;
 
 #[pymodule]
@@ -26,6 +35,7 @@ pub fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("VERSION", VERSION)?;
     module.add("NAME", NAME)?;
     module.add("BANNER", BANNER)?;
+    module.add_function(wrap_pyfunction!(get_cache_dir, module)?)?;
     module.add_class::<fabric::PyFabric>()?;
     module.add_class::<api::PyCorpus>()?;
     module.add_class::<feature_file::PyFeatureFile>()?;

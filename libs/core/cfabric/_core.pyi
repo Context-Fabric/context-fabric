@@ -4,9 +4,14 @@ Kept in sync with the runtime by `tests/python/test_stub.py` (mypy stubtest).
 """
 
 from collections.abc import Callable, Iterable, Iterator, Mapping, MutableMapping
-from typing import Any, Literal, Self, TypeAlias, final
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal, Self, TypeAlias, final
 
-import numpy as np
+if TYPE_CHECKING:
+    # NumPy is optional (the `numpy` extra); only `NodeFeature.vs_array` returns
+    # an array.
+    import numpy as np
+    import numpy.typing as npt
 
 __all__ = [
     "BANNER",
@@ -31,12 +36,18 @@ __all__ = [
     "Timestamp",
     "VERSION",
     "__version__",
+    "get_cache_dir",
 ]
 
 VERSION: str
 NAME: str
 BANNER: str
 __version__: str
+
+def get_cache_dir() -> Path:
+    """The per-user cache directory: `CFABRIC_CACHE` when set, else the platform
+    cache directory for `cfabric`. Compiled caches of read-only corpora are
+    stored here."""
 
 _Silent: TypeAlias = Literal["verbose", "auto", "terse", "deep"] | bool | None
 """Verbosity: `verbose`/`False`, `auto`/`None` (default), `terse`, `deep`/`True`."""
@@ -327,7 +338,7 @@ class NodeFeature:
     def sInterval(self, val: str) -> tuple[int, int] | tuple[()]: ...
     def v(self, n: int) -> _FeatureValue | None: ...
     def vs(self, nodes: Iterable[int]) -> list[_FeatureValue | None]: ...
-    def vs_array(self, nodes: Iterable[int], fill: int = 0) -> np.ndarray: ...
+    def vs_array(self, nodes: Iterable[int], fill: int = 0) -> npt.NDArray[np.int64]: ...
     def s(self, val: _FeatureValue) -> tuple[int, ...]: ...
     def items(self) -> Iterable[tuple[int, _FeatureValue]]: ...
     def freqList(self, nodeTypes: _NodeTypes | None = None) -> tuple[tuple[_FeatureValue, int], ...]: ...
