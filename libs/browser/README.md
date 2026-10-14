@@ -11,7 +11,7 @@ pip install cfabric-browser
 cfabric-browser bhsa
 ```
 
-This opens the browser at <http://localhost:8107/>. Give several corpora to compare them, e.g. `cfabric-browser bhsa CenterBLC/LXX ETCBC/peshitta`; others can be opened from the browser with *Open a corpus*. You can give a corpus in several ways:
+This opens the browser at <http://localhost:8107/>. Give several corpora to compare them, e.g. `cfabric-browser bhsa CenterBLC/LXX ETCBC/peshitta`; others can be opened from the browser with *Open a corpus*. Without corpora (`cfabric-browser`), the browser starts empty and shows that list straight away. You can give a corpus in several ways:
 
 | Argument | Meaning |
 |---|---|
@@ -27,7 +27,7 @@ Options:
 - `--timeout`: time limit per search in seconds (default 60).
 - `--max-results`: results kept per search (default 500,000).
 - `--no-open`: don't open a web browser.
-- `--no-library`: don't let users open other corpora found on this computer.
+- `--no-library`: don't let users open other corpora found on this computer. Then at least one corpus must be given.
 - `--hide ORG/REPO`: leave a corpus out of the *Open a corpus* list (repeatable). To do this permanently, list them in `~/.cfabric/browser.yaml`:
 
   ```yaml
@@ -115,7 +115,7 @@ Tests: `pytest tests/` in `libs/browser` (they start real search workers on a sm
 
 ### Standalone program
 
-`packaging/cfabric-browser.spec` builds a program that runs without a Python installation (with PyInstaller; about 60 MB on Windows). Build it in a separate virtual environment with normal, not editable, installs: PyInstaller does not find editable installs. On Windows, make that environment with a Python from python.org: PyInstaller cannot bundle the Microsoft Store Python.
+`packaging/cfabric-browser.spec` builds a program that runs without a Python installation (with PyInstaller; about 60 MB on Windows). Started without corpora, for example by double-clicking it, it opens the browser with the list of corpora on this computer. Build it in a separate virtual environment with normal, not editable, installs: PyInstaller does not find editable installs. On Windows, make that environment with a Python from python.org: PyInstaller cannot bundle the Microsoft Store Python.
 
 ```bash
 cd libs/browser

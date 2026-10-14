@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Start without corpora: `cfabric-browser` on its own opens an empty browser that offers the corpora on this computer (*Open a corpus*) straight away; the first corpus opened goes into the first pane. With `--no-library`, a corpus is still required
 - Standalone program: `packaging/cfabric-browser.spec` builds `cfabric-browser` with PyInstaller into a program that needs no Python installation (`pip install .[desktop]`); `python -m cfabric_browser` also starts the browser
 - `cfabric-browser` command: serve one or more corpora given by name (`bhsa`), repository or data directory
 - JSON API: corpora, features, section tree, passages and nodes as render trees, node inspector, template check, search with live status events, paging, results in context, TSV export

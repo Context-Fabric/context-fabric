@@ -6,11 +6,13 @@ of chapter 1 as verse 3, so that verse 1:2 has no exact counterpart there.
 """
 
 import shutil
+import time
 from pathlib import Path
 
 import pytest
 from cfabric_browser.app import create_app
 from cfabric_browser.books import book_index, canonical_book
+from cfabric_browser.cli import main, parse_args
 from cfabric_browser.corpora import CorpusService, discover, resolve_corpus
 from cfabric_browser.workers import SearchPool
 from fastapi.testclient import TestClient
@@ -284,3 +286,52 @@ class TestLibrary:
         with TestClient(app) as c:
             assert c.get("/api/library").json() == {"enabled": False, "corpora": []}
             assert c.post("/api/corpora", json={"id": "Greek/gr"}).status_code == 403
+
+
+class TestStartEmpty:
+    """Started without corpora, the browser opens them from the library."""
+
+    def test_open_and_search(self, roots):
+        service = CorpusService([], roots=roots)
+        pool = SearchPool(
+            [],
+            sort_key=lambda corpus: service.api(corpus).N.sortKeyTuple,
+            workers=1,
+        )
+        pool.start()
+        app = create_app(service, pool, manage_pool=False)
+        try:
+            with TestClient(app) as c:
+                assert c.get("/api/corpora").json() == {"corpora": []}
+                library = c.get("/api/library").json()
+                assert library["enabled"] is True
+                assert not any(entry["open"] for entry in library["corpora"])
+
+                opened = c.post("/api/corpora", json={"id": "Hebrew/heb"}).json()
+                assert opened == {"name": "heb", "opened": True}
+                names = [x["name"] for x in c.get("/api/corpora").json()["corpora"]]
+                assert names == ["heb"]
+
+                # the worker, started without corpora, can search the new one
+                job = c.post(
+                    "/api/corpora/heb/search", json={"template": "word"}
+                ).json()
+                deadline = time.monotonic() + 20
+                while time.monotonic() < deadline:
+                    status = c.get(f"/api/searches/{job['id']}").json()
+                    if status["state"] not in ("queued", "running"):
+                        break
+                    time.sleep(0.05)
+                assert status["state"] == "done"
+                assert status["count"] > 0
+        finally:
+            pool.shutdown()
+
+
+class TestCommandLine:
+    def test_corpora_are_optional(self):
+        assert parse_args([]).corpora == []
+
+    def test_no_library_needs_a_corpus(self, capsys):
+        assert main(["--no-library"]) == 2
+        assert "--no-library" in capsys.readouterr().err
