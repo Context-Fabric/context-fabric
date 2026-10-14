@@ -1,12 +1,11 @@
 //! Feature inventory of `.tf` directories without loading feature data.
 
 use std::collections::BTreeMap;
-use std::fs::{self, File};
-use std::io::{BufRead, BufReader};
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::error::{CfError, Result};
-use crate::tf::parse_tf_file_metadata;
+use crate::tf::{TfFeatureKind, parse_tf_file_metadata};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct FeatureInventory {
@@ -43,19 +42,18 @@ where
                 continue;
             };
             let name = name.to_string();
-            match read_feature_header(&feature_path)? {
-                FeatureHeader::Node => push_unique(&mut inventory.nodes, &name),
-                FeatureHeader::Edge => push_unique(&mut inventory.edges, &name),
-                FeatureHeader::Config => push_unique(&mut inventory.configs, &name),
+            let header = parse_tf_file_metadata(&feature_path)?;
+            match header.kind {
+                TfFeatureKind::Node => push_unique(&mut inventory.nodes, &name),
+                TfFeatureKind::Edge => push_unique(&mut inventory.edges, &name),
+                TfFeatureKind::Config => push_unique(&mut inventory.configs, &name),
             }
             inventory
                 .paths
                 .entry(name.clone())
                 .or_default()
                 .push(feature_path.clone());
-            inventory
-                .metadata
-                .insert(name, parse_tf_file_metadata(&feature_path)?.metadata);
+            inventory.metadata.insert(name, header.metadata);
         }
     }
     inventory.nodes.sort();
@@ -74,41 +72,5 @@ fn computed_feature_names() -> Vec<String> {
 fn push_unique(values: &mut Vec<String>, value: &str) {
     if !values.iter().any(|existing| existing == value) {
         values.push(value.to_string());
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum FeatureHeader {
-    Node,
-    Edge,
-    Config,
-}
-
-fn read_feature_header(path: &Path) -> Result<FeatureHeader> {
-    let file = File::open(path).map_err(|source| CfError::Io {
-        path: path.to_path_buf(),
-        source,
-    })?;
-    let mut lines = BufReader::new(file).lines();
-    let first = lines
-        .next()
-        .ok_or_else(|| CfError::Parse {
-            path: path.to_path_buf(),
-            line: 1,
-            message: "empty feature file".to_string(),
-        })?
-        .map_err(|source| CfError::Io {
-            path: path.to_path_buf(),
-            source,
-        })?;
-    match first.trim_end() {
-        "@node" => Ok(FeatureHeader::Node),
-        "@edge" => Ok(FeatureHeader::Edge),
-        "@config" => Ok(FeatureHeader::Config),
-        other => Err(CfError::Parse {
-            path: path.to_path_buf(),
-            line: 1,
-            message: format!("missing @node/@edge/@config header, got {other:?}"),
-        }),
     }
 }

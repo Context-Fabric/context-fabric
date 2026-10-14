@@ -2,11 +2,11 @@
 
 use std::collections::BTreeMap;
 
-use crate::compile::Corpus;
+use crate::compile::{Corpus, is_superset};
+use crate::index::sections::section_key;
 use crate::index::{
     Boundary, LevDownData, LevUpData, SectionsData, StructureData, StructureHeading,
 };
-use crate::value::FeatureValue;
 
 /// Computes the embedders of every node (the `levUp` precompute step).
 ///
@@ -225,7 +225,7 @@ pub fn sections_with(
         };
         let heading_1 = level_1_feature
             .v(level_1_node)
-            .map(section_heading_key)
+            .map(|value| section_key(&value).into_owned())
             .unwrap_or_default();
         sec1.entry(level_0_node)
             .or_default()
@@ -246,11 +246,11 @@ pub fn sections_with(
                 };
                 let heading_1 = level_1_feature
                     .v(level_1_node)
-                    .map(section_heading_key)
+                    .map(|value| section_key(&value).into_owned())
                     .unwrap_or_default();
                 let heading_2 = level_2_feature
                     .v(level_2_node)
-                    .map(section_heading_key)
+                    .map(|value| section_key(&value).into_owned())
                     .unwrap_or_default();
                 sec2.entry(level_0_node)
                     .or_default()
@@ -407,15 +407,4 @@ pub fn structure(corpus: &Corpus) -> Option<StructureData> {
         up,
         down,
     })
-}
-
-fn section_heading_key(value: &FeatureValue) -> String {
-    match value {
-        FeatureValue::Str(value) => value.to_string(),
-        FeatureValue::Int(value) => value.to_string(),
-    }
-}
-
-fn is_superset(left: &[u32], right: &[u32]) -> bool {
-    right.iter().all(|value| left.binary_search(value).is_ok())
 }

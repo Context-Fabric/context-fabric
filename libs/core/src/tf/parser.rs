@@ -9,13 +9,6 @@ use crate::error::{CfError, Result};
 use crate::tf::{EdgeFeature, NodeFeature, TfFeature, parse_value};
 use crate::value::FeatureValue;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum FeatureKind {
-    Node,
-    Edge,
-    Config,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TfFeatureMetadata {
     pub name: String,
@@ -48,9 +41,9 @@ pub fn parse_tf_file(path: impl AsRef<Path>) -> Result<TfFeature> {
     });
 
     match kind {
-        FeatureKind::Node => parse_node_feature(name, metadata, data_lines, path),
-        FeatureKind::Edge => parse_edge_feature(name, metadata, data_lines, path),
-        FeatureKind::Config => Ok(TfFeature::Config { name, metadata }),
+        TfFeatureKind::Node => parse_node_feature(name, metadata, data_lines, path),
+        TfFeatureKind::Edge => parse_edge_feature(name, metadata, data_lines, path),
+        TfFeatureKind::Config => Ok(TfFeature::Config { name, metadata }),
     }
 }
 
@@ -64,14 +57,14 @@ pub fn parse_tf_file_metadata(path: impl AsRef<Path>) -> Result<TfFeatureMetadat
     } = read_header_and_metadata(path)?;
     Ok(TfFeatureMetadata {
         name,
-        kind: kind.into(),
+        kind,
         metadata,
     })
 }
 
 struct ParsedHeader {
     name: String,
-    kind: FeatureKind,
+    kind: TfFeatureKind,
     metadata: BTreeMap<String, Option<String>>,
     lines: std::iter::Enumerate<std::io::Lines<BufReader<File>>>,
 }
@@ -93,9 +86,9 @@ fn read_header_and_metadata(path: &Path) -> Result<ParsedHeader> {
         source,
     })?;
     let kind = match first.trim_end() {
-        "@node" => FeatureKind::Node,
-        "@edge" => FeatureKind::Edge,
-        "@config" => FeatureKind::Config,
+        "@node" => TfFeatureKind::Node,
+        "@edge" => TfFeatureKind::Edge,
+        "@config" => TfFeatureKind::Config,
         other => {
             return Err(CfError::Parse {
                 path: path.to_path_buf(),
@@ -159,16 +152,6 @@ fn normalize_metadata(metadata: &mut BTreeMap<String, Option<String>>) {
         _ => desc,
     };
     metadata.insert("description".to_string(), Some(description));
-}
-
-impl From<FeatureKind> for TfFeatureKind {
-    fn from(kind: FeatureKind) -> Self {
-        match kind {
-            FeatureKind::Node => Self::Node,
-            FeatureKind::Edge => Self::Edge,
-            FeatureKind::Config => Self::Config,
-        }
-    }
 }
 
 fn parse_node_feature<I>(

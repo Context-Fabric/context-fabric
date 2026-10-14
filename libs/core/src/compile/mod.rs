@@ -29,3 +29,8 @@ pub fn compile_features(
 pub fn compile_loaded_corpus(corpus: &Corpus, output_path: impl AsRef<Path>) -> Result<()> {
     write_compiled(corpus, output_path.as_ref())
 }
+
+/// Whether the sorted slot list `outer` contains every slot of `inner`.
+pub(crate) fn is_superset(outer: &[u32], inner: &[u32]) -> bool {
+    inner.iter().all(|slot| outer.binary_search(slot).is_ok())
+}

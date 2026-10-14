@@ -7,6 +7,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
+use crate::compile::is_superset;
 use crate::error::{CfError, Result};
 use crate::tf::{EdgeFeature, NodeFeature, Otext, TfFeature, parse_tf_file};
 use crate::value::FeatureValue;
@@ -456,10 +457,6 @@ impl Corpus {
         nodes.sort_unstable_by(|left, right| self.compare_nodes(*left, *right));
         nodes
     }
-}
-
-fn is_superset(left: &[u32], right: &[u32]) -> bool {
-    right.iter().all(|value| left.binary_search(value).is_ok())
 }
 
 fn min_difference(left: &[u32], right: &[u32]) -> Option<u32> {

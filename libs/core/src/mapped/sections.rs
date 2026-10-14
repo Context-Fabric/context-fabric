@@ -6,6 +6,7 @@ use std::sync::{Arc, RwLock};
 
 use crate::error::{CfError, Result};
 use crate::format::MappedU32s;
+use crate::index::sections::section_key;
 use crate::mapped::{
     EdgeFeatureView, MappedCompiledCorpus, OwnedEdgeFeature, OwnedNodeFeature,
     OwnedStringPoolFeature, StringPoolNodeFeatureView,
@@ -944,13 +945,5 @@ impl<'a> MappedSections<'a> {
             return Ok(feature.value(node)?.map(FeatureValue::from));
         }
         Ok(None)
-    }
-}
-
-/// A section value as its `CFRSECT1` key, borrowed when it is already a string.
-fn section_key(value: &FeatureValue) -> std::borrow::Cow<'_, str> {
-    match value {
-        FeatureValue::Str(text) => std::borrow::Cow::Borrowed(text),
-        FeatureValue::Int(number) => std::borrow::Cow::Owned(number.to_string()),
     }
 }
