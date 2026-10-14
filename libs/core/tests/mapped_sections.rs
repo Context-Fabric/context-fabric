@@ -6,6 +6,7 @@
 //! on the three-level corpus.
 
 use std::collections::BTreeSet;
+use std::sync::Arc;
 
 mod common;
 
@@ -209,8 +210,9 @@ fn three_level_corpus_locality_matches_the_reference() {
 #[test]
 fn sections_resolve_in_both_directions() {
     let temp = tempfile::tempdir().unwrap();
-    let corpus = mapped_mini_corpus(&temp);
-    let sections = MappedSections::new(&corpus).unwrap();
+    let corpus = Arc::new(mapped_mini_corpus(&temp));
+    let context = SectionsContext::new(&corpus).unwrap();
+    let sections = context.sections();
 
     assert_eq!(sections.section_types(), ["sentence", "phrase"]);
     assert_eq!(sections.section_features(), ["sentence_id", "phrase_id"]);
@@ -227,7 +229,7 @@ fn sections_resolve_in_both_directions() {
         vec![Some(FeatureValue::string("S1")), Some(FeatureValue::Int(1))]
     );
     let lookup =
-        |section: &[FeatureValue]| sections.node_from_section_langed(section, None).unwrap();
+        |section: &[FeatureValue]| context.node_from_section_langed(section, None).unwrap();
     assert_eq!(lookup(&[FeatureValue::string("S1")]), Some(8));
     assert_eq!(
         lookup(&[FeatureValue::string("S1"), FeatureValue::Int(1)]),
@@ -243,10 +245,11 @@ fn sections_resolve_in_both_directions() {
 #[test]
 fn three_level_sections_round_trip() {
     let temp = tempfile::tempdir().unwrap();
-    let corpus = mapped_three_level_corpus(&temp);
-    let sections = MappedSections::new(&corpus).unwrap();
+    let corpus = Arc::new(mapped_three_level_corpus(&temp));
+    let context = SectionsContext::new(&corpus).unwrap();
+    let sections = context.sections();
     let lookup =
-        |section: &[FeatureValue]| sections.node_from_section_langed(section, None).unwrap();
+        |section: &[FeatureValue]| context.node_from_section_langed(section, None).unwrap();
 
     for node in 7..=10 {
         let heading: Vec<FeatureValue> = sections

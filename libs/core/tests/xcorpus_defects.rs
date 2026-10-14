@@ -15,7 +15,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use context_fabric_core::{
-    Fabric, FeatureValue, MappedCompiledCorpus, MappedSections, TextOptions, TextRenderer,
+    Fabric, FeatureValue, MappedCompiledCorpus, SectionsContext, TextOptions, TextRenderer,
     apply_level_constraints, compile_features,
 };
 
@@ -246,8 +246,8 @@ fn node_from_section_language_override_and_fast_miss() {
     build_named_section_corpus(&source);
     let cache = temp.path().join("named.cfr");
     compile_features(&source, &cache, &[]).unwrap();
-    let mapped = MappedCompiledCorpus::open(&cache).unwrap();
-    let sections = MappedSections::new(&mapped).unwrap();
+    let mapped = Arc::new(MappedCompiledCorpus::open(&cache).unwrap());
+    let sections = SectionsContext::new(&mapped).unwrap();
 
     // Default (configured `number`) resolution: sura 1 -> node 4.
     assert_eq!(

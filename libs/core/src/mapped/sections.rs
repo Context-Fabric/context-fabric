@@ -324,10 +324,12 @@ impl SectionsContext {
         Ok(index)
     }
 
-    /// Cached-handle version of [`MappedSections::node_from_section_langed`]:
-    /// the section-0 node resolves through the lazily-built value index (O(1))
-    /// instead of a per-call scan over every node of the section-0 type. The
-    /// `sec1`/`sec2` lookups and all fallback semantics are identical.
+    /// `T.nodeFromSection`: the node with the section heading `section`
+    /// (e.g. `("Genesis", 1, 2)`), reading the section-0 value with
+    /// `sec0_feature` (a language variant) when given. With the `CFRSECT1`
+    /// tables (two or three section levels) this is a value-index lookup plus
+    /// one or two map lookups; otherwise the nodes of the target section type
+    /// are compared, the last match winning as in Text-Fabric.
     pub fn node_from_section_langed(
         &self,
         section: &[FeatureValue],
@@ -341,17 +343,9 @@ impl SectionsContext {
         {
             return Ok(None);
         }
+        let feature_name = sec0_feature.unwrap_or(&self.config.section_features[0]);
 
-        if section.len() <= 3
-            && let Some(sections_data) = self.corpus.sections_data()?
-        {
-            let feature_name = match sec0_feature {
-                Some(feature) => feature,
-                None => match self.config.section_features.first() {
-                    Some(feature) => feature.as_str(),
-                    None => return Ok(None),
-                },
-            };
+        if let Some(sections_data) = self.corpus.sections_data()? {
             let Some(sec0_node) = self
                 .sec0_value_index(feature_name)?
                 .get(&section[0])
@@ -375,10 +369,34 @@ impl SectionsContext {
             });
         }
 
-        // One-level sections or hierarchies deeper than `CFRSECT1` stores:
-        // defer to the linear lookup.
-        self.sections()
-            .node_from_section_langed(section, sec0_feature)
+        let sections = self.sections();
+        let level_features = std::iter::once(feature_name).chain(
+            self.config.section_features[1..section.len()]
+                .iter()
+                .map(String::as_str),
+        );
+        let options = SectionOptions {
+            fillup: true,
+            level: Some(section.len()),
+            ..SectionOptions::default()
+        };
+        let target_type = &self.config.section_types[section.len() - 1];
+        'nodes: for node in self.otype.view().s(target_type)?.into_iter().rev() {
+            let levels = sections.section_tuple(node, &options)?;
+            for ((level_node, feature), expected) in
+                levels.iter().zip(level_features.clone()).zip(section)
+            {
+                let value = match level_node {
+                    Some(level_node) => sections.node_feature_value(feature, *level_node)?,
+                    None => None,
+                };
+                if value.as_ref() != Some(expected) {
+                    continue 'nodes;
+                }
+            }
+            return Ok(Some(node));
+        }
+        Ok(None)
     }
 
     /// Every embedder of `node` (`L.u` without a type filter) in `L.u` order,
@@ -499,81 +517,6 @@ impl<'a> MappedSections<'a> {
                 self.node_feature_value(feature_name, section_node)
             })
             .collect()
-    }
-
-    /// Like [`node_from_section`](Self::node_from_section), but resolves the
-    /// section-0 component with `sec0_feature` (a language-specific variant such
-    /// as `book@en`) when supplied, mirroring TF `nodeFromSection(lang=...)`.
-    /// Deeper levels always use the configured `sectionFeatures`.
-    pub fn node_from_section_langed(
-        &self,
-        section: &[FeatureValue],
-        sec0_feature: Option<&str>,
-    ) -> Result<Option<u32>> {
-        // TF reads at most the first three parts of a section (text.py).
-        let section = &section[..section.len().min(3)];
-        if section.is_empty()
-            || section.len() > self.config.section_types.len()
-            || section.len() > self.config.section_features.len()
-        {
-            return Ok(None);
-        }
-
-        // Resolve the section-0 node by value, then index the
-        // CFRSECT1 `sec1`/`sec2` lookup tables by heading key (mirrors TF
-        // `text.py` `nodeFromSection`). O(section-0 nodes) + O(log n) map lookups
-        // instead of a linear scan over every node of the target type. When the
-        // index is present, a miss returns `None` immediately — no linear rescan.
-        if section.len() <= 3
-            && let Some(sections) = self.corpus.sections_data()?
-        {
-            let Some(sec0_node) = self.sec0_node_with_feature(&section[0], sec0_feature)? else {
-                return Ok(None);
-            };
-            return Ok(match section.len() {
-                1 => Some(sec0_node),
-                2 => sections
-                    .sec1
-                    .get(&sec0_node)
-                    .and_then(|headings| headings.get(section_key(&section[1]).as_ref()))
-                    .copied(),
-                _ => sections
-                    .sec2
-                    .get(&sec0_node)
-                    .and_then(|level1| level1.get(section_key(&section[1]).as_ref()))
-                    .and_then(|level2| level2.get(section_key(&section[2]).as_ref()))
-                    .copied(),
-            });
-        }
-
-        // Linear lookup for one-level sections and hierarchies deeper than the
-        // three levels stored in CFRSECT1.
-        // The last matching node wins, as in TF's section dicts.
-        let target_type = &self.config.section_types[section.len() - 1];
-        for node in self.otype.s(target_type)?.into_iter().rev() {
-            let matches = section
-                .iter()
-                .enumerate()
-                .map(|(index, expected)| {
-                    let options = SectionOptions {
-                        fillup: true,
-                        level: Some(index + 1),
-                        ..SectionOptions::default()
-                    };
-                    Ok(self
-                        .section_from_node(node, &options)?
-                        .get(index)
-                        .and_then(Option::as_ref)
-                        == Some(expected))
-                })
-                .collect::<Result<Vec<_>>>()?
-                .into_iter()
-                .all(|matches| matches);
-            if matches {
-                return Ok(Some(node));
-            }
-        }
-        Ok(None)
     }
 
     pub fn node_type(&self, node: u32) -> Result<Option<&'a str>> {
@@ -808,36 +751,6 @@ impl<'a> MappedSections<'a> {
         }
 
         Ok(events)
-    }
-
-    /// Resolves the section-0 (e.g. book) node whose section-0 feature value
-    /// equals `expected`. Section-0 nodes are few, so a direct scan is cheap and
-    /// matches the linear `node_from_section` reference exactly.
-    /// Resolves the section-0 node whose section-0 feature value equals
-    /// `expected`, matching against `sec0_feature` when given (a language variant)
-    /// otherwise the configured `sectionFeatures[0]`.
-    fn sec0_node_with_feature(
-        &self,
-        expected: &FeatureValue,
-        sec0_feature: Option<&str>,
-    ) -> Result<Option<u32>> {
-        let Some(section_0_type) = self.config.section_types.first() else {
-            return Ok(None);
-        };
-        let feature_name = match sec0_feature {
-            Some(feature) => feature,
-            None => match self.config.section_features.first() {
-                Some(feature) => feature.as_str(),
-                None => return Ok(None),
-            },
-        };
-        // The last node with the value, as in TF's `nodeFromName` dict.
-        for node in self.otype.s(section_0_type)?.into_iter().rev() {
-            if self.node_feature_value(feature_name, node)?.as_ref() == Some(expected) {
-                return Ok(Some(node));
-            }
-        }
-        Ok(None)
     }
 
     /// For each configured section type, the embedder of `reference_slot` of that
