@@ -278,3 +278,6 @@ probe except `T.text` (verse): 0.89x TF in June, 0.96x TF now.
   step into the same results directory (`steps.jsonl` keeps the full history);
   the `queries` and `oracle` steps were then re-run to add the fresh-cache CF
   Python measurements.
+* Running `libs/mcp/tests` rewrites the committed fixture caches
+  `libs/mcp/tests/fixtures/mini_corpus*/.cfr/3/corpus.cfr` (same size, different
+  bytes); restore them with `git checkout -- libs/mcp/tests/fixtures` after a run.
