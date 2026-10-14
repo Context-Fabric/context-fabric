@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, OnceLock};
 
-use pyo3::exceptions::PyTypeError;
+use pyo3::exceptions::{PyAttributeError, PyTypeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyIterator, PyList, PySet, PyString, PyTuple};
 
@@ -14,7 +14,9 @@ use crate::mapped_text::{MappedText, TextContext};
 use crate::precompute::StructureHeading;
 use crate::search::SearchSets;
 
+use super::api_ref::ApiRef;
 use super::features::feature_value_from_py;
+use super::timestamp::{Silent, write_console};
 
 fn nodes_to_tuple(py: Python<'_>, nodes: Vec<u32>) -> PyResult<PyObject> {
     Ok(PyTuple::new(py, nodes)?.into())
@@ -87,27 +89,34 @@ fn borrow_search_sets(owned: &Option<Vec<(String, Vec<u32>)>>) -> Option<SearchS
     })
 }
 
-/// Normalize the Python `shallow=` argument to TF semantics
+/// The Python `shallow=` argument, normalized to TF semantics
 /// (`tf/search/searchexe.py:55`): `0 if not shallow else 1 if shallow is True
-/// else shallow`. Returns the projection width: 0 = full tuples, 1 = first
+/// else shallow`. Holds the projection width: 0 = full tuples, 1 = first
 /// component only, k>1 = k-prefix tuples.
-fn normalize_shallow(shallow: Option<&Bound<'_, PyAny>>) -> PyResult<usize> {
-    let Some(obj) = shallow else {
-        return Ok(0);
-    };
-    if obj.is_none() {
-        return Ok(0);
+#[derive(Clone, Copy)]
+struct Shallow(usize);
+
+impl Shallow {
+    /// `shallow=False`: full result tuples.
+    const FULL: Self = Self(0);
+}
+
+impl<'py> FromPyObject<'py> for Shallow {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if obj.is_none() {
+            return Ok(Self::FULL);
+        }
+        // `bool` is a subclass of `int`, so it must be checked before integers.
+        if let Ok(flag) = obj.downcast::<PyBool>() {
+            return Ok(Self(usize::from(flag.is_true())));
+        }
+        if let Ok(value) = obj.extract::<i64>() {
+            return Ok(Self(if value <= 0 { 0 } else { value as usize }));
+        }
+        Err(PyTypeError::new_err(
+            "shallow must be a bool, an int, or None",
+        ))
     }
-    // `bool` is a subclass of `int`, so it must be checked before integers.
-    if let Ok(flag) = obj.downcast::<PyBool>() {
-        return Ok(if flag.is_true() { 1 } else { 0 });
-    }
-    if let Ok(value) = obj.extract::<i64>() {
-        return Ok(if value <= 0 { 0 } else { value as usize });
-    }
-    Err(PyTypeError::new_err(
-        "shallow must be a bool, an int, or None",
-    ))
 }
 
 fn type_filter_refs(values: &Option<Vec<String>>) -> Option<Vec<&str>> {
@@ -288,9 +297,11 @@ fn mapped_name_from_node(
     Ok(names)
 }
 
-#[pyclass(name = "Locality")]
+/// Locality API (TF `L`): embedders, embeddees, and neighbours of nodes.
+#[pyclass(name = "Locality", module = "cfabric._core")]
 pub(crate) struct PyLocality {
     corpus: Arc<MappedCompiledCorpus>,
+    api: ApiRef,
     /// Fully-resolved sections context, built once on first locality call. After
     /// that, `L.u/d/n/p/i` are pure CSR-slice + otype-filter + tuple-build with no
     /// per-call view-cache lookup or `otext` re-parse.
@@ -298,9 +309,10 @@ pub(crate) struct PyLocality {
 }
 
 impl PyLocality {
-    pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>) -> Self {
+    pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>, api: ApiRef) -> Self {
         Self {
             corpus,
+            api,
             context: OnceLock::new(),
         }
     }
@@ -320,8 +332,17 @@ impl PyLocality {
 
 #[pymethods]
 impl PyLocality {
-    #[pyo3(signature = (node, otype=None))]
-    fn u(&self, py: Python<'_>, node: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+    /// The API (`Corpus`) this member belongs to.
+    #[getter]
+    fn api(&self, py: Python<'_>) -> PyResult<PyObject> {
+        self.api.get(py)
+    }
+
+    /// Embedders of node `n` (nodes whose slots contain those of `n`), optionally
+    /// restricted to node type(s) `otype`.
+    #[pyo3(signature = (n, otype=None))]
+    fn u(&self, py: Python<'_>, n: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+        let node = n;
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
         let sections = self.context()?.sections();
@@ -333,8 +354,11 @@ impl PyLocality {
         nodes_to_tuple(py, nodes)
     }
 
-    #[pyo3(signature = (node, otype=None))]
-    fn d(&self, py: Python<'_>, node: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+    /// Embeddees of node `n` (nodes whose slots are contained in those of `n`),
+    /// optionally restricted to node type(s) `otype`.
+    #[pyo3(signature = (n, otype=None))]
+    fn d(&self, py: Python<'_>, n: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+        let node = n;
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
         let sections = self.context()?.sections();
@@ -346,8 +370,11 @@ impl PyLocality {
         nodes_to_tuple(py, nodes)
     }
 
-    #[pyo3(signature = (node, otype=None))]
-    fn n(&self, py: Python<'_>, node: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+    /// Nodes that start right after node `n` ends, optionally restricted to node
+    /// type(s) `otype`.
+    #[pyo3(signature = (n, otype=None))]
+    fn n(&self, py: Python<'_>, n: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+        let node = n;
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
         let sections = self.context()?.sections();
@@ -359,8 +386,11 @@ impl PyLocality {
         nodes_to_tuple(py, nodes)
     }
 
-    #[pyo3(signature = (node, otype=None))]
-    fn p(&self, py: Python<'_>, node: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+    /// Nodes that end right before node `n` starts, optionally restricted to node
+    /// type(s) `otype`.
+    #[pyo3(signature = (n, otype=None))]
+    fn p(&self, py: Python<'_>, n: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+        let node = n;
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
         let sections = self.context()?.sections();
@@ -372,8 +402,11 @@ impl PyLocality {
         nodes_to_tuple(py, nodes)
     }
 
-    #[pyo3(signature = (node, otype=None))]
-    fn i(&self, py: Python<'_>, node: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+    /// Nodes that share at least one slot with node `n`, optionally restricted
+    /// to node type(s) `otype`.
+    #[pyo3(signature = (n, otype=None))]
+    fn i(&self, py: Python<'_>, n: u32, otype: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+        let node = n;
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
         let sections = self.context()?.sections();
@@ -442,60 +475,89 @@ impl PyLocality {
     }
 }
 
-#[pyclass(name = "Nodes")]
+/// Node API (TF `N`): canonical node order and walking.
+#[pyclass(name = "Nodes", module = "cfabric._core")]
 pub(crate) struct PyNodes {
     corpus: Arc<MappedCompiledCorpus>,
+    api: ApiRef,
 }
 
 impl PyNodes {
-    pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>) -> Self {
-        Self { corpus }
+    pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>, api: ApiRef) -> Self {
+        Self { corpus, api }
     }
 }
 
 #[pymethods]
 impl PyNodes {
+    /// The API (`Corpus`) this member belongs to.
+    #[getter]
+    fn api(&self, py: Python<'_>) -> PyResult<PyObject> {
+        self.api.get(py)
+    }
+
+    /// Rank of each node type: `0` for the biggest type, up to the slot type.
     #[getter]
     #[allow(non_snake_case)]
     fn otypeRank(&self) -> PyResult<std::collections::BTreeMap<String, u32>> {
         Ok(self.corpus.otype_rank()?)
     }
 
+    /// Sort key of node `n` in the canonical order (`sorted(nodes, key=N.sortKey)`).
     #[allow(non_snake_case)]
-    fn sortKey(&self, node: u32) -> PyResult<Option<u32>> {
-        Ok(self.corpus.sort_key(node)?)
+    fn sortKey(&self, n: u32) -> PyResult<Option<u32>> {
+        Ok(self.corpus.sort_key(n)?)
     }
 
+    /// Sort key of a tuple of nodes: the tuple of their sort keys.
     #[allow(non_snake_case)]
-    fn sortKeyTuple(&self, py: Python<'_>, nodes: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-        let nodes = nodes_from_py(Some(nodes))?.unwrap_or_default();
+    fn sortKeyTuple(&self, py: Python<'_>, tup: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        let nodes = nodes_from_py(Some(tup))?.unwrap_or_default();
         Ok(PyTuple::new(py, self.corpus.sort_key_tuple(&nodes)?)?.into())
     }
 
+    /// Sort key of a chunk `(node, (first_slot, last_slot))` by position.
     #[allow(non_snake_case)]
     fn sortKeyChunk(
         &self,
-        chunk: &Bound<'_, PyAny>,
+        obj: &Bound<'_, PyAny>,
     ) -> PyResult<super::features::PyChunkPositionKey> {
-        super::features::sort_key_chunk_py(&self.corpus, chunk)
+        super::features::sort_key_chunk_py(&self.corpus, obj)
     }
 
+    /// Sort key of a chunk `(node, (first_slot, last_slot))` by length, then position.
     #[allow(non_snake_case)]
     fn sortKeyChunkLength(
         &self,
-        chunk: &Bound<'_, PyAny>,
+        obj: &Bound<'_, PyAny>,
     ) -> PyResult<super::features::PyChunkLengthKey> {
-        super::features::sort_key_chunk_length_py(&self.corpus, chunk)
+        super::features::sort_key_chunk_length_py(&self.corpus, obj)
     }
 
+    /// The chunk sort keys as a pair `(sortKeyChunk, sortKeyChunkLength)`.
     #[allow(non_snake_case)]
-    fn sortNodes(&self, py: Python<'_>, nodes: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-        let nodes = nodes_from_py(Some(nodes))?.unwrap_or_default();
-        let mut nodes = nodes;
-        self.corpus.sort_nodes(&mut nodes)?;
-        nodes_to_tuple(py, nodes)
+    fn makeSortKeyChunk(slf: &Bound<'_, Self>) -> PyResult<Py<PyTuple>> {
+        Ok(PyTuple::new(
+            slf.py(),
+            [
+                slf.getattr("sortKeyChunk")?,
+                slf.getattr("sortKeyChunkLength")?,
+            ],
+        )?
+        .unbind())
     }
 
+    /// The nodes of `nodeSet` in canonical order, as a list.
+    #[allow(non_snake_case)]
+    fn sortNodes(&self, nodeSet: &Bound<'_, PyAny>) -> PyResult<Vec<u32>> {
+        let mut nodes = nodes_from_py(Some(nodeSet))?.unwrap_or_default();
+        self.corpus.sort_nodes(&mut nodes)?;
+        Ok(nodes)
+    }
+
+    /// All nodes (or `nodes`) in canonical order; with `events=True`, as
+    /// `(node, None)` for slots, `(node, False)` for container starts and
+    /// `(node, True)` for container ends.
     #[pyo3(signature = (nodes=None, events=false))]
     fn walk(
         &self,
@@ -524,9 +586,11 @@ impl PyNodes {
     }
 }
 
-#[pyclass(name = "Text")]
+/// Text API (TF `T`): text formats, sections, and structure.
+#[pyclass(name = "Text", module = "cfabric._core")]
 pub(crate) struct PyText {
     corpus: Arc<MappedCompiledCorpus>,
+    api: ApiRef,
     /// Fully-resolved sections context, built once on first section call. Powers
     /// `T.sectionFromNode`/`T.sectionTuple` with no per-call view-cache lookup or
     /// `otext` re-parse.
@@ -537,9 +601,10 @@ pub(crate) struct PyText {
 }
 
 impl PyText {
-    pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>) -> Self {
+    pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>, api: ApiRef) -> Self {
         Self {
             corpus,
+            api,
             sections: OnceLock::new(),
             text: OnceLock::new(),
         }
@@ -564,6 +629,47 @@ impl PyText {
         let context = TextContext::new(&self.corpus)?;
         let _ = self.text.set(context);
         Ok(self.text.get().expect("text context just initialized"))
+    }
+
+    fn otext_list(&self, key: &str) -> PyResult<Vec<String>> {
+        Ok(parse_csv_config(
+            mapped_otext_value(&self.corpus, key)?.as_deref(),
+        ))
+    }
+
+    /// The first section type, when sections are configured.
+    fn section_0_type(&self) -> PyResult<Option<String>> {
+        Ok(self.otext_list("sectionTypes")?.into_iter().next())
+    }
+
+    /// Name of the section-0 node containing `n` (TF `T.<sec0>Name`, e.g. `T.bookName`).
+    fn section_0_name(&self, n: u32, lang: &str) -> Option<String> {
+        let section_0_type = self.section_0_type().ok().flatten()?;
+        let sections = MappedSections::new(&self.corpus).ok()?;
+        let section_0_node = if sections.node_type(n).ok().flatten()? == section_0_type {
+            n
+        } else {
+            sections
+                .u(n, Some(&section_0_type))
+                .ok()?
+                .into_iter()
+                .next()?
+        };
+        mapped_name_from_node(&self.corpus, lang)
+            .ok()?
+            .get(&section_0_node)
+            .cloned()
+    }
+
+    /// The section-0 node named `name` (TF `T.<sec0>Node`, e.g. `T.bookNode`).
+    fn section_0_node(&self, name: &str, lang: &str) -> Option<u32> {
+        let section_0_type = self.section_0_type().ok().flatten()?;
+        let names = mapped_name_from_node(&self.corpus, lang).ok()?;
+        self.corpus
+            .nodes_of_type(&section_0_type)
+            .ok()?
+            .into_iter()
+            .find(|node| names.get(node).is_some_and(|candidate| candidate == name))
     }
 }
 
@@ -610,49 +716,162 @@ fn section_heading(
 
 #[pymethods]
 impl PyText {
+    /// The API (`Corpus`) this member belongs to.
     #[getter]
-    #[allow(non_snake_case)]
-    fn sectionTypes(&self, py: Python<'_>) -> PyResult<PyObject> {
-        Ok(PyTuple::new(py, MappedSections::new(&self.corpus)?.section_types())?.into())
+    fn api(&self, py: Python<'_>) -> PyResult<PyObject> {
+        self.api.get(py)
     }
 
+    /// `T.<sec0>Name` / `T.<sec0>Node`, e.g. `T.bookName(node)` and
+    /// `T.bookNode(name)` when the first section type is `book`; TF attaches
+    /// these under the name of the dataset's first section type.
+    fn __getattr__<'py>(slf: &Bound<'py, Self>, name: &str) -> PyResult<Bound<'py, PyAny>> {
+        if let Some(section_0_type) = slf.borrow().section_0_type()? {
+            if name == format!("{section_0_type}Name") {
+                return slf.getattr("_sec0Name");
+            }
+            if name == format!("{section_0_type}Node") {
+                return slf.getattr("_sec0Node");
+            }
+        }
+        Err(PyAttributeError::new_err(format!(
+            "'Text' object has no attribute '{name}'"
+        )))
+    }
+
+    fn __dir__(slf: &Bound<'_, Self>) -> PyResult<Vec<String>> {
+        let mut names: Vec<String> = slf
+            .get_type()
+            .dir()?
+            .iter()
+            .map(|name| name.extract::<String>())
+            .collect::<PyResult<_>>()?;
+        if let Some(section_0_type) = slf.borrow().section_0_type()? {
+            names.push(format!("{section_0_type}Name"));
+            names.push(format!("{section_0_type}Node"));
+        }
+        Ok(names)
+    }
+
+    /// Name of the section-0 node containing node `n` (exposed as `T.<sec0>Name`).
+    #[allow(non_snake_case)]
+    #[pyo3(signature = (n, lang="en"))]
+    fn _sec0Name(&self, n: u32, lang: &str) -> Option<String> {
+        self.section_0_name(n, lang)
+    }
+
+    /// The section-0 node with name `name` (exposed as `T.<sec0>Node`).
+    #[allow(non_snake_case)]
+    #[pyo3(signature = (name, lang="en"))]
+    fn _sec0Node(&self, name: &str, lang: &str) -> Option<u32> {
+        self.section_0_node(name, lang)
+    }
+
+    /// Whether the T-API is usable (always `True`).
+    #[getter]
+    fn good(&self) -> bool {
+        true
+    }
+
+    /// The `otext` configuration (metadata of the `otext` feature).
+    #[getter]
+    fn config(&self) -> PyResult<BTreeMap<String, Option<String>>> {
+        Ok(match self.corpus.config_feature("otext")? {
+            Some(otext) => otext.metadata()?,
+            None => BTreeMap::new(),
+        })
+    }
+
+    /// The format used when none is specified and no node-type default applies.
+    #[getter]
+    #[allow(non_snake_case)]
+    fn defaultFormat(&self) -> &'static str {
+        "text-orig-full"
+    }
+
+    /// Default format per node type, from formats named `<type>-default`.
+    #[getter]
+    #[allow(non_snake_case)]
+    fn defaultFormats(&self) -> PyResult<BTreeMap<String, String>> {
+        let text = MappedText::new(&self.corpus)?;
+        let mut defaults = BTreeMap::new();
+        for format in text.formats()?.into_keys() {
+            if let Some(node_type) = text.split_default_format(&format)? {
+                defaults.insert(node_type, format);
+            }
+        }
+        Ok(defaults)
+    }
+
+    /// Section types, from big to small (e.g. `["book", "chapter", "verse"]`).
+    #[getter]
+    #[allow(non_snake_case)]
+    fn sectionTypes(&self) -> PyResult<Vec<String>> {
+        Ok(MappedSections::new(&self.corpus)?.section_types().to_vec())
+    }
+
+    /// The section types as a set.
+    #[getter]
+    #[allow(non_snake_case)]
+    fn sectionTypeSet(&self, py: Python<'_>) -> PyResult<Py<PySet>> {
+        Ok(PySet::new(py, self.sectionTypes()?)?.unbind())
+    }
+
+    /// Names of the section features, one per section type.
     #[getter]
     #[allow(non_snake_case)]
     fn sectionFeatures(&self, py: Python<'_>) -> PyResult<PyObject> {
         Ok(PyTuple::new(py, MappedSections::new(&self.corpus)?.section_features())?.into())
     }
 
+    /// Names of the section features, one per section type.
     #[getter]
     #[allow(non_snake_case)]
-    fn sectionFeats(&self, py: Python<'_>) -> PyResult<PyObject> {
-        self.sectionFeatures(py)
+    fn sectionFeats(&self) -> PyResult<Vec<String>> {
+        Ok(MappedSections::new(&self.corpus)?
+            .section_features()
+            .to_vec())
     }
 
+    /// The first section feature and its language variants (`book`, `book@en`, ...).
+    #[getter]
+    #[allow(non_snake_case)]
+    fn sectionFeatsWithLanguage(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
+        let mut names: Vec<String> = mapped_section_0_language_features(&self.corpus)?
+            .into_values()
+            .collect();
+        names.sort();
+        Ok(PyTuple::new(py, names)?.unbind())
+    }
+
+    /// Text formats, mapped to the node type they render.
     #[getter]
     fn formats(&self) -> PyResult<std::collections::BTreeMap<String, String>> {
         Ok(MappedText::new(&self.corpus)?.formats()?)
     }
 
+    /// Structure types, from big to small.
     #[getter]
     #[allow(non_snake_case)]
-    fn structureTypes(&self, py: Python<'_>) -> PyResult<PyObject> {
-        Ok(PyTuple::new(
-            py,
-            parse_csv_config(mapped_otext_value(&self.corpus, "structureTypes")?.as_deref()),
-        )?
-        .into())
+    fn structureTypes(&self) -> PyResult<Vec<String>> {
+        self.otext_list("structureTypes")
     }
 
+    /// The structure types as a set.
     #[getter]
     #[allow(non_snake_case)]
-    fn structureFeats(&self, py: Python<'_>) -> PyResult<PyObject> {
-        Ok(PyTuple::new(
-            py,
-            parse_csv_config(mapped_otext_value(&self.corpus, "structureFeatures")?.as_deref()),
-        )?
-        .into())
+    fn structureTypeSet(&self, py: Python<'_>) -> PyResult<Py<PySet>> {
+        Ok(PySet::new(py, self.structureTypes()?)?.unbind())
     }
 
+    /// Names of the structure features, one per structure type.
+    #[getter]
+    #[allow(non_snake_case)]
+    fn structureFeats(&self) -> PyResult<Vec<String>> {
+        self.otext_list("structureFeatures")
+    }
+
+    /// Languages of the section-0 feature, `{code: {language, languageEnglish}}`.
     #[getter]
     fn languages(
         &self,
@@ -661,38 +880,111 @@ impl PyText {
         Ok(MappedText::new(&self.corpus)?.languages()?)
     }
 
+    /// Print an overview of the structure configuration.
     #[allow(non_snake_case)]
-    fn structureInfo(&self) -> PyResult<String> {
-        Ok(MappedText::new(&self.corpus)?.structure_info()?)
+    fn structureInfo(&self, py: Python<'_>) -> PyResult<()> {
+        let info = MappedText::new(&self.corpus)?.structure_info()?;
+        write_console(py, false, true, &info)
     }
 
+    /// `(structureType, structureFeature)` pairs, or `()` without structure.
     #[getter]
-    fn headings(&self, py: Python<'_>) -> PyResult<PyObject> {
-        let headings = PyDict::new(py);
-        Ok(headings.into())
+    fn headings(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
+        let types = self.structureTypes()?;
+        let feats = self.structureFeats()?;
+        if types.is_empty() || feats.is_empty() {
+            return Ok(PyTuple::empty(py).unbind());
+        }
+        let pairs: Vec<(String, String)> = types.into_iter().zip(feats).collect();
+        Ok(PyTuple::new(py, pairs)?.unbind())
     }
 
-    #[pyo3(signature = (node, fmt=None, descend=None))]
+    /// Split a format template `type#template` into `(type, template)`; the
+    /// type defaults to the slot type.
+    #[allow(non_snake_case)]
+    fn splitFormat(&self, tpl: &str) -> PyResult<(String, String)> {
+        Ok(MappedText::new(&self.corpus)?.split_format(tpl)?)
+    }
+
+    /// The node type of a format named `<type>-default`, else `None`.
+    #[allow(non_snake_case)]
+    fn splitDefaultFormat(&self, tpl: &str) -> PyResult<Option<String>> {
+        Ok(MappedText::new(&self.corpus)?.split_default_format(tpl)?)
+    }
+
+    /// The text of a node, or of an iterable of nodes (concatenated).
+    ///
+    /// Args:
+    ///     nodes: A node or an iterable of nodes (rendered in the given order).
+    ///     fmt: Text format; default: the node type's `<type>-default` format,
+    ///         else `text-orig-full`.
+    ///     descend: Whether to render the nodes of the format's target type
+    ///         inside each node (default: descend unless the node type has its
+    ///         own default format).
+    ///     func: Custom renderer called as `func(n, **kwargs)` for every node
+    ///         that would be rendered, instead of the format.
+    ///     explain: Print how the format and descend rules were applied.
+    ///     **kwargs: Passed on to `func`.
+    #[pyo3(signature = (nodes, fmt=None, descend=None, func=None, explain=false, **kwargs))]
     fn text(
         &self,
-        node: &Bound<'_, PyAny>,
+        py: Python<'_>,
+        nodes: &Bound<'_, PyAny>,
         fmt: Option<&str>,
         descend: Option<bool>,
+        func: Option<&Bound<'_, PyAny>>,
+        explain: bool,
+        kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<String> {
         // TF `T.text` (tf/core/text.py:972) accepts a single int OR an arbitrary
         // iterable of node ids; iterables are rendered per node and the pieces are
         // concatenated with no separator (`"".join(material)`, text.py:1182).
         let engine = self.text_context()?;
         let options = TextOptions::new(fmt.map(str::to_string), descend);
-        if let Ok(single) = node.extract::<u32>() {
-            return Ok(engine.text_with_options(single, &options)?);
+        let nodes = match nodes.extract::<u32>() {
+            Ok(single) => vec![single],
+            Err(_) => nodes_from_py(Some(nodes))?.unwrap_or_default(),
+        };
+        if explain {
+            let func_rep = if func.is_some() { "" } else { "no " };
+            let message = format!(
+                "EXPLANATION: T.text() called with parameters:\n\tnodes  : {nodes:?}\n\tfmt    : {}\n\tdescend: {}\n\tfunc   : {func_rep}custom format implementation",
+                fmt.unwrap_or("implicit"),
+                descend.map_or_else(|| "implicit".to_string(), |flag| flag.to_string()),
+            );
+            write_console(py, true, true, &message)?;
         }
-        let nodes = nodes_from_py(Some(node))?.unwrap_or_default();
-        let parts = nodes
-            .into_iter()
-            .map(|node| engine.text_with_options(node, &options))
-            .collect::<crate::error::Result<Vec<String>>>()?;
-        Ok(parts.concat())
+        let mut material = String::new();
+        for node in nodes {
+            if let Some(func) = func {
+                for text_node in engine.text_nodes_with_options(node, &options)? {
+                    if explain {
+                        write_console(
+                            py,
+                            true,
+                            true,
+                            &format!("\tNODE {node}: render {text_node} with func"),
+                        )?;
+                    }
+                    material.push_str(&func.call((text_node,), kwargs)?.str()?.to_string());
+                }
+                continue;
+            }
+            let rendered = engine.text_with_options(node, &options)?;
+            if explain {
+                write_console(
+                    py,
+                    true,
+                    true,
+                    &format!(
+                        "\tNODE {node}: renders {:?} as {rendered:?}",
+                        engine.text_nodes_with_options(node, &options)?
+                    ),
+                )?;
+            }
+            material.push_str(&rendered);
+        }
+        Ok(material)
     }
 
     /// Batch text rendering (ADDITIVE; W4). `items` is an iterable whose elements
@@ -732,17 +1024,28 @@ impl PyText {
         Ok(PyList::new(py, out)?.into())
     }
 
+    /// The section heading values (e.g. `("Genesis", 1, 1)`) of the sections
+    /// containing node `n`.
+    ///
+    /// Args:
+    ///     n: The node.
+    ///     lastSlot: Use the last slot of `n` instead of the first.
+    ///     lang: Language code for the section-0 name.
+    ///     fillup: For section nodes, fill up the lower levels with their first
+    ///         subsection.
+    ///     level: Only return the headings up to this level.
     #[allow(non_snake_case)]
-    #[pyo3(signature = (node, lastSlot=false, fillup=false, level=None, lang="en"))]
+    #[pyo3(signature = (n, lastSlot=false, lang="en", fillup=false, level=None))]
     fn sectionFromNode(
         &self,
         py: Python<'_>,
-        node: u32,
+        n: u32,
         lastSlot: bool,
+        lang: &str,
         fillup: bool,
         level: Option<usize>,
-        lang: &str,
     ) -> PyResult<PyObject> {
+        let node = n;
         let options = SectionOptions {
             last_slot: lastSlot,
             fillup,
@@ -758,21 +1061,28 @@ impl PyText {
         Ok(PyTuple::new(py, items)?.into())
     }
 
+    /// The section nodes containing node `n`, from big to small.
+    ///
+    /// Args:
+    ///     n: The node.
+    ///     lastSlot: Use the last slot of `n` instead of the first.
+    ///     fillup: For section nodes, fill up the lower levels with their first
+    ///         subsection.
+    ///     level: Only return the sections up to this level.
     #[allow(non_snake_case)]
-    #[pyo3(signature = (node, lastSlot=false, fillup=false, level=None, lang="en"))]
+    #[pyo3(signature = (n, lastSlot=false, fillup=false, level=None))]
     fn sectionTuple(
         &self,
         py: Python<'_>,
-        node: u32,
+        n: u32,
         lastSlot: bool,
         fillup: bool,
         level: Option<usize>,
-        lang: &str,
     ) -> PyResult<PyObject> {
         // TF `T.sectionTuple` (tf/core/text.py:461) returns the *section node ids*
         // (not their feature values) that contain `node`, honoring `lastSlot` and
-        // `fillup`. `lang` is irrelevant for node ids but kept for API symmetry.
-        let _ = lang;
+        // `fillup`.
+        let node = n;
         let nodes = self.sections_context()?.sections().section_tuple(
             node,
             &SectionOptions {
@@ -784,6 +1094,12 @@ impl PyText {
         Ok(PyTuple::new(py, nodes)?.into())
     }
 
+    /// The node of a section heading tuple (e.g. `("Genesis", 1, 1)`), or `None`.
+    ///
+    /// Args:
+    ///     section: Heading values from big to small; may be shorter than the
+    ///         number of section levels.
+    ///     lang: Language code of the section-0 name.
     #[allow(non_snake_case)]
     #[pyo3(signature = (section, lang="en"))]
     fn nodeFromSection(&self, section: &Bound<'_, PyAny>, lang: &str) -> PyResult<Option<u32>> {
@@ -797,20 +1113,23 @@ impl PyText {
         Ok(context.node_from_section_langed(&values, sec0_feature.as_deref())?)
     }
 
+    /// The structure heading of node `n`: `((type, heading), ...)`.
     #[allow(non_snake_case)]
-    fn headingFromNode(&self, py: Python<'_>, node: u32) -> PyResult<Option<PyObject>> {
+    fn headingFromNode(&self, py: Python<'_>, n: u32) -> PyResult<Option<PyObject>> {
         self.corpus
-            .heading_from_node(node)?
+            .heading_from_node(n)?
             .map(|heading| heading_to_py(py, &heading))
             .transpose()
     }
 
+    /// The node of a structure heading `((type, heading), ...)`, or `None`.
     #[allow(non_snake_case)]
-    fn nodeFromHeading(&self, heading: &Bound<'_, PyAny>) -> PyResult<Option<u32>> {
-        let heading = heading_from_py(heading)?;
+    fn nodeFromHeading(&self, head: &Bound<'_, PyAny>) -> PyResult<Option<u32>> {
+        let heading = heading_from_py(head)?;
         Ok(self.corpus.node_from_heading(&heading)?)
     }
 
+    /// The structure tree of `node` (or of the whole dataset) as nested tuples.
     #[pyo3(signature = (node=None))]
     fn structure(&self, py: Python<'_>, node: Option<u32>) -> PyResult<Option<PyObject>> {
         self.corpus
@@ -819,6 +1138,7 @@ impl PyText {
             .transpose()
     }
 
+    /// The top-level structure nodes.
     fn top(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
         Ok(self
             .corpus
@@ -827,71 +1147,31 @@ impl PyText {
             .transpose()?)
     }
 
-    fn up(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
-        nodes_to_tuple(py, MappedSections::new(&self.corpus)?.u(node, None)?)
+    /// The structural parent of node `n`.
+    fn up(&self, py: Python<'_>, n: u32) -> PyResult<PyObject> {
+        nodes_to_tuple(py, MappedSections::new(&self.corpus)?.u(n, None)?)
     }
 
-    fn down(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
-        nodes_to_tuple(py, MappedSections::new(&self.corpus)?.d(node, None)?)
+    /// The structural children of node `n`.
+    fn down(&self, py: Python<'_>, n: u32) -> PyResult<PyObject> {
+        nodes_to_tuple(py, MappedSections::new(&self.corpus)?.d(n, None)?)
     }
 
+    /// The structure of `node` (or of the whole dataset) as an indented string.
     #[allow(non_snake_case)]
     #[pyo3(signature = (node=None, fullHeading=false))]
     fn structurePretty(&self, node: Option<u32>, fullHeading: bool) -> PyResult<Option<String>> {
         Ok(self.corpus.structure_pretty(node, fullHeading)?)
     }
-
-    #[allow(non_snake_case)]
-    #[pyo3(signature = (node, lang="en"))]
-    fn bookName(&self, node: u32, lang: &str) -> Option<String> {
-        let section_0_type = parse_csv_config(
-            mapped_otext_value(&self.corpus, "sectionTypes")
-                .ok()
-                .flatten()
-                .as_deref(),
-        )
-        .into_iter()
-        .next()?;
-        let sections = MappedSections::new(&self.corpus).ok()?;
-        let section_0_node = if sections.node_type(node).ok().flatten()? == section_0_type {
-            node
-        } else {
-            sections
-                .u(node, Some(&section_0_type))
-                .ok()?
-                .into_iter()
-                .next()?
-        };
-        mapped_name_from_node(&self.corpus, lang)
-            .ok()?
-            .get(&section_0_node)
-            .cloned()
-    }
-
-    #[allow(non_snake_case)]
-    #[pyo3(signature = (name, lang="en"))]
-    fn bookNode(&self, name: &str, lang: &str) -> Option<u32> {
-        let section_0_type = parse_csv_config(
-            mapped_otext_value(&self.corpus, "sectionTypes")
-                .ok()
-                .flatten()
-                .as_deref(),
-        )
-        .into_iter()
-        .next()?;
-        let names = mapped_name_from_node(&self.corpus, lang).ok()?;
-        for node in self.corpus.nodes_of_type(&section_0_type).ok()? {
-            if names.get(&node).is_some_and(|candidate| candidate == name) {
-                return Some(node);
-            }
-        }
-        None
-    }
 }
 
-#[pyclass(name = "Search")]
+/// Search API (TF `S`): template search.
+#[pyclass(name = "Search", module = "cfabric._core")]
 pub(crate) struct PySearch {
     corpus: Arc<MappedCompiledCorpus>,
+    api: ApiRef,
+    /// Verbosity of the Fabric when the API was made (TF `S.silent`).
+    silent: &'static str,
     exe: Option<PySearchExe>,
     template: Option<String>,
     /// Owned custom sets registered via `study(..., sets=...)`, honored by
@@ -902,9 +1182,15 @@ pub(crate) struct PySearch {
 }
 
 impl PySearch {
-    pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>) -> Self {
+    pub(crate) fn new(
+        corpus: Arc<MappedCompiledCorpus>,
+        api: ApiRef,
+        silent: &'static str,
+    ) -> Self {
         Self {
             corpus,
+            api,
+            silent,
             exe: None,
             template: None,
             sets: None,
@@ -961,28 +1247,59 @@ impl PySearch {
 
 #[pymethods]
 impl PySearch {
+    /// The API (`Corpus`) this member belongs to.
+    #[getter]
+    fn api(&self, py: Python<'_>) -> PyResult<PyObject> {
+        self.api.get(py)
+    }
+
+    /// Verbosity of the Fabric when the API was made.
+    #[getter]
+    fn silent(&self) -> &'static str {
+        self.silent
+    }
+
+    /// Outcome of the last `study`: `exe.good`, `exe.badSyntax`, `exe.badSemantics`.
     #[getter]
     fn exe(&self) -> Option<PySearchExe> {
         self.exe.clone()
     }
 
-    #[pyo3(signature = (template, sets=None, shallow=None))]
+    /// Check a search template and prepare it for `fetch` / `count` / `showPlan`.
+    ///
+    /// Args:
+    ///     searchTemplate: The search template.
+    ///     strategy: Accepted for TF compatibility; the planner chooses the strategy.
+    ///     sets: Custom sets, `{name: iterable of nodes}`, usable as node types.
+    ///     shallow: `False`: full result tuples; `True`: the set of first nodes;
+    ///         `k > 1`: the set of `k`-prefixes of the result tuples.
+    ///     here: Accepted for TF compatibility (no display side channel).
+    ///     silent: Verbosity for this call.
+    #[allow(non_snake_case)]
+    #[pyo3(
+        signature = (searchTemplate, strategy=None, sets=None, shallow=Shallow::FULL, here=true, silent=Silent::DEFAULT),
+        text_signature = "($self, searchTemplate, strategy=None, sets=None, shallow=False, here=True, silent='auto')"
+    )]
     fn study(
         &mut self,
-        template: &str,
+        searchTemplate: &str,
+        strategy: Option<&Bound<'_, PyAny>>,
         sets: Option<&Bound<'_, PyAny>>,
-        shallow: Option<&Bound<'_, PyAny>>,
+        shallow: Shallow,
+        here: bool,
+        silent: Silent,
     ) -> PyResult<()> {
+        let _ = (strategy, here);
+        let _ = silent;
         let owned_sets = search_sets_from_py(sets)?;
-        let shallow = normalize_shallow(shallow)?;
         let engine = MappedSearch::new(&self.corpus);
         let result = match borrow_search_sets(&owned_sets) {
-            Some(sets) => engine.search_with_sets(template, &sets, Some(1)),
-            None => engine.search(template, Some(1)),
+            Some(sets) => engine.search_with_sets(searchTemplate, &sets, Some(1)),
+            None => engine.search(searchTemplate, Some(1)),
         };
-        self.template = Some(template.to_string());
+        self.template = Some(searchTemplate.to_string());
         self.sets = owned_sets;
-        self.shallow = shallow;
+        self.shallow = shallow.0;
         self.exe = Some(match result {
             Ok(_) => PySearchExe::good(),
             Err(error) => PySearchExe::bad(error.to_string()),
@@ -990,26 +1307,44 @@ impl PySearch {
         Ok(())
     }
 
-    // `silent` and `here` are accepted for TF API compatibility but have no
-    // effect here: progress reporting is handled by the Python layer (`silent`)
-    // and CF has no notebook-display side channel (`here`).
-    #[pyo3(signature = (template, limit=None, sets=None, shallow=None, silent=None, here=false))]
+    /// Search for all matches of a template.
+    ///
+    /// Args:
+    ///     searchTemplate: The search template.
+    ///     limit: Return at most this many results.
+    ///     sets: Custom sets, `{name: iterable of nodes}`, usable as node types.
+    ///     shallow: `False`: full result tuples; `True`: the set of first nodes;
+    ///         `k > 1`: the set of `k`-prefixes of the result tuples.
+    ///     silent: Verbosity for this call.
+    ///     here: Accepted for TF compatibility (no display side channel).
+    ///
+    /// Returns:
+    ///     A tuple of result tuples, or a set when `shallow` is set.
+    #[allow(non_snake_case)]
+    #[pyo3(
+        signature = (searchTemplate, limit=None, sets=None, shallow=Shallow::FULL, silent=Silent::DEFAULT, here=true),
+        text_signature = "($self, searchTemplate, limit=None, sets=None, shallow=False, silent='auto', here=True)"
+    )]
     fn search(
         &self,
         py: Python<'_>,
-        template: &str,
+        searchTemplate: &str,
         limit: Option<usize>,
         sets: Option<&Bound<'_, PyAny>>,
-        shallow: Option<&Bound<'_, PyAny>>,
-        silent: Option<&str>,
+        shallow: Shallow,
+        silent: Silent,
         here: bool,
     ) -> PyResult<PyObject> {
-        let _ = (silent, here);
+        let _ = here;
+        let _ = silent;
         let owned_sets = search_sets_from_py(sets)?;
-        let shallow = normalize_shallow(shallow)?;
-        self.run_search(py, template, limit, &owned_sets, shallow)
+        self.run_search(py, searchTemplate, limit, &owned_sets, shallow.0)
     }
 
+    /// Fetch the results of the template prepared by `study`.
+    ///
+    /// Args:
+    ///     limit: Return at most this many results.
     #[pyo3(signature = (limit=None))]
     fn fetch(&self, py: Python<'_>, limit: Option<usize>) -> PyResult<PyObject> {
         let template = self.template.clone().ok_or_else(|| {
@@ -1018,6 +1353,11 @@ impl PySearch {
         self.run_search(py, &template, limit, &self.sets, self.shallow)
     }
 
+    /// Count the results of the template prepared by `study`.
+    ///
+    /// Args:
+    ///     progress: Accepted for TF compatibility (no progress reporting).
+    ///     limit: Stop counting at this many results.
     #[pyo3(signature = (progress=None, limit=None))]
     fn count(&self, progress: Option<usize>, limit: Option<usize>) -> PyResult<usize> {
         let _ = progress;
@@ -1043,19 +1383,29 @@ impl PySearch {
         })
     }
 
+    /// Print the search plan of the template prepared by `study`.
+    ///
+    /// Args:
+    ///     details: Include per-step details.
     #[allow(non_snake_case)]
-    fn showPlan(&self, details: bool) -> PyResult<Option<String>> {
+    #[pyo3(signature = (details=false))]
+    fn showPlan(&self, py: Python<'_>, details: bool) -> PyResult<()> {
         // Emit the engine's real study/plan summary rather than echoing the
         // template (TF `S.showPlan`, tf/search/search.py).
         let Some(template) = self.template.as_deref() else {
-            return Ok(None);
+            return write_console(
+                py,
+                true,
+                true,
+                "Cannot show plan if there is no previous \"study()\"",
+            );
         };
         let engine = MappedSearch::new(&self.corpus);
         let plan = match borrow_search_sets(&self.sets) {
             Some(sets) => engine.show_plan_with_sets(template, &sets, details)?,
             None => engine.show_plan(template, details)?,
         };
-        Ok(Some(plan))
+        write_console(py, false, true, &plan)
     }
 
     /// Render a single result tuple into a human-readable string per TF
@@ -1114,29 +1464,35 @@ impl PySearch {
         Ok(fields.join(" "))
     }
 
+    /// Accepted for TF compatibility: the planner has no tunable parameters.
+    ///
+    /// Args:
+    ///     silent: Verbosity for this call.
+    ///     **kwargs: TF performance parameters (ignored).
     #[allow(non_snake_case)]
-    fn tweakPerformance(&self) -> bool {
-        true
+    #[pyo3(signature = (silent=Silent::DEFAULT, **kwargs), text_signature = "($self, silent='auto', **kwargs)")]
+    fn tweakPerformance(&self, silent: Silent, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<()> {
+        let _ = kwargs;
+        let _ = silent;
+        Ok(())
     }
 
+    /// Print the legend of the relational operators usable in search templates.
     #[allow(non_snake_case)]
-    fn relationsLegend(&self) -> String {
-        crate::search::relations_legend().to_string()
+    fn relationsLegend(&self, py: Python<'_>) -> PyResult<()> {
+        write_console(py, false, true, crate::search::relations_legend())
     }
 
+    /// Performance parameters (empty: the planner has no tunable parameters).
     #[getter]
     #[allow(non_snake_case)]
     fn perfParams(&self, py: Python<'_>) -> PyResult<PyObject> {
         Ok(PyDict::new(py).into())
     }
-
-    #[getter]
-    fn api(&self) -> bool {
-        true
-    }
 }
 
-#[pyclass(name = "SearchExe")]
+/// Outcome of `S.study`: whether the template is good, with syntax/semantic errors.
+#[pyclass(name = "SearchExe", module = "cfabric._core")]
 #[derive(Clone)]
 pub(crate) struct PySearchExe {
     #[pyo3(get)]

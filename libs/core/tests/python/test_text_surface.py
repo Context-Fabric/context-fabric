@@ -81,11 +81,12 @@ def test_glean_renders_slots(loaded_api):
     assert loaded_api.S.glean((1, 6)) == "hello "
 
 
-def test_show_plan_is_a_real_plan(loaded_api):
+def test_show_plan_is_a_real_plan(loaded_api, capsys):
     search = loaded_api.S
     search.study("word")
-    plan = search.showPlan(False)
-    assert plan is not None
+    # TF prints the plan and returns None.
+    assert search.showPlan(False) is None
+    plan = capsys.readouterr().out
     # The engine plan summary names the template and atom/relation counts.
     assert "word" in plan
     assert "atoms" in plan
@@ -126,7 +127,7 @@ def bhsa_api():
 @pytest.mark.skipif(not bhsa_available, reason=bhsa_reason)
 def test_bhsa_section_tuple_and_from_node(bhsa_api):
     T = bhsa_api.T
-    assert T.sectionTypes == ("book", "chapter", "verse")
+    assert T.sectionTypes == ["book", "chapter", "verse"]
     verse = T.nodeFromSection(("Genesis", 1, 1))
     assert verse is not None
     # sectionTuple returns node ids; the verse element equals the verse node.

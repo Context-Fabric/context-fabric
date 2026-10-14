@@ -88,11 +88,11 @@ def test_languages_match_tf(api):
     assert languages == TF_LANGUAGES
 
 
-def test_structure_info_no_structure(api):
+def test_structure_info_no_structure(api, capsys):
     # BHSA configures no structure sections, so TF prints
     # "No structural elements configured" and returns None.
-    info = api.T.structureInfo()
-    assert "No structural elements configured" in info
+    assert api.T.structureInfo() is None
+    assert "No structural elements configured" in capsys.readouterr().out
 
 
 def test_verse_text_render_timing(api):

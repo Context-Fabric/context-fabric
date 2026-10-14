@@ -713,9 +713,36 @@ impl TextContext {
     }
 
     pub fn text_with_options(&self, node: u32, options: &TextOptions) -> Result<String> {
+        let Some((nodes, format)) = self.resolve(node, options)? else {
+            return Ok(String::new());
+        };
+        let mut rendered = String::new();
+        for text_node in nodes {
+            self.render_node(text_node, &format, &mut rendered)?;
+        }
+        Ok(rendered)
+    }
+
+    /// The nodes `T.text(node, fmt, descend)` renders one by one: `node` itself,
+    /// or its descendants of the format's target type when descending. Empty
+    /// when no format applies to `node` (nothing would be rendered).
+    pub fn text_nodes_with_options(&self, node: u32, options: &TextOptions) -> Result<Vec<u32>> {
+        Ok(self
+            .resolve(node, options)?
+            .map(|(nodes, _)| nodes)
+            .unwrap_or_default())
+    }
+
+    /// Resolve the format for `node` and the nodes it is applied to (TF's
+    /// `T.text` format and `descend` logic), or `None` when no format applies.
+    fn resolve(
+        &self,
+        node: u32,
+        options: &TextOptions,
+    ) -> Result<Option<(Vec<u32>, std::sync::Arc<CompiledFormat>)>> {
         let otype = self.otype.view();
         let Some(node_type) = otype.str_value(node)? else {
-            return Ok(String::new());
+            return Ok(None);
         };
         // Resolve the format name and whether it is the implicit node-default.
         let (format_name, implicit_node_default) = match options.format.as_deref() {
@@ -730,12 +757,12 @@ impl TextContext {
                 } else if self.has_text_orig_full {
                     ("text-orig-full".to_string(), false)
                 } else {
-                    return Ok(String::new());
+                    return Ok(None);
                 }
             }
         };
         let Some(format) = self.format(&format_name)? else {
-            return Ok(String::new());
+            return Ok(None);
         };
 
         let down_type = match options.descend {
@@ -756,12 +783,7 @@ impl TextContext {
             Some(down_type) => self.descendants_of_type(node, down_type)?,
             None => vec![node],
         };
-
-        let mut rendered = String::new();
-        for text_node in nodes {
-            self.render_node(text_node, &format, &mut rendered)?;
-        }
-        Ok(rendered)
+        Ok(Some((nodes, format)))
     }
 
     fn render_node(&self, node: u32, format: &CompiledFormat, out: &mut String) -> Result<()> {

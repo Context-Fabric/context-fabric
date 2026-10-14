@@ -55,10 +55,11 @@ def test_load_add_extends_visible_features(corpus_dir: Path) -> None:
     assert first.Fs("pos") is not None
     assert first.Fs("number") is None
 
-    second = fabric.load("number", add=True)
-    # The second corpus exposes both the previously and newly requested features.
-    assert second.Fs("pos") is not None
-    assert second.Fs("number") is not None
+    # TF semantics: `add=True` returns a bool and widens the current API in place.
+    assert fabric.load("number", add=True) is True
+    assert fabric.api is first
+    assert first.Fs("pos") is not None
+    assert first.Fs("number") is not None
 
 
 # --------------------------------------------------------------------------- #

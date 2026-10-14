@@ -17,7 +17,7 @@ def test_top_level_exports(mini_corpus_path):
 
     fabric = Fabric(locations=str(mini_corpus_path), silent="deep")
     assert fabric.good is True
-    assert fabric.locations == (str(mini_corpus_path),)
+    assert fabric.locations == [str(mini_corpus_path)]
 
 
 def test_feature_access_and_lists(loaded_api):
@@ -49,35 +49,49 @@ def test_computed_navigation_text_and_search(loaded_api):
     assert loaded_api.F.otype.maxNode == 8
 
     assert loaded_api.C.order.data
-    assert loaded_api.N.sortNodes({5, 3, 1}) == (1, 3, 5)
+    assert loaded_api.N.sortNodes({5, 3, 1}) == [1, 3, 5]
     assert loaded_api.L.u(1, otype={"phrase", "sentence"}) == (6, 8)
 
     assert loaded_api.T.text(1) == "hello"
-    assert loaded_api.T.sectionTypes == ("sentence", "phrase")
+    assert loaded_api.T.sectionTypes == ["sentence", "phrase"]
 
+    # `api.S` is one stateful object, as in TF: study() then fetch() works
+    # through the attribute.
+    assert loaded_api.S is loaded_api.S
     loaded_api.S.study("word")
-    assert loaded_api.S.exe is None
+    assert loaded_api.S.exe.good is True
+    assert loaded_api.S.fetch(limit=1) == ((1,),)
     search = loaded_api.S
-    search.study("word")
-    assert search.exe.good is True
     assert search.search("word", limit=2) == ((1,), (2,))
 
 
-def test_text_fabric_compatibility_surface(mini_corpus_path, loaded_api):
+def test_text_fabric_compatibility_surface(mini_corpus_path, loaded_api, capsys):
     fabric = Fabric(locations=str(mini_corpus_path), silent="deep")
-    inventory = fabric.explore(show=False)
+    assert fabric.explore(show=False) is None
+    inventory = fabric.explore()
     assert "word" in inventory["nodes"]
-    assert fabric.features["nodes"]
-    assert fabric.isLoaded("word")
+    assert "__levels__" in inventory["computeds"]
+    assert "word" in fabric.featureSets["nodes"]
+    assert fabric.features["word"].metaData["description"] == "word text"
+    assert fabric.features["distance"].isEdge is True
+    assert fabric.isLoaded("word", pretty=False) == {"word": None}
     assert fabric.save()
 
-    api = fabric.load(features=("otype", "word", "oslots"), add=True, silent="deep")
-    assert api.isLoaded(("otype", "word"))
-    assert api.ensureLoaded(("otype", "word"))
-    assert "node features" in api.footprint()
+    api = fabric.load(("word",), silent="deep")
+    assert fabric.api is api
+    assert api.TF is fabric
+    assert api.Fall() == ["otype", "phrase_id", "sentence_id", "word"]
+    assert api.isLoaded("word", pretty=False)["word"]["kind"] == "node"
+    assert api.isLoaded("pos", pretty=False) == {"pos": None}
+    assert api.isLoaded("word") is None
+    assert api.ensureLoaded("pos") == {"pos"}
+    assert api.F.pos.v(1) == "interjection"
+    assert api.footprint() is None
+    assert "TOTAL" in capsys.readouterr().out
     scope = {}
-    api.makeAvailableIn(scope)
-    assert {"F", "E", "L", "N", "T", "S", "C"} <= set(scope)
+    docs = api.makeAvailableIn(scope)
+    assert {"F", "E", "L", "N", "T", "S", "C", "Fs", "Feature", "TF"} <= set(scope)
+    assert ("Fabric", "loading", ("TF",)) in docs
 
     assert api.Cs("order").data
     assert loaded_api.F.word.meta == loaded_api.F.word.metaData
@@ -93,17 +107,19 @@ def test_text_fabric_compatibility_surface(mini_corpus_path, loaded_api):
     assert all(isinstance(item, tuple) and len(item) == 2 for item in events)
     # The non-end events (slots and container starts) replay walk() order.
     assert loaded_api.N.walk() == tuple(node for (node, kind) in events if kind is not True)
-    assert loaded_api.T.sectionFeats == loaded_api.T.sectionFeatures
+    assert loaded_api.T.sectionFeats == list(loaded_api.T.sectionFeatures)
     # sectionTuple returns section NODE ids; sectionFromNode returns their values.
     assert loaded_api.T.sectionTuple(1) == (8, 6)
     assert loaded_api.T.sectionFromNode(1) == ("S1", 1)
     assert loaded_api.T.formats == {"text-orig-full": "word"}
-    assert isinstance(loaded_api.T.structureTypes, tuple)
-    assert isinstance(loaded_api.T.structureFeats, tuple)
+    assert loaded_api.T.structureTypes == []
+    assert loaded_api.T.structureFeats == []
     assert loaded_api.T.languages == {
         "": {"language": "default", "languageEnglish": "default"}
     }
-    assert loaded_api.T.structureInfo() == "No structural elements configured"
+    capsys.readouterr()
+    assert loaded_api.T.structureInfo() is None
+    assert "No structural elements configured" in capsys.readouterr().out
     assert loaded_api.T.up(1) == loaded_api.L.u(1)
     assert loaded_api.T.down(8) == loaded_api.L.d(8)
 
@@ -111,13 +127,15 @@ def test_text_fabric_compatibility_surface(mini_corpus_path, loaded_api):
     search.study("word")
     assert search.fetch(limit=1) == ((1,),)
     assert search.count(limit=2) == 2
-    assert "word" in search.showPlan(False)
+    assert search.showPlan(False) is None
+    assert "word" in capsys.readouterr().out
     assert search.glean((1,)) == "hello"
     assert search.glean((1, 2)) == "hello beautiful"
-    assert search.tweakPerformance()
-    assert isinstance(search.relationsLegend(), str)
+    assert search.tweakPerformance() is None
+    assert search.relationsLegend() is None
+    assert capsys.readouterr().out
     assert search.perfParams == {}
-    assert search.api is True
+    assert search.api is loaded_api
 
 
 def test_compiled_cache_round_trip(mini_corpus_path, tmp_path):
@@ -135,7 +153,7 @@ def test_compiled_cache_round_trip(mini_corpus_path, tmp_path):
 
     mapped = fabric.openMapped(str(cache_path))
     assert mapped.F.otype.maxNode == 8
-    assert mapped.Fall(warp=False) == ("word",)
+    assert mapped.Fall(warp=False) == ["word"]
     assert mapped.S.search("word", limit=1) == ((1,),)
 
 

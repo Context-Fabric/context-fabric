@@ -47,8 +47,11 @@ embedded = api.L.d(node)
 
 ## Compatibility
 
-Context-Fabric is `tf.core` API-compatible: the N/F/E/L/T/S surfaces keep
-Text-Fabric's signatures and return types, search templates parse identically, and
+Context-Fabric is `tf.core` API-compatible: `Fabric` (also importable as
+`cfabric.fabric.Fabric`), the `api` object with its aliases (`Feature`, `Fs`,
+`AllFeatures`, `TF`, ...), and the F/E/C/L/N/T/S surfaces keep Text-Fabric's member
+names, signatures, and return container types (enforced against Text-Fabric 13 by
+`tests/python/test_tf_api_surface.py`). Search templates parse identically, and
 `TF.save`-authored `.tf` files reload in Text-Fabric. On BHSA, 34/34 reference
 ETCBC queries match Text-Fabric result counts and sets.
 
@@ -57,9 +60,13 @@ Known divergences:
 - **Result-list ordering** is unspecified-but-deterministic. Parity is defined by
   result counts and sets, not list order (Text-Fabric's order is search-strategy
   dependent). Within-tuple column order matches template atom order.
-- **`silent` / progress knobs** are accepted but are no-ops.
+- **`silent` / progress knobs** are accepted; only the `TF.info` / `warning` /
+  `error` message channel honors `silent`.
 - **Volumes/works and MQL** are out of scope.
 - **`C.levUp` / `C.levDown`** are exposed as lazy views keyed by node id.
+- **`S.search`** returns a tuple (or a set when `shallow`) rather than a generator.
+- **`TF.features`** entries describe the feature files but carry no `data`; feature
+  data is read through `F` / `E` / `C`.
 
 ## Performance
 

@@ -9,8 +9,29 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyInt, PyList, PyString, PyTuple};
 
 use crate::compiled::{MappedCompiledCorpus, MappedNodeValue, NodeFeatureEncoding};
+use crate::config::{OSLOTS, OTYPE};
 use crate::corpus::{Boundary, Chunk, ChunkLengthKey, ChunkPositionKey, ComputedFeatureData};
 use crate::feature::{EdgeFrequency, FeatureValue};
+
+use super::api_ref::ApiRef;
+use super::visibility::FeatureVisibility;
+
+/// Names of the computed data blocks under `C`, sorted like TF's `Call()`.
+pub(crate) const COMPUTED_NAMES: [&str; 8] = [
+    "boundary",
+    "characters",
+    "levDown",
+    "levUp",
+    "levels",
+    "order",
+    "rank",
+    "sections",
+];
+
+/// `AttributeError` for a warp-only member accessed on another feature.
+fn warp_only(feature: &str, member: &str) -> PyErr {
+    PyAttributeError::new_err(format!("feature {feature} has no attribute '{member}'"))
+}
 
 /// Parses a `nodeTypes` style argument (`None` / `str` / iterable of `str`)
 /// into an owned `Vec<String>`. Mirrors TF's `freqList(nodeTypes=...)` which
@@ -80,7 +101,7 @@ pub(crate) fn sort_key_chunk_length_py(
 /// Opaque, orderable key returned by `N.sortKeyChunk`. Comparisons delegate to
 /// the core `ChunkPositionKey` ordering so `sorted(chunks, key=N.sortKeyChunk)`
 /// produces TF's canonical chunk order.
-#[pyclass(name = "ChunkPositionKey")]
+#[pyclass(name = "ChunkPositionKey", module = "cfabric._core")]
 pub(crate) struct PyChunkPositionKey {
     key: ChunkPositionKey,
 }
@@ -93,7 +114,7 @@ impl PyChunkPositionKey {
 }
 
 /// Opaque, orderable key returned by `N.sortKeyChunkLength`.
-#[pyclass(name = "ChunkLengthKey")]
+#[pyclass(name = "ChunkLengthKey", module = "cfabric._core")]
 pub(crate) struct PyChunkLengthKey {
     key: ChunkLengthKey,
 }
@@ -222,10 +243,11 @@ struct InternTable {
     full: bool,
 }
 
-#[pyclass(name = "NodeFeature")]
+#[pyclass(name = "NodeFeature", module = "cfabric._core")]
 pub(crate) struct PyNodeFeature {
     name: String,
     corpus: Arc<MappedCompiledCorpus>,
+    api: ApiRef,
     /// Resolved once on first `.v()` access (mechanism 2: handle-owned decision).
     kind: OnceLock<CachedKind>,
     /// Pool-id (pointer-keyed) string interning cache (mechanism 1). Guarded by a
@@ -234,10 +256,11 @@ pub(crate) struct PyNodeFeature {
 }
 
 impl PyNodeFeature {
-    pub(crate) fn new(name: String, corpus: Arc<MappedCompiledCorpus>) -> Self {
+    pub(crate) fn new(name: String, corpus: Arc<MappedCompiledCorpus>, api: ApiRef) -> Self {
         Self {
             name,
             corpus,
+            api,
             kind: OnceLock::new(),
             intern: Mutex::new(InternTable::default()),
         }
@@ -280,11 +303,19 @@ impl PyNodeFeature {
 
 #[pymethods]
 impl PyNodeFeature {
+    /// The feature name.
     #[getter]
     fn name(&self) -> &str {
         &self.name
     }
 
+    /// The API (`Corpus`) this feature belongs to.
+    #[getter]
+    fn api(&self, py: Python<'_>) -> PyResult<PyObject> {
+        self.api.get(py)
+    }
+
+    /// Metadata from the feature file header.
     #[getter]
     #[allow(non_snake_case)]
     fn metaData(&self) -> std::collections::BTreeMap<String, Option<String>> {
@@ -295,11 +326,13 @@ impl PyNodeFeature {
             .unwrap_or_default()
     }
 
+    /// Metadata from the feature file header (TF name).
     #[getter]
     fn meta(&self) -> std::collections::BTreeMap<String, Option<String>> {
         self.metaData()
     }
 
+    /// All values as a dict `{node: value}` (materialized on each access).
     #[getter]
     fn data(&self, py: Python<'_>) -> PyResult<PyObject> {
         let data = PyDict::new(py);
@@ -311,6 +344,7 @@ impl PyNodeFeature {
         Ok(data.into())
     }
 
+    /// Value type from the metadata (`str` or `int`).
     #[getter]
     #[allow(non_snake_case)]
     fn valueType(&self) -> Option<String> {
@@ -320,6 +354,7 @@ impl PyNodeFeature {
             .and_then(|feature| feature.value_type().map(str::to_string))
     }
 
+    /// Description from the metadata.
     #[getter]
     fn description(&self) -> Option<String> {
         self.corpus
@@ -328,29 +363,64 @@ impl PyNodeFeature {
             .and_then(|feature| feature.description().map(str::to_string))
     }
 
+    /// The slot type (`otype` only).
     #[getter]
     #[allow(non_snake_case)]
-    fn slotType(&self) -> Option<String> {
-        (self.name == "otype")
-            .then(|| self.corpus.slot_type().ok())
-            .flatten()
+    fn slotType(&self) -> PyResult<String> {
+        if self.name != OTYPE {
+            return Err(warp_only(&self.name, "slotType"));
+        }
+        Ok(self.corpus.slot_type()?)
     }
 
+    /// The last slot node (`otype` only).
     #[getter]
     #[allow(non_snake_case)]
-    fn maxSlot(&self) -> Option<u32> {
-        (self.name == "otype")
-            .then(|| self.corpus.max_slot().ok())
-            .flatten()
+    fn maxSlot(&self) -> PyResult<u32> {
+        if self.name != OTYPE {
+            return Err(warp_only(&self.name, "maxSlot"));
+        }
+        Ok(self.corpus.max_slot()?)
     }
 
+    /// The last node (`otype` only).
     #[getter]
     #[allow(non_snake_case)]
-    fn maxNode(&self) -> Option<u32> {
-        (self.name == "otype").then(|| self.corpus.max_node())
+    fn maxNode(&self) -> PyResult<u32> {
+        if self.name != OTYPE {
+            return Err(warp_only(&self.name, "maxNode"));
+        }
+        Ok(self.corpus.max_node())
     }
 
-    fn v(&self, py: Python<'_>, node: u32) -> PyResult<Option<PyObject>> {
+    /// Node interval per node type, `{type: (first, last)}` (`otype` only).
+    #[getter]
+    fn support(&self) -> PyResult<BTreeMap<String, (u32, u32)>> {
+        if self.name != OTYPE {
+            return Err(warp_only(&self.name, "support"));
+        }
+        Ok(match self.corpus.computed_feature("levels")? {
+            Some(ComputedFeatureData::Levels(rows)) => rows
+                .into_iter()
+                .map(|(node_type, _, first, last)| (node_type, (first, last)))
+                .collect(),
+            _ => BTreeMap::new(),
+        })
+    }
+
+    /// The `(first, last)` node interval of node type `val`, or `()` for an
+    /// unknown type (`otype` only).
+    #[allow(non_snake_case)]
+    fn sInterval(&self, py: Python<'_>, val: &str) -> PyResult<PyObject> {
+        Ok(match self.support()?.get(val) {
+            Some(&(first, last)) => PyTuple::new(py, [first, last])?.into(),
+            None => PyTuple::empty(py).into(),
+        })
+    }
+
+    /// The value of the feature for node `n`, or `None` if it has none.
+    fn v(&self, py: Python<'_>, n: u32) -> PyResult<Option<PyObject>> {
+        let node = n;
         match self.cached_kind() {
             CachedKind::StringPool => {
                 // Dispatch straight to the string-pool accessor, skipping the
@@ -505,8 +575,9 @@ impl PyNodeFeature {
         Ok(out.into_pyarray(py).into_any().unbind())
     }
 
-    fn s(&self, py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-        let value = feature_value_from_py(value)?;
+    /// All nodes that have value `val`, in canonical order.
+    fn s(&self, py: Python<'_>, val: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        let value = feature_value_from_py(val)?;
         let nodes = self
             .corpus
             .node_feature(&self.name)?
@@ -516,6 +587,7 @@ impl PyNodeFeature {
         Ok(PyTuple::new(py, nodes)?.into())
     }
 
+    /// All `(node, value)` pairs, in node order.
     fn items(&self, py: Python<'_>) -> PyResult<PyObject> {
         let rows = self
             .corpus
@@ -535,6 +607,7 @@ impl PyNodeFeature {
         Ok(PyTuple::new(py, rows)?.into())
     }
 
+    /// All node types, from the biggest to the slot type (`otype` only).
     #[getter]
     #[allow(non_snake_case)]
     fn all(&self, py: Python<'_>) -> PyResult<PyObject> {
@@ -554,13 +627,18 @@ impl PyNodeFeature {
         Ok(PyTuple::new(py, names)?.into())
     }
 
-    #[pyo3(signature = (node_types=None))]
-    fn freq_list(
-        &self,
-        py: Python<'_>,
-        node_types: Option<&Bound<'_, PyAny>>,
-    ) -> PyResult<PyObject> {
-        let node_types = node_types_from_py(node_types)?;
+    /// Frequency list of the values, most frequent first.
+    ///
+    /// Args:
+    ///     nodeTypes: Only count values on nodes of these types (a str or an
+    ///         iterable of str).
+    ///
+    /// Returns:
+    ///     A tuple of `(value, count)` pairs.
+    #[allow(non_snake_case)]
+    #[pyo3(signature = (nodeTypes=None))]
+    fn freqList(&self, py: Python<'_>, nodeTypes: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+        let node_types = node_types_from_py(nodeTypes)?;
         let filter = as_str_refs(&node_types);
         let rows = self
             .corpus
@@ -576,17 +654,13 @@ impl PyNodeFeature {
             .collect::<PyResult<Vec<PyObject>>>()?;
         Ok(PyTuple::new(py, rows)?.into())
     }
-
-    #[allow(non_snake_case)]
-    #[pyo3(signature = (nodeTypes=None))]
-    fn freqList(&self, py: Python<'_>, nodeTypes: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
-        self.freq_list(py, nodeTypes)
-    }
 }
 
-#[pyclass(name = "NodeFeatures")]
+#[pyclass(name = "NodeFeatures", module = "cfabric._core")]
 pub(crate) struct PyNodeFeatures {
     corpus: Arc<MappedCompiledCorpus>,
+    visibility: Arc<FeatureVisibility>,
+    api: ApiRef,
     /// Cache of resolved `PyNodeFeature` handles keyed by feature name. Returning
     /// the *same* handle for repeated `F.<feat>` accesses keeps the per-handle
     /// intern cache (mechanism 1) alive across `F.<feat>.v(n)` statements, which
@@ -596,20 +670,25 @@ pub(crate) struct PyNodeFeatures {
 }
 
 impl PyNodeFeatures {
-    pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>) -> Self {
+    pub(crate) fn new(
+        corpus: Arc<MappedCompiledCorpus>,
+        visibility: Arc<FeatureVisibility>,
+        api: ApiRef,
+    ) -> Self {
         Self {
             corpus,
+            visibility,
+            api,
             handles: Mutex::new(HashMap::new()),
         }
     }
-}
 
-#[pymethods]
-impl PyNodeFeatures {
-    fn __getattr__(&self, py: Python<'_>, name: &str) -> PyResult<Py<PyNodeFeature>> {
-        if self.corpus.metadata().node_feature(name).is_none() {
+    /// The cached feature object for loaded node feature `name`, or
+    /// `AttributeError` if it does not exist or is not loaded.
+    pub(crate) fn handle(&self, py: Python<'_>, name: &str) -> PyResult<Py<PyNodeFeature>> {
+        if self.corpus.metadata().node_feature(name).is_none() || !self.visibility.exposes(name) {
             return Err(PyAttributeError::new_err(format!(
-                "no node feature named {name}"
+                "no loaded node feature named {name}"
             )));
         }
         let mut handles = self.handles.lock().unwrap_or_else(|err| err.into_inner());
@@ -618,26 +697,49 @@ impl PyNodeFeatures {
         }
         let handle = Py::new(
             py,
-            PyNodeFeature::new(name.to_string(), Arc::clone(&self.corpus)),
+            PyNodeFeature::new(
+                name.to_string(),
+                Arc::clone(&self.corpus),
+                self.api.clone_ref(py),
+            ),
         )?;
         handles.insert(name.to_string(), handle.clone_ref(py));
         Ok(handle)
     }
+}
+
+#[pymethods]
+impl PyNodeFeatures {
+    fn __getattr__(&self, py: Python<'_>, name: &str) -> PyResult<Py<PyNodeFeature>> {
+        self.handle(py, name)
+    }
 
     fn __dir__(&self) -> Vec<String> {
-        self.corpus.all_node_features(true)
+        self.corpus
+            .all_node_features(true)
+            .into_iter()
+            .filter(|name| self.visibility.exposes(name))
+            .collect()
     }
 }
 
-#[pyclass(name = "EdgeFeature")]
+#[pyclass(name = "EdgeFeature", module = "cfabric._core")]
 pub(crate) struct PyEdgeFeature {
     name: String,
     corpus: Arc<MappedCompiledCorpus>,
+    api: ApiRef,
 }
 
 impl PyEdgeFeature {
-    pub(crate) fn new(name: String, corpus: Arc<MappedCompiledCorpus>) -> Self {
-        Self { name, corpus }
+    pub(crate) fn new(name: String, corpus: Arc<MappedCompiledCorpus>, api: ApiRef) -> Self {
+        Self { name, corpus, api }
+    }
+
+    fn has_edge_values(&self) -> bool {
+        self.corpus
+            .metadata()
+            .edge_feature(&self.name)
+            .is_some_and(|feature| feature.edge_value_count > 0)
     }
 
     fn nodes_to_tuple(&self, py: Python<'_>, nodes: Vec<u32>) -> PyResult<PyObject> {
@@ -666,11 +768,39 @@ impl PyEdgeFeature {
 
 #[pymethods]
 impl PyEdgeFeature {
+    /// The feature name.
     #[getter]
     fn name(&self) -> &str {
         &self.name
     }
 
+    /// The API (`Corpus`) this feature belongs to.
+    #[getter]
+    fn api(&self, py: Python<'_>) -> PyResult<PyObject> {
+        self.api.get(py)
+    }
+
+    /// The last slot node (`oslots` only).
+    #[getter]
+    #[allow(non_snake_case)]
+    fn maxSlot(&self) -> PyResult<u32> {
+        if self.name != OSLOTS {
+            return Err(warp_only(&self.name, "maxSlot"));
+        }
+        Ok(self.corpus.max_slot()?)
+    }
+
+    /// The last node (`oslots` only).
+    #[getter]
+    #[allow(non_snake_case)]
+    fn maxNode(&self) -> PyResult<u32> {
+        if self.name != OSLOTS {
+            return Err(warp_only(&self.name, "maxNode"));
+        }
+        Ok(self.corpus.max_node())
+    }
+
+    /// Metadata from the feature file header.
     #[getter]
     #[allow(non_snake_case)]
     fn metaData(&self) -> std::collections::BTreeMap<String, Option<String>> {
@@ -681,11 +811,14 @@ impl PyEdgeFeature {
             .unwrap_or_default()
     }
 
+    /// Metadata from the feature file header (TF name).
     #[getter]
     fn meta(&self) -> std::collections::BTreeMap<String, Option<String>> {
         self.metaData()
     }
 
+    /// All edges as a dict `{source: targets}` (or `{source: {target: value}}`
+    /// for valued edges), materialized on each access.
     #[getter]
     fn data(&self, py: Python<'_>) -> PyResult<PyObject> {
         let data = PyDict::new(py);
@@ -713,6 +846,8 @@ impl PyEdgeFeature {
         Ok(data.into())
     }
 
+    /// All edges inverted, as a dict `{target: sources}` (or
+    /// `{target: {source: value}}`), materialized on each access.
     #[getter]
     #[allow(non_snake_case)]
     fn dataInv(&self, py: Python<'_>) -> PyResult<PyObject> {
@@ -749,6 +884,7 @@ impl PyEdgeFeature {
         Ok(data.into())
     }
 
+    /// Value type of the edge values from the metadata.
     #[getter]
     #[allow(non_snake_case)]
     fn valueType(&self) -> Option<String> {
@@ -758,6 +894,7 @@ impl PyEdgeFeature {
             .and_then(|feature| feature.value_type().map(str::to_string))
     }
 
+    /// Description from the metadata.
     #[getter]
     fn description(&self) -> Option<String> {
         self.corpus
@@ -766,7 +903,9 @@ impl PyEdgeFeature {
             .and_then(|feature| feature.description().map(str::to_string))
     }
 
-    fn f(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
+    /// Nodes reached by edges from node `n` (with values for valued edges).
+    fn f(&self, py: Python<'_>, n: u32) -> PyResult<PyObject> {
+        let node = n;
         let feature = self.corpus.edge_feature(&self.name)?.ok_or_else(|| {
             PyAttributeError::new_err(format!("no edge feature named {}", self.name))
         })?;
@@ -777,7 +916,9 @@ impl PyEdgeFeature {
         }
     }
 
-    fn t(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
+    /// Nodes with edges to node `n` (with values for valued edges).
+    fn t(&self, py: Python<'_>, n: u32) -> PyResult<PyObject> {
+        let node = n;
         let feature = self.corpus.edge_feature(&self.name)?.ok_or_else(|| {
             PyAttributeError::new_err(format!("no edge feature named {}", self.name))
         })?;
@@ -788,14 +929,18 @@ impl PyEdgeFeature {
         }
     }
 
-    fn s(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
+    /// Targets of node `n` without values (TF `E.oslots.s`: the slots of `n`).
+    fn s(&self, py: Python<'_>, n: u32) -> PyResult<PyObject> {
+        let node = n;
         let feature = self.corpus.edge_feature(&self.name)?.ok_or_else(|| {
             PyAttributeError::new_err(format!("no edge feature named {}", self.name))
         })?;
         self.nodes_to_tuple(py, feature.s(node)?)
     }
 
-    fn b(&self, py: Python<'_>, node: u32) -> PyResult<PyObject> {
+    /// Nodes connected to node `n` in either direction (with values for valued edges).
+    fn b(&self, py: Python<'_>, n: u32) -> PyResult<PyObject> {
+        let node = n;
         let feature = self.corpus.edge_feature(&self.name)?.ok_or_else(|| {
             PyAttributeError::new_err(format!("no edge feature named {}", self.name))
         })?;
@@ -806,6 +951,7 @@ impl PyEdgeFeature {
         }
     }
 
+    /// All `(source, targets)` pairs, in source order.
     fn items(&self, py: Python<'_>) -> PyResult<PyObject> {
         let rows = self
             .corpus
@@ -825,15 +971,25 @@ impl PyEdgeFeature {
         Ok(PyTuple::new(py, rows)?.into())
     }
 
-    #[pyo3(signature = (node_types_from=None, node_types_to=None))]
-    fn freq_list(
+    /// Frequency list of the edge values, most frequent first.
+    ///
+    /// Args:
+    ///     nodeTypesFrom: Only count edges from nodes of these types.
+    ///     nodeTypesTo: Only count edges to nodes of these types.
+    ///
+    /// Returns:
+    ///     A tuple of `(value, count)` pairs for valued edges, otherwise the
+    ///     number of edges.
+    #[allow(non_snake_case)]
+    #[pyo3(signature = (nodeTypesFrom=None, nodeTypesTo=None))]
+    fn freqList(
         &self,
         py: Python<'_>,
-        node_types_from: Option<&Bound<'_, PyAny>>,
-        node_types_to: Option<&Bound<'_, PyAny>>,
+        nodeTypesFrom: Option<&Bound<'_, PyAny>>,
+        nodeTypesTo: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyObject> {
-        let node_types_from = node_types_from_py(node_types_from)?;
-        let node_types_to = node_types_from_py(node_types_to)?;
+        let node_types_from = node_types_from_py(nodeTypesFrom)?;
+        let node_types_to = node_types_from_py(nodeTypesTo)?;
         let filter_from = as_str_refs(&node_types_from);
         let filter_to = as_str_refs(&node_types_to);
         match self.corpus.edge_frequency_list(
@@ -860,59 +1016,74 @@ impl PyEdgeFeature {
         }
     }
 
-    #[allow(non_snake_case)]
-    #[pyo3(signature = (nodeTypesFrom=None, nodeTypesTo=None))]
-    fn freqList(
-        &self,
-        py: Python<'_>,
-        nodeTypesFrom: Option<&Bound<'_, PyAny>>,
-        nodeTypesTo: Option<&Bound<'_, PyAny>>,
-    ) -> PyResult<PyObject> {
-        self.freq_list(py, nodeTypesFrom, nodeTypesTo)
-    }
-
-    fn has_edge_values(&self) -> bool {
-        self.corpus
-            .metadata()
-            .edge_feature(&self.name)
-            .is_some_and(|feature| feature.edge_value_count > 0)
-    }
-
+    /// Whether the edges carry values.
     #[getter]
     #[allow(non_snake_case)]
     fn doValues(&self) -> bool {
         self.has_edge_values()
     }
-
-    #[allow(non_snake_case)]
-    fn hasEdgeValues(&self) -> bool {
-        self.has_edge_values()
-    }
 }
 
-#[pyclass(name = "EdgeFeatures")]
+#[pyclass(name = "EdgeFeatures", module = "cfabric._core")]
 pub(crate) struct PyEdgeFeatures {
     corpus: Arc<MappedCompiledCorpus>,
+    visibility: Arc<FeatureVisibility>,
+    api: ApiRef,
+    /// Cache of resolved handles, so `E.<feat>` is the same object each time.
+    handles: Mutex<HashMap<String, Py<PyEdgeFeature>>>,
 }
 
 impl PyEdgeFeatures {
-    pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>) -> Self {
-        Self { corpus }
+    pub(crate) fn new(
+        corpus: Arc<MappedCompiledCorpus>,
+        visibility: Arc<FeatureVisibility>,
+        api: ApiRef,
+    ) -> Self {
+        Self {
+            corpus,
+            visibility,
+            api,
+            handles: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// The cached feature object for loaded edge feature `name`, or
+    /// `AttributeError` if it does not exist or is not loaded.
+    pub(crate) fn handle(&self, py: Python<'_>, name: &str) -> PyResult<Py<PyEdgeFeature>> {
+        if self.corpus.metadata().edge_feature(name).is_none() || !self.visibility.exposes(name) {
+            return Err(PyAttributeError::new_err(format!(
+                "no loaded edge feature named {name}"
+            )));
+        }
+        let mut handles = self.handles.lock().unwrap_or_else(|err| err.into_inner());
+        if let Some(existing) = handles.get(name) {
+            return Ok(existing.clone_ref(py));
+        }
+        let handle = Py::new(
+            py,
+            PyEdgeFeature::new(
+                name.to_string(),
+                Arc::clone(&self.corpus),
+                self.api.clone_ref(py),
+            ),
+        )?;
+        handles.insert(name.to_string(), handle.clone_ref(py));
+        Ok(handle)
     }
 }
 
 #[pymethods]
 impl PyEdgeFeatures {
-    fn __getattr__(&self, name: &str) -> PyResult<PyEdgeFeature> {
-        self.corpus
-            .metadata()
-            .edge_feature(name)
-            .map(|_| PyEdgeFeature::new(name.to_string(), Arc::clone(&self.corpus)))
-            .ok_or_else(|| PyAttributeError::new_err(format!("no edge feature named {name}")))
+    fn __getattr__(&self, py: Python<'_>, name: &str) -> PyResult<Py<PyEdgeFeature>> {
+        self.handle(py, name)
     }
 
     fn __dir__(&self) -> Vec<String> {
-        self.corpus.all_edge_features(true)
+        self.corpus
+            .all_edge_features(true)
+            .into_iter()
+            .filter(|name| self.visibility.exposes(name))
+            .collect()
     }
 }
 
@@ -925,7 +1096,7 @@ impl PyEdgeFeatures {
 /// design, so we expose a lazy object instead: index it by the node id directly
 /// (`C.levUp.data[n]` -> embedders of `n`, `C.levDown.data[n]` -> embeddees of
 /// `n`). Rows are read on demand from the `CFRLEVU1` / `CFRLEVD1` mmap CSRs.
-#[pyclass(name = "LevView")]
+#[pyclass(name = "LevView", module = "cfabric._core")]
 pub(crate) struct PyLevView {
     corpus: Arc<MappedCompiledCorpus>,
     down: bool,
@@ -964,26 +1135,42 @@ impl PyLevView {
     }
 }
 
-#[pyclass(name = "Computed")]
+#[pyclass(name = "Computed", module = "cfabric._core")]
 pub(crate) struct PyComputed {
+    /// The precomputed data.
     #[pyo3(get)]
     data: PyObject,
+    api: ApiRef,
 }
 
 impl PyComputed {
-    fn new(data: PyObject) -> Self {
-        Self { data }
+    fn new(data: PyObject, api: ApiRef) -> Self {
+        Self { data, api }
     }
 }
 
-#[pyclass(name = "Computeds")]
+#[pymethods]
+impl PyComputed {
+    /// The API (`Corpus`) this data belongs to.
+    #[getter]
+    fn api(&self, py: Python<'_>) -> PyResult<PyObject> {
+        self.api.get(py)
+    }
+}
+
+#[pyclass(name = "Computeds", module = "cfabric._core")]
 pub(crate) struct PyComputeds {
     corpus: Arc<MappedCompiledCorpus>,
+    api: ApiRef,
 }
 
 impl PyComputeds {
-    pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>) -> Self {
-        Self { corpus }
+    pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>, api: ApiRef) -> Self {
+        Self { corpus, api }
+    }
+
+    fn computed(&self, py: Python<'_>, data: PyObject) -> PyComputed {
+        PyComputed::new(data, self.api.clone_ref(py))
     }
 
     fn boundary_to_py(py: Python<'_>, boundary: Boundary) -> PyResult<PyObject> {
@@ -1028,7 +1215,7 @@ impl PyComputeds {
                 down,
             },
         )?;
-        Ok(PyComputed::new(view.into_any()))
+        Ok(self.computed(py, view.into_any()))
     }
 
     fn sections_to_py(&self, py: Python<'_>) -> PyResult<PyObject> {
@@ -1211,21 +1398,17 @@ impl PyComputeds {
             PyTuple::new(py, row).map(Into::into)
         })
         .collect::<PyResult<Vec<PyObject>>>()?;
-        Ok(PyComputed::new(PyTuple::new(py, rows)?.into()))
+        Ok(self.computed(py, PyTuple::new(py, rows)?.into()))
     }
 
     #[getter]
     fn order(&self, py: Python<'_>) -> PyResult<PyComputed> {
-        Ok(PyComputed::new(
-            PyTuple::new(py, self.corpus.order()?)?.into(),
-        ))
+        Ok(self.computed(py, PyTuple::new(py, self.corpus.order()?)?.into()))
     }
 
     #[getter]
     fn rank(&self, py: Python<'_>) -> PyResult<PyComputed> {
-        Ok(PyComputed::new(
-            PyTuple::new(py, self.corpus.rank()?)?.into(),
-        ))
+        Ok(self.computed(py, PyTuple::new(py, self.corpus.rank()?)?.into()))
     }
 
     #[getter]
@@ -1237,7 +1420,7 @@ impl PyComputeds {
                 last_slots: Vec::new(),
             },
         };
-        Ok(PyComputed::new(Self::boundary_to_py(py, boundary)?))
+        Ok(self.computed(py, Self::boundary_to_py(py, boundary)?))
     }
 
     #[getter]
@@ -1254,25 +1437,16 @@ impl PyComputeds {
 
     #[getter]
     fn sections(&self, py: Python<'_>) -> PyResult<PyComputed> {
-        Ok(PyComputed::new(self.sections_to_py(py)?))
+        Ok(self.computed(py, self.sections_to_py(py)?))
     }
 
     #[getter]
     fn characters(&self, py: Python<'_>) -> PyResult<PyComputed> {
-        Ok(PyComputed::new(self.characters_to_py(py)?))
+        Ok(self.computed(py, self.characters_to_py(py)?))
     }
 
     fn __dir__(&self) -> Vec<&'static str> {
-        vec![
-            "levels",
-            "order",
-            "rank",
-            "boundary",
-            "levUp",
-            "levDown",
-            "sections",
-            "characters",
-        ]
+        COMPUTED_NAMES.to_vec()
     }
 
     fn __getattr__(&self, py: Python<'_>, name: &str) -> PyResult<PyObject> {

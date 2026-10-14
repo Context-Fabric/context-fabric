@@ -358,7 +358,7 @@ class FeatureInfo:
 
         has_values = None
         if kind == "edge":
-            has_values = bool(fobj.hasEdgeValues())
+            has_values = bool(fobj.doValues)
 
         return cls(
             name=name,

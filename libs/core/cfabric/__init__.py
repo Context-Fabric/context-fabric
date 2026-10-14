@@ -1,6 +1,15 @@
-"""Context-Fabric: a graph-based corpus engine for annotated text."""
+"""Context-Fabric: a graph-based corpus engine for annotated text.
 
-from cfabric import _core
+The core API mirrors Text-Fabric's (`tf.fabric.Fabric`)::
+
+    from cfabric import Fabric
+
+    TF = Fabric(locations="path/to/tf")
+    api = TF.load("sp lex")
+    for node in api.F.sp.s("verb"):
+        print(api.T.text(node))
+"""
+
 from cfabric._core import BANNER, NAME, VERSION, Fabric
 from cfabric.downloader import download, get_cache_dir, list_corpora
 from cfabric.results import CorpusInfo, FeatureInfo, NodeInfo, NodeList, SearchResult
@@ -20,5 +29,4 @@ __all__ = [
     "FeatureInfo",
     "CorpusInfo",
     "__version__",
-    "_core",
 ]

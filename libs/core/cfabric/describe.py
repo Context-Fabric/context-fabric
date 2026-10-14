@@ -175,7 +175,7 @@ class FeatureDescription:
         # Try as edge feature
         eobj = api.Es(feature, warn=False)
         if eobj:
-            has_values = eobj.hasEdgeValues()
+            has_values = eobj.doValues
             result = cls(
                 name=feature,
                 kind="edge",
