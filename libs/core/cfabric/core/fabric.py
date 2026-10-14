@@ -592,16 +592,6 @@ class Fabric:
             loadableFeatures = allFeatures["nodes"] + allFeatures["edges"]
             self.load(loadableFeatures, add=True, silent=silent)
 
-        # Compute sections (requires section features to be loaded)
-        if (
-            getattr(self, 'sectionsOK', False)
-            and hasattr(self, 'sectionTypes')
-            and not hasattr(api.C, 'sections')
-        ):
-            sections_data = sectionsFromApi(api, self.sectionTypes, self.sectionFeats)
-            if sections_data:
-                setattr(api.C, 'sections', Computed(api, sections_data))
-
         return api
 
     def save(

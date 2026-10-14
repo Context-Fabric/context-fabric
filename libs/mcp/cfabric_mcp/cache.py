@@ -35,14 +35,10 @@ class CachedSearchResult:
     corpus: str
     template: str
     results: list[tuple[int, ...]]
+    total_count: int
     created_at: float
     expires_at: float
     last_accessed: float = field(default_factory=time.time)
-    total_count: int = 0
-
-    def __post_init__(self) -> None:
-        if self.total_count == 0:
-            self.total_count = len(self.results)
 
     @property
     def is_truncated(self) -> bool:
@@ -156,10 +152,10 @@ class SearchCache:
                 corpus=corpus,
                 template=template,
                 results=results,
+                total_count=total_count,
                 created_at=now,
                 expires_at=now + ttl,
                 last_accessed=now,
-                total_count=total_count,
             )
 
             # Evict old entries if needed
