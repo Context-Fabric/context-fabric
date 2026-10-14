@@ -52,12 +52,12 @@ pub use index::{
 pub use mapped::{
     Chunk, ChunkLengthKey, ChunkPositionKey, ComputedFeatureData, ConfigFeatureView,
     EdgeFeatureView, EdgeFrequency, MappedCompiledCorpus, MappedNodeFeatureView, MappedNodeValue,
-    MappedSections, MappedText, MixedNodeFeatureView, SectionOptions, SectionsContext,
-    StringPoolNodeFeatureView, TextContext, TextOptions, WalkEvent,
+    MappedSections, MixedNodeFeatureView, SectionOptions, SectionsContext,
+    StringPoolNodeFeatureView, TextOptions, TextRenderer, WalkEvent,
 };
 pub use search::{MappedSearch, SearchSets, SearchStudy};
 pub use tf::{
-    EdgeFeature, FeatureInventory, NodeFeature, TfFeature, TfFeatureKind, TfFeatureMetadata,
+    EdgeFeature, FeatureInventory, NodeFeature, Otext, TfFeature, TfFeatureKind, TfFeatureMetadata,
     explore_feature_paths, parse_tf_file, parse_tf_file_metadata, tf_from_value, value_from_tf,
 };
 pub use value::FeatureValue;

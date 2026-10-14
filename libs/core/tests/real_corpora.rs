@@ -54,14 +54,15 @@ fn renders_bhsa_text_from_otext_format_features() {
         ],
     )
     .unwrap();
-    let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
-    let text = MappedText::new(&mapped).unwrap();
+    let mapped = std::sync::Arc::new(MappedCompiledCorpus::open(&cache_path).unwrap());
+    let renderer = TextRenderer::new(&mapped).unwrap();
+    let text = |format: Option<&str>| renderer.text(1, &TextOptions::new(format, None)).unwrap();
 
-    let original = text.text(1, Some("text-orig-full")).unwrap();
+    let original = text(Some("text-orig-full"));
     assert!(!original.is_empty());
-    assert_eq!(text.text(1, None).unwrap(), original);
-    assert_eq!(text.text(1, Some("fmt:text-orig-full")).unwrap(), original);
-    let transliterated = text.text(1, Some("text-trans-full")).unwrap();
+    assert_eq!(text(None), original);
+    assert_eq!(text(Some("fmt:text-orig-full")), original);
+    let transliterated = text(Some("text-trans-full"));
     assert!(!transliterated.is_empty());
     assert_ne!(original, transliterated);
 }

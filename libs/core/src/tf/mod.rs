@@ -3,11 +3,13 @@
 
 pub(crate) mod explore;
 pub(crate) mod feature;
+mod otext;
 pub(crate) mod parser;
 mod writer;
 
 pub use explore::{FeatureInventory, explore_feature_paths};
 pub use feature::{EdgeFeature, NodeFeature};
+pub use otext::Otext;
 pub use parser::{TfFeatureKind, TfFeatureMetadata, parse_tf_file, parse_tf_file_metadata};
 
 use std::collections::BTreeMap;

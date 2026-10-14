@@ -168,8 +168,9 @@ pub fn sections_with(
     lev_down: &[Vec<u32>],
 ) -> Option<SectionsData> {
     let max_slot = corpus.max_slot();
-    let section_types = corpus.section_types();
-    let section_features = corpus.section_features();
+    let otext = corpus.otext();
+    let section_types = otext.section_types;
+    let section_features = otext.section_features;
     if section_types.len() < 2 || section_features.len() < 2 {
         return None;
     }
@@ -292,8 +293,9 @@ pub fn sections_with(
 }
 
 pub fn structure(corpus: &Corpus) -> Option<StructureData> {
-    let structure_types = corpus.structure_types();
-    let structure_features = corpus.structure_features();
+    let otext = corpus.otext();
+    let structure_types = otext.structure_types;
+    let structure_features = otext.structure_features;
     // An unusable configuration (Text-Fabric warns "N structure levels but M
     // corresponding features" / "duplicate structure levels" and then fails to
     // build its Text API) counts as no structure configured.

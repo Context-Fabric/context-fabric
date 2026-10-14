@@ -22,7 +22,7 @@ use super::visibility::FeatureVisibility;
 use crate::config::{OSLOTS, OTYPE};
 use crate::fabric::Fabric;
 use crate::mapped::MappedCompiledCorpus;
-use crate::tf::{EdgeFeature, FeatureInventory, NodeFeature, TfFeature};
+use crate::tf::{EdgeFeature, FeatureInventory, NodeFeature, Otext, TfFeature};
 use crate::value::FeatureValue;
 
 fn strings_from_optional_python(value: Option<&Bound<'_, PyAny>>) -> PyResult<Option<Vec<String>>> {
@@ -230,25 +230,12 @@ impl PyFabric {
         self.report_error(py, "Not all features could be loaded / computed")
     }
 
-    fn otext_list(&self, py: Python<'_>, key: &str) -> PyResult<Vec<String>> {
+    /// The `otext` config of the loaded dataset (empty before a load).
+    fn otext(&self, py: Python<'_>) -> PyResult<Otext> {
         let Some(api) = &self.api else {
-            return Ok(Vec::new());
+            return Ok(Otext::default());
         };
-        let api = api.bind(py).borrow();
-        let value = api
-            .corpus
-            .config_feature("otext")?
-            .and_then(|otext| otext.metadata_value(key).ok().flatten().map(str::to_string));
-        Ok(value
-            .map(|value| {
-                value
-                    .split(',')
-                    .map(str::trim)
-                    .filter(|item| !item.is_empty())
-                    .map(str::to_string)
-                    .collect()
-            })
-            .unwrap_or_default())
+        Ok(api.bind(py).borrow().corpus.otext()?.clone())
     }
 }
 
@@ -459,28 +446,28 @@ impl PyFabric {
     #[getter]
     #[allow(non_snake_case)]
     fn sectionTypes(&self, py: Python<'_>) -> PyResult<Vec<String>> {
-        self.otext_list(py, "sectionTypes")
+        Ok(self.otext(py)?.section_types)
     }
 
     /// Section features from the `otext` config of the loaded dataset.
     #[getter]
     #[allow(non_snake_case)]
     fn sectionFeats(&self, py: Python<'_>) -> PyResult<Vec<String>> {
-        self.otext_list(py, "sectionFeatures")
+        Ok(self.otext(py)?.section_features)
     }
 
     /// Structure types from the `otext` config of the loaded dataset.
     #[getter]
     #[allow(non_snake_case)]
     fn structureTypes(&self, py: Python<'_>) -> PyResult<Vec<String>> {
-        self.otext_list(py, "structureTypes")
+        Ok(self.otext(py)?.structure_types)
     }
 
     /// Structure features from the `otext` config of the loaded dataset.
     #[getter]
     #[allow(non_snake_case)]
     fn structureFeats(&self, py: Python<'_>) -> PyResult<Vec<String>> {
-        self.otext_list(py, "structureFeatures")
+        Ok(self.otext(py)?.structure_features)
     }
 
     /// The API made by the most recent load.

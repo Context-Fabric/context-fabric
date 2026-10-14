@@ -22,6 +22,7 @@ use crate::mapped::{
     OwnedEdgeFeature, OwnedMixedFeature, OwnedNodeFeature, OwnedStringPoolFeature,
     StringPoolNodeFeatureView,
 };
+use crate::tf::Otext;
 
 /// Per-corpus cache of parsed feature parts, keyed by feature name. Holds
 /// `Arc`s so callers clone a pointer (cheap) under a short-lived lock and then
@@ -42,6 +43,8 @@ pub struct MappedCompiledCorpus {
     caches: RwLock<ViewCaches>,
     pub(crate) sections_cache: OnceLock<Option<SectionsData>>,
     pub(crate) structure_cache: OnceLock<Option<StructureData>>,
+    /// The `otext` config feature, parsed on first use.
+    otext_cache: OnceLock<Otext>,
     /// Computed once: `compute_mapped_levels` scans every `otype` row and reads
     /// each non-slot node's `oslots` row (~1M edge reads on BHSA), far too slow
     /// to repeat per `freqList`/`otypeRank` call.
@@ -89,6 +92,7 @@ impl MappedCompiledCorpus {
             caches: RwLock::new(ViewCaches::default()),
             sections_cache: OnceLock::new(),
             structure_cache: OnceLock::new(),
+            otext_cache: OnceLock::new(),
             levels_cache: OnceLock::new(),
             type_nodes_cache: OnceLock::new(),
             max_slot_cache: OnceLock::new(),
@@ -97,6 +101,19 @@ impl MappedCompiledCorpus {
 
     pub fn metadata(&self) -> &CompiledMetadata {
         &self.metadata
+    }
+
+    /// The `otext` config feature: sections, structure and text formats (empty
+    /// when the corpus has none).
+    pub fn otext(&self) -> Result<&Otext> {
+        if let Some(otext) = self.otext_cache.get() {
+            return Ok(otext);
+        }
+        let otext = match self.config_feature("otext")? {
+            Some(view) => Otext::from_metadata(&view.metadata()?),
+            None => Otext::default(),
+        };
+        Ok(self.otext_cache.get_or_init(|| otext))
     }
 
     pub fn all_node_features(&self, warp: bool) -> Vec<String> {
@@ -495,11 +512,7 @@ impl MappedCompiledCorpus {
 
         // Honor `@levelConstraints` (TF `prepare.py`) so the otype ranks derived
         // from this list (and hence canonical tie-breaks) match Text-Fabric.
-        if let Some(spec) = self
-            .config_feature("otext")?
-            .and_then(|otext| otext.metadata_value("levelConstraints").transpose())
-            .transpose()?
-        {
+        if let Some(spec) = &self.otext()?.level_constraints {
             crate::index::apply_level_constraints(&mut levels, spec, |level| {
                 level.node_type.as_str()
             });

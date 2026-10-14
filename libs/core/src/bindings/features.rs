@@ -1422,113 +1422,16 @@ impl PyComputeds {
     fn characters_to_py(&self, py: Python<'_>) -> PyResult<PyObject> {
         // TF C.characters.data shape: dict{format: sorted [(char, count)]}.
         //
-        // The mapped core exposes no `characters` accessor (it is not a
-        // `computed_feature` arm and `precompute::characters` needs the in-memory
-        // Corpus), so we reconstruct it here from the `otext` `fmt:` specs and the
-        // referenced node-feature values. The feature names in a format spec are
-        // extracted with a simplified `{...}` token scanner, which may diverge
-        // from TF's full format compiler on exotic specs; on plain `{feature}`
-        // specs (BHSA, mini fixtures) it matches.
         let result = PyDict::new(py);
-        let Some(otext) = self.corpus.config_feature("otext")? else {
-            return Ok(result.into());
-        };
-        let meta = otext.metadata()?;
-
-        // format name -> feature list
-        let mut formats: BTreeMap<String, Vec<String>> = BTreeMap::new();
-        for (key, value) in &meta {
-            let Some(format_name) = key.strip_prefix("fmt:") else {
-                continue;
-            };
-            let Some(spec) = value else {
-                continue;
-            };
-            formats.insert(format_name.to_string(), extract_format_features(spec));
-        }
-
-        // char counts per feature (only computed once per feature)
-        let mut counts_by_feature: BTreeMap<String, BTreeMap<String, usize>> = BTreeMap::new();
-        for features in formats.values() {
-            for feature in features {
-                if counts_by_feature.contains_key(feature) {
-                    continue;
-                }
-                let mut counts: BTreeMap<String, usize> = BTreeMap::new();
-                if let Some(view) = self.corpus.node_feature(feature)? {
-                    for row in view.items()? {
-                        let (_, value) = row;
-                        let text = match value {
-                            MappedNodeValue::Str(value) => value.to_string(),
-                            MappedNodeValue::Int(value) => value.to_string(),
-                        };
-                        for character in text.chars() {
-                            *counts.entry(character.to_string()).or_default() += 1;
-                        }
-                    }
-                }
-                counts_by_feature.insert(feature.clone(), counts);
-            }
-        }
-
-        for (format_name, features) in &formats {
-            let mut counts: BTreeMap<String, usize> = BTreeMap::new();
-            for feature in features {
-                if let Some(feature_counts) = counts_by_feature.get(feature) {
-                    for (character, count) in feature_counts {
-                        *counts.entry(character.clone()).or_default() += count;
-                    }
-                }
-            }
+        for (format_name, counts) in self.corpus.format_characters()? {
             let rows = counts
                 .into_iter()
-                .map(|(character, count)| {
-                    let row: Vec<PyObject> = vec![
-                        PyString::new(py, &character).into(),
-                        count.into_pyobject(py)?.into(),
-                    ];
-                    PyTuple::new(py, row).map(Into::into)
-                })
-                .collect::<PyResult<Vec<PyObject>>>()?;
+                .map(|(character, count)| (character.to_string(), count))
+                .collect::<Vec<_>>();
             result.set_item(format_name, PyTuple::new(py, rows)?)?;
         }
-
         Ok(result.into())
     }
-}
-
-/// Extracts node-feature tokens from a TF `otext` format spec. Feature names are
-/// the identifier-like runs that appear inside `{...}` groups; literals outside
-/// braces (separators) are ignored. Tokens that are not real node features map
-/// to no value and contribute nothing.
-fn extract_format_features(spec: &str) -> Vec<String> {
-    let mut features: Vec<String> = Vec::new();
-    let mut depth: i32 = 0;
-    let mut current = String::new();
-    for ch in spec.chars() {
-        match ch {
-            '{' => {
-                depth += 1;
-            }
-            '}' => {
-                if !current.is_empty() && !features.contains(&current) {
-                    features.push(current.clone());
-                }
-                current.clear();
-                depth -= 1;
-            }
-            c if depth > 0 && (c.is_alphanumeric() || c == '_' || c == '@') => current.push(c),
-            _ => {
-                if depth > 0 && !current.is_empty() {
-                    if !features.contains(&current) {
-                        features.push(current.clone());
-                    }
-                    current.clear();
-                }
-            }
-        }
-    }
-    features
 }
 
 #[pymethods]

@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
 use crate::error::{CfError, Result};
-use crate::tf::{EdgeFeature, NodeFeature, TfFeature, parse_tf_file};
+use crate::tf::{EdgeFeature, NodeFeature, Otext, TfFeature, parse_tf_file};
 use crate::value::FeatureValue;
 
 #[derive(Debug)]
@@ -102,9 +102,7 @@ impl Corpus {
         }
         let level_constraints = config_features
             .get("otext")
-            .and_then(|otext| otext.get("levelConstraints"))
-            .and_then(Option::as_deref)
-            .map(str::to_string);
+            .and_then(|otext| Otext::from_metadata(otext).level_constraints);
         let type_ranks = Self::compute_type_ranks(
             &slot_type,
             &nodes_by_type,
@@ -265,35 +263,10 @@ impl Corpus {
         self.config_features.get(name)
     }
 
-    pub fn section_types(&self) -> Vec<String> {
+    /// The `otext` config feature (empty when absent).
+    pub fn otext(&self) -> Otext {
         self.config_feature("otext")
-            .and_then(|metadata| metadata.get("sectionTypes"))
-            .and_then(Option::as_deref)
-            .map(parse_csv_config)
-            .unwrap_or_default()
-    }
-
-    pub fn section_features(&self) -> Vec<String> {
-        self.config_feature("otext")
-            .and_then(|metadata| metadata.get("sectionFeatures"))
-            .and_then(Option::as_deref)
-            .map(parse_csv_config)
-            .unwrap_or_default()
-    }
-
-    pub fn structure_types(&self) -> Vec<String> {
-        self.config_feature("otext")
-            .and_then(|metadata| metadata.get("structureTypes"))
-            .and_then(Option::as_deref)
-            .map(parse_csv_config)
-            .unwrap_or_default()
-    }
-
-    pub fn structure_features(&self) -> Vec<String> {
-        self.config_feature("otext")
-            .and_then(|metadata| metadata.get("structureFeatures"))
-            .and_then(Option::as_deref)
-            .map(parse_csv_config)
+            .map(Otext::from_metadata)
             .unwrap_or_default()
     }
 
@@ -509,14 +482,4 @@ fn is_config_feature_file(path: &Path) -> Result<bool> {
         source,
     })?;
     Ok(first.trim_end() == "@config")
-}
-
-fn parse_csv_config(value: &str) -> Vec<String> {
-    value
-        .split(',')
-        .filter_map(|item| {
-            let item = item.trim();
-            (!item.is_empty()).then(|| item.to_string())
-        })
-        .collect()
 }

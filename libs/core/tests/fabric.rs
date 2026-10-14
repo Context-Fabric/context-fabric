@@ -140,8 +140,12 @@ fn fabric_modules_use_last_module_wins_and_report_ignored_feature_paths() {
             .unwrap(),
         Some("extra1")
     );
+    let corpus = std::sync::Arc::new(corpus);
     assert_eq!(
-        MappedText::new(&corpus).unwrap().text(2, None).unwrap(),
+        TextRenderer::new(&corpus)
+            .unwrap()
+            .text(2, &TextOptions::default())
+            .unwrap(),
         "extra2"
     );
 }

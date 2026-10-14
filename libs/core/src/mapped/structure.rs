@@ -33,9 +33,7 @@ impl MappedCompiledCorpus {
         if self.structure_data()?.is_none() {
             return Ok(Vec::new());
         }
-        let types = self.otext_list("structureTypes")?;
-        let features = self.otext_list("structureFeatures")?;
-        Ok(types.into_iter().zip(features).collect())
+        Ok(self.otext()?.structure_headings())
     }
 
     /// Whether `node`'s type is one of the configured structure types; Text-Fabric's
@@ -48,25 +46,10 @@ impl MappedCompiledCorpus {
             return Ok(false);
         };
         Ok(self
-            .otext_list("structureTypes")?
+            .otext()?
+            .structure_types
             .iter()
             .any(|structure_type| structure_type == node_type))
-    }
-
-    fn otext_list(&self, key: &str) -> Result<Vec<String>> {
-        Ok(self
-            .config_feature("otext")?
-            .and_then(|otext| otext.metadata_value(key).transpose())
-            .transpose()?
-            .map(|value| {
-                value
-                    .split(',')
-                    .map(str::trim)
-                    .filter(|item| !item.is_empty())
-                    .map(str::to_string)
-                    .collect()
-            })
-            .unwrap_or_default())
     }
 
     /// `T.structure(node)`; see [`StructureData::tree`].
@@ -137,5 +120,61 @@ impl MappedCompiledCorpus {
             return Ok(None);
         }
         Ok(data.pretty(node, full_heading, &|_| true))
+    }
+
+    /// `T.structureInfo()` — a human-readable summary of how structure is
+    /// configured, mirroring text-fabric's `T.structureInfo` (`tf/core/text.py:655`),
+    /// backed by `structure_data()`.
+    ///
+    /// TF prints this summary and returns `None`; here we return the formatted
+    /// string so callers can print it (or assert on it). When no structure is
+    /// configured we return TF's "No structural elements configured" line.
+    pub fn structure_info(&self) -> Result<String> {
+        let Some(data) = self.structure_data()? else {
+            return Ok("No structural elements configured".to_string());
+        };
+        let headings = self.structure_headings()?;
+        let n_structure = data.heading_from_node.len();
+        let mut out = String::new();
+        out.push_str("A heading is a tuple of pairs (node type, feature value)\n");
+        out.push_str(
+            "\tof node types and features that have been configured as structural elements\n",
+        );
+        out.push_str(&format!(
+            "These {} structural elements have been configured\n",
+            headings.len()
+        ));
+        for (node_type, feature) in &headings {
+            out.push_str(&format!(
+                "\tnode type {node_type:<10} with heading feature {feature}\n"
+            ));
+        }
+        out.push_str("You can get them as a tuple with T.headings.\n");
+        out.push_str(&format!(
+            "\nThere are {n_structure} structural elements in the dataset.\n"
+        ));
+        if !data.multiple.is_empty() {
+            let n_multiple = data.multiple.len();
+            let t_multiple: usize = data.multiple.values().map(Vec::len).sum();
+            out.push_str(&format!(
+                "WARNING: {n_multiple} structure headings with hdMult occurrences (total {t_multiple})\n"
+            ));
+            for (key, nodes) in data.multiple.iter().take(10) {
+                let key_rep = StructureHeading::repr(key);
+                let n_nodes = nodes.len();
+                out.push_str(&format!("\t{key_rep} has {n_nodes} occurrences\n"));
+                let sample = nodes
+                    .iter()
+                    .take(5)
+                    .map(u32::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                out.push_str(&format!("\t\t{sample}\n"));
+                if n_nodes > 5 {
+                    out.push_str(&format!("\t\tand {} more\n", n_nodes - 5));
+                }
+            }
+        }
+        Ok(out)
     }
 }

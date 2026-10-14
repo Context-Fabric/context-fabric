@@ -7,13 +7,13 @@
 //! `F.<other>` raises `AttributeError`. `TF.load(..., add=True)` and
 //! `api.ensureLoaded(...)` widen the set in place.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::sync::RwLock;
 
-use crate::config::{OSLOTS, OTEXT, OTYPE};
+use crate::config::{OSLOTS, OTYPE};
 use crate::error::Result;
+use crate::mapped::FormatTemplate;
 use crate::mapped::MappedCompiledCorpus;
-use crate::mapped::text::collect_formats;
 
 /// The set of loaded (exposed) feature names, or "everything" for `loadAll`.
 pub(crate) struct FeatureVisibility {
@@ -61,54 +61,31 @@ impl FeatureVisibility {
     }
 }
 
-/// Split an `otext` comma-separated list, like TF's `itemize(value, ",")`.
-fn itemize(value: Option<&str>) -> Vec<String> {
-    value
-        .map(|value| {
-            value
-                .split(',')
-                .map(str::trim)
-                .filter(|item| !item.is_empty())
-                .map(str::to_string)
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
 /// The features TF loads implicitly for the T-API (`TF.textFeatures` in
 /// `tf/core/fabric.py`): section features (and the language variants of the
 /// first one) when sections are configured, structure features when structure
 /// is configured, and every feature referenced by a `fmt:` text format.
 pub(crate) fn text_features(corpus: &MappedCompiledCorpus) -> Result<BTreeSet<String>> {
+    let otext = corpus.otext()?;
     let mut features = BTreeSet::new();
-    let Some(otext) = corpus.config_feature(OTEXT)? else {
-        return Ok(features);
-    };
-    let config: BTreeMap<String, String> = otext
-        .metadata()?
-        .into_iter()
-        .map(|(key, value)| (key, value.unwrap_or_default()))
-        .collect();
-    let section_types = itemize(config.get("sectionTypes").map(String::as_str));
-    let section_feats = itemize(config.get("sectionFeatures").map(String::as_str));
-    if (1..=3).contains(&section_types.len()) && (1..=3).contains(&section_feats.len()) {
-        let base = section_feats[0].clone();
-        let prefix = format!("{base}@");
+    if otext.has_sections() {
+        let variant_prefix = format!("{}@", otext.section_features[0]);
         features.extend(
             corpus
                 .metadata()
                 .node_features
                 .iter()
-                .filter(|feature| feature.name.starts_with(&prefix))
+                .filter(|feature| feature.name.starts_with(&variant_prefix))
                 .map(|feature| feature.name.clone()),
         );
-        features.extend(section_feats);
+        features.extend(otext.section_features.iter().cloned());
     }
-    let structure_types = itemize(config.get("structureTypes").map(String::as_str));
-    let structure_feats = itemize(config.get("structureFeatures").map(String::as_str));
-    if !structure_types.is_empty() && !structure_feats.is_empty() {
-        features.extend(structure_feats);
+    if otext.has_structure() {
+        features.extend(otext.structure_features.iter().cloned());
     }
-    features.extend(collect_formats(&config).1);
+    for template in otext.formats.values() {
+        let template = FormatTemplate::parse(template);
+        features.extend(template.features().into_iter().map(str::to_string));
+    }
     Ok(features)
 }

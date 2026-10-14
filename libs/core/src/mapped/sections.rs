@@ -1,7 +1,7 @@
 //! Locality (`L.u/d/n/p/i`), sections (`T.sectionFromNode`,
 //! `T.nodeFromSection`) and walking (`N.walk`) over the mapped corpus.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::{Arc, RwLock};
 
 use crate::error::{CfError, Result};
@@ -26,6 +26,51 @@ pub enum WalkEvent {
     Slot(u32),
 }
 
+impl MappedCompiledCorpus {
+    /// The section-0 feature and its language variants by language code (TF
+    /// `sectionFeatsWithLanguage`): exactly the first section feature and its
+    /// `<feature>@<code>` variants, keyed by their `languageCode` metadata
+    /// (empty for the base feature). Empty without sections.
+    pub fn section_0_language_features(&self) -> Result<BTreeMap<String, String>> {
+        let otext = self.otext()?;
+        let mut features = BTreeMap::new();
+        if otext.section_types.is_empty() {
+            return Ok(features);
+        }
+        let Some(base) = otext.section_features.first() else {
+            return Ok(features);
+        };
+        let prefix = format!("{base}@");
+        for feature in &self.metadata().node_features {
+            if feature.name == *base || feature.name.starts_with(&prefix) {
+                let code = feature.metadata_value("languageCode").unwrap_or("");
+                features.insert(code.to_string(), feature.name.clone());
+            }
+        }
+        Ok(features)
+    }
+
+    /// `T.languages`: each section-0 language code with its `language` and
+    /// `languageEnglish` metadata (`"default"` when absent).
+    pub fn languages(&self) -> Result<BTreeMap<String, BTreeMap<String, String>>> {
+        let mut languages = BTreeMap::new();
+        for (code, name) in self.section_0_language_features()? {
+            let Some(feature) = self.metadata().node_feature(&name) else {
+                continue;
+            };
+            let info = ["language", "languageEnglish"]
+                .into_iter()
+                .map(|key| {
+                    let value = feature.metadata_value(key).unwrap_or("default");
+                    (key.to_string(), value.to_string())
+                })
+                .collect();
+            languages.insert(code, info);
+        }
+        Ok(languages)
+    }
+}
+
 /// The slot type plus the `otext` section and structure configuration, parsed
 /// once and shared by `Arc` between a [`SectionsContext`] and every
 /// [`MappedSections`] view it hands out.
@@ -41,19 +86,10 @@ impl SectionConfig {
             .str_value(1)?
             .ok_or_else(|| CfError::MissingFeature("otype slot type".to_string()))?
             .to_string();
-        let otext = corpus.config_feature("otext")?;
-        let config = |key: &str| -> Result<Vec<String>> {
-            Ok(otext
-                .as_ref()
-                .and_then(|metadata| metadata.get(key).transpose())
-                .transpose()?
-                .flatten()
-                .map(parse_csv_config)
-                .unwrap_or_default())
-        };
+        let otext = corpus.otext()?;
         Ok(Self {
-            section_types: config("sectionTypes")?,
-            section_features: config("sectionFeatures")?,
+            section_types: otext.section_types.clone(),
+            section_features: otext.section_features.clone(),
             slot_type,
         })
     }
@@ -84,9 +120,9 @@ pub struct SectionsContext {
     /// from `sec0_nodes` per language feature actually used. A few dozen entries
     /// per map.
     sec0_index: RwLock<HashMap<String, Arc<HashMap<FeatureValue, u32>>>>,
-    /// Language code -> section-0 feature name (TF `sectionFeatsWithLanguage`:
-    /// the first section feature and its `@<code>` variants), built once.
-    sec0_lang_features: std::sync::OnceLock<HashMap<String, String>>,
+    /// Language code -> section-0 feature name; see
+    /// [`MappedCompiledCorpus::section_0_language_features`].
+    sec0_lang_features: BTreeMap<String, String>,
 }
 
 /// The section-feature handles backing `T.sectionFromNode`. Built once, lazily.
@@ -119,7 +155,7 @@ impl SectionsContext {
             heading: std::sync::OnceLock::new(),
             sec0_nodes: std::sync::OnceLock::new(),
             sec0_index: RwLock::new(HashMap::new()),
-            sec0_lang_features: std::sync::OnceLock::new(),
+            sec0_lang_features: corpus.section_0_language_features()?,
         })
     }
 
@@ -142,25 +178,9 @@ impl SectionsContext {
             });
         }
 
-        // Language-aware section-0 features: EXACTLY the first section feature and
-        // its `@<code>` variants (TF `sectionFeatsWithLanguage`,
-        // tf/core/fabric.py:364) — never arbitrary features that happen to carry
-        // a `languageCode`.
         let mut section0_lang_handles: HashMap<String, Option<OwnedNodeFeature>> = HashMap::new();
-        if !self.config.section_types.is_empty() {
-            if let Some(base) = self.config.section_features.first() {
-                let prefix = format!("{base}@");
-                for feature in &corpus.metadata().node_features {
-                    if feature.name != *base && !feature.name.starts_with(&prefix) {
-                        continue;
-                    }
-                    let code = feature
-                        .metadata_value("languageCode")
-                        .unwrap_or("")
-                        .to_string();
-                    section0_lang_handles.insert(code, corpus.owned_node_feature(&feature.name)?);
-                }
-            }
+        for (code, name) in &self.sec0_lang_features {
+            section0_lang_handles.insert(code.clone(), corpus.owned_node_feature(name)?);
         }
 
         let _ = self.heading.set(HeadingHandles {
@@ -210,35 +230,54 @@ impl SectionsContext {
             .collect()
     }
 
-    /// Resolve the section-0 feature name for a language code, mirroring the
-    /// bindings' `mapped_section_0_feature_for_lang` (TF
-    /// `sectionFeatsWithLanguage`): the `@<lang>` variant when present, else the
-    /// base-code feature, else the configured first section feature. Built once;
-    /// each call is two `HashMap` probes.
+    /// The section-0 feature for a language code: its `@<lang>` variant when
+    /// present, else the base-code feature, else the first section feature.
     pub fn sec0_feature_for_lang(&self, lang: &str) -> Option<&str> {
-        let features = self.sec0_lang_features.get_or_init(|| {
-            let mut features = HashMap::new();
-            if self.config.section_types.is_empty() {
-                return features;
-            }
-            let Some(base) = self.config.section_features.first() else {
-                return features;
-            };
-            let prefix = format!("{base}@");
-            for feature in &self.corpus.metadata().node_features {
-                if feature.name != *base && !feature.name.starts_with(&prefix) {
-                    continue;
-                }
-                let code = feature.metadata_value("languageCode").unwrap_or("");
-                features.insert(code.to_string(), feature.name.clone());
-            }
-            features
-        });
+        let features = &self.sec0_lang_features;
         features
             .get(lang)
             .or_else(|| features.get(""))
             .map(String::as_str)
             .or_else(|| self.config.section_features.first().map(String::as_str))
+    }
+
+    /// `T.<section0>Name` (e.g. `T.bookName`): the name, in language `lang`,
+    /// of the section-0 node containing `node` (or of `node` itself).
+    pub fn section_0_name(&self, node: u32, lang: &str) -> Result<Option<String>> {
+        let Some(section_0_type) = self.config.section_types.first() else {
+            return Ok(None);
+        };
+        let sections = self.sections();
+        let section_0_node = if sections.node_type(node)? == Some(section_0_type.as_str()) {
+            node
+        } else {
+            match sections.u(node, Some(section_0_type))?.first() {
+                Some(embedder) => *embedder,
+                None => return Ok(None),
+            }
+        };
+        let Some(feature) = self.sec0_feature_for_lang(lang) else {
+            return Ok(None);
+        };
+        Ok(
+            match sections.node_feature_value(feature, section_0_node)? {
+                Some(FeatureValue::Str(name)) => Some(name.to_string()),
+                _ => None,
+            },
+        )
+    }
+
+    /// `T.<section0>Node` (e.g. `T.bookNode`): the section-0 node named `name`
+    /// in language `lang`; of several with that name, the last in canonical
+    /// order.
+    pub fn section_0_node(&self, name: &str, lang: &str) -> Result<Option<u32>> {
+        let Some(feature) = self.sec0_feature_for_lang(lang) else {
+            return Ok(None);
+        };
+        Ok(self
+            .sec0_value_index(feature)?
+            .get(&FeatureValue::string(name))
+            .copied())
     }
 
     /// Section-0 nodes in canonical order, scanned from `otype` once.
@@ -914,14 +953,4 @@ fn section_key(value: &FeatureValue) -> std::borrow::Cow<'_, str> {
         FeatureValue::Str(text) => std::borrow::Cow::Borrowed(text),
         FeatureValue::Int(number) => std::borrow::Cow::Owned(number.to_string()),
     }
-}
-
-fn parse_csv_config(value: &str) -> Vec<String> {
-    value
-        .split(',')
-        .filter_map(|item| {
-            let item = item.trim();
-            (!item.is_empty()).then(|| item.to_string())
-        })
-        .collect()
 }

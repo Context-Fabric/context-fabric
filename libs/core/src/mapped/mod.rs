@@ -22,4 +22,4 @@ pub use node_features::{
 };
 pub use order::{Chunk, ChunkLengthKey, ChunkPositionKey};
 pub use sections::{MappedSections, SectionOptions, SectionsContext, WalkEvent};
-pub use text::{MappedText, TextContext, TextOptions};
+pub use text::{FormatTemplate, TemplatePart, TextOptions, TextRenderer};

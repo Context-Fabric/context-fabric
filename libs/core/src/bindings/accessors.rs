@@ -14,8 +14,8 @@ use super::timestamp::{Silent, write_console};
 use crate::config::DEFAULT_FORMAT;
 use crate::index::{StructureHeading, StructureTree};
 use crate::mapped::{
-    MappedCompiledCorpus, MappedSections, MappedText, SectionOptions, SectionsContext, TextContext,
-    TextOptions, WalkEvent,
+    MappedCompiledCorpus, MappedSections, SectionOptions, SectionsContext, TextOptions,
+    TextRenderer, WalkEvent,
 };
 use crate::search::{MappedSearch, SEARCH_FAIL_FACTOR, SearchSets};
 use crate::value::FeatureValue;
@@ -198,99 +198,6 @@ fn section_from_py(items: &Bound<'_, PyAny>) -> PyResult<Vec<FeatureValue>> {
         .iter()
         .map(feature_value_from_py)
         .collect::<PyResult<Vec<_>>>()
-}
-
-fn parse_csv_config(value: Option<&str>) -> Vec<String> {
-    value
-        .map(|value| {
-            value
-                .split(',')
-                .map(str::trim)
-                .filter(|item| !item.is_empty())
-                .map(str::to_string)
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-fn mapped_otext_value(
-    corpus: &MappedCompiledCorpus,
-    key: &str,
-) -> crate::error::Result<Option<String>> {
-    Ok(corpus
-        .config_feature("otext")?
-        .and_then(|feature| feature.metadata_value(key).transpose())
-        .transpose()?
-        .map(str::to_string))
-}
-
-fn mapped_section_0_language_features(
-    corpus: &MappedCompiledCorpus,
-) -> crate::error::Result<BTreeMap<String, String>> {
-    // TF `sectionFeatsWithLanguage` (tf/core/fabric.py:364): the language-aware
-    // section-0 features are EXACTLY the first section feature and its `@<code>`
-    // variants — never arbitrary features that happen to carry a `languageCode`
-    // (e.g. quran's `name@en`). Section functions also require `sectionTypes`.
-    if parse_csv_config(mapped_otext_value(corpus, "sectionTypes")?.as_deref()).is_empty() {
-        return Ok(BTreeMap::new());
-    }
-    let Some(base) = parse_csv_config(mapped_otext_value(corpus, "sectionFeatures")?.as_deref())
-        .into_iter()
-        .next()
-    else {
-        return Ok(BTreeMap::new());
-    };
-    let prefix = format!("{base}@");
-    let mut features = BTreeMap::new();
-    for feature in &corpus.metadata().node_features {
-        if feature.name != base && !feature.name.starts_with(&prefix) {
-            continue;
-        }
-        // Base feature usually has no `languageCode`; TF defaults its code to "".
-        let code = feature
-            .metadata_value("languageCode")
-            .unwrap_or("")
-            .to_string();
-        features.insert(code, feature.name.clone());
-    }
-    Ok(features)
-}
-
-fn mapped_section_0_feature_for_lang(
-    corpus: &MappedCompiledCorpus,
-    lang: &str,
-) -> crate::error::Result<Option<String>> {
-    let language_features = mapped_section_0_language_features(corpus)?;
-    if let Some(feature) = language_features.get(lang) {
-        return Ok(Some(feature.clone()));
-    }
-    if let Some(feature) = language_features.get("") {
-        return Ok(Some(feature.clone()));
-    }
-    Ok(
-        parse_csv_config(mapped_otext_value(corpus, "sectionFeatures")?.as_deref())
-            .into_iter()
-            .next(),
-    )
-}
-
-fn mapped_name_from_node(
-    corpus: &MappedCompiledCorpus,
-    lang: &str,
-) -> crate::error::Result<BTreeMap<u32, String>> {
-    let Some(feature_name) = mapped_section_0_feature_for_lang(corpus, lang)? else {
-        return Ok(BTreeMap::new());
-    };
-    let Some(feature) = corpus.node_feature(&feature_name)? else {
-        return Ok(BTreeMap::new());
-    };
-    let mut names = BTreeMap::new();
-    for (node, value) in feature.items()? {
-        if let crate::mapped::MappedNodeValue::Str(value) = value {
-            names.insert(node, value.to_string());
-        }
-    }
-    Ok(names)
 }
 
 /// Locality API (TF `L`): embedders, embeddees, and neighbours of nodes.
@@ -636,9 +543,9 @@ pub(crate) struct PyText {
     /// `T.sectionFromNode`/`T.sectionTuple` with no per-call view-cache lookup or
     /// `otext` re-parse.
     sections: OnceLock<SectionsContext>,
-    /// Fully-resolved text context (compiled `otext` formats + cached feature
-    /// handles), built once on first `T.text` call.
-    text: OnceLock<TextContext>,
+    /// The text renderer (compiled formats and their feature handles), built
+    /// on first use.
+    text: OnceLock<TextRenderer>,
 }
 
 impl PyText {
@@ -663,98 +570,13 @@ impl PyText {
             .expect("sections context just initialized"))
     }
 
-    fn text_context(&self) -> PyResult<&TextContext> {
-        if let Some(context) = self.text.get() {
-            return Ok(context);
+    fn renderer(&self) -> PyResult<&TextRenderer> {
+        if let Some(renderer) = self.text.get() {
+            return Ok(renderer);
         }
-        let context = TextContext::new(&self.corpus)?;
-        let _ = self.text.set(context);
-        Ok(self.text.get().expect("text context just initialized"))
+        let renderer = TextRenderer::new(&self.corpus)?;
+        Ok(self.text.get_or_init(|| renderer))
     }
-
-    fn otext_list(&self, key: &str) -> PyResult<Vec<String>> {
-        Ok(parse_csv_config(
-            mapped_otext_value(&self.corpus, key)?.as_deref(),
-        ))
-    }
-
-    /// The first section type, when sections are configured.
-    fn section_0_type(&self) -> PyResult<Option<String>> {
-        Ok(self.otext_list("sectionTypes")?.into_iter().next())
-    }
-
-    /// Name of the section-0 node containing `n` (TF `T.<sec0>Name`, e.g. `T.bookName`).
-    fn section_0_name(&self, n: u32, lang: &str) -> Option<String> {
-        let section_0_type = self.section_0_type().ok().flatten()?;
-        let sections = MappedSections::new(&self.corpus).ok()?;
-        let section_0_node = if sections.node_type(n).ok().flatten()? == section_0_type {
-            n
-        } else {
-            sections
-                .u(n, Some(&section_0_type))
-                .ok()?
-                .into_iter()
-                .next()?
-        };
-        mapped_name_from_node(&self.corpus, lang)
-            .ok()?
-            .get(&section_0_node)
-            .cloned()
-    }
-
-    /// The section-0 node named `name` (TF `T.<sec0>Node`, e.g. `T.bookNode`).
-    fn section_0_node(&self, name: &str, lang: &str) -> Option<u32> {
-        let section_0_type = self.section_0_type().ok().flatten()?;
-        let names = mapped_name_from_node(&self.corpus, lang).ok()?;
-        // The last node with the name, as in TF's `nodeFromName` dict.
-        self.corpus
-            .nodes_of_type(&section_0_type)
-            .ok()?
-            .into_iter()
-            .rev()
-            .find(|node| names.get(node).is_some_and(|candidate| candidate == name))
-    }
-}
-
-/// Free-standing version of [`PyText::section_heading`] so other binding classes
-/// (e.g. `Search::glean`) can reuse the language-aware section resolution.
-fn section_heading(
-    corpus: &MappedCompiledCorpus,
-    node: u32,
-    lang: &str,
-    options: &SectionOptions,
-) -> crate::error::Result<Vec<Option<FeatureValue>>> {
-    let section_features =
-        parse_csv_config(mapped_otext_value(corpus, "sectionFeatures")?.as_deref());
-    MappedSections::new(corpus)?
-        .section_tuple(node, options)?
-        .into_iter()
-        .enumerate()
-        .map(|(index, section_node)| {
-            let Some(section_node) = section_node else {
-                return Ok(None);
-            };
-            let feature_name = if index == 0 {
-                mapped_section_0_feature_for_lang(corpus, lang)?
-                    .or_else(|| section_features.get(index).cloned())
-            } else {
-                section_features.get(index).cloned()
-            };
-            let Some(feature_name) = feature_name else {
-                return Ok(None);
-            };
-            corpus
-                .node_feature(&feature_name)?
-                .and_then(|feature| feature.v(section_node).transpose())
-                .transpose()
-                .map(|value| {
-                    value.map(|value| match value {
-                        crate::mapped::MappedNodeValue::Str(value) => FeatureValue::string(value),
-                        crate::mapped::MappedNodeValue::Int(value) => FeatureValue::Int(value),
-                    })
-                })
-        })
-        .collect()
 }
 
 #[pymethods]
@@ -769,7 +591,7 @@ impl PyText {
     /// `T.bookNode(name)` when the first section type is `book`; TF attaches
     /// these under the name of the dataset's first section type.
     fn __getattr__<'py>(slf: &Bound<'py, Self>, name: &str) -> PyResult<Bound<'py, PyAny>> {
-        if let Some(section_0_type) = slf.borrow().section_0_type()? {
+        if let Some(section_0_type) = slf.borrow().corpus.otext()?.section_types.first().cloned() {
             if name == format!("{section_0_type}Name") {
                 return slf.getattr("_sec0Name");
             }
@@ -789,7 +611,7 @@ impl PyText {
             .iter()
             .map(|name| name.extract::<String>())
             .collect::<PyResult<_>>()?;
-        if let Some(section_0_type) = slf.borrow().section_0_type()? {
+        if let Some(section_0_type) = slf.borrow().corpus.otext()?.section_types.first().cloned() {
             names.push(format!("{section_0_type}Name"));
             names.push(format!("{section_0_type}Node"));
         }
@@ -799,15 +621,19 @@ impl PyText {
     /// Name of the section-0 node containing node `n` (exposed as `T.<sec0>Name`).
     #[allow(non_snake_case)]
     #[pyo3(signature = (n, lang="en"))]
-    fn _sec0Name(&self, #[pyo3(from_py_with = node_number)] n: u32, lang: &str) -> Option<String> {
-        self.section_0_name(n, lang)
+    fn _sec0Name(
+        &self,
+        #[pyo3(from_py_with = node_number)] n: u32,
+        lang: &str,
+    ) -> PyResult<Option<String>> {
+        Ok(self.sections_context()?.section_0_name(n, lang)?)
     }
 
     /// The section-0 node with name `name` (exposed as `T.<sec0>Node`).
     #[allow(non_snake_case)]
     #[pyo3(signature = (name, lang="en"))]
-    fn _sec0Node(&self, name: &str, lang: &str) -> Option<u32> {
-        self.section_0_node(name, lang)
+    fn _sec0Node(&self, name: &str, lang: &str) -> PyResult<Option<u32>> {
+        Ok(self.sections_context()?.section_0_node(name, lang)?)
     }
 
     /// Whether the T-API is usable (always `True`).
@@ -836,14 +662,14 @@ impl PyText {
     #[getter]
     #[allow(non_snake_case)]
     fn defaultFormats(&self) -> PyResult<BTreeMap<String, String>> {
-        let text = MappedText::new(&self.corpus)?;
-        let mut defaults = BTreeMap::new();
-        for format in text.formats()?.into_keys() {
-            if let Some(node_type) = text.split_default_format(&format)? {
-                defaults.insert(node_type, format);
-            }
-        }
-        Ok(defaults)
+        let renderer = self.renderer()?;
+        Ok(self
+            .corpus
+            .otext()?
+            .formats
+            .keys()
+            .filter_map(|name| Some((renderer.split_default_format(name)?, name.clone())))
+            .collect())
     }
 
     /// Section types, from big to small (e.g. `["book", "chapter", "verse"]`).
@@ -881,7 +707,9 @@ impl PyText {
     #[getter]
     #[allow(non_snake_case)]
     fn sectionFeatsWithLanguage(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
-        let mut names: Vec<String> = mapped_section_0_language_features(&self.corpus)?
+        let mut names: Vec<String> = self
+            .corpus
+            .section_0_language_features()?
             .into_values()
             .collect();
         names.sort();
@@ -891,14 +719,14 @@ impl PyText {
     /// Text formats, mapped to the node type they render.
     #[getter]
     fn formats(&self) -> PyResult<std::collections::BTreeMap<String, String>> {
-        Ok(MappedText::new(&self.corpus)?.formats()?)
+        Ok(self.renderer()?.formats()?)
     }
 
     /// Structure types, from big to small.
     #[getter]
     #[allow(non_snake_case)]
     fn structureTypes(&self) -> PyResult<Vec<String>> {
-        self.otext_list("structureTypes")
+        Ok(self.corpus.otext()?.structure_types.clone())
     }
 
     /// The structure types as a set.
@@ -912,7 +740,7 @@ impl PyText {
     #[getter]
     #[allow(non_snake_case)]
     fn structureFeats(&self) -> PyResult<Vec<String>> {
-        self.otext_list("structureFeatures")
+        Ok(self.corpus.otext()?.structure_features.clone())
     }
 
     /// Languages of the section-0 feature, `{code: {language, languageEnglish}}`.
@@ -921,13 +749,13 @@ impl PyText {
         &self,
     ) -> PyResult<std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>>
     {
-        Ok(MappedText::new(&self.corpus)?.languages()?)
+        Ok(self.corpus.languages()?)
     }
 
     /// Print an overview of the structure configuration.
     #[allow(non_snake_case)]
     fn structureInfo(&self, py: Python<'_>) -> PyResult<()> {
-        let info = MappedText::new(&self.corpus)?.structure_info()?;
+        let info = self.corpus.structure_info()?;
         write_console(py, false, true, &info)
     }
 
@@ -942,13 +770,13 @@ impl PyText {
     /// type defaults to the slot type.
     #[allow(non_snake_case)]
     fn splitFormat(&self, tpl: &str) -> PyResult<(String, String)> {
-        Ok(MappedText::new(&self.corpus)?.split_format(tpl)?)
+        Ok(self.renderer()?.split_format(tpl))
     }
 
     /// The node type of a format named `<type>-default`, else `None`.
     #[allow(non_snake_case)]
     fn splitDefaultFormat(&self, tpl: &str) -> PyResult<Option<String>> {
-        Ok(MappedText::new(&self.corpus)?.split_default_format(tpl)?)
+        Ok(self.renderer()?.split_default_format(tpl))
     }
 
     /// The text of a node, or of an iterable of nodes (concatenated).
@@ -978,7 +806,7 @@ impl PyText {
         // TF `T.text` (tf/core/text.py:972) accepts a single int OR an arbitrary
         // iterable of node ids; iterables are rendered per node and the pieces are
         // concatenated with no separator (`"".join(material)`, text.py:1182).
-        let engine = self.text_context()?;
+        let renderer = self.renderer()?;
         let options = TextOptions::new(fmt.map(str::to_string), descend);
         let nodes = if nodes.is_instance_of::<PyInt>() {
             vec![node_number(nodes)?]
@@ -997,7 +825,7 @@ impl PyText {
         let mut material = String::new();
         for node in nodes {
             if let Some(func) = func {
-                for text_node in engine.text_nodes_with_options(node, &options)? {
+                for text_node in renderer.rendered_nodes(node, &options)? {
                     if explain {
                         write_console(
                             py,
@@ -1011,10 +839,10 @@ impl PyText {
                 continue;
             }
             if !explain {
-                engine.render_into(node, &options, &mut material)?;
+                renderer.render_into(node, &options, &mut material)?;
                 continue;
             }
-            let rendered = engine.text_with_options(node, &options)?;
+            let rendered = renderer.text(node, &options)?;
             {
                 write_console(
                     py,
@@ -1022,7 +850,7 @@ impl PyText {
                     true,
                     &format!(
                         "\tNODE {node}: renders {:?} as {rendered:?}",
-                        engine.text_nodes_with_options(node, &options)?
+                        renderer.rendered_nodes(node, &options)?
                     ),
                 )?;
             }
@@ -1036,8 +864,7 @@ impl PyText {
     /// element is rendered exactly as the scalar `text` would render it (an
     /// iterable element is rendered per-node and concatenated with no separator,
     /// matching TF `"".join(material)`). Returns a `list[str]`, one string per
-    /// element, in input order. The `MappedText` engine and the parsed format are
-    /// resolved once for the whole batch.
+    /// element, in input order.
     #[pyo3(signature = (items, fmt=None, descend=None))]
     fn text_many(
         &self,
@@ -1046,7 +873,7 @@ impl PyText {
         fmt: Option<&str>,
         descend: Option<bool>,
     ) -> PyResult<PyObject> {
-        let engine = self.text_context()?;
+        let renderer = self.renderer()?;
         let options = TextOptions::new(fmt.map(str::to_string), descend);
         let iter = items.try_iter().map_err(|_| {
             PyTypeError::new_err("text_many expects an iterable of nodes or node-iterables")
@@ -1057,10 +884,10 @@ impl PyText {
             let item = item?;
             rendered.clear();
             if item.is_instance_of::<PyInt>() {
-                engine.render_into(node_number(&item)?, &options, &mut rendered)?;
+                renderer.render_into(node_number(&item)?, &options, &mut rendered)?;
             } else {
                 for node in super::features::collect_nodes(&item)? {
-                    engine.render_into(node, &options, &mut rendered)?;
+                    renderer.render_into(node, &options, &mut rendered)?;
                 }
             }
             out.append(PyString::new(py, &rendered))?;
@@ -1514,8 +1341,10 @@ impl PySearch {
         if nodes.is_empty() {
             return Ok(String::new());
         }
-        let sections = MappedSections::new(&self.corpus)?;
-        let text = MappedText::new(&self.corpus)?;
+        let context = SectionsContext::new(&self.corpus)?;
+        let sections = context.sections();
+        let renderer = TextRenderer::new(&self.corpus)?;
+        let default_text = TextOptions::default();
         let section_types = sections.section_types().to_vec();
         let level2_type = section_types.get(2).cloned();
         let upper_section_types: std::collections::HashSet<&str> =
@@ -1535,8 +1364,7 @@ impl PySearch {
                 .map(str::to_string)
                 .unwrap_or_default();
             let field = if level2_type.as_deref() == Some(otype.as_str()) {
-                let heading =
-                    section_heading(&self.corpus, node, "en", &SectionOptions::default())?;
+                let heading = context.section_heading(node, "en", &SectionOptions::default())?;
                 let part = |index: usize| {
                     heading
                         .get(index)
@@ -1546,14 +1374,18 @@ impl PySearch {
                 };
                 format!("{} {}:{}", part(0), part(1), part(2))
             } else if sections.is_slot(node)? {
-                text.text(node, None)?
+                renderer.text(node, &default_text)?
             } else if upper_section_types.contains(otype.as_str()) {
                 String::new()
             } else {
                 let words = sections.slots(node)?;
                 let head: Vec<u32> = words.iter().take(5).copied().collect();
                 let ellipsis = if words.len() > 5 { "..." } else { "" };
-                format!("{}[{}{}]", otype, text.text_nodes(&head, None)?, ellipsis)
+                let mut text = String::new();
+                for word in head {
+                    renderer.render_into(word, &default_text, &mut text)?;
+                }
+                format!("{otype}[{text}{ellipsis}]")
             };
             fields.push(field);
         }

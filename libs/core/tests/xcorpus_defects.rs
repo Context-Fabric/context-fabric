@@ -12,10 +12,11 @@
 
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
 
 use context_fabric_core::{
-    Fabric, FeatureValue, MappedCompiledCorpus, MappedSections, MappedText, TextContext,
-    TextOptions, apply_level_constraints, compile_features,
+    Fabric, FeatureValue, MappedCompiledCorpus, MappedSections, TextOptions, TextRenderer,
+    apply_level_constraints, compile_features,
 };
 
 fn write_files(dir: &Path, files: &[(&str, &str)]) {
@@ -113,37 +114,16 @@ fn text_format_keeps_present_empty_value_instead_of_falling_back() {
     build_qere_corpus(&source);
     let cache = temp.path().join("qere.cfr");
     compile_features(&source, &cache, &[]).unwrap();
-    let mapped = MappedCompiledCorpus::open(&cache).unwrap();
-    let text = MappedText::new(&mapped).unwrap();
+    let mapped = Arc::new(MappedCompiledCorpus::open(&cache).unwrap());
+    let renderer = TextRenderer::new(&mapped).unwrap();
+    let default = TextOptions::default();
 
     // Node 1: qtrailer is present-but-empty -> emit "" (NOT the trailer "-").
-    assert_eq!(text.text(1, None).unwrap(), "A");
+    assert_eq!(renderer.text(1, &default).unwrap(), "A");
     // Node 2: qtrailer absent -> fall back to trailer ".".
-    assert_eq!(text.text(2, None).unwrap(), "B.");
+    assert_eq!(renderer.text(2, &default).unwrap(), "B.");
     // Phrase renders both slots concatenated.
-    assert_eq!(text.text(3, None).unwrap(), "AB.");
-}
-
-#[test]
-fn text_context_preserves_present_empty_fallback() {
-    // The cached `TextContext` (compiled op-lists + owned feature handles) is the
-    // path the Python `T.text` binding now uses; it must reproduce the BUG-2
-    // present-empty-vs-absent fallback byte-for-byte.
-    use std::sync::Arc;
-
-    let temp = tempfile::tempdir().unwrap();
-    let source = temp.path().join("qere");
-    build_qere_corpus(&source);
-    let cache = temp.path().join("qere.cfr");
-    compile_features(&source, &cache, &[]).unwrap();
-    let mapped = Arc::new(MappedCompiledCorpus::open(&cache).unwrap());
-    let context = TextContext::new(&mapped).unwrap();
-    let none = TextOptions::new(None::<String>, None);
-
-    // Same three assertions as the MappedText path, via the cached context.
-    assert_eq!(context.text_with_options(1, &none).unwrap(), "A");
-    assert_eq!(context.text_with_options(2, &none).unwrap(), "B.");
-    assert_eq!(context.text_with_options(3, &none).unwrap(), "AB.");
+    assert_eq!(renderer.text(3, &default).unwrap(), "AB.");
 }
 
 // ---------------------------------------------------------------------------
