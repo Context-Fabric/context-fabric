@@ -79,6 +79,7 @@ htmlcov/
 
 # Claude Code
 CLAUDE.md
+desktop-app-notes.md
 
 # Built interface (npm run build in libs/browser/frontend)
 libs/browser/cfabric_browser/static/
