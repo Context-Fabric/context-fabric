@@ -34,7 +34,7 @@
             "__init__": {
               "name": "__init__",
               "kind": "function",
-              "signature": "(self, cursor_id: str, corpus: str, template: str, results: list[tuple[(int, ...)]], created_at: float, expires_at: float, last_accessed: float = {'arguments': [], 'cls': 'ExprCall', 'function': {'cls': 'ExprAttribute', 'values': [{'cls': 'ExprName', 'member': None, 'name': 'time'}, {'cls': 'ExprName', 'member': None, 'name': 'time'}]}}, total_count: int = 0)",
+              "signature": "(self, cursor_id: str, corpus: str, template: str, results: list[tuple[(int, ...)]], total_count: int, created_at: float, expires_at: float, last_accessed: float = {'arguments': [], 'cls': 'ExprCall', 'function': {'cls': 'ExprAttribute', 'values': [{'cls': 'ExprName', 'member': None, 'name': 'time'}, {'cls': 'ExprName', 'member': None, 'name': 'time'}]}})",
               "docstring": {
                 "summary": "",
                 "description": "",
@@ -72,6 +72,12 @@
                   "kind": "positional or keyword"
                 },
                 {
+                  "name": "total_count",
+                  "type": "int",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
                   "name": "created_at",
                   "type": "float",
                   "default": null,
@@ -105,34 +111,6 @@
                       ]
                     }
                   },
-                  "kind": "positional or keyword"
-                },
-                {
-                  "name": "total_count",
-                  "type": "int",
-                  "default": "0",
-                  "kind": "positional or keyword"
-                }
-              ],
-              "returns": {
-                "type": "None"
-              },
-              "decorators": []
-            },
-            "__post_init__": {
-              "name": "__post_init__",
-              "kind": "function",
-              "signature": "(self)",
-              "docstring": {
-                "summary": "",
-                "description": "",
-                "sections": {}
-              },
-              "parameters": [
-                {
-                  "name": "self",
-                  "type": "",
-                  "default": null,
                   "kind": "positional or keyword"
                 }
               ],
@@ -296,7 +274,7 @@
                 "description": "",
                 "sections": {}
               },
-              "value": "0"
+              "value": null
             }
           }
         },
@@ -2127,7 +2105,197 @@
         "description": "MCP tool implementations for Context-Fabric.\n\nTools are functions that agents can execute to interact with corpora.",
         "parsed": []
       },
-      "classes": {},
+      "classes": {
+        "_CachedSearch": {
+          "name": "_CachedSearch",
+          "kind": "class",
+          "path": "",
+          "docstring": {
+            "summary": "A search executed through the shared result cache.",
+            "description": "A search executed through the shared result cache.\n\nThe cache retains at most a bounded prefix of the matches. When this call\nexecuted the search itself, the complete match list is kept for the\nduration of the call so that consumers needing every match (statistics,\nCSV exports) do not have to run the query a second time.",
+            "parsed": []
+          },
+          "bases": [],
+          "methods": {
+            "__init__": {
+              "name": "__init__",
+              "kind": "function",
+              "signature": "(self, search_api: Any, template: str, cached: CachedSearchResult, fresh_results: list[tuple[(int, ...)]] | None)",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "search_api",
+                  "type": "Any",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "template",
+                  "type": "str",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "cached",
+                  "type": "CachedSearchResult",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "fresh_results",
+                  "type": "list[tuple[(int, ...)]] | None",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "None"
+              },
+              "decorators": []
+            },
+            "all_results": {
+              "name": "all_results",
+              "kind": "function",
+              "signature": "(self)",
+              "docstring": {
+                "summary": "Return every match, sorted like the cached results.",
+                "description": "Return every match, sorted like the cached results.\n\nRe-runs the query only when the cache holds a truncated prefix and\nthe complete matches from this call are not available.\n\nRaises:\n    Exception: Any failure raised by the underlying search.",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "list[tuple[(int, ...)]]"
+              },
+              "decorators": []
+            },
+            "run": {
+              "name": "run",
+              "kind": "function",
+              "signature": "(cls, search_api: Any, corpus_name: str, template: str)",
+              "docstring": {
+                "summary": "Execute `template`, or reuse the cached result for it.",
+                "description": "Execute `template`, or reuse the cached result for it.",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "cls",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "search_api",
+                  "type": "Any",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "corpus_name",
+                  "type": "str",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "template",
+                  "type": "str",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "_CachedSearch"
+              },
+              "decorators": [
+                {
+                  "endlineno": 61,
+                  "lineno": 61,
+                  "value": {
+                    "cls": "ExprName",
+                    "member": null,
+                    "name": "classmethod"
+                  }
+                }
+              ]
+            }
+          },
+          "attributes": {
+            "_fresh_results": {
+              "name": "_fresh_results",
+              "type": "",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": {
+                "cls": "ExprName",
+                "member": null,
+                "name": "fresh_results"
+              }
+            },
+            "_search_api": {
+              "name": "_search_api",
+              "type": "",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": {
+                "cls": "ExprName",
+                "member": null,
+                "name": "search_api"
+              }
+            },
+            "_template": {
+              "name": "_template",
+              "type": "",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": {
+                "cls": "ExprName",
+                "member": null,
+                "name": "template"
+              }
+            },
+            "cached": {
+              "name": "cached",
+              "type": "",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": {
+                "cls": "ExprName",
+                "member": null,
+                "name": "cached"
+              }
+            }
+          }
+        }
+      },
       "functions": {
         "_format_passages": {
           "name": "_format_passages",
@@ -2712,6 +2880,10 @@
         "Api": {
           "name": "Api",
           "target": "cfabric.core.api.Api"
+        },
+        "CachedSearchResult": {
+          "name": "CachedSearchResult",
+          "target": "cfabric_mcp.cache.CachedSearchResult"
         },
         "CorpusInfo": {
           "name": "CorpusInfo",
