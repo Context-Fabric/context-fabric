@@ -258,10 +258,11 @@ probe except `T.text` (verse): 0.89x TF in June, 0.96x TF now.
   to the pre-reorganisation checkout (`/Users/cody/github/context-fabric/libs/...`),
   so three BHSA tests were always skipped; it now derives the path from the
   repository root (all three pass).
-* Not changed, worked around in the runner: `tests/python/test_text_formats.py`,
-  `test_text_surface.py`, `bench_scalar_latency.py` and `bench_batch_apis.py`
-  expect caches at fixed `/tmp/cf_bhsa*.cfr` paths; the runner symlinks them to its
-  compiled cache. `compare_bhsa_mapped_subset.py` and `compare_bhsa_mapped_memory.py`
+* The core test suites resolve corpora from `CFABRIC_CORPORA` and an optional
+  explicit BHSA cache from `CFABRIC_BHSA_CFR` (`libs/core/tests/conftest.py`);
+  `bench_scalar_latency.py` and `bench_batch_apis.py` take `--tf` / `--cache`. The
+  runner points all of them at its scratch corpora and compiled cache.
+* Not changed, worked around in the runner: `compare_bhsa_mapped_subset.py` and `compare_bhsa_mapped_memory.py`
   put `libs/core` on `PYTHONPATH`, which now resolves to the Rust overlay instead of
   the pure-Python core, so their "Python" side is run directly on CF Python 0.5.8.
 

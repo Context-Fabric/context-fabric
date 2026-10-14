@@ -44,7 +44,6 @@ from typing import Any, Callable
 _BENCHMARKS_DIR = Path(__file__).resolve().parents[1]
 _REPO_ROOT = _BENCHMARKS_DIR.parents[1]
 DEFAULT_BHSA_TF = _BENCHMARKS_DIR / ".corpora" / "bhsa" / "tf"
-DEFAULT_CACHE = Path("/tmp/cf_bhsa.cfr")
 DEFAULT_BASELINE = _BENCHMARKS_DIR / "baselines" / "bhsa_tf.json"
 DEFAULT_TARGETS = _BENCHMARKS_DIR / "baselines" / "targets.json"
 PARITY_QUERIES_JSON = _REPO_ROOT / "libs" / "core" / "tests" / "parity" / "parity_queries.json"
@@ -79,7 +78,7 @@ def _rss_mb() -> float:
     return maxrss / 1024
 
 
-def _load_engine(engine: str, bhsa_tf: Path, cache: Path) -> Any:
+def _load_engine(engine: str, bhsa_tf: Path, cache: Path | None) -> Any:
     if engine == "tf":
         from tf.fabric import Fabric  # type: ignore[import-untyped]
 
@@ -87,7 +86,10 @@ def _load_engine(engine: str, bhsa_tf: Path, cache: Path) -> Any:
     if engine == "cf":
         from cfabric import Fabric
 
-        return Fabric(locations=str(bhsa_tf)).openMapped(str(cache))
+        fabric = Fabric(locations=str(bhsa_tf), silent="deep")
+        if cache is None:
+            return fabric.loadAll(silent="deep")
+        return fabric.openMapped(str(cache))
     raise ValueError(f"unknown engine {engine!r}")
 
 
@@ -103,7 +105,7 @@ def _query_templates() -> dict[str, str]:
     return templates
 
 
-def run_bench(engine: str, bhsa_tf: Path, cache: Path) -> dict[str, Any]:
+def run_bench(engine: str, bhsa_tf: Path, cache: Path | None) -> dict[str, Any]:
     """Execute the full benchmark for one engine and return a results dict."""
     res: dict[str, Any] = {"engine": engine}
 
@@ -211,7 +213,11 @@ def main(argv: list[str] | None = None) -> int:
         "--bhsa-tf", type=Path, default=DEFAULT_BHSA_TF, help="BHSA TF source dir"
     )
     parser.add_argument(
-        "--cache", type=Path, default=DEFAULT_CACHE, help="compiled .cfr cache (cf)"
+        "--cache",
+        type=Path,
+        default=None,
+        help="explicit compiled .cfr cache to open (cf); by default the cache "
+        "Fabric keeps next to --bhsa-tf is used (warm it with one run first)",
     )
     parser.add_argument(
         "--assert",
