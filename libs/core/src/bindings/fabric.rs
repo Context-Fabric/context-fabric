@@ -1362,7 +1362,8 @@ impl PyCorpus {
     #[allow(non_snake_case)]
     #[pyo3(signature = (fName, warn=true))]
     fn Cs(&self, py: Python<'_>, fName: &str, warn: bool) -> PyResult<Option<PyObject>> {
-        if !COMPUTED_NAMES.contains(&fName) {
+        let computeds = self.members().c.bind(py).borrow();
+        if !computeds.names()?.contains(&fName) {
             if warn {
                 self.report(
                     py,
@@ -1372,7 +1373,7 @@ impl PyCorpus {
             }
             return Ok(None);
         }
-        self.members().c.bind(py).borrow().get(py, fName).map(Some)
+        computeds.get(py, fName).map(Some)
     }
 
     /// Alias of `Cs`.
@@ -1433,14 +1434,15 @@ impl PyCorpus {
 
     /// Sorted names of the computed data blocks.
     #[allow(non_snake_case)]
-    fn Call(&self) -> Vec<String> {
-        Self::sorted_names(COMPUTED_NAMES.iter().map(|name| name.to_string()))
+    fn Call(&self, py: Python<'_>) -> PyResult<Vec<String>> {
+        let names = self.members().c.bind(py).borrow().names()?;
+        Ok(Self::sorted_names(names.into_iter().map(str::to_string)))
     }
 
     /// Alias of `Call`.
     #[allow(non_snake_case)]
-    fn AllComputeds(&self) -> Vec<String> {
-        self.Call()
+    fn AllComputeds(&self, py: Python<'_>) -> PyResult<Vec<String>> {
+        self.Call(py)
     }
 
     /// Show information about loaded features, like TF's `api.isLoaded`.

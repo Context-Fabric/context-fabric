@@ -23,7 +23,7 @@ def test_top_level_exports(mini_corpus_path):
 def test_feature_access_and_lists(loaded_api):
     assert loaded_api.F.word.v(1) == "hello"
     assert loaded_api.F.word.s("hello") == (1,)
-    assert loaded_api.F.word.items()[0] == (1, "hello")
+    assert next(iter(loaded_api.F.word.items())) == (1, "hello")
     assert loaded_api.F.word.valueType == "str"
     assert loaded_api.F.word.description == "word text"
     assert loaded_api.F.word.metaData["description"] == "word text"
@@ -55,9 +55,10 @@ def test_computed_navigation_text_and_search(loaded_api):
     assert loaded_api.T.text(1) == "hello"
     assert loaded_api.T.sectionTypes == ["sentence", "phrase"]
 
-    # `api.S` is one stateful object, as in TF: study() then fetch() works
-    # through the attribute.
+    # `api.S` and `api.T` are one stateful object each, as in TF: study()
+    # then fetch() works through the attribute.
     assert loaded_api.S is loaded_api.S
+    assert loaded_api.T is loaded_api.T
     loaded_api.S.study("word")
     assert loaded_api.S.exe.good is True
     assert loaded_api.S.fetch(limit=1) == ((1,),)
@@ -97,21 +98,21 @@ def test_text_fabric_compatibility_surface(mini_corpus_path, loaded_api, capsys)
     assert loaded_api.F.word.meta == loaded_api.F.word.metaData
     assert loaded_api.F.word.data[1] == "hello"
     assert loaded_api.F.word.freqList(nodeTypes=("word",))
-    assert loaded_api.E.oslots.data[8] == (1, 2, 3, 4, 5)
-    assert loaded_api.E.oslots.dataInv[1] == (6, 8)
+    assert loaded_api.E.oslots.data[8 - loaded_api.F.otype.maxSlot - 1] == (1, 2, 3, 4, 5)
+    assert loaded_api.E.oslots.dataInv[1] == {6, 8}
     assert loaded_api.E.distance.data[1][3] == 5
     assert loaded_api.E.distance.dataInv[2][1] == 0
     assert loaded_api.E.distance.freqList(
         nodeTypesFrom=("word",), nodeTypesTo=("word",)
     )
 
-    events = loaded_api.N.walk(events=True)
+    events = list(loaded_api.N.walk(events=True))
     assert all(isinstance(item, tuple) and len(item) == 2 for item in events)
     # The non-end events (slots and container starts) replay walk() order.
-    assert loaded_api.N.walk() == tuple(
+    assert list(loaded_api.N.walk()) == [
         node for (node, kind) in events if kind is not True
-    )
-    assert loaded_api.T.sectionFeats == list(loaded_api.T.sectionFeatures)
+    ]
+    assert loaded_api.T.sectionFeats == loaded_api.T.sectionFeatures
     # sectionTuple returns section NODE ids; sectionFromNode returns their values.
     assert loaded_api.T.sectionTuple(1) == (8, 6)
     assert loaded_api.T.sectionFromNode(1) == ("S1", 1)
@@ -124,8 +125,9 @@ def test_text_fabric_compatibility_surface(mini_corpus_path, loaded_api, capsys)
     capsys.readouterr()
     assert loaded_api.T.structureInfo() is None
     assert "No structural elements configured" in capsys.readouterr().out
-    assert loaded_api.T.up(1) == loaded_api.L.u(1)
-    assert loaded_api.T.down(8) == loaded_api.L.d(8)
+    # No structure configured: TF's structure navigation answers None.
+    assert loaded_api.T.up(1) is None
+    assert loaded_api.T.down(8) is None
 
     search = loaded_api.S
     search.study("word")

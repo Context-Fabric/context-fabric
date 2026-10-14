@@ -38,3 +38,14 @@ def test_node_from_section(mini_corpus_with_otext, tmp_path, mode, levels):
     for section, node in EXPECTED.items():
         if len(section) <= levels:
             assert T.nodeFromSection(section) == node, section
+
+
+@pytest.mark.parametrize("mode", LOAD_MODES)
+def test_duplicate_section_name_resolves_to_the_last_node(mini_corpus_with_otext, tmp_path, mode):
+    # TF builds its name -> node map from the feature data, so the last node
+    # with a repeated name wins (BHSA book@zh names both Job and Esther 以斯帖记).
+    corpus = mini_corpus_with_otext("@sectionFeatures=label", "@sectionTypes=phrase")
+    (corpus / "label.tf").write_text("@node\n@valueType=str\n\n6\tX\n7\tX\n", encoding="utf-8")
+    api = open_corpus([corpus], mode, tmp_path, features="label")
+
+    assert api.T.nodeFromSection(("X",)) == 7

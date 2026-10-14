@@ -1,4 +1,3 @@
-use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::ops::Deref;
 use std::sync::Arc;
@@ -8,7 +7,7 @@ use serde::{Serialize, Serializer};
 use crate::error::{CfError, Result};
 use crate::precompute::{LevDownData, LevUpData, OrderData, RankData};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum FeatureValue {
     Str(Arc<str>),
     Int(i64),
@@ -37,13 +36,27 @@ impl FeatureValue {
             Self::Int(_) => None,
         }
     }
+}
 
-    pub(crate) fn sort_token(&self) -> String {
-        match self {
-            Self::Str(value) => format!("s:{value}"),
-            Self::Int(value) => format!("i:{value:020}"),
-        }
-    }
+/// Sorts `(value, count)` rows in Text-Fabric's `freqList` order
+/// (`tf/core/nodefeature.py`): highest count first, ties by ascending value.
+/// Values of one feature share a type, so the derived `Ord` compares ints
+/// numerically and strings by code point, like Python.
+pub(crate) fn sort_frequency_rows(rows: &mut [(FeatureValue, usize)]) {
+    rows.sort_unstable_by(|(left, left_count), (right, right_count)| {
+        right_count.cmp(left_count).then_with(|| left.cmp(right))
+    });
+}
+
+/// [`sort_frequency_rows`] for edge values, where a missing value (`None`) sorts
+/// after every value (Text-Fabric cannot order `None` against values at all).
+pub(crate) fn sort_optional_frequency_rows(rows: &mut [(Option<FeatureValue>, usize)]) {
+    rows.sort_unstable_by(|(left, left_count), (right, right_count)| {
+        right_count
+            .cmp(left_count)
+            .then_with(|| left.is_none().cmp(&right.is_none()))
+            .then_with(|| left.cmp(right))
+    });
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -244,7 +257,7 @@ impl NodeFeature {
             *counts.entry(value.clone()).or_default() += 1;
         }
         let mut rows: Vec<_> = counts.into_iter().collect();
-        rows.sort_unstable_by_key(|(value, count)| (Reverse(*count), value.sort_token()));
+        sort_frequency_rows(&mut rows);
         rows
     }
 
@@ -381,7 +394,7 @@ impl EdgeFeature {
 
     pub fn s(&self, node: u32) -> Vec<u32> {
         let targets = self.forward(node);
-        if targets.is_empty() && self.name == "oslots" {
+        if targets.is_empty() && self.name == "oslots" && node >= 1 {
             vec![node]
         } else {
             targets
@@ -628,9 +641,7 @@ impl EdgeFeature {
             }
         }
         let mut rows: Vec<_> = counts.into_iter().collect();
-        rows.sort_unstable_by_key(|(value, count)| {
-            (Reverse(*count), optional_feature_value_sort_token(value))
-        });
+        sort_optional_frequency_rows(&mut rows);
         EdgeFrequency::Values(rows)
     }
 
@@ -661,13 +672,6 @@ fn rank_key(node: u32, rank: Option<&Vec<u32>>) -> (u32, u32) {
         .and_then(|rank| rank.get(node.saturating_sub(1) as usize).copied())
         .unwrap_or(node);
     (canonical, node)
-}
-
-fn optional_feature_value_sort_token(value: &Option<FeatureValue>) -> String {
-    match value {
-        Some(value) => value.sort_token(),
-        None => "n:".to_string(),
-    }
 }
 
 fn feature_values_match(actual: &FeatureValue, expected: &FeatureValue) -> bool {

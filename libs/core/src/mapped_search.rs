@@ -1377,45 +1377,22 @@ impl<'a> MappedSearch<'a> {
                 .edge_feature(edge_name)
                 .ok()
                 .flatten()
-                .is_some_and(|edge| {
-                    self.contains(&edge, left, right)
-                        && edge
-                            .edge_value(left, right)
-                            .ok()
-                            .flatten()
-                            .is_some_and(|actual| mapped_edge_value_matches(actual, matcher))
-                }),
+                .is_some_and(|edge| self.edge_with_value_holds(&edge, left, right, matcher)),
             MappedRelationOperator::EdgeBackwardValue(edge_name, matcher) => self
                 .corpus
                 .edge_feature(edge_name)
                 .ok()
                 .flatten()
+                .is_some_and(|edge| self.edge_with_value_holds(&edge, right, left, matcher)),
+            MappedRelationOperator::EdgeEitherValue(edge_name, matcher) => self
+                .corpus
+                .edge_feature(edge_name)
+                .ok()
+                .flatten()
                 .is_some_and(|edge| {
-                    self.contains(&edge, right, left)
-                        && edge
-                            .edge_value(right, left)
-                            .ok()
-                            .flatten()
-                            .is_some_and(|actual| mapped_edge_value_matches(actual, matcher))
+                    self.edge_with_value_holds(&edge, left, right, matcher)
+                        || self.edge_with_value_holds(&edge, right, left, matcher)
                 }),
-            MappedRelationOperator::EdgeEitherValue(edge_name, matcher) => {
-                self.corpus
-                    .edge_feature(edge_name)
-                    .ok()
-                    .flatten()
-                    .is_some_and(|edge| {
-                        (self.contains(&edge, left, right)
-                            && edge
-                                .edge_value(left, right)
-                                .ok()
-                                .flatten()
-                                .is_some_and(|actual| mapped_edge_value_matches(actual, matcher)))
-                            || (self.contains(&edge, right, left)
-                                && edge.edge_value(right, left).ok().flatten().is_some_and(
-                                    |actual| mapped_edge_value_matches(actual, matcher),
-                                ))
-                    })
-            }
             MappedRelationOperator::FeatureCompare {
                 left_feature,
                 comparison,
@@ -1574,6 +1551,21 @@ impl<'a> MappedSearch<'a> {
             return Ok(Vec::new());
         };
         targets.collect()
+    }
+
+    /// Edge `source -> target` exists and its value (None when it has none)
+    /// satisfies the relation's value condition.
+    fn edge_with_value_holds(
+        &self,
+        edge: &EdgeFeatureView<'_>,
+        source: u32,
+        target: u32,
+        matcher: &MappedMatcher,
+    ) -> bool {
+        self.contains(edge, source, target)
+            && edge
+                .edge_value(source, target)
+                .is_ok_and(|value| matcher.matches(value))
     }
 
     fn contains(&self, oslots: &EdgeFeatureView<'_>, parent: u32, child: u32) -> bool {
@@ -1947,9 +1939,9 @@ enum MappedRelationOperator {
     EdgeForward(String),
     EdgeBackward(String),
     EdgeEither(String),
-    EdgeForwardValue(String, MappedEdgeValueMatcher),
-    EdgeBackwardValue(String, MappedEdgeValueMatcher),
-    EdgeEitherValue(String, MappedEdgeValueMatcher),
+    EdgeForwardValue(String, MappedMatcher),
+    EdgeBackwardValue(String, MappedMatcher),
+    EdgeEitherValue(String, MappedMatcher),
     FeatureCompare {
         left_feature: String,
         comparison: MappedFeatureRelationComparison,
@@ -1960,13 +1952,6 @@ enum MappedRelationOperator {
         pattern: Regex,
         right_feature: String,
     },
-}
-
-#[derive(Debug, Clone)]
-enum MappedEdgeValueMatcher {
-    Eq(Vec<String>),
-    Ne(Vec<String>),
-    Regex(Regex),
 }
 
 #[derive(Clone, Copy)]
@@ -2038,6 +2023,7 @@ impl SimpleConstraint {
             MappedMatcher::Eq(values) => format!("{feature}={}", values.join("|")),
             MappedMatcher::Ne(values) => format!("{feature}#{}", values.join("|")),
             MappedMatcher::Regex(regex) => format!("{feature}~{}", regex.as_str()),
+            MappedMatcher::Any => format!("{feature}*"),
             MappedMatcher::Exists => feature.clone(),
             MappedMatcher::Missing => format!("{feature}#"),
             MappedMatcher::Lt(value) => format!("{feature}<{value}"),
@@ -2046,11 +2032,40 @@ impl SimpleConstraint {
     }
 
     fn can_seed_candidates(&self) -> bool {
-        !matches!(&self.matcher, MappedMatcher::Ne(_) | MappedMatcher::Missing)
+        !matches!(
+            &self.matcher,
+            MappedMatcher::Ne(_) | MappedMatcher::Missing | MappedMatcher::Any
+        )
     }
 
     fn matches(&self, value: Option<MappedNodeValue<'_>>) -> bool {
-        match &self.matcher {
+        self.matcher.matches(value)
+    }
+}
+
+/// A feature condition (TF `tf/search/syntax.py::parseFeatureVals`), for a node
+/// feature in an atom or for the value of an edge in an edge relation.
+#[derive(Debug, Clone)]
+enum MappedMatcher {
+    Eq(Vec<String>),
+    /// None of the values; a missing value qualifies.
+    Ne(Vec<String>),
+    Regex(Regex),
+    /// `f*`: no condition at all.
+    Any,
+    /// `f`: any value.
+    Exists,
+    /// `f#`: no value.
+    Missing,
+    Lt(String),
+    Gt(String),
+}
+
+impl MappedMatcher {
+    /// Whether a feature value (`None` when the node or edge has none) meets
+    /// the condition.
+    fn matches(&self, value: Option<MappedNodeValue<'_>>) -> bool {
+        match self {
             MappedMatcher::Eq(expected) => value.is_some_and(|value| {
                 expected
                     .iter()
@@ -2064,6 +2079,7 @@ impl SimpleConstraint {
             MappedMatcher::Regex(regex) => value
                 .and_then(mapped_value_as_str)
                 .is_some_and(|raw| regex.is_match(raw)),
+            MappedMatcher::Any => true,
             MappedMatcher::Exists => value.is_some(),
             MappedMatcher::Missing => value.is_none(),
             MappedMatcher::Lt(expected) => value
@@ -2074,26 +2090,14 @@ impl SimpleConstraint {
                 .is_some_and(|ordering| ordering.is_gt()),
         }
     }
-}
 
-#[derive(Clone)]
-enum MappedMatcher {
-    Eq(Vec<String>),
-    Ne(Vec<String>),
-    Regex(Regex),
-    Exists,
-    Missing,
-    Lt(String),
-    Gt(String),
-}
-
-impl MappedMatcher {
     fn cache_key(&self) -> String {
         match self {
             Self::Eq(values) => format!("={}", values.join("|")),
             Self::Ne(values) => format!("#{}", values.join("|")),
             Self::Regex(regex) => format!("~{}", regex.as_str()),
-            Self::Exists => "*".to_string(),
+            Self::Any => "*".to_string(),
+            Self::Exists => String::new(),
             Self::Missing => "#".to_string(),
             Self::Lt(value) => format!("<{value}"),
             Self::Gt(value) => format!(">{value}"),
@@ -2910,7 +2914,7 @@ fn parse_simple_constraint(part: &str) -> Result<SimpleConstraint> {
             Ok(SimpleConstraint { feature, matcher })
         }
         None => {
-            // No operator: either `feature*` (exists) or a bare feature (exists).
+            // No operator: `feature*` (no condition) or a bare feature (exists).
             if let Some(feature) = part.strip_suffix('*') {
                 if feature.is_empty() {
                     return Err(CfError::InvalidQuery(format!(
@@ -2919,7 +2923,7 @@ fn parse_simple_constraint(part: &str) -> Result<SimpleConstraint> {
                 }
                 return Ok(SimpleConstraint {
                     feature: feature.to_string(),
-                    matcher: MappedMatcher::Exists,
+                    matcher: MappedMatcher::Any,
                 });
             }
             if part.is_empty() {
@@ -3002,24 +3006,6 @@ fn value_matches(actual: MappedNodeValue<'_>, expected: &str) -> bool {
     match actual {
         MappedNodeValue::Str(actual) => actual == expected,
         MappedNodeValue::Int(actual) => expected.parse::<i64>() == Ok(actual),
-    }
-}
-
-fn mapped_edge_value_matches(
-    actual: MappedNodeValue<'_>,
-    matcher: &MappedEdgeValueMatcher,
-) -> bool {
-    match matcher {
-        MappedEdgeValueMatcher::Eq(expected_values) => expected_values
-            .iter()
-            .any(|expected| value_matches(actual, expected)),
-        MappedEdgeValueMatcher::Ne(expected_values) => expected_values
-            .iter()
-            .all(|expected| !value_matches(actual, expected)),
-        MappedEdgeValueMatcher::Regex(pattern) => match actual {
-            MappedNodeValue::Str(actual) => pattern.is_match(actual),
-            MappedNodeValue::Int(actual) => pattern.is_match(&actual.to_string()),
-        },
     }
 }
 
@@ -3163,46 +3149,15 @@ fn parse_mapped_edge_either_operator(raw: &str) -> MappedRelationOperator {
     MappedRelationOperator::EdgeEither(raw.to_string())
 }
 
-fn parse_mapped_edge_value_matcher(raw: &str) -> Option<(String, MappedEdgeValueMatcher)> {
-    if let Some((edge_name, value)) = raw.split_once('=') {
-        if !edge_name.is_empty() {
-            return Some((
-                edge_name.to_string(),
-                MappedEdgeValueMatcher::Eq(
-                    split_unescaped(value, '|')
-                        .into_iter()
-                        .map(|value| unescape_query_value(&value))
-                        .collect(),
-                ),
-            ));
-        }
+/// An edge relation with a value condition (`-f=v>`, `-f#v>`, `-f>n>`, `-f*>`,
+/// ...), parsed like a node feature condition (TF reuses `parseFeatureVals`).
+/// `None` for a plain edge relation (`-f>`).
+fn parse_mapped_edge_value_matcher(raw: &str) -> Option<(String, MappedMatcher)> {
+    let constraint = parse_simple_constraint(raw).ok()?;
+    match constraint.matcher {
+        MappedMatcher::Exists => None,
+        matcher => Some((constraint.feature, matcher)),
     }
-    if let Some((edge_name, value)) = raw.split_once('#') {
-        if !edge_name.is_empty() {
-            return Some((
-                edge_name.to_string(),
-                MappedEdgeValueMatcher::Ne(
-                    split_unescaped(value, '|')
-                        .into_iter()
-                        .map(|value| unescape_query_value(&value))
-                        .collect(),
-                ),
-            ));
-        }
-    }
-    if let Some((edge_name, pattern)) = raw.split_once('~') {
-        if !edge_name.is_empty() {
-            return Regex::new(&unescape_query_value(pattern))
-                .ok()
-                .map(|pattern| {
-                    (
-                        edge_name.to_string(),
-                        MappedEdgeValueMatcher::Regex(pattern),
-                    )
-                });
-        }
-    }
-    None
 }
 
 fn unescape_query_value(raw: &str) -> String {

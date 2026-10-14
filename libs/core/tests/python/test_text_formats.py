@@ -54,6 +54,7 @@ TF_LANGUAGES = {
     "sw": {"language": "Kiswahili", "languageEnglish": "swahili"},
     "syc": {"language": "ܠܫܢܐ ܣܘܪܝܝܐ", "languageEnglish": "syriac"},
     "tr": {"language": "Türkçe", "languageEnglish": "turkish"},
+    "ua": {"language": "Українська", "languageEnglish": "ukrainian"},
     "ur": {"language": "اُردُو", "languageEnglish": "urdu"},
     "yo": {"language": "èdè Yorùbá", "languageEnglish": "yoruba"},
     "zh": {"language": "中文", "languageEnglish": "chinese"},

@@ -898,11 +898,11 @@ fn public_precompute_helpers_match_corpus_levels_order_and_rank() {
         vec![
             context_fabric_core::StructureHeading {
                 node_type: "sentence".to_string(),
-                heading: "S1".to_string()
+                heading: Some(context_fabric_core::FeatureValue::string("S1"))
             },
             context_fabric_core::StructureHeading {
                 node_type: "phrase".to_string(),
-                heading: "1".to_string()
+                heading: Some(context_fabric_core::FeatureValue::Int(1))
             },
         ]
     );
@@ -910,11 +910,11 @@ fn public_precompute_helpers_match_corpus_levels_order_and_rank() {
         structure.node_from_heading[&vec![
             context_fabric_core::StructureHeading {
                 node_type: "sentence".to_string(),
-                heading: "S1".to_string()
+                heading: Some(context_fabric_core::FeatureValue::string("S1"))
             },
             context_fabric_core::StructureHeading {
                 node_type: "phrase".to_string(),
-                heading: "2".to_string()
+                heading: Some(context_fabric_core::FeatureValue::Int(2))
             },
         ]],
         7
@@ -3504,7 +3504,7 @@ fn fabric_load_all_creates_reuses_and_refreshes_mapped_cache() {
     let cache_path = fabric.cfr_cache_path();
     assert_eq!(
         cache_path,
-        corpus_dir.join(".cfr").join("3").join("corpus.cfr")
+        corpus_dir.join(".cfr").join("4").join("corpus.cfr")
     );
     assert!(!cache_path.exists());
 

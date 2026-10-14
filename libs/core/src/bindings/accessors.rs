@@ -6,6 +6,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyInt, PyIterator, PyList, PySet, PyString, PyTuple};
 
 use crate::compiled::MappedCompiledCorpus;
+use crate::config::{DEFAULT_FORMAT, SEARCH_FAIL_FACTOR};
 use crate::corpus::{SectionOptions, StructureTree, TextOptions, WalkEvent};
 use crate::feature::FeatureValue;
 use crate::mapped_search::MappedSearch;
@@ -140,43 +141,33 @@ fn option_feature_value_to_py(py: Python<'_>, value: Option<&FeatureValue>) -> P
     }
 }
 
+/// TF `T.structure` shape: a node is `(node, (child, ...))` and the whole
+/// corpus a tuple of those, all tuples.
 fn structure_tree_to_py(py: Python<'_>, tree: &StructureTree) -> PyResult<PyObject> {
+    let children_to_py = |children: &[StructureTree]| -> PyResult<PyObject> {
+        let items = children
+            .iter()
+            .map(|child| structure_tree_to_py(py, child))
+            .collect::<PyResult<Vec<_>>>()?;
+        Ok(PyTuple::new(py, items)?.into())
+    };
     match tree {
-        StructureTree::Forest(children) => {
-            let items = children
-                .iter()
-                .map(|child| structure_tree_to_py(py, child))
-                .collect::<PyResult<Vec<_>>>()?;
-            Ok(PyList::new(py, items)?.into())
-        }
+        StructureTree::Forest(children) => children_to_py(children),
         StructureTree::Node { node, children } => {
-            let items = children
-                .iter()
-                .map(|child| structure_tree_to_py(py, child))
-                .collect::<PyResult<Vec<_>>>()?;
-            let row: Vec<PyObject> = vec![
-                node.into_pyobject(py)?.into(),
-                PyList::new(py, items)?.into(),
-            ];
+            let row: Vec<PyObject> =
+                vec![node.into_pyobject(py)?.into(), children_to_py(children)?];
             Ok(PyTuple::new(py, row)?.into())
         }
     }
 }
 
-fn heading_value_to_py(py: Python<'_>, heading: &str) -> PyResult<PyObject> {
-    if let Ok(value) = heading.parse::<i64>() {
-        return Ok(value.into_pyobject(py)?.into());
-    }
-    Ok(PyString::new(py, heading).into())
-}
-
-fn heading_to_py(py: Python<'_>, heading: &[StructureHeading]) -> PyResult<PyObject> {
+pub(crate) fn heading_to_py(py: Python<'_>, heading: &[StructureHeading]) -> PyResult<PyObject> {
     let rows = heading
         .iter()
         .map(|item| {
             let row: Vec<PyObject> = vec![
                 PyString::new(py, &item.node_type).into(),
-                heading_value_to_py(py, &item.heading)?,
+                option_feature_value_to_py(py, item.heading.as_ref())?,
             ];
             PyTuple::new(py, row).map(Into::into)
         })
@@ -184,17 +175,21 @@ fn heading_to_py(py: Python<'_>, heading: &[StructureHeading]) -> PyResult<PyObj
     Ok(PyTuple::new(py, rows)?.into())
 }
 
+/// A heading as passed to `T.nodeFromHeading`: `((nodeType, value), ...)` where a
+/// value is an int, a str, or `None`. Values keep their type, so (as in TF) a
+/// str `"1"` does not find a heading whose feature value is the int `1`.
 fn heading_from_py(items: &Bound<'_, PyAny>) -> PyResult<Vec<StructureHeading>> {
     let rows = items.extract::<Vec<(String, Bound<'_, PyAny>)>>()?;
-    Ok(rows
-        .into_iter()
+    rows.into_iter()
         .map(|(node_type, heading)| {
-            let heading = heading
-                .extract::<String>()
-                .or_else(|_| heading.extract::<i64>().map(|value| value.to_string()))?;
+            let heading = if heading.is_none() {
+                None
+            } else {
+                Some(feature_value_from_py(&heading)?)
+            };
             Ok(StructureHeading { node_type, heading })
         })
-        .collect::<PyResult<Vec<_>>>()?)
+        .collect()
 }
 
 fn section_from_py(items: &Bound<'_, PyAny>) -> PyResult<Vec<FeatureValue>> {
@@ -423,8 +418,10 @@ impl PyLocality {
         nodes_to_tuple(py, nodes)
     }
 
-    /// Nodes that share at least one slot with node `n`, optionally restricted
-    /// to node type(s) `otype`.
+    /// TF `L.i`: the nodes that share at least one slot with node `n`, as a
+    /// *list* in canonical order, optionally restricted to node type(s)
+    /// `otype`; a slot or out-of-range node gives the empty *tuple*
+    /// (`tf/core/locality.py`).
     #[pyo3(signature = (n, otype=None))]
     fn i(
         &self,
@@ -433,6 +430,9 @@ impl PyLocality {
         otype: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyObject> {
         let node = n;
+        if node <= self.corpus.max_slot()? || node > self.corpus.max_node() {
+            return Ok(PyTuple::empty(py).into());
+        }
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
         let sections = self.context()?.sections();
@@ -441,7 +441,7 @@ impl PyLocality {
             Some(values) => sections.intersecting_types(node, Some(values))?,
             None => sections.i(node, None)?,
         };
-        nodes_to_tuple(py, nodes)
+        Ok(PyList::new(py, nodes)?.into())
     }
 
     /// Batch embedder lookup (ADDITIVE; W4): like `u` applied to each node in
@@ -591,10 +591,13 @@ impl PyNodes {
         nodes: Option<&Bound<'_, PyAny>>,
         events: bool,
     ) -> PyResult<PyObject> {
+        // TF `N.walk` is a generator; return an iterator so `next(N.walk())`
+        // works and the result is consumed once, as in TF.
         let nodes = nodes_from_py(nodes)?;
         let sections = MappedSections::new(&self.corpus)?;
         if !events {
-            return nodes_to_tuple(py, sections.walk(nodes.as_deref())?);
+            let walk = PyTuple::new(py, sections.walk(nodes.as_deref())?)?;
+            return Ok(walk.try_iter()?.into_any().unbind());
         }
         // TF `N.walk(events=True)` (tf/core/nodes.py:278-292) yields event pairs:
         // slot -> `(n, None)`, container start -> `(n, False)`, container end ->
@@ -608,7 +611,7 @@ impl PyNodes {
                 WalkEvent::End(node) => (node, Some(true)),
             })
             .collect();
-        Ok(PyTuple::new(py, rows)?.into())
+        Ok(PyTuple::new(py, rows)?.try_iter()?.into_any().unbind())
     }
 }
 
@@ -691,10 +694,12 @@ impl PyText {
     fn section_0_node(&self, name: &str, lang: &str) -> Option<u32> {
         let section_0_type = self.section_0_type().ok().flatten()?;
         let names = mapped_name_from_node(&self.corpus, lang).ok()?;
+        // The last node with the name, as in TF's `nodeFromName` dict.
         self.corpus
             .nodes_of_type(&section_0_type)
             .ok()?
             .into_iter()
+            .rev()
             .find(|node| names.get(node).is_some_and(|candidate| candidate == name))
     }
 }
@@ -812,7 +817,7 @@ impl PyText {
     #[getter]
     #[allow(non_snake_case)]
     fn defaultFormat(&self) -> &'static str {
-        "text-orig-full"
+        DEFAULT_FORMAT
     }
 
     /// Default format per node type, from formats named `<type>-default`.
@@ -843,14 +848,15 @@ impl PyText {
         Ok(PySet::new(py, self.sectionTypes()?)?.unbind())
     }
 
-    /// Names of the section features, one per section type.
+    /// The section feature names, like `sectionFeats` (TF's `T.sectionFeatures`
+    /// holds the features' data dicts instead; use `Fs(name).data` for those).
     #[getter]
     #[allow(non_snake_case)]
-    fn sectionFeatures(&self, py: Python<'_>) -> PyResult<PyObject> {
-        Ok(PyTuple::new(py, MappedSections::new(&self.corpus)?.section_features())?.into())
+    fn sectionFeatures(&self) -> PyResult<Vec<String>> {
+        self.sectionFeats()
     }
 
-    /// Names of the section features, one per section type.
+    /// Names of the section features, one per section type, as a list.
     #[getter]
     #[allow(non_snake_case)]
     fn sectionFeats(&self) -> PyResult<Vec<String>> {
@@ -913,16 +919,11 @@ impl PyText {
         write_console(py, false, true, &info)
     }
 
-    /// `(structureType, structureFeature)` pairs, or `()` without structure.
+    /// TF `T.headings`: the configured `(structure type, structure feature)`
+    /// pairs as a tuple, `()` when no structure is configured.
     #[getter]
-    fn headings(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
-        let types = self.structureTypes()?;
-        let feats = self.structureFeats()?;
-        if types.is_empty() || feats.is_empty() {
-            return Ok(PyTuple::empty(py).unbind());
-        }
-        let pairs: Vec<(String, String)> = types.into_iter().zip(feats).collect();
-        Ok(PyTuple::new(py, pairs)?.unbind())
+    fn headings(&self, py: Python<'_>) -> PyResult<PyObject> {
+        Ok(PyTuple::new(py, self.corpus.structure_headings()?)?.into())
     }
 
     /// Split a format template `type#template` into `(type, template)`; the
@@ -1182,18 +1183,23 @@ impl PyText {
             .transpose()?)
     }
 
-    /// The structural parent of node `n`.
-    fn up(&self, py: Python<'_>, #[pyo3(from_py_with = node_number)] n: u32) -> PyResult<PyObject> {
-        nodes_to_tuple(py, MappedSections::new(&self.corpus)?.u(n, None)?)
+    /// TF `T.up`: the parent structural node of node `n`, or `None` without
+    /// structure or when `n` is not of a structure type.
+    fn up(&self, #[pyo3(from_py_with = node_number)] n: u32) -> PyResult<Option<u32>> {
+        Ok(self.corpus.structure_up(n)?)
     }
 
-    /// The structural children of node `n`.
+    /// TF `T.down`: the tuple of structural children of node `n`, or `None`
+    /// without structure or when `n` is not of a structure type.
     fn down(
         &self,
         py: Python<'_>,
         #[pyo3(from_py_with = node_number)] n: u32,
-    ) -> PyResult<PyObject> {
-        nodes_to_tuple(py, MappedSections::new(&self.corpus)?.d(n, None)?)
+    ) -> PyResult<Option<PyObject>> {
+        self.corpus
+            .structure_down(n)?
+            .map(|nodes| nodes_to_tuple(py, nodes))
+            .transpose()
     }
 
     /// The structure of `node` (or of the whole dataset) as an indented string.
@@ -1259,6 +1265,16 @@ impl PySearch {
         Ok(match self.shallow {
             1 => study.count_first_nodes(limit),
             width => study.count_prefixes(width, limit),
+        })
+    }
+
+    /// TF's result limit (`tf/search/searchexe.py::fetch`/`count`): a negative
+    /// limit counts as 0, and 0 means "no limit" up to the fail limit of
+    /// `SEARCH_FAIL_FACTOR * maxNode` results.
+    fn tf_limit(&self, limit: Option<i64>) -> Option<usize> {
+        limit.map(|limit| match usize::try_from(limit) {
+            Ok(limit) if limit > 0 => limit,
+            _ => SEARCH_FAIL_FACTOR as usize * self.corpus.max_node() as usize,
         })
     }
 
@@ -1396,7 +1412,7 @@ impl PySearch {
         &self,
         py: Python<'_>,
         searchTemplate: &str,
-        limit: Option<usize>,
+        limit: Option<i64>,
         sets: Option<&Bound<'_, PyAny>>,
         shallow: Shallow,
         silent: Silent,
@@ -1405,6 +1421,7 @@ impl PySearch {
         let _ = here;
         let _ = silent;
         let owned_sets = search_sets_from_py(sets)?;
+        let limit = self.tf_limit(limit);
         self.run_search(py, searchTemplate, limit, &owned_sets, shallow.0)
     }
 
@@ -1413,11 +1430,17 @@ impl PySearch {
     /// Args:
     ///     limit: Return at most this many results.
     #[pyo3(signature = (limit=None))]
-    fn fetch(&self, py: Python<'_>, limit: Option<usize>) -> PyResult<PyObject> {
+    fn fetch(&self, py: Python<'_>, limit: Option<i64>) -> PyResult<PyObject> {
         let template = self.template.clone().ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err("no search template has been studied")
         })?;
-        self.run_search(py, &template, limit, &self.sets, self.shallow)
+        self.run_search(
+            py,
+            &template,
+            self.tf_limit(limit),
+            &self.sets,
+            self.shallow,
+        )
     }
 
     /// Count the results of the template prepared by `study`.
@@ -1430,9 +1453,10 @@ impl PySearch {
         &self,
         py: Python<'_>,
         progress: Option<usize>,
-        limit: Option<usize>,
+        limit: Option<i64>,
     ) -> PyResult<usize> {
         let _ = progress;
+        let limit = self.tf_limit(limit);
         let template = self.template.as_deref().ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err("no search template has been studied")
         })?;

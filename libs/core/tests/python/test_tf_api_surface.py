@@ -339,7 +339,6 @@ KNOWN_RETURN_DIVERGENCES = {
     "api.F.otype.s('phrase')": "tuple instead of range (same members)",
     "api.E.parent.f(1)": "tuple; Text-Fabric returns a frozenset or tuple per feature",
     "api.E.oslots.s(8)": "tuple instead of array.array (same members)",
-    "api.L.i(6)": "tuple, as Text-Fabric documents for all L functions (its L.i returns a list)",
     "api.E.distance.freqList()": "Text-Fabric raises TypeError sorting None edge values",
     "api.S.glean((1, 2))": "Text-Fabric raises IndexError on datasets with fewer than 3 section levels",
 }

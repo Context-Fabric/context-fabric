@@ -45,8 +45,11 @@ pub const TRY_LIMIT_FROM: i64 = 40;
 pub const TRY_LIMIT_TO: i64 = 40;
 pub const SEARCH_FAIL_FACTOR: u32 = 4;
 
+/// The text format `T.text` uses when none is given (TF `DEFAULT_FORMAT`).
+pub const DEFAULT_FORMAT: &str = "text-orig-full";
+
 pub const CFM_VERSION: &str = "2";
-pub const CFR_VERSION: &str = "3";
+pub const CFR_VERSION: &str = "4";
 pub const NODE_DTYPE: &str = "uint32";
 pub const RANK_DTYPE: &str = "uint32";
 pub const INDEX_DTYPE: &str = "uint32";

@@ -82,15 +82,15 @@ def test_show_plan_is_a_real_plan(loaded_api, capsys):
 
 
 def test_walk_events_pairs(loaded_api):
-    events = loaded_api.N.walk(events=True)
+    events = list(loaded_api.N.walk(events=True))
     assert all(isinstance(item, tuple) and len(item) == 2 for item in events)
     kinds = {kind for (_node, kind) in events}
     # slot events carry None, container start/end carry False/True.
     assert None in kinds
     assert any(kind is True for kind in kinds)
     # Non-end events replay plain walk() order.
-    plain = loaded_api.N.walk()
-    assert plain == tuple(node for (node, kind) in events if kind is not True)
+    plain = list(loaded_api.N.walk())
+    assert plain == [node for (node, kind) in events if kind is not True]
     # Restricting to a node subset keeps end events only for in-set nodes.
     subset_events = loaded_api.N.walk(nodes=[1, 2, 3, 6], events=True)
     end_nodes = {node for (node, kind) in subset_events if kind is True}
