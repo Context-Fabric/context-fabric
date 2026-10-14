@@ -340,6 +340,14 @@ pub fn is_cache_fresh(cache_path: &Path, module_paths: &[PathBuf]) -> Result<boo
     if source_has_structure_config(module_paths)? && metadata.structure_start.is_none() {
         return Ok(false);
     }
+    // Pre-v4 caches lack the reverse edge index that `E.<feature>.t` relies on.
+    if metadata
+        .edge_features
+        .iter()
+        .any(|feature| feature.reverse_index.is_none())
+    {
+        return Ok(false);
+    }
     Ok(true)
 }
 

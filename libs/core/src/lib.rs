@@ -13,6 +13,7 @@ pub mod config;
 pub mod corpus;
 pub mod describe;
 pub mod downloader;
+pub mod edge_index;
 pub mod error;
 pub mod explore;
 pub mod fabric;

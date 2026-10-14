@@ -13,6 +13,7 @@ use crate::corpus::{
     FeatureDescription, FeatureKind, FeatureValueSample, LoadedFeatureInfo, LoadedFeatureKind,
     StructureTree,
 };
+use crate::edge_index::{ReverseEdgeCsr, ReverseEdgeLayout};
 use crate::error::{CfError, Result};
 use crate::feature::{EdgeFeature, EdgeFrequency, FeatureValue, NodeFeature};
 use crate::precompute::{self, SectionsData, StructureData, StructureHeading};
@@ -26,6 +27,8 @@ const LEV_UP_MAGIC: &[u8; 8] = b"CFRLEVU1";
 const LEV_DOWN_MAGIC: &[u8; 8] = b"CFRLEVD1";
 const BOUNDARY_MAGIC: &[u8; 8] = b"CFRBND1\0";
 const SECTIONS_MAGIC: &[u8; 8] = b"CFRSECT1";
+// `.cfr` v4: per edge feature reverse (target -> sources) CSR, see `edge_index`.
+const REVERSE_EDGES_MAGIC: &[u8; 8] = b"CFRREVE1";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompiledMetadata {
@@ -110,6 +113,8 @@ pub struct CompiledEdgeFeature {
     pub edge_value_count: usize,
     pub edge_values_start: Option<usize>,
     pub metadata: BTreeMap<String, Option<String>>,
+    /// The `CFRREVE1` reverse index, `None` for pre-v4 caches.
+    pub reverse_index: Option<ReverseEdgeLayout>,
 }
 
 impl CompiledEdgeFeature {
@@ -160,6 +165,7 @@ struct EdgeParts {
     edge_value_count: usize,
     edge_values_start: Option<usize>,
     is_oslots: bool,
+    reverse_index: Option<ReverseEdgeLayout>,
     /// Sorted `(source, target, value_payload_offset)` triples, built on first
     /// `edge_value` call by a single scan of the edge-values section.
     edge_value_index: OnceLock<Vec<(u32, u32, usize)>>,
@@ -2413,6 +2419,7 @@ fn build_edge_parts(path: &Path, bytes: &[u8], feature: &CompiledEdgeFeature) ->
         edge_value_count: feature.edge_value_count,
         edge_values_start: feature.edge_values_start,
         is_oslots: feature.name == "oslots",
+        reverse_index: feature.reverse_index,
         edge_value_index: OnceLock::new(),
     })
 }
@@ -2611,7 +2618,16 @@ impl<'a> EdgeFeatureView<'a> {
         self.forward_with_values(source)
     }
 
+    /// Sources with an edge to `target`, in canonical order. Served from the
+    /// `CFRREVE1` reverse index; pre-v4 caches fall back to scanning every row.
     pub fn t(&self, target: u32) -> Result<Vec<u32>> {
+        match self.parts.reverse_index {
+            Some(layout) => layout.sources(self.path, self.bytes, target),
+            None => self.t_by_scan(target),
+        }
+    }
+
+    fn t_by_scan(&self, target: u32) -> Result<Vec<u32>> {
         let mut sources = Vec::new();
         for row_offset in &self.parts.row_offsets {
             let source = read_u32_from(self.path, self.bytes, *row_offset)?;
@@ -2997,6 +3013,16 @@ fn inspect_compiled_bytes(path: &Path, bytes: &[u8]) -> Result<CompiledMetadata>
     };
 
     let v3 = reader.inspect_v3_sections()?;
+    if !reader.is_done() && reader.peek_magic(REVERSE_EDGES_MAGIC) {
+        for (name, layout) in reader.inspect_reverse_edges_section()? {
+            if let Some(feature) = edge_features
+                .iter_mut()
+                .find(|feature| feature.name == name)
+            {
+                feature.reverse_index = Some(layout);
+            }
+        }
+    }
 
     Ok(CompiledMetadata {
         byte_len: bytes.len(),
@@ -3066,7 +3092,7 @@ fn read_u32_at(path: &Path, bytes: &[u8], offset: &mut usize) -> Result<u32> {
     Ok(value)
 }
 
-fn read_u32_from(path: &Path, bytes: &[u8], offset: usize) -> Result<u32> {
+pub(crate) fn read_u32_from(path: &Path, bytes: &[u8], offset: usize) -> Result<u32> {
     let end = offset
         .checked_add(4)
         .ok_or_else(|| invalid_compiled(path, "compiled u32 offset overflow"))?;
@@ -3337,7 +3363,7 @@ fn skip_edge_row(path: &Path, bytes: &[u8], offset: usize) -> Result<usize> {
         .ok_or_else(|| invalid_compiled(path, "compiled edge row offset overflow"))
 }
 
-fn invalid_compiled(path: &Path, message: impl Into<String>) -> CfError {
+pub(crate) fn invalid_compiled(path: &Path, message: impl Into<String>) -> CfError {
     CfError::Parse {
         path: path.to_path_buf(),
         line: 0,
@@ -3385,6 +3411,7 @@ fn write_compiled(corpus: &Corpus, output_path: &Path) -> Result<()> {
     write_edge_values_section(&mut writer, &corpus.edge_features, output_path)?;
     write_structure_section(&mut writer, corpus, output_path)?;
     write_v3_sections(&mut writer, corpus, output_path)?;
+    write_reverse_edges_section(&mut writer, corpus, output_path)?;
     writer.flush().map_err(|source| CfError::Io {
         path: output_path.to_path_buf(),
         source,
@@ -3495,6 +3522,28 @@ fn write_v3_sections<W: Write>(writer: &mut W, corpus: &Corpus, path: &Path) -> 
                 source,
             })?;
         write_sections_section(writer, &sections, path)?;
+    }
+    Ok(())
+}
+
+/// Appends `CFRREVE1`: the feature count, then per edge feature its name and
+/// its [`ReverseEdgeCsr`].
+fn write_reverse_edges_section<W: Write>(
+    writer: &mut W,
+    corpus: &Corpus,
+    path: &Path,
+) -> Result<()> {
+    let rank = corpus.rank();
+    writer
+        .write_all(REVERSE_EDGES_MAGIC)
+        .map_err(|source| CfError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    write_u32(writer, corpus.edge_features.len() as u32, path)?;
+    for feature in corpus.edge_features.values() {
+        write_string(writer, &feature.name, path)?;
+        ReverseEdgeCsr::build(&feature.values, &rank).write(writer, path)?;
     }
     Ok(())
 }
@@ -3856,7 +3905,7 @@ fn write_u32<W: Write>(writer: &mut W, value: u32, path: &Path) -> Result<()> {
         })
 }
 
-fn write_u32_vec<W: Write>(writer: &mut W, values: &[u32], path: &Path) -> Result<()> {
+pub(crate) fn write_u32_vec<W: Write>(writer: &mut W, values: &[u32], path: &Path) -> Result<()> {
     write_u32(writer, values.len() as u32, path)?;
     for value in values {
         write_u32(writer, *value, path)?;
@@ -4020,6 +4069,21 @@ impl<'a> Reader<'a> {
         Ok(offsets)
     }
 
+    /// Parses the `CFRREVE1` section header and each feature's reverse-index
+    /// layout (payloads are validated for bounds, not copied).
+    fn inspect_reverse_edges_section(&mut self) -> Result<Vec<(String, ReverseEdgeLayout)>> {
+        self.take(REVERSE_EDGES_MAGIC.len())?;
+        let count = self.read_u32()? as usize;
+        let mut layouts = Vec::with_capacity(count);
+        for _ in 0..count {
+            let name = self.read_string()?;
+            let (layout, end) = ReverseEdgeLayout::inspect(self.path, self.bytes, self.offset)?;
+            self.offset = end;
+            layouts.push((name, layout));
+        }
+        Ok(layouts)
+    }
+
     /// Advances past one CSR (`row_count`, offsets vec, data vec), returning the
     /// offset of its `row_count` field (the start consumed by `read_csr_row`).
     fn inspect_csr(&mut self) -> Result<usize> {
@@ -4178,6 +4242,7 @@ impl<'a> Reader<'a> {
             edge_value_count: 0,
             edge_values_start: None,
             metadata: BTreeMap::new(),
+            reverse_index: None,
         })
     }
 

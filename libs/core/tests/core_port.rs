@@ -3468,7 +3468,10 @@ fn fabric_load_all_creates_reuses_and_refreshes_mapped_cache() {
     let cache_path = fabric.cfr_cache_path();
     assert_eq!(
         cache_path,
-        corpus_dir.join(".cfr").join("3").join("corpus.cfr")
+        corpus_dir
+            .join(".cfr")
+            .join(context_fabric_core::CFR_VERSION)
+            .join("corpus.cfr")
     );
     assert!(!cache_path.exists());
 
@@ -3491,6 +3494,59 @@ fn fabric_load_all_creates_reuses_and_refreshes_mapped_cache() {
     assert_eq!(third.max_node(), 8);
     let third_mtime = fs::metadata(&cache_path).unwrap().modified().unwrap();
     assert!(third_mtime > second_mtime);
+}
+
+/// A cache written before the reverse edge index existed (no trailing
+/// `CFRREVE1` section) still answers `t()` by scanning, identically, and
+/// `loadAll` treats it as stale and rebuilds it.
+#[test]
+fn caches_without_reverse_edge_index_fall_back_and_are_rebuilt() {
+    let source = repo_path("libs/core/tests/fixtures/mini_corpus");
+    let temp_dir = tempfile::tempdir().unwrap();
+    let corpus_dir = temp_dir.path().join("mini");
+    dirCopy(
+        &source.to_string_lossy(),
+        &corpus_dir.to_string_lossy(),
+        false,
+    )
+    .unwrap();
+    let _ = fs::remove_dir_all(corpus_dir.join(".cfr"));
+    let fabric = Fabric::new(&corpus_dir);
+    let cache_path = fabric.cfr_cache_path();
+    let indexed: Vec<(u32, Vec<u32>, Vec<u32>)> = {
+        let corpus = fabric.loadAll().unwrap();
+        let relation = corpus.edge_feature("relation").unwrap().unwrap();
+        (0..=corpus.max_node() + 1)
+            .map(|node| (node, relation.t(node).unwrap(), relation.b(node).unwrap()))
+            .collect()
+    };
+    assert!(indexed.iter().any(|(_, sources, _)| !sources.is_empty()));
+
+    let bytes = fs::read(&cache_path).unwrap();
+    let magic_at = bytes
+        .windows(8)
+        .rposition(|window| window == b"CFRREVE1")
+        .expect("reverse edge section present");
+    fs::write(&cache_path, &bytes[..magic_at]).unwrap();
+
+    let legacy = MappedCompiledCorpus::open(&cache_path).unwrap();
+    assert!(
+        legacy
+            .metadata()
+            .edge_features
+            .iter()
+            .all(|feature| feature.reverse_index.is_none())
+    );
+    let relation = legacy.edge_feature("relation").unwrap().unwrap();
+    for (node, sources, both) in &indexed {
+        assert_eq!(&relation.t(*node).unwrap(), sources, "t({node})");
+        assert_eq!(&relation.b(*node).unwrap(), both, "b({node})");
+    }
+    drop(legacy);
+
+    fabric.loadAll().unwrap();
+    let rebuilt = fs::read(&cache_path).unwrap();
+    assert!(rebuilt.windows(8).any(|window| window == b"CFRREVE1"));
 }
 
 #[test]
