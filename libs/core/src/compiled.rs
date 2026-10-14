@@ -1882,27 +1882,33 @@ impl<'a> StringPoolNodeFeatureView<'a> {
     }
 
     pub fn str_value(&self, node: u32) -> Result<Option<&'a str>> {
-        let mut low = 0_usize;
-        let mut high = self.parts.row_count;
-        while low < high {
-            let mid = (low + high) / 2;
-            let row_offset = self.parts.rows_start + (mid * 8);
-            let row_node = read_u32_from(self.path, self.bytes, row_offset)?;
-            match row_node.cmp(&node) {
-                std::cmp::Ordering::Less => low = mid + 1,
-                std::cmp::Ordering::Greater => high = mid,
-                std::cmp::Ordering::Equal => {
-                    let pool_id = read_u32_from(self.path, self.bytes, row_offset + 4)? as usize;
-                    let Some(range) = self.parts.pool_ranges.get(pool_id) else {
-                        return Err(invalid_compiled(self.path, "string pool id out of bounds"));
-                    };
-                    return std::str::from_utf8(&self.bytes[range.clone()])
-                        .map(Some)
-                        .map_err(|_| invalid_compiled(self.path, "invalid utf-8 string"));
-                }
-            }
-        }
-        Ok(None)
+        Ok(self.str_value_id(node)?.map(|(_, value)| value))
+    }
+
+    /// Row index of `node` in this feature's node-sorted rows.
+    fn find_row(&self, node: u32) -> Result<Option<usize>> {
+        let rows_start = self.parts.rows_start;
+        find_sorted_row(
+            self.path,
+            self.bytes,
+            self.parts.row_count,
+            |index| rows_start + index * 8,
+            node,
+        )
+    }
+
+    /// The pooled string with id `pool_id`.
+    pub fn pool_str(&self, pool_id: u32) -> Result<&'a str> {
+        let Some(range) = self.parts.pool_ranges.get(pool_id as usize) else {
+            return Err(invalid_compiled(self.path, "string pool id out of bounds"));
+        };
+        std::str::from_utf8(&self.bytes[range.clone()])
+            .map_err(|_| invalid_compiled(self.path, "invalid utf-8 string"))
+    }
+
+    /// Number of distinct pooled strings (pool ids are `0..pool_count`).
+    pub fn pool_count(&self) -> usize {
+        self.parts.pool_ranges.len()
     }
 
     /// Like [`str_value`](Self::str_value) but also returns the node's
@@ -1910,27 +1916,10 @@ impl<'a> StringPoolNodeFeatureView<'a> {
     /// string value (callers can intern by id, group rows by id, or compare two
     /// nodes' values without touching the bytes). Single mmap binary search.
     pub fn str_value_id(&self, node: u32) -> Result<Option<(u32, &'a str)>> {
-        let mut low = 0_usize;
-        let mut high = self.parts.row_count;
-        while low < high {
-            let mid = (low + high) / 2;
-            let row_offset = self.parts.rows_start + (mid * 8);
-            let row_node = read_u32_from(self.path, self.bytes, row_offset)?;
-            match row_node.cmp(&node) {
-                std::cmp::Ordering::Less => low = mid + 1,
-                std::cmp::Ordering::Greater => high = mid,
-                std::cmp::Ordering::Equal => {
-                    let pool_id = read_u32_from(self.path, self.bytes, row_offset + 4)?;
-                    let Some(range) = self.parts.pool_ranges.get(pool_id as usize) else {
-                        return Err(invalid_compiled(self.path, "string pool id out of bounds"));
-                    };
-                    return std::str::from_utf8(&self.bytes[range.clone()])
-                        .map(|value| Some((pool_id, value)))
-                        .map_err(|_| invalid_compiled(self.path, "invalid utf-8 string"));
-                }
-            }
+        match self.pool_id(node)? {
+            Some(pool_id) => Ok(Some((pool_id, self.pool_str(pool_id)?))),
+            None => Ok(None),
         }
-        Ok(None)
     }
 
     pub fn v(&self, node: u32) -> Result<Option<MappedNodeValue<'a>>> {
@@ -1954,21 +1943,14 @@ impl<'a> StringPoolNodeFeatureView<'a> {
     /// The node's pool id without decoding the pooled string: one binary search,
     /// two u32 reads. `None` when the node has no value.
     pub fn pool_id(&self, node: u32) -> Result<Option<u32>> {
-        let mut low = 0_usize;
-        let mut high = self.parts.row_count;
-        while low < high {
-            let mid = (low + high) / 2;
-            let row_offset = self.parts.rows_start + (mid * 8);
-            let row_node = read_u32_from(self.path, self.bytes, row_offset)?;
-            match row_node.cmp(&node) {
-                std::cmp::Ordering::Less => low = mid + 1,
-                std::cmp::Ordering::Greater => high = mid,
-                std::cmp::Ordering::Equal => {
-                    return Ok(Some(read_u32_from(self.path, self.bytes, row_offset + 4)?));
-                }
-            }
+        match self.find_row(node)? {
+            Some(index) => Ok(Some(read_u32_from(
+                self.path,
+                self.bytes,
+                self.parts.rows_start + index * 8 + 4,
+            )?)),
+            None => Ok(None),
         }
-        Ok(None)
     }
 
     /// Visit every `(node, pool_id)` row without decoding the pooled strings —
@@ -2177,22 +2159,19 @@ impl<'a> MixedNodeFeatureView<'a> {
     }
 
     pub fn value(&self, node: u32) -> Result<Option<MappedNodeValue<'a>>> {
-        let mut low = 0_usize;
-        let mut high = self.parts.row_count;
-        while low < high {
-            let mid = (low + high) / 2;
-            let row_offset = self.parts.row_offsets[mid];
-            let row_node = read_u32_from(self.path, self.bytes, row_offset)?;
-            match row_node.cmp(&node) {
-                std::cmp::Ordering::Less => low = mid + 1,
-                std::cmp::Ordering::Greater => high = mid,
-                std::cmp::Ordering::Equal => {
-                    return read_mixed_node_value_from(self.path, self.bytes, row_offset + 4)
-                        .map(Some);
-                }
+        let row_offsets = &self.parts.row_offsets;
+        match find_sorted_row(
+            self.path,
+            self.bytes,
+            self.parts.row_count,
+            |index| row_offsets[index],
+            node,
+        )? {
+            Some(index) => {
+                read_mixed_node_value_from(self.path, self.bytes, row_offsets[index] + 4).map(Some)
             }
+            None => Ok(None),
         }
-        Ok(None)
     }
 
     pub fn v(&self, node: u32) -> Result<Option<MappedNodeValue<'a>>> {
@@ -2477,59 +2456,47 @@ impl<'a> EdgeFeatureView<'a> {
         self.has_edge_values()
     }
 
+    /// Byte offset of `source`'s row, if it has one.
+    fn row_offset(&self, source: u32) -> Result<Option<usize>> {
+        let row_offsets = &self.parts.row_offsets;
+        Ok(find_sorted_row(
+            self.path,
+            self.bytes,
+            self.parts.row_count,
+            |index| row_offsets[index],
+            source,
+        )?
+        .map(|index| row_offsets[index]))
+    }
+
     pub fn targets(&self, source: u32) -> Result<Option<EdgeTargets<'a>>> {
-        let mut low = 0_usize;
-        let mut high = self.parts.row_count;
-        while low < high {
-            let mid = (low + high) / 2;
-            let row_offset = self.parts.row_offsets[mid];
-            let row_source = read_u32_from(self.path, self.bytes, row_offset)?;
-            match row_source.cmp(&source) {
-                std::cmp::Ordering::Less => low = mid + 1,
-                std::cmp::Ordering::Greater => high = mid,
-                std::cmp::Ordering::Equal => {
-                    let target_count =
-                        read_u32_from(self.path, self.bytes, row_offset + 4)? as usize;
-                    let targets_start = row_offset + 8;
-                    return Ok(Some(EdgeTargets {
-                        path: self.path,
-                        bytes: self.bytes,
-                        offset: targets_start,
-                        remaining: target_count,
-                    }));
-                }
-            }
-        }
-        Ok(None)
+        let Some(row_offset) = self.row_offset(source)? else {
+            return Ok(None);
+        };
+        let target_count = read_u32_from(self.path, self.bytes, row_offset + 4)? as usize;
+        Ok(Some(EdgeTargets {
+            path: self.path,
+            bytes: self.bytes,
+            offset: row_offset + 8,
+            remaining: target_count,
+        }))
     }
 
     /// First and last target of `source`'s row without materializing the list —
-    /// one binary search plus three u32 reads. Targets are stored ascending, so
+    /// one row lookup plus three u32 reads. Targets are stored ascending, so
     /// for `oslots` this is the node's slot interval. `None` when the source has
     /// no row (or an empty one).
     pub fn first_last_targets(&self, source: u32) -> Result<Option<(u32, u32)>> {
-        let mut low = 0_usize;
-        let mut high = self.parts.row_count;
-        while low < high {
-            let mid = (low + high) / 2;
-            let row_offset = self.parts.row_offsets[mid];
-            let row_source = read_u32_from(self.path, self.bytes, row_offset)?;
-            match row_source.cmp(&source) {
-                std::cmp::Ordering::Less => low = mid + 1,
-                std::cmp::Ordering::Greater => high = mid,
-                std::cmp::Ordering::Equal => {
-                    let count = read_u32_from(self.path, self.bytes, row_offset + 4)? as usize;
-                    if count == 0 {
-                        return Ok(None);
-                    }
-                    let first = read_u32_from(self.path, self.bytes, row_offset + 8)?;
-                    let last =
-                        read_u32_from(self.path, self.bytes, row_offset + 8 + ((count - 1) * 4))?;
-                    return Ok(Some((first, last)));
-                }
-            }
+        let Some(row_offset) = self.row_offset(source)? else {
+            return Ok(None);
+        };
+        let count = read_u32_from(self.path, self.bytes, row_offset + 4)? as usize;
+        if count == 0 {
+            return Ok(None);
         }
-        Ok(None)
+        let first = read_u32_from(self.path, self.bytes, row_offset + 8)?;
+        let last = read_u32_from(self.path, self.bytes, row_offset + 8 + ((count - 1) * 4))?;
+        Ok(Some((first, last)))
     }
 
     fn sorted_targets(&self, source: u32) -> Result<Vec<u32>> {
@@ -3141,6 +3108,41 @@ fn read_csr_row(path: &Path, bytes: &[u8], start: usize, index: u32) -> Result<O
         row.push(read_u32_from(path, bytes, data_base + (cursor * 4))?);
     }
     Ok(Some(row))
+}
+
+/// Index of the row whose leading u32 (the node id) equals `node`, in a table of
+/// `row_count` rows sorted by node id where row `i` starts at `row_offset(i)`.
+/// Tries the dense position `node - first_node` first, an O(1) hit for any
+/// feature defined on a contiguous node range (every word, every non-slot
+/// node), then falls back to binary search.
+fn find_sorted_row(
+    path: &Path,
+    bytes: &[u8],
+    row_count: usize,
+    row_offset: impl Fn(usize) -> usize,
+    node: u32,
+) -> Result<Option<usize>> {
+    if row_count == 0 {
+        return Ok(None);
+    }
+    let first_node = read_u32_from(path, bytes, row_offset(0))?;
+    if let Some(guess) = node.checked_sub(first_node).map(|delta| delta as usize)
+        && guess < row_count
+        && read_u32_from(path, bytes, row_offset(guess))? == node
+    {
+        return Ok(Some(guess));
+    }
+    let mut low = 0_usize;
+    let mut high = row_count;
+    while low < high {
+        let mid = low + (high - low) / 2;
+        match read_u32_from(path, bytes, row_offset(mid))?.cmp(&node) {
+            std::cmp::Ordering::Less => low = mid + 1,
+            std::cmp::Ordering::Greater => high = mid,
+            std::cmp::Ordering::Equal => return Ok(Some(mid)),
+        }
+    }
+    Ok(None)
 }
 
 /// Reads a single node's rank directly from the mmap'd rank array, avoiding
