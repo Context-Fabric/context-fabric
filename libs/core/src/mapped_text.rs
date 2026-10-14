@@ -307,30 +307,9 @@ impl<'a> MappedText<'a> {
             .unwrap_or_else(|| Ok(Vec::new()))
     }
 
+    /// TF's expansion to the format's target type: `L.d(node, otype=node_type)`.
     fn descendants_of_type(&self, node: u32, node_type: &str) -> Result<Vec<u32>> {
-        let root_slots = self.slots(node)?;
-        let Some(root_first) = root_slots.first().copied() else {
-            return Ok(Vec::new());
-        };
-        let Some(root_last) = root_slots.last().copied() else {
-            return Ok(Vec::new());
-        };
-        let mut descendants = Vec::new();
-        for row in self.otype.rows() {
-            let (candidate, candidate_type) = row?;
-            if candidate_type != node_type {
-                continue;
-            }
-            let slots = self.slots(candidate)?;
-            if slots
-                .first()
-                .zip(slots.last())
-                .is_some_and(|(first, last)| root_first <= *first && *last <= root_last)
-            {
-                descendants.push(candidate);
-            }
-        }
-        Ok(descendants)
+        crate::mapped_sections::MappedSections::new(self.corpus)?.d(node, Some(node_type))
     }
 
     fn text_for_node(&self, slot: u32, spec: &str) -> Result<String> {
@@ -815,35 +794,9 @@ impl TextContext {
             .unwrap_or_else(|| Ok(Vec::new()))
     }
 
+    /// TF's expansion to the format's target type: `L.d(node, otype=node_type)`.
     fn descendants_of_type(&self, node: u32, node_type: &str) -> Result<Vec<u32>> {
-        let root_slots = self.slots(node)?;
-        let Some(root_first) = root_slots.first().copied() else {
-            return Ok(Vec::new());
-        };
-        let Some(root_last) = root_slots.last().copied() else {
-            return Ok(Vec::new());
-        };
-        let otype = self.otype.view();
-        let oslots = self.oslots.view();
-        let mut descendants = Vec::new();
-        for row in otype.rows() {
-            let (candidate, candidate_type) = row?;
-            if candidate_type != node_type {
-                continue;
-            }
-            let slots: Vec<u32> = oslots
-                .targets(candidate)?
-                .map(|targets| targets.collect())
-                .unwrap_or_else(|| Ok(Vec::new()))?;
-            if slots
-                .first()
-                .zip(slots.last())
-                .is_some_and(|(first, last)| root_first <= *first && *last <= root_last)
-            {
-                descendants.push(candidate);
-            }
-        }
-        Ok(descendants)
+        crate::mapped_sections::MappedSections::new(&self.corpus)?.d(node, Some(node_type))
     }
 }
 
