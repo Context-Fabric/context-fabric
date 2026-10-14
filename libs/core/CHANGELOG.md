@@ -18,6 +18,9 @@ surface is preserved (existing signatures and return types unchanged).
 - Core corpus loading is mmap-first; compiled cache and memory-mapped loading are public (`loadCompiled()`, `openMapped()`).
 - Dropped the in-memory search executor; the mapped engine is now the only search engine (`search.rs` 2816 -> 590 lines).
 - Bumped cache path versions (CFM 2, CFR 3); pre-v3 default caches are auto-invalidated and recompiled.
+- Compiled caches are validated against a source manifest stored beside them (module paths, name/size/mtime of every `.tf` file, engine version) instead of an mtime comparison; compositions of several locations get their own cache file; a read-only corpus directory compiles its cache under the user cache directory (`CFABRIC_CACHE` or the platform cache dir).
+- Loading, compiling, and searching release the GIL.
+- NumPy is optional: install `context-fabric[numpy]` for `vs_array`.
 
 ### Added
 - **TF-core compatibility**: 34/34 real-world ETCBC query parity (counts and result sets match Text-Fabric); 407,719/409,288 public-API value checks pass against TF 13.0.19 on BHSA; valued edges; `TF.save` round-trip (TF reloads CF-authored `.tf`); `sets=`/`shallow=` search; multi-location corpus loading.
@@ -38,6 +41,9 @@ surface is preserved (existing signatures and return types unchanged).
 - Text-Fabric valued edge parsing for implicit `@edgeValues` rows and compact `target:value` syntax.
 - `Fabric.load("a b c")` whitespace feature split; `freqList` node-type/edge filters; `T.text` accepts int or iterable; `sectionTuple` split from `sectionFromNode`; `lastSlot`; `S.glean`/`S.showPlan`; `walk(events=True)`.
 - Downstream MCP and benchmark package imports for the new top-level `cfabric` API surface.
+- Compiled caches are written to a staged file and atomically renamed, so recompiling never corrupts a cache another process has open, and interrupted compiles leave the previous cache intact; corrupted caches fail with a clear error instead of large allocations or panics.
+- Out-of-range node numbers (negative, or beyond 32 bits) answer `None` / `()` like Text-Fabric instead of raising `OverflowError`; `E.oslots.s` of a nonexistent node is `()`.
+- Distributions ship the MIT license file.
 
 ### Known divergences from Text-Fabric
 - Result-*list* ordering is unspecified-but-deterministic; parity is defined by result counts and sets, not list order (TF's order is search-strategy dependent). Within-tuple column order matches template atom order.
