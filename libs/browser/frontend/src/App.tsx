@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { DisplayProvider, displayRef } from "./display/Display";
 import { Inspector } from "./Inspector";
+import { LexiconView } from "./lexicon/LexiconView";
 import { Library } from "./Library";
 import { Workspaces } from "./Workspaces";
 import { BookView } from "./read/BookView";
@@ -18,6 +19,13 @@ import {
   type View,
 } from "./state";
 import type { Agreement, CorpusCard, DiffKind, Place, ReadBy, ViewSettings } from "./types";
+
+const VIEW_NAMES: Record<View, string> = { read: "Read", search: "Search", lexicon: "Lexicon" };
+
+/** The views a corpus offers: the lexicon only where it has one (BHSA). */
+function viewsOf(card: CorpusCard | undefined): View[] {
+  return card?.lexicon ? ["read", "search", "lexicon"] : ["read", "search"];
+}
 
 function Mark() {
   // the Context-Fabric woven mark
@@ -272,6 +280,8 @@ function PaneView({
 }: PaneProps) {
   const compact = paneCount > 1;
   const setView = (view: View) => onChange({ view }, true);
+  // a corpus without a lexicon (after switching corpus) is read instead
+  const view: View = pane.view === "lexicon" && card && !card.lexicon ? "read" : pane.view;
   // a corpus' own default format applies unless the reader chose one it has
   const paneSettings =
     card && settings.fmt && !card.display.textFormats.includes(settings.fmt) ? { ...settings, fmt: null } : settings;
@@ -296,15 +306,15 @@ function PaneView({
             ))}
           </select>
           <div className="flex gap-0.5" role="group" aria-label="View">
-            {(["read", "search"] as const).map((v) => (
+            {viewsOf(card).map((v) => (
               <button
                 key={v}
                 type="button"
-                aria-pressed={pane.view === v}
+                aria-pressed={view === v}
                 onClick={() => setView(v)}
                 className="rounded px-2.5 py-0.5 text-[14px] hover:bg-woad-soft aria-pressed:bg-ink aria-pressed:text-vellum"
               >
-                {v === "read" ? "Read" : "Search"}
+                {VIEW_NAMES[v]}
               </button>
             ))}
           </div>
@@ -334,10 +344,10 @@ function PaneView({
             config={card.display}
             settings={paneSettings}
             onInspect={(n) => onInspect(card.name, n)}
-            marks={pane.view === "read" ? diff?.marks : undefined}
-            markTitles={pane.view === "read" ? diff?.titles : undefined}
+            marks={view === "read" ? diff?.marks : undefined}
+            markTitles={view === "read" ? diff?.titles : undefined}
           >
-            {pane.view === "read" && pane.by === "books" && card.bookView ? (
+            {view === "read" && pane.by === "books" && card.bookView ? (
               <BookView
                 corpus={card}
                 passageRef={pane.ref}
@@ -350,7 +360,7 @@ function PaneView({
                 diff={diff?.message ?? null}
                 places={diff?.places}
               />
-            ) : pane.view === "read" ? (
+            ) : view === "read" ? (
               <ReadView
                 corpus={card}
                 passageRef={pane.ref}
@@ -360,6 +370,25 @@ function PaneView({
                 note={note}
                 diff={diff?.message ?? null}
                 onBy={onBy}
+              />
+            ) : view === "lexicon" ? (
+              <LexiconView
+                corpus={card}
+                lex={pane.lex}
+                settings={paneSettings}
+                onLex={(lex) => onChange({ lex }, true)}
+                // read the verse here; with sync, the other reading panes follow
+                onOpenPassage={onOpenPassage}
+                onSearch={async (query) => {
+                  // start the search, so that its results are there straight away
+                  try {
+                    const started = await api.search(card.name, query);
+                    onChange({ view: "search", query, search: started.id, result: null }, true);
+                  } catch {
+                    onChange({ view: "search", query, search: null, result: null }, true);
+                  }
+                }}
+                compact={compact}
               />
             ) : (
               <SearchView
@@ -558,7 +587,7 @@ export function App() {
               {firstCard.name} <span className="hidden tabular-nums sm:inline">{firstCard.version}</span>
             </span>
             <nav className="flex gap-1" aria-label="Views">
-              {(["read", "search"] as const).map((v) => (
+              {viewsOf(firstCard).map((v) => (
                 <button
                   key={v}
                   type="button"
@@ -566,7 +595,7 @@ export function App() {
                   onClick={() => actions.updatePane(0, { view: v }, true)}
                   className="rounded px-2.5 py-1 text-[14px] hover:bg-woad-soft aria-[current=page]:bg-ink aria-[current=page]:text-vellum sm:px-3"
                 >
-                  {v === "read" ? "Read" : "Search"}
+                  {VIEW_NAMES[v]}
                 </button>
               ))}
             </nav>

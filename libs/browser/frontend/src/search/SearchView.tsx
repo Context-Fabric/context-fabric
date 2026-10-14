@@ -239,6 +239,7 @@ function OtherCount({
               query: template,
               search: status.id,
               result: null,
+              lex: null,
             })
           }
           className="shrink-0 text-[13px] text-woad hover:underline"

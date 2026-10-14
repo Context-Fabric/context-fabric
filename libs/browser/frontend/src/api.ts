@@ -4,7 +4,10 @@ import type {
   CorpusCard,
   DiffKind,
   FeatureEntry,
+  Lexeme,
+  LexiconEntry,
   NodeInfo,
+  Occurrence,
   Problem,
   ReadBy,
   RenderTree,
@@ -211,4 +214,17 @@ export const api = {
   },
 
   events: (id: string) => new EventSource(`/api/searches/${id}/events`),
+
+  lexicon: (corpus: string) =>
+    request<{ features: Record<string, string>; entries: LexiconEntry[] }>(`${corpusPath(corpus)}/lexicon`),
+
+  lexeme: (corpus: string, node: number) => request<Lexeme>(`${corpusPath(corpus)}/lexicon/${node}`),
+
+  occurrences: (corpus: string, node: number, offset: number, limit: number, book: string | null, fmt?: string | null) =>
+    request<{ total: number; offset: number; rows: Occurrence[] }>(
+      `${corpusPath(corpus)}/lexicon/${node}/occurrences${query({ offset, limit, book, fmt })}`,
+    ),
+
+  occurrencesUrl: (corpus: string, node: number, book: string | null, fmt?: string | null, excel = false) =>
+    `${corpusPath(corpus)}/lexicon/${node}/occurrences.tsv${query({ book, fmt, excel: excel || null })}`,
 };

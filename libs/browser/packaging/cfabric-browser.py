@@ -9,6 +9,9 @@ from cfabric_browser.cli import main
 
 LOG = Path.home() / ".cfabric" / "logs" / "cfabric-browser.log"
 
+# The test version offers only these corpora (--only); empty for all of them.
+CORPORA = ["ETCBC/bhsa", "DT-UCPH/sp", "ETCBC/dss"]
+
 
 def log_to_file() -> bool:
     """Without a console, send output and errors to a log file."""
@@ -40,7 +43,8 @@ if __name__ == "__main__":
     # turns that start into the worker instead of a second window.
     multiprocessing.freeze_support()
     try:
-        status = main(["--window", *sys.argv[1:]])
+        only = [arg for corpus in CORPORA for arg in ("--only", corpus)]
+        status = main(["--window", *only, *sys.argv[1:]])
     except SystemExit as e:  # argparse
         status = e.code if isinstance(e.code, int) else 1
     except Exception:  # noqa: BLE001 - into the log, then the error message

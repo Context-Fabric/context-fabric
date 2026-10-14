@@ -32,6 +32,7 @@ from cfabric.registry import CorpusRegistry
 from cfabric.utils.helpers import versionSort
 
 from cfabric_browser.books import book_index, canonical_book
+from cfabric_browser.lexicon import Lexicon, has_lexicon
 from cfabric_browser.witnesses import BookIndex, format_ref, parse_ref
 
 logger = logging.getLogger(__name__)
@@ -197,6 +198,7 @@ def discover(
     roots: tuple[str, ...] = SEARCH_ROOTS,
     hide: tuple[str, ...] | list[str] = (),
     collapse: bool = True,
+    only: tuple[str, ...] | list[str] = (),
 ) -> list[dict[str, Any]]:
     """Corpora on this computer, in Text-Fabric layout (`<org>/<repo>/tf/<version>`).
 
@@ -207,11 +209,14 @@ def discover(
     Parameters
     ----------
     hide: ids (`org/repo`) to leave out, e.g. corpora someone does not use.
+    only: if given, the ids (`org/repo`) to consider; all others are left out,
+        e.g. for a test with a few corpora.
     collapse: list corpora with the same title (copies and forks of one
         corpus, such as `DT-UCPH/sp` and `saulocantanhede/sp`) once, keeping the
         one with the newest data; the others are named in `copies`.
     """
     hidden = {h.lower() for h in hide}
+    allowed = {o.lower() for o in only}
     found: dict[str, dict[str, Any]] = {}
     for root in roots:
         base = Path(root).expanduser()
@@ -231,7 +236,7 @@ def discover(
                 if not versions:
                     continue
                 key = f"{org.name}/{repo.name}".lower()
-                if key in found or key in hidden:
+                if key in found or key in hidden or (allowed and key not in allowed):
                     continue
                 default = _pick_version(repo)
                 found[key] = {
@@ -328,15 +333,18 @@ class CorpusService:
         roots: tuple[str, ...] = SEARCH_ROOTS,
         overrides: str | Path = OVERRIDES,
         hide: tuple[str, ...] | list[str] = (),
+        only: tuple[str, ...] | list[str] = (),
     ) -> None:
         self.registry = CorpusRegistry()
         self.roots = roots  # where the library looks for corpora
         self.overrides = overrides  # local display settings, see display_overrides
         self.hide = tuple(hide)  # library ids not to list
+        self.only = tuple(only)  # if given, the only library ids to list and open
         self._specs: dict[str, CorpusSpec] = {}
         self._configs: dict[str, DisplayConfig] = {}
         self._books: dict[str, dict[str, str]] = {}
         self._bookIndexes: dict[str, BookIndex | None] = {}
+        self._lexicons: dict[str, Lexicon | None] = {}
         self._lock = threading.Lock()
         for spec in specs or ():
             self.add(spec)
@@ -416,6 +424,16 @@ class CorpusService:
         with self._lock:
             self._bookIndexes[name] = index
         return index
+
+    def lexicon(self, name: str) -> Lexicon | None:
+        """The lexicon of a corpus with lexeme nodes (BHSA), if it has one."""
+        with self._lock:
+            if name in self._lexicons:
+                return self._lexicons[name]
+        lexicon = Lexicon.build(self.api(name))
+        with self._lock:
+            self._lexicons[name] = lexicon
+        return lexicon
 
     def align(
         self,
@@ -533,5 +551,7 @@ class CorpusService:
             "sectionTypes": list(T.sectionTypes or ()),
             # whether the corpus can also be read by biblical book (DSS)
             "bookView": self.book_index(name) is not None,
+            # whether the corpus has a lexicon with glosses (BHSA)
+            "lexicon": has_lexicon(api),
             "display": config.to_dict(),
         }

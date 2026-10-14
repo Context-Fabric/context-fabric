@@ -61,6 +61,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         " library: hide: in ~/.cfabric/browser.yaml",
     )
     parser.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        metavar="ORG/REPO",
+        help="limit the library to this corpus (can be repeated), e.g. for a test"
+        " with a few corpora; see also library: only: in ~/.cfabric/browser.yaml",
+    )
+    parser.add_argument(
         "--no-library",
         action="store_true",
         help="do not let users open other corpora found on this computer",
@@ -101,8 +109,10 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     settings = load_settings()
-    hide = [*((settings.get("library") or {}).get("hide") or ()), *args.hide]
-    service = CorpusService(specs, hide=hide)
+    librarySettings = settings.get("library") or {}
+    hide = [*(librarySettings.get("hide") or ()), *args.hide]
+    only = [*(librarySettings.get("only") or ()), *args.only]
+    service = CorpusService(specs, hide=hide, only=only)
     for spec in specs:
         print(f"Loading {spec.name} from {spec.path} ...", flush=True)
         t = time.perf_counter()
