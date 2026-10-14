@@ -593,7 +593,11 @@ class Fabric:
             self.load(loadableFeatures, add=True, silent=silent)
 
         # Compute sections (requires section features to be loaded)
-        if getattr(self, 'sectionsOK', False) and hasattr(self, 'sectionTypes'):
+        if (
+            getattr(self, 'sectionsOK', False)
+            and hasattr(self, 'sectionTypes')
+            and not hasattr(api.C, 'sections')
+        ):
             sections_data = sectionsFromApi(api, self.sectionTypes, self.sectionFeats)
             if sections_data:
                 setattr(api.C, 'sections', Computed(api, sections_data))
@@ -1347,6 +1351,10 @@ class Fabric:
         addOtype(api)
         addNodes(api)
         addLocality(api)
+        if self.sectionsOK:
+            sections_data = sectionsFromApi(api, self.sectionTypes, self.sectionFeats)
+            if sections_data is not None:
+                setattr(api.C, 'sections', Computed(api, sections_data))
         addText(api)
         addSearch(api, self.silent)
 
