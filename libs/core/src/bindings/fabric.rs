@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use pyo3::prelude::*;
 use pyo3::sync::GILOnceCell;
-use pyo3::types::{PyDict, PyString, PyTuple};
+use pyo3::types::{PyDict, PyList, PyString, PyTuple};
 
 use crate::compiled::MappedCompiledCorpus;
 use crate::fabric::Fabric;
@@ -593,7 +593,7 @@ impl PyCorpus {
     #[allow(non_snake_case)]
     #[pyo3(signature = (warp=true))]
     fn Fall(&self, py: Python<'_>, warp: bool) -> PyResult<PyObject> {
-        Ok(PyTuple::new(
+        Ok(PyList::new(
             py,
             self.corpus
                 .all_node_features(warp)
@@ -619,7 +619,7 @@ impl PyCorpus {
     #[allow(non_snake_case)]
     #[pyo3(signature = (warp=true))]
     fn Eall(&self, py: Python<'_>, warp: bool) -> PyResult<PyObject> {
-        Ok(PyTuple::new(
+        Ok(PyList::new(
             py,
             self.corpus
                 .all_edge_features(warp)
@@ -632,7 +632,8 @@ impl PyCorpus {
 
     #[allow(non_snake_case)]
     fn Call(&self, py: Python<'_>) -> PyResult<PyObject> {
-        Ok(PyTuple::new(py, self.corpus.all_computed_features())?.into())
+        let names = PyComputeds::new(Arc::clone(&self.corpus)).names()?;
+        Ok(PyList::new(py, names)?.into())
     }
 
     #[allow(non_snake_case)]

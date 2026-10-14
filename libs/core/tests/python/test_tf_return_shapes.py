@@ -145,3 +145,21 @@ def test_search_limit_zero_or_negative_means_no_limit(api):
     api.S.study("word")
     _exact(api.S.fetch(limit=0), everything)
     assert api.S.count(limit=-3) == 5
+
+
+def test_feature_name_lists(mini_corpus_path, tmp_path):
+    api = open_corpus([mini_corpus_path], "loadAll", tmp_path)
+    _exact(api.Fall(), ["number", "otype", "phrase_id", "pos", "score", "sentence_id", "word"])
+    _exact(api.Fall(warp=False), ["number", "phrase_id", "pos", "score", "sentence_id", "word"])
+    _exact(api.Eall(), ["distance", "oslots", "parent", "relation"])
+    _exact(api.Eall(warp=False), ["distance", "parent", "relation"])
+    _exact(
+        api.Call(),
+        ["boundary", "characters", "levDown", "levUp", "levels", "order", "rank", "sections"],
+    )
+
+
+def test_node_from_section_uses_the_first_three_parts(api):
+    # TF reads section[0], section[1], section[2] and ignores the rest.
+    assert api.T.nodeFromSection(("S1", 1)) == 6
+    assert api.T.nodeFromSection(("S1", 1, 99, 99)) is None

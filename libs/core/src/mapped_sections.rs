@@ -306,6 +306,8 @@ impl SectionsContext {
         section: &[FeatureValue],
         sec0_feature: Option<&str>,
     ) -> Result<Option<u32>> {
+        // TF reads at most the first three parts of a section (text.py).
+        let section = &section[..section.len().min(3)];
         if section.is_empty()
             || section.len() > self.section_types.len()
             || section.len() > self.section_features.len()
@@ -583,6 +585,8 @@ impl<'a> MappedSections<'a> {
         section: &[FeatureValue],
         sec0_feature: Option<&str>,
     ) -> Result<Option<u32>> {
+        // TF reads at most the first three parts of a section (text.py).
+        let section = &section[..section.len().min(3)];
         if section.is_empty()
             || section.len() > self.section_types.len()
             || section.len() > self.section_features.len()

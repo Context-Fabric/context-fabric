@@ -134,7 +134,7 @@ def test_compiled_cache_round_trip(mini_corpus_path, tmp_path):
 
     mapped = fabric.openMapped(str(cache_path))
     assert mapped.F.otype.maxNode == 8
-    assert mapped.Fall(warp=False) == ("word",)
+    assert mapped.Fall(warp=False) == ["word"]
     assert mapped.S.search("word", limit=1) == ((1,),)
 
 

@@ -151,7 +151,7 @@ fn structure_tree_to_py(py: Python<'_>, tree: &StructureTree) -> PyResult<PyObje
     }
 }
 
-fn heading_to_py(py: Python<'_>, heading: &[StructureHeading]) -> PyResult<PyObject> {
+pub(crate) fn heading_to_py(py: Python<'_>, heading: &[StructureHeading]) -> PyResult<PyObject> {
     let rows = heading
         .iter()
         .map(|item| {

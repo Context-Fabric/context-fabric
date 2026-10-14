@@ -76,6 +76,18 @@ def test_configured_structure_matches_text_fabric(mini_corpus_with_otext, tmp_pa
     )
     assert T.structurePretty(1) is None
 
+    assert "structure" in api.Call()
+    assert api.C.structure.data == (
+        {6: (("sentence", "S1"), ("phrase", 1)), 7: (("sentence", "S1"), ("phrase", 2)),
+         8: (("sentence", "S1"),)},
+        {(("sentence", "S1"), ("phrase", 1)): 6, (("sentence", "S1"), ("phrase", 2)): 7,
+         (("sentence", "S1"),): 8},
+        {},
+        (8,),
+        {6: 8, 7: 8},
+        {8: (6, 7)},
+    )
+
 
 @pytest.mark.parametrize("mode", LOAD_MODES)
 def test_heading_values_keep_feature_types(mini_corpus_with_otext, tmp_path, mode):
@@ -97,6 +109,10 @@ def test_heading_values_keep_feature_types(mini_corpus_with_otext, tmp_path, mod
     assert T.structurePretty(8, fullHeading=True).splitlines()[1] == (
         "      sentence:12-phrase:None"
     )
+    # Both phrases share a heading: the last one wins, both are in hdMult.
+    (_, node_from_heading, multiple, *_) = api.C.structure.data
+    assert node_from_heading[(("sentence", "12"), ("phrase", None))] == 7
+    assert multiple == {(("sentence", "12"), ("phrase", None)): (6, 7)}
 
 
 @pytest.mark.parametrize("mode", LOAD_MODES)
@@ -117,6 +133,9 @@ def test_unusable_structure_degrades_to_no_structure(
 
 
 def _assert_no_structure(api) -> None:
+    assert "structure" not in api.Call()
+    with pytest.raises(AttributeError):
+        api.C.structure
     T = api.T
     assert T.headings == ()
     assert T.top() is None

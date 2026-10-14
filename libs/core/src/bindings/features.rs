@@ -1103,10 +1103,69 @@ impl PyComputeds {
             "levDown" => Ok(self.levDown(py)?.into_pyobject(py)?.into()),
             "sections" => Ok(self.sections(py)?.into_pyobject(py)?.into()),
             "characters" => Ok(self.characters(py)?.into_pyobject(py)?.into()),
+            "structure" => Ok(self.structure(py)?.into_pyobject(py)?.into()),
             _ => Err(PyAttributeError::new_err(format!(
                 "no computed feature named {name}"
             ))),
         }
+    }
+
+    /// The computed features TF's `Call()` lists, sorted; `structure` only when
+    /// a usable structure is configured.
+    pub(crate) fn names(&self) -> PyResult<Vec<&'static str>> {
+        let mut names = vec![
+            "boundary",
+            "characters",
+            "levDown",
+            "levUp",
+            "levels",
+            "order",
+            "rank",
+            "sections",
+        ];
+        if self.corpus.structure_data()?.is_some() {
+            names.push("structure");
+        }
+        Ok(names)
+    }
+
+    /// TF `C.structure.data`: `(headingFromNode, nodeFromHeading, multiple, top,
+    /// up, down)` (`tf/core/prepare.py::structure`).
+    fn structure_to_py(
+        &self,
+        py: Python<'_>,
+        data: &crate::precompute::StructureData,
+    ) -> PyResult<PyObject> {
+        use super::accessors::heading_to_py;
+        let heading_from_node = PyDict::new(py);
+        for (node, heading) in &data.heading_from_node {
+            heading_from_node.set_item(node, heading_to_py(py, heading)?)?;
+        }
+        let node_from_heading = PyDict::new(py);
+        for (heading, node) in &data.node_from_heading {
+            node_from_heading.set_item(heading_to_py(py, heading)?, node)?;
+        }
+        let multiple = PyDict::new(py);
+        for (heading, nodes) in &data.multiple {
+            multiple.set_item(heading_to_py(py, heading)?, PyTuple::new(py, nodes)?)?;
+        }
+        let up = PyDict::new(py);
+        for (node, parent) in &data.up {
+            up.set_item(node, parent)?;
+        }
+        let down = PyDict::new(py);
+        for (node, children) in &data.down {
+            down.set_item(node, PyTuple::new(py, children)?)?;
+        }
+        let parts: Vec<PyObject> = vec![
+            heading_from_node.into(),
+            node_from_heading.into(),
+            multiple.into(),
+            PyTuple::new(py, &data.top)?.into(),
+            up.into(),
+            down.into(),
+        ];
+        Ok(PyTuple::new(py, parts)?.into())
     }
 
     fn lev_view(&self, py: Python<'_>, down: bool) -> PyResult<PyComputed> {
@@ -1382,17 +1441,19 @@ impl PyComputeds {
         Ok(PyComputed::new(self.characters_to_py(py)?))
     }
 
-    fn __dir__(&self) -> Vec<&'static str> {
-        vec![
-            "levels",
-            "order",
-            "rank",
-            "boundary",
-            "levUp",
-            "levDown",
-            "sections",
-            "characters",
-        ]
+    /// TF `C.structure`; absent (`AttributeError`) without a usable structure.
+    #[getter]
+    fn structure(&self, py: Python<'_>) -> PyResult<PyComputed> {
+        let Some(data) = self.corpus.structure_data()? else {
+            return Err(PyAttributeError::new_err(
+                "no computed feature named structure: structure types are not configured",
+            ));
+        };
+        Ok(PyComputed::new(self.structure_to_py(py, data)?))
+    }
+
+    fn __dir__(&self) -> PyResult<Vec<&'static str>> {
+        self.names()
     }
 
     fn __getattr__(&self, py: Python<'_>, name: &str) -> PyResult<PyObject> {
