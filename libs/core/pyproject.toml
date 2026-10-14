@@ -73,12 +73,22 @@ exclude = [
 ]
 
 [tool.cibuildwheel]
+# One abi3 wheel per platform covers every CPython >= 3.13.
 build = "cp313-*"
 skip = "*-musllinux_*"
-test-command = "python -c \"from cfabric import Fabric, VERSION; assert VERSION == '0.6.0rc1'; assert Fabric is not None\""
+test-requires = ["pytest", "numpy"]
+test-command = "pytest {package}/tests/python -p no:cacheprovider -q"
 
-[tool.cibuildwheel.environment]
-MATURIN_FEATURES = "python,extension-module"
+[tool.cibuildwheel.linux]
+# manylinux containers ship without Rust.
+before-all = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal"
+environment = { PATH = "$HOME/.cargo/bin:$PATH" }
+
+[tool.cibuildwheel.macos]
+# Built on an arm64 runner; maturin cross-compiles x86_64 from ARCHFLAGS.
+archs = ["arm64", "x86_64"]
+before-all = "rustup target add aarch64-apple-darwin x86_64-apple-darwin"
+environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

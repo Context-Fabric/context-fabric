@@ -1,0 +1,65 @@
+name: context-fabric distributions
+
+# Builds and tests every context-fabric distribution: one abi3 wheel per
+# platform (cibuildwheel runs tests/python against each installed wheel; see
+# [tool.cibuildwheel] in libs/core/pyproject.toml) and the sdist, which is
+# verified by building a wheel from it and running the same tests.
+# Artifacts are named core-dist-* for the publish workflow.
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  wheels:
+    name: Wheels (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Linux x86_64 and aarch64 (manylinux), macOS arm64 + x86_64
+        # (cross-compiled on arm64), Windows AMD64.
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        if: runner.os != 'Linux' # Linux builds install Rust inside manylinux
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Build and test wheels
+        run: |
+          python -m pip install --upgrade pip
+          pip install "cibuildwheel>=3,<4"
+          python -m cibuildwheel libs/core --output-dir wheelhouse
+      - uses: actions/upload-artifact@v4
+        with:
+          name: core-dist-wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+  sdist:
+    name: Source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Build sdist
+        working-directory: libs/core
+        run: |
+          python -m pip install --upgrade pip
+          pip install maturin
+          maturin sdist --out ../../dist
+      - name: Build a wheel from the sdist and test it
+        run: |
+          python -m venv "$RUNNER_TEMP/sdist-venv"
+          "$RUNNER_TEMP/sdist-venv/bin/pip" install dist/*.tar.gz pytest numpy
+          cp -r libs/core/tests "$RUNNER_TEMP/tests"
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/sdist-venv/bin/python" -m pytest tests/python -p no:cacheprovider -q
+      - uses: actions/upload-artifact@v4
+        with:
+          name: core-dist-sdist
+          path: dist/*.tar.gz
