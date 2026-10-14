@@ -5,6 +5,17 @@ All notable changes to cfabric-mcp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2026-10-14
+
+### Added
+- `CorpusManager.load()` accepts an ordered list of corpus locations (#8)
+- Search result and passage responses include `cached_count` and `results_truncated` to distinguish cached results from the full match count (#8)
+
+### Fixed
+- Search counts, statistics, and CSV exports cover all matches instead of stopping at the 10,000-result cache limit (#8)
+- `get_passages` no longer fails with `AttributeError` after loading selected features from a compiled corpus (#9)
+- `cfabric_mcp.__version__` now reports the installed package version
+
 ## [0.1.7] - 2026-01-15
 
 ### Fixed

@@ -26,7 +26,7 @@
           "path": "",
           "docstring": {
             "summary": "A cached search result.",
-            "description": "A cached search result.\n\nAttributes:\n    cursor_id: UUID for pagination/lookup\n    corpus: The corpus name\n    template: The search template\n    results: Raw search results (list of node ID tuples)\n    created_at: Unix timestamp when cached\n    expires_at: Unix timestamp when cache entry expires\n    last_accessed: Unix timestamp of last access (for LRU)",
+            "description": "A cached search result.\n\nAttributes:\n    cursor_id: UUID for pagination/lookup\n    corpus: The corpus name\n    template: The search template\n    results: Raw search results (list of node ID tuples)\n    total_count: Number of matches before the cache retention limit\n    created_at: Unix timestamp when cached\n    expires_at: Unix timestamp when cache entry expires\n    last_accessed: Unix timestamp of last access (for LRU)",
             "parsed": []
           },
           "bases": [],
@@ -34,7 +34,7 @@
             "__init__": {
               "name": "__init__",
               "kind": "function",
-              "signature": "(self, cursor_id: str, corpus: str, template: str, results: list[tuple[(int, ...)]], created_at: float, expires_at: float, last_accessed: float = {'arguments': [], 'cls': 'ExprCall', 'function': {'cls': 'ExprAttribute', 'values': [{'cls': 'ExprName', 'member': None, 'name': 'time'}, {'cls': 'ExprName', 'member': None, 'name': 'time'}]}})",
+              "signature": "(self, cursor_id: str, corpus: str, template: str, results: list[tuple[(int, ...)]], total_count: int, created_at: float, expires_at: float, last_accessed: float = {'arguments': [], 'cls': 'ExprCall', 'function': {'cls': 'ExprAttribute', 'values': [{'cls': 'ExprName', 'member': None, 'name': 'time'}, {'cls': 'ExprName', 'member': None, 'name': 'time'}]}})",
               "docstring": {
                 "summary": "",
                 "description": "",
@@ -68,6 +68,12 @@
                 {
                   "name": "results",
                   "type": "list[tuple[(int, ...)]]",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "total_count",
+                  "type": "int",
                   "default": null,
                   "kind": "positional or keyword"
                 },
@@ -187,6 +193,16 @@
               },
               "value": null
             },
+            "is_truncated": {
+              "name": "is_truncated",
+              "type": "bool",
+              "docstring": {
+                "summary": "Whether the retained results are only a prefix of all matches.",
+                "description": "Whether the retained results are only a prefix of all matches.",
+                "parsed": []
+              },
+              "value": null
+            },
             "last_accessed": {
               "name": "last_accessed",
               "type": "float",
@@ -243,6 +259,16 @@
             "template": {
               "name": "template",
               "type": "str",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": null
+            },
+            "total_count": {
+              "name": "total_count",
+              "type": "int",
               "docstring": {
                 "summary": "",
                 "description": "",
@@ -686,7 +712,7 @@
       "path": "",
       "docstring": {
         "summary": "Corpus management for MCP server.",
-        "description": "Corpus management for MCP server.\n\nHandles loading and caching of corpora for the MCP server.\nSupports multiple simultaneous corpora.",
+        "description": "Corpus management for MCP server.\n\nHandles loading and caching of corpora for the MCP server.\nSupports multiple simultaneous corpora and ordered multi-location corpora.",
         "parsed": []
       },
       "classes": {
@@ -696,7 +722,7 @@
           "path": "",
           "docstring": {
             "summary": "Manages loaded corpora for the MCP server.",
-            "description": "Manages loaded corpora for the MCP server.\n\nSupports loading multiple corpora and switching between them.",
+            "description": "Manages loaded corpora for the MCP server.\n\nSupports loading multiple corpora and switching between them. One logical\ncorpus may itself be composed from multiple ordered Text-Fabric locations.",
             "parsed": []
           },
           "bases": [],
@@ -832,10 +858,10 @@
             "load": {
               "name": "load",
               "kind": "function",
-              "signature": "(self, path: str, name: str | None = None, features: str | list[str] | None = None)",
+              "signature": "(self, path: CorpusLocations, name: str | None = None, features: str | list[str] | None = None)",
               "docstring": {
-                "summary": "Load a corpus.",
-                "description": "Load a corpus.\n\nParameters\n----------\npath: str\n    Path to the corpus directory\nname: str | None\n    Name for the corpus (defaults to directory name)\nfeatures: str | list[str] | None\n    Features to load (defaults to all)\n\nReturns\n-------\nCorpusInfo\n    Information about the loaded corpus",
+                "summary": "Load a corpus from one path or multiple ordered locations.",
+                "description": "Load a corpus from one path or multiple ordered locations.\n\nParameters\n----------\npath: str | os.PathLike | iterable of path-like values\n    Corpus location or ordered corpus locations. Later locations retain\n    core Context-Fabric's normal feature-precedence semantics.\nname: str | None\n    Name for the corpus (defaults to the first/base directory name)\nfeatures: str | list[str] | None\n    Features to load (defaults to all)\n\nReturns\n-------\nCorpusInfo\n    Information about the loaded corpus",
                 "parsed": []
               },
               "parameters": [
@@ -847,7 +873,7 @@
                 },
                 {
                   "name": "path",
-                  "type": "str",
+                  "type": "CorpusLocations",
                   "default": null,
                   "kind": "positional or keyword"
                 },
@@ -964,7 +990,30 @@
           }
         }
       },
-      "functions": {},
+      "functions": {
+        "_normalize_locations": {
+          "name": "_normalize_locations",
+          "kind": "function",
+          "signature": "(path: CorpusLocations)",
+          "docstring": {
+            "summary": "Resolve and validate one or more ordered corpus locations.",
+            "description": "Resolve and validate one or more ordered corpus locations.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "path",
+              "type": "CorpusLocations",
+              "default": null,
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "tuple[(Path, ...)]"
+          },
+          "decorators": []
+        }
+      },
       "modules": {},
       "aliases": {
         "Api": {
@@ -975,9 +1024,17 @@
           "name": "CorpusInfo",
           "target": "cfabric.results.CorpusInfo"
         },
+        "Iterable": {
+          "name": "Iterable",
+          "target": "collections.abc.Iterable"
+        },
         "Path": {
           "name": "Path",
           "target": "pathlib.Path"
+        },
+        "PathLike": {
+          "name": "PathLike",
+          "target": "os.PathLike"
         },
         "TYPE_CHECKING": {
           "name": "TYPE_CHECKING",
@@ -2048,12 +2105,202 @@
         "description": "MCP tool implementations for Context-Fabric.\n\nTools are functions that agents can execute to interact with corpora.",
         "parsed": []
       },
-      "classes": {},
+      "classes": {
+        "_CachedSearch": {
+          "name": "_CachedSearch",
+          "kind": "class",
+          "path": "",
+          "docstring": {
+            "summary": "A search executed through the shared result cache.",
+            "description": "A search executed through the shared result cache.\n\nThe cache retains at most a bounded prefix of the matches. When this call\nexecuted the search itself, the complete match list is kept for the\nduration of the call so that consumers needing every match (statistics,\nCSV exports) do not have to run the query a second time.",
+            "parsed": []
+          },
+          "bases": [],
+          "methods": {
+            "__init__": {
+              "name": "__init__",
+              "kind": "function",
+              "signature": "(self, search_api: Any, template: str, cached: CachedSearchResult, fresh_results: list[tuple[(int, ...)]] | None)",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "search_api",
+                  "type": "Any",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "template",
+                  "type": "str",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "cached",
+                  "type": "CachedSearchResult",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "fresh_results",
+                  "type": "list[tuple[(int, ...)]] | None",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "None"
+              },
+              "decorators": []
+            },
+            "all_results": {
+              "name": "all_results",
+              "kind": "function",
+              "signature": "(self)",
+              "docstring": {
+                "summary": "Return every match, sorted like the cached results.",
+                "description": "Return every match, sorted like the cached results.\n\nRe-runs the query only when the cache holds a truncated prefix and\nthe complete matches from this call are not available.\n\nRaises:\n    Exception: Any failure raised by the underlying search.",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "list[tuple[(int, ...)]]"
+              },
+              "decorators": []
+            },
+            "run": {
+              "name": "run",
+              "kind": "function",
+              "signature": "(cls, search_api: Any, corpus_name: str, template: str)",
+              "docstring": {
+                "summary": "Execute `template`, or reuse the cached result for it.",
+                "description": "Execute `template`, or reuse the cached result for it.",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "cls",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "search_api",
+                  "type": "Any",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "corpus_name",
+                  "type": "str",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "template",
+                  "type": "str",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "_CachedSearch"
+              },
+              "decorators": [
+                {
+                  "endlineno": 61,
+                  "lineno": 61,
+                  "value": {
+                    "cls": "ExprName",
+                    "member": null,
+                    "name": "classmethod"
+                  }
+                }
+              ]
+            }
+          },
+          "attributes": {
+            "_fresh_results": {
+              "name": "_fresh_results",
+              "type": "",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": {
+                "cls": "ExprName",
+                "member": null,
+                "name": "fresh_results"
+              }
+            },
+            "_search_api": {
+              "name": "_search_api",
+              "type": "",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": {
+                "cls": "ExprName",
+                "member": null,
+                "name": "search_api"
+              }
+            },
+            "_template": {
+              "name": "_template",
+              "type": "",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": {
+                "cls": "ExprName",
+                "member": null,
+                "name": "template"
+              }
+            },
+            "cached": {
+              "name": "cached",
+              "type": "",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "value": {
+                "cls": "ExprName",
+                "member": null,
+                "name": "cached"
+              }
+            }
+          }
+        }
+      },
       "functions": {
         "_format_passages": {
           "name": "_format_passages",
           "kind": "function",
-          "signature": "(api: Any, results: list[tuple[(int, ...)]], template: str, limit: int)",
+          "signature": "(api: Any, results: list[tuple[(int, ...)]], template: str, limit: int, total_count: int | None = None)",
           "docstring": {
             "summary": "Format search results as readable passages.",
             "description": "Format search results as readable passages.",
@@ -2083,6 +2330,12 @@
               "type": "int",
               "default": null,
               "kind": "positional or keyword"
+            },
+            {
+              "name": "total_count",
+              "type": "int | None",
+              "default": "None",
+              "kind": "positional or keyword"
             }
           ],
           "returns": {
@@ -2093,7 +2346,7 @@
         "_format_results": {
           "name": "_format_results",
           "kind": "function",
-          "signature": "(api: Any, results: list[tuple[(int, ...)]], template: str, cursor_id: str, limit: int)",
+          "signature": "(api: Any, results: list[tuple[(int, ...)]], template: str, cursor_id: str, limit: int, total_count: int | None = None)",
           "docstring": {
             "summary": "Format search results as paginated node info.",
             "description": "Format search results as paginated node info.",
@@ -2128,6 +2381,12 @@
               "name": "limit",
               "type": "int",
               "default": null,
+              "kind": "positional or keyword"
+            },
+            {
+              "name": "total_count",
+              "type": "int | None",
+              "default": "None",
               "kind": "positional or keyword"
             }
           ],
@@ -2621,6 +2880,10 @@
         "Api": {
           "name": "Api",
           "target": "cfabric.core.api.Api"
+        },
+        "CachedSearchResult": {
+          "name": "CachedSearchResult",
+          "target": "cfabric_mcp.cache.CachedSearchResult"
         },
         "CorpusInfo": {
           "name": "CorpusInfo",
