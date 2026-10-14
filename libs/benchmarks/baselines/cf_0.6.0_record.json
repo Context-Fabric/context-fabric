@@ -1,86 +1,142 @@
 {
  "engine": "cf",
- "load_s": 0.018,
- "rss_after_load_mb": 30.3,
+ "rss_before_load_mb": 33.5,
+ "load_s": 0.003,
+ "rss_after_load_mb": 41.4,
+ "rss_load_delta_mb": 7.9,
  "F.sp.v": {
-  "total_s": 0.0035,
-  "per_call_us": 0.35,
+  "total_s": 0.0011,
+  "per_call_us": 0.11,
   "n": 10000
  },
  "F.g_word.v": {
-  "total_s": 0.0047,
-  "per_call_us": 0.47,
+  "total_s": 0.0022,
+  "per_call_us": 0.22,
   "n": 10000
  },
  "L.u": {
-  "total_s": 0.0068,
-  "per_call_us": 227.6,
+  "total_s": 0.0001,
+  "per_call_us": 2.46,
   "n": 30
  },
  "L.d": {
-  "total_s": 0.0002,
-  "per_call_us": 6.87,
+  "total_s": 0.0001,
+  "per_call_us": 3.6,
+  "n": 30
+ },
+ "L.n": {
+  "total_s": 0.0,
+  "per_call_us": 1.26,
+  "n": 30
+ },
+ "L.p": {
+  "total_s": 0.0,
+  "per_call_us": 1.06,
+  "n": 30
+ },
+ "L.i": {
+  "total_s": 0.0001,
+  "per_call_us": 3.86,
   "n": 30
  },
  "E.mother.f": {
-  "total_s": 0.0011,
-  "per_call_us": 2.2,
+  "total_s": 0.0007,
+  "per_call_us": 1.37,
+  "n": 500
+ },
+ "E.mother.t": {
+  "total_s": 0.0004,
+  "per_call_us": 0.85,
+  "n": 500
+ },
+ "E.mother.b": {
+  "total_s": 0.0,
+  "per_call_us": 0.04,
   "n": 500
  },
  "T.sectionFromNode": {
-  "total_s": 0.0019,
-  "per_call_us": 9.51,
+  "total_s": 0.0006,
+  "per_call_us": 3.12,
   "n": 200
  },
  "T.text.verse": {
-  "total_s": 0.0019,
-  "per_call_us": 18.66,
+  "total_s": 0.0009,
+  "per_call_us": 9.3,
   "n": 100
  },
- "F.sp.freqList_s": 0.2169,
- "F.sp.v_full_sweep_s": 0.079,
+ "T.nodeFromSection": {
+  "total_s": 0.0065,
+  "per_call_us": 64.7,
+  "n": 100
+ },
+ "F.sp.freqList_s": 0.0006,
+ "F.sp.v_full_sweep_s": 0.014,
+ "steady_state_us": {
+  "F.sp.v": 0.028,
+  "F.g_word.v": 0.037,
+  "L.u": 0.144,
+  "L.d": 0.153,
+  "L.n": 0.113,
+  "L.p": 0.099,
+  "L.i": 0.75,
+  "E.mother.f": 0.031,
+  "E.mother.t": 0.029,
+  "E.mother.b": 0.04,
+  "T.sectionFromNode": 0.512,
+  "T.text.verse": 1.637,
+  "T.nodeFromSection": 0.202
+ },
+ "N.walk_full_s": 0.017,
  "queries": {
   "q_phrase_without_verb": {
-   "s": 0.2575,
+   "s": 0.0392,
    "count": 62771
   },
   "q_regex_gcons": {
-   "s": 0.1042,
+   "s": 0.0069,
    "count": 816
   },
   "q_regex_typ": {
-   "s": 0.0656,
+   "s": 0.0088,
    "count": 3098
   },
   "q_regex_gloss_space": {
-   "s": 0.0175,
+   "s": 0.0034,
    "count": 406
   },
   "q_feat_exists_qere": {
-   "s": 0.0005,
+   "s": 0.0002,
    "count": 1892
   },
   "q_feat_empty_qere": {
-   "s": 0.0637,
+   "s": 0.0196,
    "count": 424698
   },
   "q_multivalue_neg": {
-   "s": 0.0396,
+   "s": 0.0093,
    "count": 271
   },
   "q_slot_equal": {
-   "s": 0.1348,
+   "s": 0.0127,
    "count": 3583
+  },
+  "q_mother_basic": {
+   "s": 0.0135,
+   "count": 13917
+  },
+  "q_mother_reverse": {
+   "s": 0.0131,
+   "count": 13917
+  },
+  "q_mother_named_distinct_verse": {
+   "s": 0.0288,
+   "count": 710
+  },
+  "q_slot_overlap_parent": {
+   "s": 0.0359,
+   "count": 887
   }
  },
- "rss_final_mb": 236.1,
- "steady_state_us": {
-  "L.u": 0.62,
-  "L.d": 0.75,
-  "E.mother.f": 0.14,
-  "T.sectionFromNode": 3.17,
-  "T.text.verse": 7.12,
-  "F.g_word.v": 0.33
- },
- "note": "steady_state_us measured with warmup, 50k calls, idle machine, 2026-06-10; per-call gate numbers include one-time index builds over tiny n"
+ "rss_final_mb": 261.9,
+ "note": "context-fabric 0.6.0rc1 (Rust core, .cfr v4), python -m cfabric_benchmarks.perf_gate --engine cf on a compiled BHSA cache, same machine and session as bhsa_tf.json, 2026-10-14. Median per timing over 3 runs interleaved with TF runs (memory: worst of 3). per_call_us probes are first calls over small node sets and include one-time index builds; steady_state_us is warm (best of 5 passes)."
 }

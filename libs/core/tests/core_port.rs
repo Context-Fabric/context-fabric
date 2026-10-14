@@ -3504,7 +3504,10 @@ fn fabric_load_all_creates_reuses_and_refreshes_mapped_cache() {
     let cache_path = fabric.cfr_cache_path();
     assert_eq!(
         cache_path,
-        corpus_dir.join(".cfr").join("4").join("corpus.cfr")
+        corpus_dir
+            .join(".cfr")
+            .join(context_fabric_core::CFR_VERSION)
+            .join("corpus.cfr")
     );
     assert!(!cache_path.exists());
 
@@ -3527,6 +3530,234 @@ fn fabric_load_all_creates_reuses_and_refreshes_mapped_cache() {
     assert_eq!(third.max_node(), 8);
     let third_mtime = fs::metadata(&cache_path).unwrap().modified().unwrap();
     assert!(third_mtime > second_mtime);
+}
+
+/// Every observable value of the mapped corpus that the v4 index sections
+/// (`CFRREVE1` reverse edges, `CFRROWS1` row offsets) serve: node feature
+/// values (mixed rows), forward / reverse / both edge lookups and edge values.
+fn indexed_observations(corpus: &MappedCompiledCorpus) -> Vec<String> {
+    let mut observed = Vec::new();
+    for feature in &corpus.metadata().node_features {
+        let view = corpus.node_feature(&feature.name).unwrap().unwrap();
+        for node in 0..=corpus.max_node() + 1 {
+            observed.push(format!(
+                "{} v({node}) {:?}",
+                feature.name,
+                view.v(node).unwrap()
+            ));
+        }
+    }
+    for feature in &corpus.metadata().edge_features {
+        let edge = corpus.edge_feature(&feature.name).unwrap().unwrap();
+        for node in 0..=corpus.max_node() + 1 {
+            observed.push(format!(
+                "{} f/t/b({node}) {:?} {:?} {:?} {:?}",
+                feature.name,
+                edge.f(node).unwrap(),
+                edge.t(node).unwrap(),
+                edge.b(node).unwrap(),
+                edge.t_with_values(node).unwrap(),
+            ));
+        }
+        observed.push(format!(
+            "{} items {:?}",
+            feature.name,
+            edge.items().unwrap()
+        ));
+    }
+    observed
+}
+
+/// A cache written before the v4 index sections existed (no `CFRREVE1` /
+/// `CFRROWS1`) still answers every lookup identically through the scan
+/// fallbacks, and `loadAll` treats it as stale and rebuilds it.
+#[test]
+fn caches_without_v4_index_sections_fall_back_and_are_rebuilt() {
+    let source = repo_path("libs/core/tests/fixtures/mini_corpus");
+    let temp_dir = tempfile::tempdir().unwrap();
+    let corpus_dir = temp_dir.path().join("mini");
+    dirCopy(
+        &source.to_string_lossy(),
+        &corpus_dir.to_string_lossy(),
+        false,
+    )
+    .unwrap();
+    let _ = fs::remove_dir_all(corpus_dir.join(".cfr"));
+    let fabric = Fabric::new(&corpus_dir);
+    let cache_path = fabric.cfr_cache_path();
+    let indexed = indexed_observations(&fabric.loadAll().unwrap());
+    assert!(
+        indexed
+            .iter()
+            .any(|line| line.starts_with("relation f/t/b(6) [] [1, 2, 3]"))
+    );
+
+    // Cut `CFRREVE1` through `CFRROWS1`, keeping the `CFRSECT1` section after them.
+    let bytes = fs::read(&cache_path).unwrap();
+    let cut_at = bytes
+        .windows(8)
+        .rposition(|window| window == b"CFRREVE1")
+        .expect("reverse edge section present");
+    assert!(
+        bytes[cut_at..]
+            .windows(8)
+            .any(|window| window == b"CFRROWS1")
+    );
+    let cut_end = bytes[cut_at..]
+        .windows(8)
+        .position(|window| window == b"CFRSECT1")
+        .map_or(bytes.len(), |offset| cut_at + offset);
+    let legacy_bytes = [&bytes[..cut_at], &bytes[cut_end..]].concat();
+    fs::write(&cache_path, legacy_bytes).unwrap();
+
+    let legacy = MappedCompiledCorpus::open(&cache_path).unwrap();
+    let metadata = legacy.metadata();
+    assert!(
+        metadata
+            .edge_features
+            .iter()
+            .all(|feature| { feature.reverse_index.is_none() && feature.row_index.is_none() })
+    );
+    assert!(
+        metadata
+            .node_features
+            .iter()
+            .all(|feature| feature.row_index.is_none())
+    );
+    assert_eq!(indexed_observations(&legacy), indexed);
+    drop(legacy);
+
+    fabric.loadAll().unwrap();
+    let rebuilt = fs::read(&cache_path).unwrap();
+    assert!(rebuilt.windows(8).any(|window| window == b"CFRREVE1"));
+    assert!(rebuilt.windows(8).any(|window| window == b"CFRROWS1"));
+}
+
+/// Encodes `data` as a pre-v4 structure section (`CFRSTRC2`): headings store
+/// every value as text, the empty string for a missing value.
+fn text_structure_section(data: &context_fabric_core::precompute::StructureData) -> Vec<u8> {
+    use context_fabric_core::precompute::StructureHeading;
+    fn u32_le(out: &mut Vec<u8>, value: usize) {
+        out.extend_from_slice(&(value as u32).to_le_bytes());
+    }
+    fn text(out: &mut Vec<u8>, value: &str) {
+        u32_le(out, value.len());
+        out.extend_from_slice(value.as_bytes());
+    }
+    fn u32s(out: &mut Vec<u8>, values: &[u32]) {
+        u32_le(out, values.len());
+        for value in values {
+            u32_le(out, *value as usize);
+        }
+    }
+    fn heading(out: &mut Vec<u8>, heading: &[StructureHeading]) {
+        u32_le(out, heading.len());
+        for part in heading {
+            text(out, &part.node_type);
+            text(
+                out,
+                &match &part.heading {
+                    Some(FeatureValue::Str(value)) => value.to_string(),
+                    Some(FeatureValue::Int(value)) => value.to_string(),
+                    None => String::new(),
+                },
+            );
+        }
+    }
+    let mut out = b"CFRSTRC2".to_vec();
+    u32s(&mut out, &data.top);
+    u32_le(&mut out, data.heading_from_node.len());
+    for (node, parts) in &data.heading_from_node {
+        u32_le(&mut out, *node as usize);
+        heading(&mut out, parts);
+    }
+    u32_le(&mut out, data.node_from_heading.len());
+    for (parts, node) in &data.node_from_heading {
+        heading(&mut out, parts);
+        u32_le(&mut out, *node as usize);
+    }
+    u32_le(&mut out, data.multiple.len());
+    for (parts, nodes) in &data.multiple {
+        heading(&mut out, parts);
+        u32s(&mut out, nodes);
+    }
+    u32_le(&mut out, data.up.len());
+    for (node, parent) in &data.up {
+        u32_le(&mut out, *node as usize);
+        u32_le(&mut out, *parent as usize);
+    }
+    u32_le(&mut out, data.down.len());
+    for (parent, children) in &data.down {
+        u32_le(&mut out, *parent as usize);
+        u32s(&mut out, children);
+    }
+    out
+}
+
+/// A pre-v4 cache whose structure section stores heading values as text
+/// (`CFRSTRC2`) still opens: the headings are retyped from their structure
+/// features (int-valued `phrase_id` back to ints), so structure navigation
+/// answers exactly as on a current cache. `loadAll` rebuilds it as stale.
+#[test]
+fn caches_with_text_structure_headings_are_retyped_and_rebuilt() {
+    use context_fabric_core::compiled::HeadingEncoding;
+    let temp_dir = tempfile::tempdir().unwrap();
+    let corpus_dir = structured_mini_corpus(&temp_dir);
+    let fabric = Fabric::new(&corpus_dir);
+    let cache_path = fabric.cfr_cache_path();
+    let current = fabric.loadAll().unwrap();
+    let typed = current.structure_data().unwrap().unwrap().clone();
+    assert!(
+        typed.heading_from_node[&6]
+            .iter()
+            .any(|part| part.heading == Some(FeatureValue::Int(1)))
+    );
+    let observed = |corpus: &MappedCompiledCorpus| {
+        (
+            corpus.structure_data().unwrap().cloned(),
+            corpus.structure(None).unwrap(),
+            corpus.structure_pretty(None, true).unwrap(),
+            (1..=corpus.max_node())
+                .map(|node| {
+                    (
+                        corpus.structure_up(node).unwrap(),
+                        corpus.structure_down(node).unwrap(),
+                    )
+                })
+                .collect::<Vec<_>>(),
+        )
+    };
+    let expected = observed(&current);
+    drop(current);
+
+    // Swap the typed structure section for its text encoding.
+    let bytes = fs::read(&cache_path).unwrap();
+    let start = bytes
+        .windows(8)
+        .position(|window| window == b"CFRSTRC3")
+        .expect("structure section present");
+    let end = bytes[start..]
+        .windows(8)
+        .position(|window| window == b"CFRLEVU1")
+        .map(|offset| start + offset)
+        .expect("v3 sections follow the structure section");
+    let legacy_bytes = [
+        &bytes[..start],
+        &text_structure_section(&typed),
+        &bytes[end..],
+    ]
+    .concat();
+    fs::write(&cache_path, legacy_bytes).unwrap();
+
+    let legacy = MappedCompiledCorpus::open(&cache_path).unwrap();
+    assert_eq!(legacy.metadata().heading_encoding, HeadingEncoding::Text);
+    assert!(!legacy.metadata().has_current_format());
+    assert_eq!(observed(&legacy), expected);
+    drop(legacy);
+
+    let rebuilt = fabric.loadAll().unwrap();
+    assert_eq!(rebuilt.metadata().heading_encoding, HeadingEncoding::Typed);
+    assert!(rebuilt.metadata().has_current_format());
 }
 
 #[test]

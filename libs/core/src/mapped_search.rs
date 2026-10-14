@@ -38,26 +38,11 @@ impl JoinSink {
 
 pub struct MappedSearch<'a> {
     corpus: &'a MappedCompiledCorpus,
-    /// Resolved once per engine: slots are exactly `1..=max_slot` (TF node
-    /// numbering), so slot checks are a compare instead of an `otype` lookup.
-    max_slot: std::sync::OnceLock<u32>,
 }
 
 impl<'a> MappedSearch<'a> {
     pub fn new(corpus: &'a MappedCompiledCorpus) -> Self {
-        Self {
-            corpus,
-            max_slot: std::sync::OnceLock::new(),
-        }
-    }
-
-    fn cached_max_slot(&self) -> Result<u32> {
-        if let Some(max_slot) = self.max_slot.get() {
-            return Ok(*max_slot);
-        }
-        let max_slot = self.corpus.max_slot()?;
-        let _ = self.max_slot.set(max_slot);
-        Ok(max_slot)
+        Self { corpus }
     }
 
     pub fn search(&self, template: &str, limit: Option<usize>) -> Result<Vec<Vec<u32>>> {
@@ -509,8 +494,9 @@ impl<'a> MappedSearch<'a> {
             .map(|i| nearest_bound_parent_index(&plan.atoms, i))
             .collect();
 
-        // 4. Adjacency maps for any edge relations (driven from the sparse edge rows).
-        let edge_adj = self.build_edge_adjacency(plan)?;
+        // 4. Edge feature views for any edge relations: drivers read forward rows
+        //    and the reverse index straight from the map.
+        let edge_views = self.edge_views(plan)?;
 
         // 5. Slot -> container indexes for atoms that may be driven in the reverse
         //    (container-from-contained) direction. Interval containment scans grow
@@ -536,7 +522,7 @@ impl<'a> MappedSearch<'a> {
             plan,
             &candidates,
             &embeds,
-            &edge_adj,
+            &edge_views,
             &container_index,
             &order,
             0,
@@ -606,7 +592,7 @@ impl<'a> MappedSearch<'a> {
         plan: &MappedRelationPlan,
         candidates: &[CandidateSet],
         embeds: &[Option<usize>],
-        edge_adj: &HashMap<String, EdgeAdj>,
+        edge_views: &EdgeViews<'_>,
         container_index: &HashMap<usize, HashMap<u32, Vec<u32>>>,
         order: &[usize],
         pos: usize,
@@ -633,7 +619,7 @@ impl<'a> MappedSearch<'a> {
             plan,
             candidates,
             embeds,
-            edge_adj,
+            edge_views,
             container_index,
             atom,
             bound,
@@ -658,7 +644,7 @@ impl<'a> MappedSearch<'a> {
                     plan,
                     candidates,
                     embeds,
-                    edge_adj,
+                    edge_views,
                     container_index,
                     order,
                     pos + 1,
@@ -797,7 +783,7 @@ impl<'a> MappedSearch<'a> {
         plan: &MappedRelationPlan,
         candidates: &[CandidateSet],
         embeds: &[Option<usize>],
-        edge_adj: &HashMap<String, EdgeAdj>,
+        edge_views: &EdgeViews<'_>,
         container_index: &HashMap<usize, HashMap<u32, Vec<u32>>>,
         atom: usize,
         bound: &[Option<u32>],
@@ -852,7 +838,7 @@ impl<'a> MappedSearch<'a> {
                 other,
                 cset,
                 cmap,
-                edge_adj,
+                edge_views,
                 slot_cache,
                 otype,
                 oslots,
@@ -889,7 +875,7 @@ impl<'a> MappedSearch<'a> {
         other: u32,
         cset: &CandidateSet,
         cmap: Option<&HashMap<u32, Vec<u32>>>,
-        edge_adj: &HashMap<String, EdgeAdj>,
+        edge_views: &EdgeViews<'_>,
         slot_cache: &mut HashMap<u32, Option<(u32, u32)>>,
         otype: &StringPoolNodeFeatureView<'_>,
         oslots: &EdgeFeatureView<'_>,
@@ -978,17 +964,17 @@ impl<'a> MappedSearch<'a> {
                 // (is_left = false) it is a forward target of `other`; if it is the left
                 // operand it is a backward source of `other`.
                 EdgeForward(name) | EdgeForwardValue(name, _) => {
-                    self.edge_driver(edge_adj, name, other, !is_left, cset)
+                    self.edge_driver(edge_views, name, other, !is_left, cset)?
                 }
                 // EdgeBackward: edge runs right -> left (the relation holds when an edge
                 // goes from the right operand to the left). If `atom` is the left operand
                 // it is a forward target of `other`; otherwise a backward source.
                 EdgeBackward(name) | EdgeBackwardValue(name, _) => {
-                    self.edge_driver(edge_adj, name, other, is_left, cset)
+                    self.edge_driver(edge_views, name, other, is_left, cset)?
                 }
                 EdgeEither(name) | EdgeEitherValue(name, _) => {
-                    let mut nodes = self.edge_driver(edge_adj, name, other, is_left, cset);
-                    nodes.extend(self.edge_driver(edge_adj, name, other, !is_left, cset));
+                    let mut nodes = self.edge_driver(edge_views, name, other, is_left, cset)?;
+                    nodes.extend(self.edge_driver(edge_views, name, other, !is_left, cset)?);
                     nodes.sort_unstable();
                     nodes.dedup();
                     nodes
@@ -1010,27 +996,28 @@ impl<'a> MappedSearch<'a> {
     }
 
     /// Drive one side of an edge relation: when `forward` is true the candidates are
-    /// the edge targets of `other` (binary-search rows), else the edge sources.
+    /// the edge targets of `other` (forward row), else its edge sources (reverse
+    /// index). Both come back in canonical order without duplicates.
     fn edge_driver(
         &self,
-        edge_adj: &HashMap<String, EdgeAdj>,
+        edge_views: &EdgeViews<'_>,
         name: &str,
         other: u32,
         forward: bool,
         cset: &CandidateSet,
-    ) -> Vec<u32> {
-        let Some(adj) = edge_adj.get(name) else {
-            return Vec::new();
+    ) -> Result<Vec<u32>> {
+        let Some(edge) = edge_views.get(name) else {
+            return Ok(Vec::new());
         };
-        let map = if forward { &adj.fwd } else { &adj.bwd };
-        match map.get(&other) {
-            Some(nodes) => nodes
-                .iter()
-                .copied()
-                .filter(|n| cset.contains(*n))
-                .collect(),
-            None => Vec::new(),
-        }
+        let mut nodes = if forward {
+            let mut targets = edge.f(other)?;
+            targets.dedup();
+            targets
+        } else {
+            edge.t(other)?
+        };
+        nodes.retain(|node| cset.contains(*node));
+        Ok(nodes)
     }
 
     fn node_interval(
@@ -1053,7 +1040,7 @@ impl<'a> MappedSearch<'a> {
         if node == 0 {
             return Ok(None);
         }
-        if node <= self.cached_max_slot()? {
+        if node <= self.corpus.max_slot()? {
             return Ok(Some((node, node)));
         }
         oslots.first_last_targets(node)
@@ -1080,8 +1067,8 @@ impl<'a> MappedSearch<'a> {
         Ok(CandidateSet::new(entries))
     }
 
-    fn build_edge_adjacency(&self, plan: &MappedRelationPlan) -> Result<HashMap<String, EdgeAdj>> {
-        let mut names: HashSet<&str> = HashSet::new();
+    fn edge_views(&self, plan: &MappedRelationPlan) -> Result<EdgeViews<'a>> {
+        let mut views = EdgeViews::new();
         for relation in &plan.relations {
             match &relation.operator {
                 MappedRelationOperator::EdgeForward(name)
@@ -1090,27 +1077,16 @@ impl<'a> MappedSearch<'a> {
                 | MappedRelationOperator::EdgeForwardValue(name, _)
                 | MappedRelationOperator::EdgeBackwardValue(name, _)
                 | MappedRelationOperator::EdgeEitherValue(name, _) => {
-                    names.insert(name.as_str());
+                    if !views.contains_key(name.as_str())
+                        && let Some(edge) = self.corpus.edge_feature(name)?
+                    {
+                        views.insert(name.clone(), edge);
+                    }
                 }
                 _ => {}
             }
         }
-        let mut out = HashMap::new();
-        for name in names {
-            let Some(edge) = self.corpus.edge_feature(name)? else {
-                continue;
-            };
-            let mut fwd: HashMap<u32, Vec<u32>> = HashMap::new();
-            let mut bwd: HashMap<u32, Vec<u32>> = HashMap::new();
-            for (source, targets) in edge.items()? {
-                for target in &targets {
-                    bwd.entry(*target).or_default().push(source);
-                }
-                fwd.insert(source, targets);
-            }
-            out.insert(name.to_string(), EdgeAdj { fwd, bwd });
-        }
-        Ok(out)
+        Ok(views)
     }
 
     fn apply_quantifier_block(
@@ -1544,7 +1520,7 @@ impl<'a> MappedSearch<'a> {
         if node == 0 {
             return Ok(Vec::new());
         }
-        if node <= self.cached_max_slot()? {
+        if node <= self.corpus.max_slot()? {
             return Ok(vec![node]);
         }
         let Some(targets) = oslots.targets(node)? else {
@@ -1702,12 +1678,10 @@ impl<'a> MappedNodeFeatureView<'a> {
     }
 }
 
-/// Forward/backward adjacency for an edge feature, used to drive a join from the
-/// (sparse) edge rows rather than verifying it over the candidate cross product.
-struct EdgeAdj {
-    fwd: HashMap<u32, Vec<u32>>,
-    bwd: HashMap<u32, Vec<u32>>,
-}
+/// The edge features a query's relations name, resolved once per query. Used
+/// to drive a join from the (sparse) edge rows rather than verifying it over the
+/// candidate cross product.
+type EdgeViews<'a> = HashMap<String, EdgeFeatureView<'a>>;
 
 struct CandidateSet {
     entries: Vec<CandidateEntry>,
@@ -1719,6 +1693,10 @@ struct CandidateSet {
     /// Node ids sorted ascending; membership is a binary search. ~7x smaller
     /// than the `HashSet<u32>` it replaces at these sizes.
     sorted_nodes: Vec<u32>,
+    /// The longest candidate interval (`last_slot - first_slot`). A candidate
+    /// reaching slot `s` must start at or after `s - max_span`, which bounds the
+    /// containment and overlap scans to a window of `by_first_slot`.
+    max_span: u32,
 }
 
 impl CandidateSet {
@@ -1743,11 +1721,17 @@ impl CandidateSet {
         });
         let mut sorted_nodes: Vec<u32> = entries.iter().map(|entry| entry.node).collect();
         sorted_nodes.sort_unstable();
+        let max_span = entries
+            .iter()
+            .filter_map(|entry| Some(entry.last_slot?.saturating_sub(entry.first_slot?)))
+            .max()
+            .unwrap_or(0);
         Self {
             entries,
             by_first_slot,
             by_last_slot,
             sorted_nodes,
+            max_span,
         }
     }
 
@@ -1832,12 +1816,8 @@ impl CandidateSet {
     /// Candidates whose interval contains `[first, last]` (first_slot <= first and
     /// last_slot >= last).
     fn nodes_containing(&self, first: u32, last: u32) -> Vec<u32> {
-        let end = self.by_first_slot.partition_point(|index| {
-            self.entries[*index as usize]
-                .first_slot
-                .is_some_and(|candidate_first| candidate_first <= first)
-        });
-        self.by_first_slot[..end]
+        let (start, end) = self.first_slot_window(last.saturating_sub(self.max_span), first);
+        self.by_first_slot[start..end]
             .iter()
             .filter_map(|index| {
                 let entry = &self.entries[*index as usize];
@@ -1849,18 +1829,30 @@ impl CandidateSet {
     /// Candidates whose interval overlaps `[first, last]` (first_slot <= last and
     /// last_slot >= first).
     fn nodes_overlapping(&self, first: u32, last: u32) -> Vec<u32> {
-        let end = self.by_first_slot.partition_point(|index| {
-            self.entries[*index as usize]
-                .first_slot
-                .is_some_and(|candidate_first| candidate_first <= last)
-        });
-        self.by_first_slot[..end]
+        let (start, end) = self.first_slot_window(first.saturating_sub(self.max_span), last);
+        self.by_first_slot[start..end]
             .iter()
             .filter_map(|index| {
                 let entry = &self.entries[*index as usize];
                 (entry.last_slot? >= first).then_some(entry.node)
             })
             .collect()
+    }
+
+    /// The `by_first_slot` index range of candidates with `first_slot` in
+    /// `[lo, hi]` (entries without a first slot sort last and are excluded).
+    fn first_slot_window(&self, lo: u32, hi: u32) -> (usize, usize) {
+        let start = self.by_first_slot.partition_point(|index| {
+            self.entries[*index as usize]
+                .first_slot
+                .is_some_and(|candidate_first| candidate_first < lo)
+        });
+        let end = self.by_first_slot.partition_point(|index| {
+            self.entries[*index as usize]
+                .first_slot
+                .is_some_and(|candidate_first| candidate_first <= hi)
+        });
+        (start, end.max(start))
     }
 }
 

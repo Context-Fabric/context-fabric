@@ -212,8 +212,13 @@ fn compile_into(
     manifest.write_for_cache(cache_path)
 }
 
+/// Whether the cache at `cache_path` was compiled from these sources and
+/// carries every index section of the current format. A cache without the v4
+/// index sections (written by a development build between format changes)
+/// is rebuilt rather than served through the slower fallbacks.
 fn is_fresh(cache_path: &Path, manifest: &SourceManifest) -> bool {
-    manifest.matches_cache(cache_path) && inspect_compiled(cache_path).is_ok()
+    manifest.matches_cache(cache_path)
+        && inspect_compiled(cache_path).is_ok_and(|metadata| metadata.has_current_format())
 }
 
 fn is_unwritable(error: &CfError) -> bool {

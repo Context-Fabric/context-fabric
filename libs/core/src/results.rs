@@ -595,10 +595,7 @@ impl CorpusInfo {
             .ok_or_else(|| crate::error::CfError::MissingFeature("oslots".to_string()))?;
         let slot_type = otype.str_value(1)?.unwrap_or_default().to_string();
         let max_node = corpus.metadata().rank_len as u32;
-        let max_slot = otype
-            .value_interval(&slot_type)?
-            .map(|(_, last)| last)
-            .unwrap_or_default();
+        let max_slot = corpus.max_slot()?;
 
         let mut rows = BTreeMap::<String, (usize, usize, u32, u32)>::new();
         for row in otype.rows() {

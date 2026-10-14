@@ -346,7 +346,13 @@ impl PyLocality {
         let node = n;
         let types = type_filter_from_py(otype)?;
         let refs = type_filter_refs(&types);
-        let sections = self.context()?.sections();
+        let context = self.context()?;
+        if refs.is_none()
+            && let Some(embedders) = context.embedders(node)?
+        {
+            return Ok(PyTuple::new(py, embedders)?.into());
+        }
+        let sections = context.sections();
         let nodes = match refs.as_deref() {
             Some([single]) => sections.u(node, Some(single))?,
             Some(values) => sections.up_types(node, Some(values))?,
@@ -594,6 +600,12 @@ impl PyNodes {
         // TF `N.walk` is a generator; return an iterator so `next(N.walk())`
         // works and the result is consumed once, as in TF.
         let nodes = nodes_from_py(nodes)?;
+        if !events
+            && nodes.is_none()
+            && let Some(order) = self.corpus.canonical_order()?
+        {
+            return Ok(PyTuple::new(py, order)?.try_iter()?.into_any().unbind());
+        }
         let sections = MappedSections::new(&self.corpus)?;
         if !events {
             let walk = PyTuple::new(py, sections.walk(nodes.as_deref())?)?;
@@ -998,8 +1010,12 @@ impl PyText {
                 }
                 continue;
             }
+            if !explain {
+                engine.render_into(node, &options, &mut material)?;
+                continue;
+            }
             let rendered = engine.text_with_options(node, &options)?;
-            if explain {
+            {
                 write_console(
                     py,
                     true,
@@ -1030,26 +1046,26 @@ impl PyText {
         fmt: Option<&str>,
         descend: Option<bool>,
     ) -> PyResult<PyObject> {
-        let engine = MappedText::new(&self.corpus)?;
+        let engine = self.text_context()?;
         let options = TextOptions::new(fmt.map(str::to_string), descend);
         let iter = items.try_iter().map_err(|_| {
             PyTypeError::new_err("text_many expects an iterable of nodes or node-iterables")
         })?;
-        let mut out: Vec<String> = Vec::with_capacity(items.len().unwrap_or(0));
+        let out = PyList::empty(py);
+        let mut rendered = String::new();
         for item in iter {
             let item = item?;
+            rendered.clear();
             if item.is_instance_of::<PyInt>() {
-                out.push(engine.text_with_options(node_number(&item)?, &options)?);
-                continue;
+                engine.render_into(node_number(&item)?, &options, &mut rendered)?;
+            } else {
+                for node in super::features::collect_nodes(&item)? {
+                    engine.render_into(node, &options, &mut rendered)?;
+                }
             }
-            let nodes = super::features::collect_nodes(&item)?;
-            let parts = nodes
-                .into_iter()
-                .map(|node| engine.text_with_options(node, &options))
-                .collect::<crate::error::Result<Vec<String>>>()?;
-            out.push(parts.concat());
+            out.append(PyString::new(py, &rendered))?;
         }
-        Ok(PyList::new(py, out)?.into())
+        Ok(out.into_any().unbind())
     }
 
     /// The section heading values (e.g. `("Genesis", 1, 1)`) of the sections
@@ -1137,8 +1153,8 @@ impl PyText {
         // index, O(1)); chapter/verse come from the CFRSECT1 `sec1`/`sec2` maps.
         // A miss returns `None` immediately.
         let context = self.sections_context()?;
-        let sec0_feature = context.sec0_feature_for_lang(lang).map(str::to_string);
-        Ok(context.node_from_section_langed(&values, sec0_feature.as_deref())?)
+        let sec0_feature = context.sec0_feature_for_lang(lang);
+        Ok(context.node_from_section_langed(&values, sec0_feature)?)
     }
 
     /// The structure heading of node `n`: `((type, heading), ...)`.

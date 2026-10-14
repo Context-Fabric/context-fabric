@@ -55,14 +55,15 @@ def test_computed_navigation_text_and_search(loaded_api):
     assert loaded_api.T.text(1) == "hello"
     assert loaded_api.T.sectionTypes == ["sentence", "phrase"]
 
-    # `api.S` and `api.T` are one stateful object each, as in TF: study()
-    # then fetch() works through the attribute.
-    assert loaded_api.S is loaded_api.S
-    assert loaded_api.T is loaded_api.T
-    loaded_api.S.study("word")
-    assert loaded_api.S.exe.good is True
-    assert loaded_api.S.fetch(limit=1) == ((1,),)
+    # As in TF, `api.S` and `api.T` (like every member) are one persistent
+    # object each, so the executor of the last `study` stays on it.
     search = loaded_api.S
+    assert search is loaded_api.S
+    assert loaded_api.T is loaded_api.T
+    assert search.exe is None
+    loaded_api.S.study("word")
+    assert search.exe.good is True
+    assert loaded_api.S.fetch(limit=1) == ((1,),)
     assert search.search("word", limit=2) == ((1,), (2,))
 
 

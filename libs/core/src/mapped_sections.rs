@@ -1,6 +1,6 @@
 use crate::compiled::{
-    EdgeFeatureView, MappedCompiledCorpus, MappedNodeValue, OwnedEdgeFeature, OwnedMixedFeature,
-    OwnedStringPoolFeature, StringPoolNodeFeatureView,
+    EdgeFeatureView, MappedCompiledCorpus, MappedNodeValue, MappedU32s, OwnedEdgeFeature,
+    OwnedNodeFeature, OwnedStringPoolFeature, StringPoolNodeFeatureView,
 };
 use crate::corpus::{Boundary, SectionOptions, WalkEvent};
 use crate::error::{CfError, Result};
@@ -8,41 +8,40 @@ use crate::feature::FeatureValue;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, RwLock};
 
-/// A node feature resolved once into an owned, long-lived handle, dispatched by
-/// the same encoding rule as [`MappedCompiledCorpus::node_feature`] (string-pool
-/// first, then mixed). `Absent` covers both "feature name not configured" and
-/// "feature not present in the corpus" — both of which the per-call section
-/// heading code path resolves to `None`. Used to cache the section-feature views
-/// referenced by `T.sectionFromNode` so each call is a single binary search per
-/// level with no view-cache (`RwLock` + `HashMap`) traffic or `otext` re-parse.
-enum SectionFeatureHandle {
-    StringPool(OwnedStringPoolFeature),
-    Mixed(OwnedMixedFeature),
-    Absent,
+/// The slot type plus the `otext` section and structure configuration, parsed
+/// once and shared by `Arc` between a [`SectionsContext`] and every
+/// [`MappedSections`] view it hands out.
+struct SectionConfig {
+    slot_type: String,
+    section_types: Vec<String>,
+    section_features: Vec<String>,
+    structure_types: Vec<String>,
+    structure_features: Vec<String>,
 }
 
-impl SectionFeatureHandle {
-    fn resolve(corpus: &Arc<MappedCompiledCorpus>, name: &str) -> Result<Self> {
-        if let Some(feature) = corpus.owned_string_pool_feature(name)? {
-            Ok(Self::StringPool(feature))
-        } else if let Some(feature) = corpus.owned_mixed_feature(name)? {
-            Ok(Self::Mixed(feature))
-        } else {
-            Ok(Self::Absent)
-        }
-    }
-
-    fn value(&self, node: u32) -> Result<Option<FeatureValue>> {
-        match self {
-            Self::StringPool(handle) => {
-                Ok(handle.view().str_value(node)?.map(FeatureValue::string))
-            }
-            Self::Mixed(handle) => Ok(handle.view().value(node)?.map(|value| match value {
-                MappedNodeValue::Str(value) => FeatureValue::string(value),
-                MappedNodeValue::Int(value) => FeatureValue::Int(value),
-            })),
-            Self::Absent => Ok(None),
-        }
+impl SectionConfig {
+    fn load(corpus: &MappedCompiledCorpus, otype: &StringPoolNodeFeatureView<'_>) -> Result<Self> {
+        let slot_type = otype
+            .str_value(1)?
+            .ok_or_else(|| CfError::MissingFeature("otype slot type".to_string()))?
+            .to_string();
+        let otext = corpus.config_feature("otext")?;
+        let config = |key: &str| -> Result<Vec<String>> {
+            Ok(otext
+                .as_ref()
+                .and_then(|metadata| metadata.get(key).transpose())
+                .transpose()?
+                .flatten()
+                .map(parse_csv_config)
+                .unwrap_or_default())
+        };
+        Ok(Self {
+            section_types: config("sectionTypes")?,
+            section_features: config("sectionFeatures")?,
+            structure_types: config("structureTypes")?,
+            structure_features: config("structureFeatures")?,
+            slot_type,
+        })
     }
 }
 
@@ -50,17 +49,12 @@ impl SectionFeatureHandle {
 /// once (resolving the `otype`/`oslots` owned handles and parsing the `otext`
 /// section/structure config) and then calls [`sections`](Self::sections) per
 /// request to get a thin [`MappedSections`] view with no per-call `RwLock`,
-/// `HashMap`, or `otext` re-parse. Cloning the small config vectors per call is
-/// negligible next to the CSR reads.
+/// `HashMap`, `otext` re-parse, or allocation.
 pub struct SectionsContext {
     corpus: Arc<MappedCompiledCorpus>,
     otype: OwnedStringPoolFeature,
     oslots: OwnedEdgeFeature,
-    slot_type: String,
-    section_types: Vec<String>,
-    section_features: Vec<String>,
-    structure_types: Vec<String>,
-    structure_features: Vec<String>,
+    config: Arc<SectionConfig>,
     /// The section-feature handles used by `section_heading` (T.sectionFromNode),
     /// resolved lazily on the first heading call. Building them eagerly would
     /// resolve every `book@<lang>` variant (~20 on BHSA), wasted work for the
@@ -86,11 +80,11 @@ struct HeadingHandles {
     /// Owned handle for each level's section feature, parallel to
     /// `section_types`. Index 0 is the *base* (non-language) section-0 feature;
     /// language-aware variants live in `section0_lang_handles`.
-    section_feature_handles: Vec<SectionFeatureHandle>,
+    section_feature_handles: Vec<Option<OwnedNodeFeature>>,
     /// Language-code -> owned handle for the section-0 (book-level) feature, e.g.
     /// `book@en`. Built from the same rule as TF `sectionFeatsWithLanguage`. The
     /// empty-string code is the base feature's own code.
-    section0_lang_handles: HashMap<String, SectionFeatureHandle>,
+    section0_lang_handles: HashMap<String, Option<OwnedNodeFeature>>,
 }
 
 impl SectionsContext {
@@ -101,33 +95,13 @@ impl SectionsContext {
         let oslots = corpus
             .owned_edge_feature("oslots")?
             .ok_or_else(|| CfError::MissingFeature("oslots".to_string()))?;
-        let slot_type = otype
-            .str_value(1)?
-            .ok_or_else(|| CfError::MissingFeature("otype slot type".to_string()))?;
-        let otext = corpus.config_feature("otext")?;
-        let config = |key: &str| -> Result<Vec<String>> {
-            Ok(otext
-                .as_ref()
-                .and_then(|metadata| metadata.get(key).transpose())
-                .transpose()?
-                .flatten()
-                .map(parse_csv_config)
-                .unwrap_or_default())
-        };
-        let section_types = config("sectionTypes")?;
-        let section_features = config("sectionFeatures")?;
-        let structure_types = config("structureTypes")?;
-        let structure_features = config("structureFeatures")?;
+        let config = Arc::new(SectionConfig::load(corpus, &otype.view())?);
 
         Ok(Self {
             corpus: Arc::clone(corpus),
             otype,
             oslots,
-            slot_type,
-            section_types,
-            section_features,
-            structure_types,
-            structure_features,
+            config,
             heading: std::sync::OnceLock::new(),
             sec0_nodes: std::sync::OnceLock::new(),
             sec0_index: RwLock::new(HashMap::new()),
@@ -146,11 +120,11 @@ impl SectionsContext {
         // Resolve one owned handle per configured level. Levels beyond the
         // available `sectionFeatures` (or features absent from the corpus)
         // resolve to `Absent`, matching the per-call `None` result.
-        let mut section_feature_handles = Vec::with_capacity(self.section_types.len());
-        for index in 0..self.section_types.len() {
-            section_feature_handles.push(match self.section_features.get(index) {
-                Some(name) => SectionFeatureHandle::resolve(corpus, name)?,
-                None => SectionFeatureHandle::Absent,
+        let mut section_feature_handles = Vec::with_capacity(self.config.section_types.len());
+        for index in 0..self.config.section_types.len() {
+            section_feature_handles.push(match self.config.section_features.get(index) {
+                Some(name) => corpus.owned_node_feature(name)?,
+                None => None,
             });
         }
 
@@ -158,9 +132,9 @@ impl SectionsContext {
         // its `@<code>` variants (TF `sectionFeatsWithLanguage`,
         // tf/core/fabric.py:364) — never arbitrary features that happen to carry
         // a `languageCode`.
-        let mut section0_lang_handles: HashMap<String, SectionFeatureHandle> = HashMap::new();
-        if !self.section_types.is_empty() {
-            if let Some(base) = self.section_features.first() {
+        let mut section0_lang_handles: HashMap<String, Option<OwnedNodeFeature>> = HashMap::new();
+        if !self.config.section_types.is_empty() {
+            if let Some(base) = self.config.section_features.first() {
                 let prefix = format!("{base}@");
                 for feature in &corpus.metadata().node_features {
                     if feature.name != *base && !feature.name.starts_with(&prefix) {
@@ -170,8 +144,7 @@ impl SectionsContext {
                         .metadata_value("languageCode")
                         .unwrap_or("")
                         .to_string();
-                    section0_lang_handles
-                        .insert(code, SectionFeatureHandle::resolve(corpus, &feature.name)?);
+                    section0_lang_handles.insert(code, corpus.owned_node_feature(&feature.name)?);
                 }
             }
         }
@@ -216,8 +189,10 @@ impl SectionsContext {
                     handles.section_feature_handles.get(index)
                 };
                 match handle {
-                    Some(handle) => handle.value(section_node),
-                    None => Ok(None),
+                    Some(Some(handle)) => Ok(handle
+                        .value(section_node)?
+                        .map(mapped_value_to_feature_value)),
+                    _ => Ok(None),
                 }
             })
             .collect()
@@ -231,10 +206,10 @@ impl SectionsContext {
     pub fn sec0_feature_for_lang(&self, lang: &str) -> Option<&str> {
         let features = self.sec0_lang_features.get_or_init(|| {
             let mut features = HashMap::new();
-            if self.section_types.is_empty() {
+            if self.config.section_types.is_empty() {
                 return features;
             }
-            let Some(base) = self.section_features.first() else {
+            let Some(base) = self.config.section_features.first() else {
                 return features;
             };
             let prefix = format!("{base}@");
@@ -251,7 +226,7 @@ impl SectionsContext {
             .get(lang)
             .or_else(|| features.get(""))
             .map(String::as_str)
-            .or_else(|| self.section_features.first().map(String::as_str))
+            .or_else(|| self.config.section_features.first().map(String::as_str))
     }
 
     /// Section-0 nodes in canonical order, scanned from `otype` once.
@@ -259,7 +234,7 @@ impl SectionsContext {
         if let Some(nodes) = self.sec0_nodes.get() {
             return Ok(nodes);
         }
-        let nodes = match self.section_types.first() {
+        let nodes = match self.config.section_types.first() {
             Some(section_0_type) => self.otype.view().s(section_0_type)?,
             None => Vec::new(),
         };
@@ -309,8 +284,8 @@ impl SectionsContext {
         // TF reads at most the first three parts of a section (text.py).
         let section = &section[..section.len().min(3)];
         if section.is_empty()
-            || section.len() > self.section_types.len()
-            || section.len() > self.section_features.len()
+            || section.len() > self.config.section_types.len()
+            || section.len() > self.config.section_features.len()
         {
             return Ok(None);
         }
@@ -319,7 +294,7 @@ impl SectionsContext {
             if let Some(sections_data) = self.corpus.sections_data()? {
                 let feature_name = match sec0_feature {
                     Some(feature) => feature,
-                    None => match self.section_features.first() {
+                    None => match self.config.section_features.first() {
                         Some(feature) => feature.as_str(),
                         None => return Ok(None),
                     },
@@ -336,15 +311,13 @@ impl SectionsContext {
                     2 => sections_data
                         .sec1
                         .get(&sec0_node)
-                        .and_then(|headings| {
-                            headings.get(&section_value_to_string(section[1].clone()))
-                        })
+                        .and_then(|headings| headings.get(section_key(&section[1]).as_ref()))
                         .copied(),
                     _ => sections_data
                         .sec2
                         .get(&sec0_node)
-                        .and_then(|level1| level1.get(&section_value_to_string(section[1].clone())))
-                        .and_then(|level2| level2.get(&section_value_to_string(section[2].clone())))
+                        .and_then(|level1| level1.get(section_key(&section[1]).as_ref()))
+                        .and_then(|level2| level2.get(section_key(&section[2]).as_ref()))
                         .copied(),
                 });
             }
@@ -356,19 +329,22 @@ impl SectionsContext {
             .node_from_section_langed(section, sec0_feature)
     }
 
+    /// Every embedder of `node` (`L.u` without a type filter) in `L.u` order,
+    /// borrowed from the `levUp` CSR without building a `Vec` or a
+    /// [`MappedSections`] view. `None` for pre-v3 caches; use
+    /// [`MappedSections::up_types`] then.
+    pub fn embedders(&self, node: u32) -> Result<Option<MappedU32s<'_>>> {
+        self.corpus.lev_up_values(node)
+    }
+
     /// Build a thin [`MappedSections`] borrowing the cached owned handles. No
-    /// corpus view-cache access; the config vectors are cloned (they hold a
-    /// handful of short strings).
+    /// corpus view-cache access and no allocation: the config is shared by `Arc`.
     pub fn sections(&self) -> MappedSections<'_> {
         MappedSections {
             corpus: self.otype.corpus(),
             otype: self.otype.view(),
             oslots: self.oslots.view(),
-            slot_type: self.slot_type.clone(),
-            section_types: self.section_types.clone(),
-            section_features: self.section_features.clone(),
-            structure_types: self.structure_types.clone(),
-            structure_features: self.structure_features.clone(),
+            config: Arc::clone(&self.config),
         }
     }
 }
@@ -377,11 +353,7 @@ pub struct MappedSections<'a> {
     corpus: &'a MappedCompiledCorpus,
     otype: StringPoolNodeFeatureView<'a>,
     oslots: EdgeFeatureView<'a>,
-    slot_type: String,
-    section_types: Vec<String>,
-    section_features: Vec<String>,
-    structure_types: Vec<String>,
-    structure_features: Vec<String>,
+    config: Arc<SectionConfig>,
 }
 
 impl<'a> MappedSections<'a> {
@@ -392,54 +364,17 @@ impl<'a> MappedSections<'a> {
         let oslots = corpus
             .edge_feature("oslots")?
             .ok_or_else(|| CfError::MissingFeature("oslots".to_string()))?;
-        let slot_type = otype
-            .str_value(1)?
-            .ok_or_else(|| CfError::MissingFeature("otype slot type".to_string()))?
-            .to_string();
-        let otext = corpus.config_feature("otext")?;
-        let section_types = otext
-            .as_ref()
-            .and_then(|metadata| metadata.get("sectionTypes").transpose())
-            .transpose()?
-            .flatten()
-            .map(parse_csv_config)
-            .unwrap_or_default();
-        let section_features = otext
-            .as_ref()
-            .and_then(|metadata| metadata.get("sectionFeatures").transpose())
-            .transpose()?
-            .flatten()
-            .map(parse_csv_config)
-            .unwrap_or_default();
-        let structure_types = otext
-            .as_ref()
-            .and_then(|metadata| metadata.get("structureTypes").transpose())
-            .transpose()?
-            .flatten()
-            .map(parse_csv_config)
-            .unwrap_or_default();
-        let structure_features = otext
-            .as_ref()
-            .and_then(|metadata| metadata.get("structureFeatures").transpose())
-            .transpose()?
-            .flatten()
-            .map(parse_csv_config)
-            .unwrap_or_default();
-
+        let config = Arc::new(SectionConfig::load(corpus, &otype)?);
         Ok(Self {
             corpus,
             otype,
             oslots,
-            slot_type,
-            section_types,
-            section_features,
-            structure_types,
-            structure_features,
+            config,
         })
     }
 
     pub fn section_types(&self) -> &[String] {
-        &self.section_types
+        &self.config.section_types
     }
 
     #[allow(non_snake_case)]
@@ -448,7 +383,7 @@ impl<'a> MappedSections<'a> {
     }
 
     pub fn section_features(&self) -> &[String] {
-        &self.section_features
+        &self.config.section_features
     }
 
     #[allow(non_snake_case)]
@@ -457,7 +392,7 @@ impl<'a> MappedSections<'a> {
     }
 
     pub fn structure_types(&self) -> &[String] {
-        &self.structure_types
+        &self.config.structure_types
     }
 
     #[allow(non_snake_case)]
@@ -466,7 +401,7 @@ impl<'a> MappedSections<'a> {
     }
 
     pub fn structure_features(&self) -> &[String] {
-        &self.structure_features
+        &self.config.structure_features
     }
 
     #[allow(non_snake_case)]
@@ -475,12 +410,12 @@ impl<'a> MappedSections<'a> {
     }
 
     pub fn section_tuple(&self, node: u32, options: &SectionOptions) -> Result<Vec<Option<u32>>> {
-        if self.section_types.is_empty() || node == 0 || self.node_type(node)?.is_none() {
+        if self.config.section_types.is_empty() || node == 0 || self.node_type(node)?.is_none() {
             return Ok(Vec::new());
         }
 
         let node_type = self.node_type(node)?.unwrap_or_default();
-        let reference_slot = if node_type == self.slot_type {
+        let reference_slot = if node_type == self.config.slot_type {
             node
         } else {
             let slots = self.slots(node)?;
@@ -505,7 +440,7 @@ impl<'a> MappedSections<'a> {
         let section_embedders = self.section_embedders(reference_slot)?;
 
         let mut sections = Vec::new();
-        for (index, section_type) in self.section_types.iter().enumerate() {
+        for (index, section_type) in self.config.section_types.iter().enumerate() {
             let section_node = if node_type == section_type {
                 Some(node)
             } else if let Some(found) = &section_embedders {
@@ -546,7 +481,7 @@ impl<'a> MappedSections<'a> {
                 let Some(section_node) = section_node else {
                     return Ok(None);
                 };
-                let Some(feature_name) = self.section_features.get(index) else {
+                let Some(feature_name) = self.config.section_features.get(index) else {
                     return Ok(None);
                 };
                 self.node_feature_value(feature_name, section_node)
@@ -588,8 +523,8 @@ impl<'a> MappedSections<'a> {
         // TF reads at most the first three parts of a section (text.py).
         let section = &section[..section.len().min(3)];
         if section.is_empty()
-            || section.len() > self.section_types.len()
-            || section.len() > self.section_features.len()
+            || section.len() > self.config.section_types.len()
+            || section.len() > self.config.section_features.len()
         {
             return Ok(None);
         }
@@ -611,15 +546,13 @@ impl<'a> MappedSections<'a> {
                     2 => sections
                         .sec1
                         .get(&sec0_node)
-                        .and_then(|headings| {
-                            headings.get(&section_value_to_string(section[1].clone()))
-                        })
+                        .and_then(|headings| headings.get(section_key(&section[1]).as_ref()))
                         .copied(),
                     _ => sections
                         .sec2
                         .get(&sec0_node)
-                        .and_then(|level1| level1.get(&section_value_to_string(section[1].clone())))
-                        .and_then(|level2| level2.get(&section_value_to_string(section[2].clone())))
+                        .and_then(|level1| level1.get(section_key(&section[1]).as_ref()))
+                        .and_then(|level2| level2.get(section_key(&section[2]).as_ref()))
                         .copied(),
                 });
             }
@@ -628,7 +561,7 @@ impl<'a> MappedSections<'a> {
         // Linear fallback for pre-v3 caches (or section hierarchies deeper than
         // the three levels stored in CFRSECT1).
         // The last matching node wins, as in TF's section dicts.
-        let target_type = &self.section_types[section.len() - 1];
+        let target_type = &self.config.section_types[section.len() - 1];
         for node in self.otype.s(target_type)?.into_iter().rev() {
             let matches = section
                 .iter()
@@ -665,7 +598,7 @@ impl<'a> MappedSections<'a> {
     }
 
     pub fn is_slot(&self, node: u32) -> Result<bool> {
-        Ok(self.node_type(node)? == Some(self.slot_type.as_str()))
+        Ok(self.node_type(node)? == Some(self.config.slot_type.as_str()))
     }
 
     pub fn slots(&self, node: u32) -> Result<Vec<u32>> {
@@ -724,7 +657,7 @@ impl<'a> MappedSections<'a> {
             return Ok(Vec::new());
         }
         let slot_type_allowed =
-            node_types.is_none_or(|expected| expected.contains(&self.slot_type.as_str()));
+            node_types.is_none_or(|expected| expected.contains(&self.config.slot_type.as_str()));
 
         // v3 fast path: intersectors are the union of `levUp` embedders over the
         // node's slots (per TF `locality.py` `i`), plus the slots themselves when
@@ -763,7 +696,7 @@ impl<'a> MappedSections<'a> {
         }
         for row in self.otype.rows() {
             let (candidate, node_type) = row?;
-            if candidate == node || node_type == self.slot_type {
+            if candidate == node || node_type == self.config.slot_type {
                 continue;
             }
             if !self.node_type_allowed(candidate, node_types)? {
@@ -796,7 +729,7 @@ impl<'a> MappedSections<'a> {
         let mut result = Vec::new();
         for row in self.otype.rows() {
             let (candidate, node_type) = row?;
-            if candidate == node || node_type == self.slot_type {
+            if candidate == node || node_type == self.config.slot_type {
                 continue;
             }
             if !self.contains(candidate, node)? {
@@ -837,7 +770,7 @@ impl<'a> MappedSections<'a> {
             return Ok(Vec::new());
         }
         let slot_type_allowed =
-            node_types.is_none_or(|expected| expected.contains(&self.slot_type.as_str()));
+            node_types.is_none_or(|expected| expected.contains(&self.config.slot_type.as_str()));
 
         // v3 fast path: `levDown` rows hold the non-slot embeddees; combine them
         // with the node's slots (when the slot type is requested) and sort into
@@ -863,7 +796,7 @@ impl<'a> MappedSections<'a> {
         }
         for row in self.otype.rows() {
             let (candidate, node_type) = row?;
-            if candidate == node || node_type == self.slot_type {
+            if candidate == node || node_type == self.config.slot_type {
                 continue;
             }
             if !self.contains(node, candidate)? {
@@ -950,7 +883,12 @@ impl<'a> MappedSections<'a> {
         self.filter_locality_nodes(result, node_types)
     }
 
+    /// Every node in canonical order: the precomputed `order` array when the
+    /// cache has one for every node, else a rank sort.
     pub fn all_nodes(&self) -> Result<Vec<u32>> {
+        if let Some(order) = self.corpus.canonical_order()? {
+            return Ok(order.collect());
+        }
         let mut nodes: Vec<_> = (1..=self.max_node()).collect();
         self.sort_nodes(&mut nodes)?;
         Ok(nodes)
@@ -998,7 +936,7 @@ impl<'a> MappedSections<'a> {
         let mut events = Vec::new();
 
         for node in walk_nodes {
-            if self.node_type(node)? == Some(self.slot_type.as_str()) {
+            if self.node_type(node)? == Some(self.config.slot_type.as_str()) {
                 events.push(WalkEvent::Slot(node));
                 let mut ending_nodes = self.nodes_ending_at(node)?;
                 ending_nodes.reverse();
@@ -1059,12 +997,12 @@ impl<'a> MappedSections<'a> {
         expected: &FeatureValue,
         sec0_feature: Option<&str>,
     ) -> Result<Option<u32>> {
-        let Some(section_0_type) = self.section_types.first() else {
+        let Some(section_0_type) = self.config.section_types.first() else {
             return Ok(None);
         };
         let feature_name = match sec0_feature {
             Some(feature) => feature,
-            None => match self.section_features.first() {
+            None => match self.config.section_features.first() {
                 Some(feature) => feature.as_str(),
                 None => return Ok(None),
             },
@@ -1080,19 +1018,20 @@ impl<'a> MappedSections<'a> {
 
     /// For each configured section type, the embedder of `reference_slot` of that
     /// type (or `None` if none), read from the slot's `levUp` CSR row. The
-    /// returned vector is parallel to `self.section_types`. Returns `Ok(None)`
+    /// returned vector is parallel to `self.config.section_types`. Returns `Ok(None)`
     /// when no `levUp` index is present (pre-v3 cache) so the caller can fall
     /// back to the linear `up_first` scan.
     fn section_embedders(&self, reference_slot: u32) -> Result<Option<Vec<Option<u32>>>> {
         let Some(row) = self.corpus.lev_up_row(reference_slot)? else {
             return Ok(None);
         };
-        let mut found: Vec<Option<u32>> = vec![None; self.section_types.len()];
+        let mut found: Vec<Option<u32>> = vec![None; self.config.section_types.len()];
         for embedder in row {
             let Some(node_type) = self.node_type(embedder)? else {
                 continue;
             };
             if let Some(index) = self
+                .config
                 .section_types
                 .iter()
                 .position(|section_type| section_type == node_type)
@@ -1181,7 +1120,7 @@ impl<'a> MappedSections<'a> {
         let mut nodes = Vec::new();
         for row in self.otype.rows() {
             let (node, node_type) = row?;
-            if node_type == self.slot_type {
+            if node_type == self.config.slot_type {
                 continue;
             }
             let slots = self
@@ -1201,7 +1140,7 @@ impl<'a> MappedSections<'a> {
         let mut nodes = Vec::new();
         for row in self.otype.rows() {
             let (node, node_type) = row?;
-            if node_type == self.slot_type {
+            if node_type == self.config.slot_type {
                 continue;
             }
             let slots = self
@@ -1218,12 +1157,7 @@ impl<'a> MappedSections<'a> {
     }
 
     fn max_slot(&self) -> Result<u32> {
-        Ok(self
-            .otype
-            .s(&self.slot_type)?
-            .last()
-            .copied()
-            .unwrap_or_default())
+        self.corpus.max_slot()
     }
 
     fn max_node(&self) -> u32 {
@@ -1273,6 +1207,14 @@ fn mapped_value_to_feature_value(value: MappedNodeValue<'_>) -> FeatureValue {
     match value {
         MappedNodeValue::Str(value) => FeatureValue::string(value),
         MappedNodeValue::Int(value) => FeatureValue::Int(value),
+    }
+}
+
+/// A section value as its `CFRSECT1` key, borrowed when it is already a string.
+fn section_key(value: &FeatureValue) -> std::borrow::Cow<'_, str> {
+    match value {
+        FeatureValue::Str(text) => std::borrow::Cow::Borrowed(text),
+        FeatureValue::Int(number) => std::borrow::Cow::Owned(number.to_string()),
     }
 }
 
