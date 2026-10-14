@@ -243,11 +243,14 @@ fn write_numpy_u8(path: &std::path::Path, values: &[u8]) {
 
 #[test]
 fn public_config_constants_match_python_config_api_values() {
-    assert_eq!(VERSION, "0.6.0rc1");
+    // VERSION is the PEP 440 rendering of the Cargo version (see build.rs).
+    let release = env!("CARGO_PKG_VERSION").split('-').next().unwrap();
+    assert!(VERSION.starts_with(release));
+    assert!(!VERSION.contains('-'));
     assert_eq!(CF_VERSION, VERSION);
     assert_eq!(__version__, VERSION);
     assert_eq!(NAME, "Context-Fabric");
-    assert_eq!(BANNER, "This is Context-Fabric 0.6.0rc1");
+    assert_eq!(BANNER, format!("This is Context-Fabric {VERSION}"));
     assert_eq!(API_VERSION, 3);
 
     assert_eq!(OTYPE, "otype");

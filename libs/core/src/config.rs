@@ -1,8 +1,9 @@
-pub const VERSION: &str = "0.6.0rc1";
+/// PEP 440 package version, derived from the Cargo package version by `build.rs`.
+pub const VERSION: &str = env!("CFABRIC_PEP440_VERSION");
 #[allow(non_upper_case_globals)]
 pub const __version__: &str = VERSION;
 pub const NAME: &str = "Context-Fabric";
-pub const BANNER: &str = "This is Context-Fabric 0.6.0rc1";
+pub const BANNER: &str = concat!("This is Context-Fabric ", env!("CFABRIC_PEP440_VERSION"));
 pub const API_VERSION: u32 = 3;
 
 pub const OTYPE: &str = "otype";

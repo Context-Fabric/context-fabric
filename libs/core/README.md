@@ -108,6 +108,15 @@ python -m cfabric_benchmarks.perf_gate --engine cf --assert \
     --targets baselines/targets.json --baseline baselines/bhsa_tf.json
 ```
 
+## Versioning
+
+`Cargo.toml` is the single source of truth for the release version (SemVer, e.g.
+`0.6.0-rc.1`). Maturin publishes the wheel under its PEP 440 rendering (`0.6.0rc1`;
+`pyproject.toml` declares `version` as dynamic), and `build.rs` exports the same
+rendering to the Rust core, so `cfabric.VERSION`, `cfabric.__version__`, and the
+banner always equal `importlib.metadata.version("context-fabric")`. Bump the
+version in `Cargo.toml` only.
+
 ## Testing
 
 See [TESTING.md](TESTING.md) for how to run tests.

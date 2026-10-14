@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import importlib.metadata
+
+import cfabric
+
 from cfabric import BANNER, NAME, VERSION, Fabric
 from cfabric.describe import describe_corpus_overview, describe_feature, list_features
 from cfabric.results import CorpusInfo, FeatureInfo, NodeInfo, NodeList, SearchResult
 
 
 def test_top_level_exports(mini_corpus_path):
-    assert VERSION == "0.6.0rc1"
+    assert VERSION == importlib.metadata.version("context-fabric")
+    assert cfabric.__version__ == VERSION
     assert NAME == "Context-Fabric"
-    assert "0.6.0rc1" in BANNER
+    assert BANNER == f"This is Context-Fabric {VERSION}"
 
     fabric = Fabric(locations=str(mini_corpus_path), silent="deep")
     assert fabric.good is True
