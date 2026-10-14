@@ -191,6 +191,9 @@ pub struct MappedCompiledCorpus {
     /// on first use. Search atoms seed from these instead of re-scanning all
     /// `otype` rows (with a string compare each) per query.
     type_nodes_cache: OnceLock<HashMap<String, Arc<Vec<u32>>>>,
+    /// The last slot node, computed once by one `otype` pool-id pass. Locality,
+    /// search and text all branch on it per call, so it must never be rescanned.
+    max_slot_cache: OnceLock<u32>,
     v3_warned: Once,
 }
 
@@ -250,6 +253,7 @@ impl MappedCompiledCorpus {
             sections_cache: OnceLock::new(),
             levels_cache: OnceLock::new(),
             type_nodes_cache: OnceLock::new(),
+            max_slot_cache: OnceLock::new(),
             v3_warned: Once::new(),
         })
     }
@@ -550,14 +554,30 @@ impl MappedCompiledCorpus {
         self.slot_type()
     }
 
+    /// The highest slot node (TF `maxSlot`). Slots are the nodes whose `otype`
+    /// equals node 1's type; the value is computed once per corpus handle by a
+    /// single pool-id pass over `otype` (no string decoding) and then cached.
     pub fn max_slot(&self) -> Result<u32> {
-        let slot_type = self.slot_type()?;
-        Ok(self
+        if let Some(max_slot) = self.max_slot_cache.get() {
+            return Ok(*max_slot);
+        }
+        let otype = self
             .string_pool_node_feature("otype")?
-            .ok_or_else(|| CfError::MissingFeature("otype".to_string()))?
-            .value_interval(&slot_type)?
-            .map(|(_, max_slot)| max_slot)
-            .unwrap_or_default())
+            .ok_or_else(|| CfError::MissingFeature("otype".to_string()))?;
+        let max_slot = match otype.pool_id(1)? {
+            Some(slot_id) => {
+                let mut max_slot = 0;
+                otype.for_each_id_row(&mut |node, pool_id| {
+                    if pool_id == slot_id {
+                        max_slot = node;
+                    }
+                    Ok(true)
+                })?;
+                max_slot
+            }
+            None => 0,
+        };
+        Ok(*self.max_slot_cache.get_or_init(|| max_slot))
     }
 
     #[allow(non_snake_case)]

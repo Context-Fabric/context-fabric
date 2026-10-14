@@ -213,11 +213,7 @@ impl<'a> MappedText<'a> {
         let mut samples = Vec::new();
         let mut covered_chars = HashSet::new();
         let mut seen_originals = HashSet::new();
-        let max_slot = self
-            .otype
-            .value_interval(&self.slot_type)?
-            .map(|(_, last)| last)
-            .unwrap_or_default();
+        let max_slot = self.corpus.max_slot()?;
         for slot in 1..=max_slot {
             let original = self.text(slot, Some(original_name))?.trim().to_string();
             if original.is_empty() || seen_originals.contains(&original) {

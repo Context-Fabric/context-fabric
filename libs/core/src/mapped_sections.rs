@@ -1212,12 +1212,7 @@ impl<'a> MappedSections<'a> {
     }
 
     fn max_slot(&self) -> Result<u32> {
-        Ok(self
-            .otype
-            .s(&self.slot_type)?
-            .last()
-            .copied()
-            .unwrap_or_default())
+        self.corpus.max_slot()
     }
 
     fn max_node(&self) -> u32 {

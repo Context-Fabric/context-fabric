@@ -38,26 +38,11 @@ impl JoinSink {
 
 pub struct MappedSearch<'a> {
     corpus: &'a MappedCompiledCorpus,
-    /// Resolved once per engine: slots are exactly `1..=max_slot` (TF node
-    /// numbering), so slot checks are a compare instead of an `otype` lookup.
-    max_slot: std::sync::OnceLock<u32>,
 }
 
 impl<'a> MappedSearch<'a> {
     pub fn new(corpus: &'a MappedCompiledCorpus) -> Self {
-        Self {
-            corpus,
-            max_slot: std::sync::OnceLock::new(),
-        }
-    }
-
-    fn cached_max_slot(&self) -> Result<u32> {
-        if let Some(max_slot) = self.max_slot.get() {
-            return Ok(*max_slot);
-        }
-        let max_slot = self.corpus.max_slot()?;
-        let _ = self.max_slot.set(max_slot);
-        Ok(max_slot)
+        Self { corpus }
     }
 
     pub fn search(&self, template: &str, limit: Option<usize>) -> Result<Vec<Vec<u32>>> {
@@ -1053,7 +1038,7 @@ impl<'a> MappedSearch<'a> {
         if node == 0 {
             return Ok(None);
         }
-        if node <= self.cached_max_slot()? {
+        if node <= self.corpus.max_slot()? {
             return Ok(Some((node, node)));
         }
         oslots.first_last_targets(node)
@@ -1567,7 +1552,7 @@ impl<'a> MappedSearch<'a> {
         if node == 0 {
             return Ok(Vec::new());
         }
-        if node <= self.cached_max_slot()? {
+        if node <= self.corpus.max_slot()? {
             return Ok(vec![node]);
         }
         let Some(targets) = oslots.targets(node)? else {
