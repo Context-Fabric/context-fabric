@@ -309,15 +309,13 @@ impl SectionsContext {
                     2 => sections_data
                         .sec1
                         .get(&sec0_node)
-                        .and_then(|headings| {
-                            headings.get(&section_value_to_string(section[1].clone()))
-                        })
+                        .and_then(|headings| headings.get(section_key(&section[1]).as_ref()))
                         .copied(),
                     _ => sections_data
                         .sec2
                         .get(&sec0_node)
-                        .and_then(|level1| level1.get(&section_value_to_string(section[1].clone())))
-                        .and_then(|level2| level2.get(&section_value_to_string(section[2].clone())))
+                        .and_then(|level1| level1.get(section_key(&section[1]).as_ref()))
+                        .and_then(|level2| level2.get(section_key(&section[2]).as_ref()))
                         .copied(),
                 });
             }
@@ -536,15 +534,13 @@ impl<'a> MappedSections<'a> {
                     2 => sections
                         .sec1
                         .get(&sec0_node)
-                        .and_then(|headings| {
-                            headings.get(&section_value_to_string(section[1].clone()))
-                        })
+                        .and_then(|headings| headings.get(section_key(&section[1]).as_ref()))
                         .copied(),
                     _ => sections
                         .sec2
                         .get(&sec0_node)
-                        .and_then(|level1| level1.get(&section_value_to_string(section[1].clone())))
-                        .and_then(|level2| level2.get(&section_value_to_string(section[2].clone())))
+                        .and_then(|level1| level1.get(section_key(&section[1]).as_ref()))
+                        .and_then(|level2| level2.get(section_key(&section[2]).as_ref()))
                         .copied(),
                 });
             }
@@ -1197,6 +1193,14 @@ fn mapped_value_to_feature_value(value: MappedNodeValue<'_>) -> FeatureValue {
     match value {
         MappedNodeValue::Str(value) => FeatureValue::string(value),
         MappedNodeValue::Int(value) => FeatureValue::Int(value),
+    }
+}
+
+/// A section value as its `CFRSECT1` key, borrowed when it is already a string.
+fn section_key(value: &FeatureValue) -> std::borrow::Cow<'_, str> {
+    match value {
+        FeatureValue::Str(text) => std::borrow::Cow::Borrowed(text),
+        FeatureValue::Int(number) => std::borrow::Cow::Owned(number.to_string()),
     }
 }
 

@@ -122,11 +122,13 @@ fn mapped_value_to_py(py: Python<'_>, value: MappedNodeValue<'_>) -> PyResult<Py
 }
 
 pub(crate) fn feature_value_from_py(value: &Bound<'_, PyAny>) -> PyResult<FeatureValue> {
-    if let Ok(value) = value.extract::<i64>() {
-        return Ok(FeatureValue::Int(value));
+    // Test for `str` first: a failed `extract::<i64>()` on a string builds
+    // (and discards) a formatted TypeError, which dominated string lookups.
+    if let Ok(text) = value.downcast::<PyString>() {
+        return Ok(FeatureValue::string(text.to_str()?));
     }
-    if let Ok(value) = value.extract::<String>() {
-        return Ok(FeatureValue::string(value));
+    if let Ok(number) = value.extract::<i64>() {
+        return Ok(FeatureValue::Int(number));
     }
     Err(PyTypeError::new_err("feature values must be str or int"))
 }

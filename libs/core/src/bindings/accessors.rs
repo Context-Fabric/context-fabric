@@ -792,8 +792,8 @@ impl PyText {
         // index, O(1)); chapter/verse come from the CFRSECT1 `sec1`/`sec2` maps.
         // A miss returns `None` immediately.
         let context = self.sections_context()?;
-        let sec0_feature = context.sec0_feature_for_lang(lang).map(str::to_string);
-        Ok(context.node_from_section_langed(&values, sec0_feature.as_deref())?)
+        let sec0_feature = context.sec0_feature_for_lang(lang);
+        Ok(context.node_from_section_langed(&values, sec0_feature)?)
     }
 
     #[allow(non_snake_case)]
