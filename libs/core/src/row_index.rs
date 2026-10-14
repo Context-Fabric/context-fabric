@@ -109,19 +109,21 @@ impl RowOffsets {
     }
 }
 
-/// Rows per entry of a [`RowLookup`] sample.
-const ROW_SAMPLE_STRIDE: usize = 64;
+/// Tables at most this long are bisected directly; larger ones get a
+/// [`NodeRank`] on their first lookup that misses the dense position.
+const SMALL_TABLE_ROWS: usize = 1024;
 
-/// Finds a node's row in a node-sorted row table living in the map.
+/// Finds a node's row in a node-sorted row table living in the map (node ids
+/// are unique per table).
 ///
 /// The dense position `node - first_node` is tried first: an O(1) hit for any
 /// feature defined on a contiguous node range (every word, every non-slot
-/// node). Otherwise the node id of every 64th row, sampled into a small heap
-/// array on the first miss, is bisected in cache, leaving a 64-row block to
-/// bisect in the map instead of the whole table.
+/// node), which never builds anything. Other tables get a [`NodeRank`] built
+/// on the first miss, which answers both hits and misses without touching the
+/// map; small tables are bisected.
 #[derive(Debug, Default)]
 pub struct RowLookup {
-    sample: OnceLock<Vec<u32>>,
+    rank: OnceLock<NodeRank>,
 }
 
 impl RowLookup {
@@ -146,36 +148,77 @@ impl RowLookup {
         {
             return Ok(Some(guess));
         }
-        let sample = match self.sample.get() {
-            Some(sample) => sample,
+        if row_count <= SMALL_TABLE_ROWS {
+            let (mut low, mut high) = (0, row_count);
+            while low < high {
+                let mid = low + (high - low) / 2;
+                match node_at(mid)?.cmp(&node) {
+                    std::cmp::Ordering::Less => low = mid + 1,
+                    std::cmp::Ordering::Greater => high = mid,
+                    std::cmp::Ordering::Equal => return Ok(Some(mid)),
+                }
+            }
+            return Ok(None);
+        }
+        let rank = match self.rank.get() {
+            Some(rank) => rank,
             None => {
-                let sample = (0..row_count)
-                    .step_by(ROW_SAMPLE_STRIDE)
-                    .map(node_at)
-                    .collect::<Result<Vec<_>>>()?;
-                self.sample.get_or_init(|| sample)
+                let rank = NodeRank::build((0..row_count).map(node_at)).ok_or_else(|| {
+                    invalid_compiled(path, "feature rows are not sorted by node")
+                })??;
+                self.rank.get_or_init(|| rank)
             }
         };
-        // The block whose first node is the last one <= `node`.
-        let block = match sample.partition_point(|sampled| *sampled <= node) {
-            0 => return Ok(None),
-            after => after - 1,
-        };
-        let mut low = block * ROW_SAMPLE_STRIDE;
-        if sample[block] == node {
-            return Ok(Some(low));
-        }
-        low += 1;
-        let mut high = ((block + 1) * ROW_SAMPLE_STRIDE).min(row_count);
-        while low < high {
-            let mid = low + (high - low) / 2;
-            match node_at(mid)?.cmp(&node) {
-                std::cmp::Ordering::Less => low = mid + 1,
-                std::cmp::Ordering::Greater => high = mid,
-                std::cmp::Ordering::Equal => return Ok(Some(mid)),
+        Ok(rank.row_of(node))
+    }
+}
+
+/// Which nodes have a row, as a bitmap with the number of set bits before each
+/// 64-bit word: the row of a present node is the count of present nodes below
+/// it. 12 bytes per 64 node ids (about 270 KB for BHSA's 1.4M nodes).
+#[derive(Debug)]
+pub struct NodeRank {
+    words: Vec<u64>,
+    rows_before: Vec<u32>,
+}
+
+impl NodeRank {
+    /// Builds from the rows' node ids in row order. `None` when they are not
+    /// strictly ascending; the inner `Err` is a read error.
+    fn build(nodes: impl Iterator<Item = Result<u32>>) -> Option<Result<Self>> {
+        let mut words: Vec<u64> = Vec::new();
+        let mut previous: Option<u32> = None;
+        for node in nodes {
+            let node = match node {
+                Ok(node) => node,
+                Err(error) => return Some(Err(error)),
+            };
+            if previous.is_some_and(|previous| previous >= node) {
+                return None;
             }
+            previous = Some(node);
+            let word = node as usize / 64;
+            if word >= words.len() {
+                words.resize(word + 1, 0);
+            }
+            words[word] |= 1 << (node % 64);
         }
-        Ok(None)
+        let mut rows_before = Vec::with_capacity(words.len());
+        let mut count = 0_u32;
+        for word in &words {
+            rows_before.push(count);
+            count += word.count_ones();
+        }
+        Some(Ok(Self { words, rows_before }))
+    }
+
+    /// The row index of `node`, `None` when it has no row.
+    pub fn row_of(&self, node: u32) -> Option<usize> {
+        let word = node as usize / 64;
+        let bits = *self.words.get(word)?;
+        let bit = 1_u64 << (node % 64);
+        (bits & bit != 0)
+            .then(|| (self.rows_before[word] + (bits & (bit - 1)).count_ones()) as usize)
     }
 }
 
@@ -255,6 +298,26 @@ mod tests {
                 assert_eq!(find(&lookup, &nodes, node), None, "absent {node}");
             }
         }
+    }
+
+    #[test]
+    fn row_lookup_rejects_unsorted_large_tables() {
+        let mut nodes: Vec<u32> = (0..2_000).map(|n| n * 2).collect();
+        nodes.swap(10, 11);
+        let bytes: Vec<u8> = nodes.iter().flat_map(|node| node.to_le_bytes()).collect();
+        let lookup = RowLookup::default();
+        let missing_dense = 3;
+        assert!(
+            lookup
+                .find(
+                    Path::new("t"),
+                    &bytes,
+                    nodes.len(),
+                    |index| index * 4,
+                    missing_dense
+                )
+                .is_err()
+        );
     }
 
     #[test]

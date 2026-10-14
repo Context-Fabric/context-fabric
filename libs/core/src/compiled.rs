@@ -57,6 +57,22 @@ pub struct CompiledMetadata {
 }
 
 impl CompiledMetadata {
+    /// Whether the cache carries the v4 index sections: the reverse index of
+    /// every edge feature (`CFRREVE1`) and the row offsets of every mixed node
+    /// feature and edge feature (`CFRROWS1`).
+    pub fn has_v4_indexes(&self) -> bool {
+        let edges = self
+            .edge_features
+            .iter()
+            .all(|feature| feature.reverse_index.is_some() && feature.row_index.is_some());
+        let mixed = self
+            .node_features
+            .iter()
+            .filter(|feature| feature.encoding == NodeFeatureEncoding::Mixed)
+            .all(|feature| feature.row_index.is_some());
+        edges && mixed
+    }
+
     pub fn node_feature(&self, name: &str) -> Option<&CompiledNodeFeature> {
         self.node_features
             .iter()
@@ -258,6 +274,14 @@ impl MappedCompiledCorpus {
         let path = path.as_ref();
         let mmap = map_file(path)?;
         let metadata = inspect_compiled_bytes(path, &mmap)?;
+        if !metadata.has_v4_indexes() {
+            eprintln!(
+                "context-fabric: compiled cache {} lacks the v4 index sections \
+                 (CFRREVE1 / CFRROWS1); reverse edge lookups and variable-length \
+                 feature rows fall back to scans. Recompile it for full speed.",
+                path.display()
+            );
+        }
         #[cfg(target_os = "macos")]
         let shared_mmap_hint = map_file(path)?;
         Ok(Self {
@@ -2012,16 +2036,30 @@ impl<'a> StringPoolNodeFeatureView<'a> {
     }
 
     pub fn s(&self, expected: &str) -> Result<Vec<u32>> {
+        let Some(expected_id) = self.pool_id_of(expected) else {
+            return Ok(Vec::new());
+        };
+        // Compare pool ids, not decoded strings: one u32 compare per row.
         let mut nodes = Vec::new();
-        for row in self.rows() {
-            let (node, value) = row?;
-            if value == expected {
+        self.for_each_id_row(&mut |node, pool_id| {
+            if pool_id == expected_id {
                 nodes.push(node);
             }
-        }
+            Ok(true)
+        })?;
         // Canonical (rank) order, matching the in-memory `NodeFeature::s`.
         self.sort_by_rank(&mut nodes);
         Ok(nodes)
+    }
+
+    /// The pool id of `value` (pooled strings are distinct), compared as raw
+    /// bytes without decoding the pool.
+    pub fn pool_id_of(&self, value: &str) -> Option<u32> {
+        self.parts
+            .pool_ranges
+            .iter()
+            .position(|range| self.bytes.get(range.clone()) == Some(value.as_bytes()))
+            .map(|index| index as u32)
     }
 
     /// The node's pool id without decoding the pooled string: one binary search,
@@ -3316,12 +3354,17 @@ fn sort_nodes_by_mmap_rank(
     rank_len: usize,
     nodes: &mut [u32],
 ) {
-    nodes.sort_unstable_by_key(|node| {
+    let key = |node: &u32| {
         (
             mmap_rank(path, bytes, rank_start, rank_len, *node).unwrap_or(*node),
             *node,
         )
-    });
+    };
+    // Nodes of one type are usually numbered in canonical order already; one
+    // sequential pass is far cheaper than sorting by random rank reads.
+    if !nodes.is_sorted_by_key(key) {
+        nodes.sort_unstable_by_key(key);
+    }
 }
 
 fn read_mixed_node_value_from<'a>(
