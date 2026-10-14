@@ -29,8 +29,8 @@ jobs:
           echo "PYO3_PYTHON=$(python -c 'import sys; print(sys.executable)')" >> "$GITHUB_ENV"
       - name: Check Rust formatting
         run: cargo fmt --check
-      - name: Clippy (correctness and suspicious lints are errors)
-        run: cargo clippy --all-targets --features python -- -D clippy::correctness -D clippy::suspicious
+      - name: Clippy (every warning is an error)
+        run: cargo clippy --all-targets --features python -- -D warnings
       - name: Run Rust tests
         run: cargo test --features python
       - name: Run Python tests

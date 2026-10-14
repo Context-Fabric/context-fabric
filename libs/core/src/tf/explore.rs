@@ -22,8 +22,10 @@ where
     I: IntoIterator<Item = P>,
     P: AsRef<Path>,
 {
-    let mut inventory = FeatureInventory::default();
-    inventory.computeds = computed_feature_names();
+    let mut inventory = FeatureInventory {
+        computeds: computed_feature_names(),
+        ..FeatureInventory::default()
+    };
     for path in paths {
         let path = path.as_ref();
         for entry in fs::read_dir(path).map_err(|source| CfError::Io {

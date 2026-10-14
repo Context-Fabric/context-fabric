@@ -196,106 +196,101 @@ pub(super) fn parse_mapped_plan(template: &str) -> Result<MappedRelationPlan> {
 
         'line: {
             // 1. Explicit relation line: `left OP right`.
-            if parts.len() == 3 {
-                if let Some(operator) = parse_mapped_relation_operator(&parts[1]) {
-                    pending_relations.push(PendingMappedRelation {
-                        left: parts[0].clone(),
-                        operator,
-                        right: parts[2].clone(),
-                    });
-                    break 'line;
-                }
+            if parts.len() == 3
+                && let Some(operator) = parse_mapped_relation_operator(&parts[1])
+            {
+                pending_relations.push(PendingMappedRelation {
+                    left: parts[0].clone(),
+                    operator,
+                    right: parts[2].clone(),
+                });
+                break 'line;
             }
 
             // 2. Lines whose first token is a relation operator: either a lonely
             //    operator (single token) or an operator-prefixed atom or an
             //    operator-prefixed reference to an existing atom (`&& parent`).
-            if let Some(first) = parts.first() {
-                if let Some(operator) = parse_mapped_atom_operator(first) {
-                    if parts.len() == 1 {
-                        handle_lonely_operator(
-                            indent,
-                            operator,
-                            &atom_stack,
-                            &mut direct_relations,
-                        )?;
-                        break 'line;
-                    }
-                    // Operator-prefixed reference: `OP name` where `name` is an
-                    // already-defined atom (or a parent ref substituted to one).
-                    // TF treats this as an operator edge to the referenced node
-                    // without creating a new column.
-                    if parts.len() == 2 && !parts[1].contains(':') {
-                        if let Some(target) = names.get(&parts[1]).copied() {
-                            let other = sibling_or_parent(indent, &atom_stack)?;
-                            direct_relations.push(MappedRelation {
-                                left: MappedRelationEndpoint::Atom(other),
-                                operator,
-                                right: MappedRelationEndpoint::Atom(target),
-                            });
-                            break 'line;
-                        }
-                    }
-                    let atom = parse_simple_atom(line, indent, true)?;
-                    let q = atoms.len();
-                    if let Some(name) = &atom.name {
-                        names.insert(name.clone(), q);
-                    }
-                    atoms.push(atom);
-                    register_atom(
-                        indent,
-                        Some(operator),
-                        q,
-                        &mut atom_stack,
-                        &mut direct_relations,
-                    )?;
+            if let Some(first) = parts.first()
+                && let Some(operator) = parse_mapped_atom_operator(first)
+            {
+                if parts.len() == 1 {
+                    handle_lonely_operator(indent, operator, &atom_stack, &mut direct_relations)?;
                     break 'line;
                 }
+                // Operator-prefixed reference: `OP name` where `name` is an
+                // already-defined atom (or a parent ref substituted to one).
+                // TF treats this as an operator edge to the referenced node
+                // without creating a new column.
+                if parts.len() == 2
+                    && !parts[1].contains(':')
+                    && let Some(target) = names.get(&parts[1]).copied()
+                {
+                    let other = sibling_or_parent(indent, &atom_stack)?;
+                    direct_relations.push(MappedRelation {
+                        left: MappedRelationEndpoint::Atom(other),
+                        operator,
+                        right: MappedRelationEndpoint::Atom(target),
+                    });
+                    break 'line;
+                }
+                let atom = parse_simple_atom(line, indent, true)?;
+                let q = atoms.len();
+                if let Some(name) = &atom.name {
+                    names.insert(name.clone(), q);
+                }
+                atoms.push(atom);
+                register_atom(
+                    indent,
+                    Some(operator),
+                    q,
+                    &mut atom_stack,
+                    &mut direct_relations,
+                )?;
+                break 'line;
             }
 
             // 3. Reference to a previously named atom (adds constraints + an equality).
-            if let Some(first) = parts.first() {
-                if !first.contains(':') {
-                    if let Some(atom_index) = names.get(first).copied() {
-                        let constraints = parts[1..]
-                            .iter()
-                            .map(|part| parse_simple_constraint(part))
-                            .collect::<Result<Vec<_>>>()?;
-                        let node_type = atoms[atom_index].node_type.clone();
-                        let reference_index = atoms.len();
-                        atoms.push(SimpleAtom {
-                            indent,
-                            name: None,
-                            node_type,
-                            constraints,
-                            quantifiers: Vec::new(),
-                            clean: None,
-                        });
-                        pending_relations.push(PendingMappedRelation {
-                            left: format!("\0ref{reference_index}"),
-                            operator: MappedRelationOperator::Equal,
-                            right: first.clone(),
-                        });
-                        names.insert(format!("\0ref{reference_index}"), reference_index);
-                        register_atom(
-                            indent,
-                            None,
-                            reference_index,
-                            &mut atom_stack,
-                            &mut direct_relations,
-                        )?;
-                        break 'line;
-                    }
-                }
+            if let Some(first) = parts.first()
+                && !first.contains(':')
+                && let Some(atom_index) = names.get(first).copied()
+            {
+                let constraints = parts[1..]
+                    .iter()
+                    .map(|part| parse_simple_constraint(part))
+                    .collect::<Result<Vec<_>>>()?;
+                let node_type = atoms[atom_index].node_type.clone();
+                let reference_index = atoms.len();
+                atoms.push(SimpleAtom {
+                    indent,
+                    name: None,
+                    node_type,
+                    constraints,
+                    quantifiers: Vec::new(),
+                    clean: None,
+                });
+                pending_relations.push(PendingMappedRelation {
+                    left: format!("\0ref{reference_index}"),
+                    operator: MappedRelationOperator::Equal,
+                    right: first.clone(),
+                });
+                names.insert(format!("\0ref{reference_index}"), reference_index);
+                register_atom(
+                    indent,
+                    None,
+                    reference_index,
+                    &mut atom_stack,
+                    &mut direct_relations,
+                )?;
+                break 'line;
             }
 
             // 4. Feature-continuation line (every token is an explicit constraint).
-            if !atoms.is_empty() {
-                if let Some(constraints) = parse_mapped_feature_continuation_line(trimmed)? {
-                    let last_index = atoms.len() - 1;
-                    atoms[last_index].constraints.extend(constraints);
-                    break 'line;
-                }
+            if !atoms.is_empty()
+                && let Some(constraints) = parse_mapped_feature_continuation_line(trimmed)?
+            {
+                let last_index = atoms.len() - 1;
+                atoms[last_index].constraints.extend(constraints);
+                break 'line;
             }
 
             // 5. Plain atom line.

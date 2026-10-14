@@ -179,13 +179,12 @@ impl Corpus {
                 else {
                     continue;
                 };
-                if let Some(features) = features {
-                    if !features.contains(&feature_name)
-                        && !matches!(feature_name, "otype" | "oslots")
-                        && !is_config_feature_file(&feature_path)?
-                    {
-                        continue;
-                    }
+                if let Some(features) = features
+                    && !features.contains(&feature_name)
+                    && !matches!(feature_name, "otype" | "oslots")
+                    && !is_config_feature_file(&feature_path)?
+                {
+                    continue;
                 }
                 let parsed = parse_tf_file(&feature_path)?;
                 if let Some(features) = features {

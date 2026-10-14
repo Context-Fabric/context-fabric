@@ -16,12 +16,13 @@ use crate::mapped::{
 use crate::search::{MappedSearch, SEARCH_FAIL_FACTOR, SearchSets};
 use crate::value::FeatureValue;
 
+/// Custom search sets owned on the Rust side: `(name, nodes)` pairs.
+type OwnedSearchSets = Vec<(String, Vec<u32>)>;
+
 /// Convert the Python `sets=` argument (a dict mapping a set name to an
 /// iterable of node ids) into owned `(name, nodes)` pairs. The engine's
 /// `SearchSets` borrows the names, so the owned storage must outlive the call.
-fn search_sets_from_py(
-    sets: Option<&Bound<'_, PyAny>>,
-) -> PyResult<Option<Vec<(String, Vec<u32>)>>> {
+fn search_sets_from_py(sets: Option<&Bound<'_, PyAny>>) -> PyResult<Option<OwnedSearchSets>> {
     let Some(sets) = sets else {
         return Ok(None);
     };
@@ -45,7 +46,7 @@ fn search_sets_from_py(
 }
 
 /// Borrow owned set storage as the engine's `SearchSets` view.
-fn borrow_search_sets(owned: &Option<Vec<(String, Vec<u32>)>>) -> Option<SearchSets<'_>> {
+fn borrow_search_sets(owned: &Option<OwnedSearchSets>) -> Option<SearchSets<'_>> {
     owned.as_ref().map(|pairs| {
         pairs
             .iter()
@@ -95,7 +96,7 @@ pub(crate) struct PySearch {
     template: Option<String>,
     /// Owned custom sets registered via `study(..., sets=...)`, honored by
     /// later `fetch`/`count` calls (TF stashes `sets` on the SearchExe).
-    sets: Option<Vec<(String, Vec<u32>)>>,
+    sets: Option<OwnedSearchSets>,
     /// Projection width registered via `study(..., shallow=...)` (TF semantics).
     shallow: usize,
 }
@@ -156,7 +157,7 @@ impl PySearch {
         py: Python<'_>,
         template: &str,
         limit: Option<usize>,
-        owned_sets: &Option<Vec<(String, Vec<u32>)>>,
+        owned_sets: &Option<OwnedSearchSets>,
         shallow: usize,
     ) -> PyResult<PyObject> {
         let engine = MappedSearch::new(&self.corpus)?;
@@ -227,7 +228,7 @@ impl PySearch {
     ///         `k > 1`: the set of `k`-prefixes of the result tuples.
     ///     here: Accepted for TF compatibility (no display side channel).
     ///     silent: Verbosity for this call.
-    #[allow(non_snake_case)]
+    #[allow(non_snake_case, clippy::too_many_arguments)] // Text-Fabric's signature
     #[pyo3(
         signature = (searchTemplate, strategy=None, sets=None, shallow=Shallow::FULL, here=true, silent=Silent::DEFAULT),
         text_signature = "($self, searchTemplate, strategy=None, sets=None, shallow=False, here=True, silent='auto')"
@@ -273,7 +274,7 @@ impl PySearch {
     ///
     /// Returns:
     ///     A tuple of result tuples, or a set when `shallow` is set.
-    #[allow(non_snake_case)]
+    #[allow(non_snake_case, clippy::too_many_arguments)] // Text-Fabric's signature
     #[pyo3(
         signature = (searchTemplate, limit=None, sets=None, shallow=Shallow::FULL, silent=Silent::DEFAULT, here=true),
         text_signature = "($self, searchTemplate, limit=None, sets=None, shallow=False, silent='auto', here=True)"

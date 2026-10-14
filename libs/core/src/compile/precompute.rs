@@ -225,7 +225,7 @@ pub fn sections_with(
         };
         let heading_1 = level_1_feature
             .v(level_1_node)
-            .map(|value| section_key(&value).into_owned())
+            .map(|value| section_key(value).into_owned())
             .unwrap_or_default();
         sec1.entry(level_0_node)
             .or_default()
@@ -233,31 +233,29 @@ pub fn sections_with(
             .or_insert(level_1_node);
     }
 
-    if section_types.len() >= 3 {
-        if let Some(level_2_feature) = level_2_feature {
-            for &level_2_node in corpus.nodes_of_type(&section_types[2]) {
-                let Some(level_0_node) = first_embedder_of_type(level_2_node, &section_types[0])
-                else {
-                    continue;
-                };
-                let Some(level_1_node) = first_embedder_of_type(level_2_node, &section_types[1])
-                else {
-                    continue;
-                };
-                let heading_1 = level_1_feature
-                    .v(level_1_node)
-                    .map(|value| section_key(&value).into_owned())
-                    .unwrap_or_default();
-                let heading_2 = level_2_feature
-                    .v(level_2_node)
-                    .map(|value| section_key(&value).into_owned())
-                    .unwrap_or_default();
-                sec2.entry(level_0_node)
-                    .or_default()
-                    .entry(heading_1)
-                    .or_default()
-                    .insert(heading_2, level_2_node);
-            }
+    if section_types.len() >= 3
+        && let Some(level_2_feature) = level_2_feature
+    {
+        for &level_2_node in corpus.nodes_of_type(&section_types[2]) {
+            let Some(level_0_node) = first_embedder_of_type(level_2_node, &section_types[0]) else {
+                continue;
+            };
+            let Some(level_1_node) = first_embedder_of_type(level_2_node, &section_types[1]) else {
+                continue;
+            };
+            let heading_1 = level_1_feature
+                .v(level_1_node)
+                .map(|value| section_key(value).into_owned())
+                .unwrap_or_default();
+            let heading_2 = level_2_feature
+                .v(level_2_node)
+                .map(|value| section_key(value).into_owned())
+                .unwrap_or_default();
+            sec2.entry(level_0_node)
+                .or_default()
+                .entry(heading_1)
+                .or_default()
+                .insert(heading_2, level_2_node);
         }
     }
 

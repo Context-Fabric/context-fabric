@@ -13,10 +13,9 @@ impl From<CfError> for PyErr {
             }
             CfError::Parse { .. }
             | CfError::IncompatibleCache { .. }
-            | CfError::InvalidQuery(_)
-            | CfError::InvalidSpec(_) => PyValueError::new_err(error.to_string()),
+            | CfError::InvalidQuery(_) => PyValueError::new_err(error.to_string()),
             CfError::MissingFeature(_) => PyException::new_err(error.to_string()),
-            CfError::Regex(_) | CfError::Json(_) | CfError::Yaml(_) | CfError::Io { .. } => {
+            CfError::Regex(_) | CfError::Json(_) | CfError::Io { .. } => {
                 PyRuntimeError::new_err(error.to_string())
             }
         }

@@ -59,7 +59,7 @@ impl<'a> MappedSearch<'a> {
                         {
                             results.push(node);
                         }
-                        Ok(!limit.is_some_and(|limit| results.len() >= limit))
+                        Ok(limit.is_none_or(|limit| results.len() < limit))
                     })?;
                 }
                 _ => {
@@ -69,7 +69,7 @@ impl<'a> MappedSearch<'a> {
                         {
                             results.push(node);
                         }
-                        Ok(!limit.is_some_and(|limit| results.len() >= limit))
+                        Ok(limit.is_none_or(|limit| results.len() < limit))
                     })?;
                 }
             }

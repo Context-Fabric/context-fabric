@@ -193,12 +193,12 @@ impl<'a> MappedSearch<'a> {
         slots_cache: &'c mut HashMap<u32, Vec<u32>>,
         node: u32,
     ) -> Result<&'c Vec<u32>> {
-        if !slots_cache.contains_key(&node) {
+        if let std::collections::hash_map::Entry::Vacant(e) = slots_cache.entry(node) {
             let targets = match self.oslots.targets(node)? {
                 Some(targets) => targets.collect::<Result<Vec<_>>>()?,
                 None => Vec::new(),
             };
-            slots_cache.insert(node, targets);
+            e.insert(targets);
         }
         Ok(slots_cache.get(&node).expect("just inserted"))
     }
@@ -331,26 +331,22 @@ impl Join<'_, '_> {
                 return Ok(false);
             }
         }
-        if let Some(parent) = self.embeds[atom] {
-            if let Some(parent_node) = self.bound[parent] {
-                if !self
-                    .search
-                    .contains_cached(&mut self.slots_cache, parent_node, node)?
-                {
-                    return Ok(false);
-                }
-            }
+        if let Some(parent) = self.embeds[atom]
+            && let Some(parent_node) = self.bound[parent]
+            && !self
+                .search
+                .contains_cached(&mut self.slots_cache, parent_node, node)?
+        {
+            return Ok(false);
         }
         for (child, child_parent) in self.embeds.iter().enumerate() {
-            if *child_parent == Some(atom) {
-                if let Some(child_node) = self.bound[child] {
-                    if !self
-                        .search
-                        .contains_cached(&mut self.slots_cache, node, child_node)?
-                    {
-                        return Ok(false);
-                    }
-                }
+            if *child_parent == Some(atom)
+                && let Some(child_node) = self.bound[child]
+                && !self
+                    .search
+                    .contains_cached(&mut self.slots_cache, node, child_node)?
+            {
+                return Ok(false);
             }
         }
         Ok(true)
@@ -365,23 +361,23 @@ impl Join<'_, '_> {
         let mut drivers: Vec<Vec<u32>> = Vec::new();
 
         // Forward embedding: `atom` is contained in its bound parent.
-        if let Some(parent) = self.embeds[atom] {
-            if let Some(parent_node) = self.bound[parent] {
-                let Some((pf, pl)) = self.search.fast_interval(parent_node)? else {
-                    return Ok(Vec::new());
-                };
-                drivers.push(cset.nodes_within_slot_interval(pf, pl));
-            }
+        if let Some(parent) = self.embeds[atom]
+            && let Some(parent_node) = self.bound[parent]
+        {
+            let Some((pf, pl)) = self.search.fast_interval(parent_node)? else {
+                return Ok(Vec::new());
+            };
+            drivers.push(cset.nodes_within_slot_interval(pf, pl));
         }
         // Reverse embedding: `atom` contains a bound child.
         for (child, child_parent) in self.embeds.iter().enumerate() {
-            if *child_parent == Some(atom) {
-                if let Some(child_node) = self.bound[child] {
-                    let Some((cf, cl)) = self.search.fast_interval(child_node)? else {
-                        return Ok(Vec::new());
-                    };
-                    drivers.push(containers_of(self.search.corpus, cset, cf, cl)?);
-                }
+            if *child_parent == Some(atom)
+                && let Some(child_node) = self.bound[child]
+            {
+                let Some((cf, cl)) = self.search.fast_interval(child_node)? else {
+                    return Ok(Vec::new());
+                };
+                drivers.push(containers_of(self.search.corpus, cset, cf, cl)?);
             }
         }
         // Relations with a bound other endpoint.
@@ -668,10 +664,10 @@ pub(super) fn connection_strength(
     root: Option<u32>,
 ) -> u32 {
     let mut best = 0;
-    if let Some(parent) = embeds[i] {
-        if placed[parent] {
-            best = 2;
-        }
+    if let Some(parent) = embeds[i]
+        && placed[parent]
+    {
+        best = 2;
     }
     for (child, child_parent) in embeds.iter().enumerate() {
         if *child_parent == Some(i) && placed[child] {

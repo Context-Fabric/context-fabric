@@ -35,17 +35,11 @@ pub enum CfError {
     #[error("invalid query: {0}")]
     InvalidQuery(String),
 
-    #[error("invalid range specification: {0}")]
-    InvalidSpec(String),
-
     #[error("regex error: {0}")]
     Regex(#[from] regex::Error),
 
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
-
-    #[error("YAML error: {0}")]
-    Yaml(#[from] serde_yaml::Error),
 }
 
 impl From<std::io::Error> for CfError {

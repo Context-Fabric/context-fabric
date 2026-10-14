@@ -274,7 +274,7 @@ impl PyEdgeFeature {
     fn items(&self, py: Python<'_>) -> PyResult<PyObject> {
         let data = self.data(py)?;
         if self.name != "oslots" {
-            return Ok(data.call_method0(py, "items")?);
+            return data.call_method0(py, "items");
         }
         let first = self.corpus.max_slot()? + 1;
         let rows = data

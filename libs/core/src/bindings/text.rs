@@ -277,6 +277,7 @@ impl PyText {
     ///         that would be rendered, instead of the format.
     ///     explain: Print how the format and descend rules were applied.
     ///     **kwargs: Passed on to `func`.
+    #[allow(clippy::too_many_arguments)] // Text-Fabric's signature
     #[pyo3(signature = (nodes, fmt=None, descend=None, func=None, explain=false, **kwargs))]
     fn text(
         &self,
@@ -504,11 +505,10 @@ impl PyText {
 
     /// The top-level structure nodes.
     fn top(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
-        Ok(self
-            .corpus
+        self.corpus
             .top()?
             .map(|nodes| nodes_to_tuple(py, nodes))
-            .transpose()?)
+            .transpose()
     }
 
     /// TF `T.up`: the parent structural node of node `n`, or `None` without

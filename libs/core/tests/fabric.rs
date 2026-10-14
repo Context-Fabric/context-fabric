@@ -159,12 +159,12 @@ fn public_fabric_constructor_metadata_matches_python_public_state() {
     assert_eq!(fabric.banner(), BANNER);
     assert_eq!(fabric.version(), VERSION);
     assert!(fabric.good());
-    assert_eq!(fabric.locations(), &[source.clone()]);
+    assert_eq!(fabric.locations(), std::slice::from_ref(&source));
     assert_eq!(fabric.modules(), &[String::new()]);
     assert_eq!(fabric.location_rep(), source.display().to_string());
 
     let from_locations = Fabric::from_locations([source.clone()]);
-    assert_eq!(from_locations.locations(), &[source.clone()]);
+    assert_eq!(from_locations.locations(), std::slice::from_ref(&source));
     assert_eq!(from_locations.load_all().unwrap().max_node(), 8);
 
     let with_modules = Fabric::with_modules(&source, ["", "extra"]);

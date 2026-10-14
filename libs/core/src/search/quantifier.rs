@@ -64,10 +64,10 @@ impl<'a> MappedSearch<'a> {
                 let mut disqualified = HashSet::new();
                 for row in antecedent_rows {
                     let prefix: Vec<u32> = row.iter().take(size_a).copied().collect();
-                    if !satisfied.contains(&prefix) {
-                        if let Some(root) = row.first() {
-                            disqualified.insert(*root);
-                        }
+                    if !satisfied.contains(&prefix)
+                        && let Some(root) = row.first()
+                    {
+                        disqualified.insert(*root);
                     }
                 }
                 Ok(yarn.difference(&disqualified).copied().collect())

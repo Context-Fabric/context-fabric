@@ -72,13 +72,12 @@ fn metadata_section(
     name: &str,
 ) -> PyResult<BTreeMap<String, Option<String>>> {
     let mut map = BTreeMap::new();
-    if let Some(md) = metadata {
-        if let Some(spec) = md.get_item(name)? {
-            if let Ok(dict) = spec.downcast::<PyDict>() {
-                for (key, value) in dict.iter() {
-                    map.insert(key.extract::<String>()?, meta_value_to_string(&value)?);
-                }
-            }
+    if let Some(md) = metadata
+        && let Some(spec) = md.get_item(name)?
+        && let Ok(dict) = spec.downcast::<PyDict>()
+    {
+        for (key, value) in dict.iter() {
+            map.insert(key.extract::<String>()?, meta_value_to_string(&value)?);
         }
     }
     Ok(map)
@@ -104,10 +103,10 @@ fn is_truthy_meta(value: Option<&Option<String>>) -> bool {
 }
 
 fn py_to_feature_value(value: &Bound<'_, PyAny>, value_type: &str) -> PyResult<FeatureValue> {
-    if value_type == "int" {
-        if let Ok(int) = value.extract::<i64>() {
-            return Ok(FeatureValue::Int(int));
-        }
+    if value_type == "int"
+        && let Ok(int) = value.extract::<i64>()
+    {
+        return Ok(FeatureValue::Int(int));
     }
     if let Ok(text) = value.extract::<String>() {
         return Ok(FeatureValue::string(text));

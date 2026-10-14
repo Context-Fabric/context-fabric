@@ -342,37 +342,37 @@ impl SectionsContext {
             return Ok(None);
         }
 
-        if section.len() <= 3 {
-            if let Some(sections_data) = self.corpus.sections_data()? {
-                let feature_name = match sec0_feature {
-                    Some(feature) => feature,
-                    None => match self.config.section_features.first() {
-                        Some(feature) => feature.as_str(),
-                        None => return Ok(None),
-                    },
-                };
-                let Some(sec0_node) = self
-                    .sec0_value_index(feature_name)?
-                    .get(&section[0])
-                    .copied()
-                else {
-                    return Ok(None);
-                };
-                return Ok(match section.len() {
-                    1 => Some(sec0_node),
-                    2 => sections_data
-                        .sec1
-                        .get(&sec0_node)
-                        .and_then(|headings| headings.get(section_key(&section[1]).as_ref()))
-                        .copied(),
-                    _ => sections_data
-                        .sec2
-                        .get(&sec0_node)
-                        .and_then(|level1| level1.get(section_key(&section[1]).as_ref()))
-                        .and_then(|level2| level2.get(section_key(&section[2]).as_ref()))
-                        .copied(),
-                });
-            }
+        if section.len() <= 3
+            && let Some(sections_data) = self.corpus.sections_data()?
+        {
+            let feature_name = match sec0_feature {
+                Some(feature) => feature,
+                None => match self.config.section_features.first() {
+                    Some(feature) => feature.as_str(),
+                    None => return Ok(None),
+                },
+            };
+            let Some(sec0_node) = self
+                .sec0_value_index(feature_name)?
+                .get(&section[0])
+                .copied()
+            else {
+                return Ok(None);
+            };
+            return Ok(match section.len() {
+                1 => Some(sec0_node),
+                2 => sections_data
+                    .sec1
+                    .get(&sec0_node)
+                    .and_then(|headings| headings.get(section_key(&section[1]).as_ref()))
+                    .copied(),
+                _ => sections_data
+                    .sec2
+                    .get(&sec0_node)
+                    .and_then(|level1| level1.get(section_key(&section[1]).as_ref()))
+                    .and_then(|level2| level2.get(section_key(&section[2]).as_ref()))
+                    .copied(),
+            });
         }
 
         // One-level sections or hierarchies deeper than `CFRSECT1` stores:
@@ -524,27 +524,26 @@ impl<'a> MappedSections<'a> {
         // `text.py` `nodeFromSection`). O(section-0 nodes) + O(log n) map lookups
         // instead of a linear scan over every node of the target type. When the
         // index is present, a miss returns `None` immediately — no linear rescan.
-        if section.len() <= 3 {
-            if let Some(sections) = self.corpus.sections_data()? {
-                let Some(sec0_node) = self.sec0_node_with_feature(&section[0], sec0_feature)?
-                else {
-                    return Ok(None);
-                };
-                return Ok(match section.len() {
-                    1 => Some(sec0_node),
-                    2 => sections
-                        .sec1
-                        .get(&sec0_node)
-                        .and_then(|headings| headings.get(section_key(&section[1]).as_ref()))
-                        .copied(),
-                    _ => sections
-                        .sec2
-                        .get(&sec0_node)
-                        .and_then(|level1| level1.get(section_key(&section[1]).as_ref()))
-                        .and_then(|level2| level2.get(section_key(&section[2]).as_ref()))
-                        .copied(),
-                });
-            }
+        if section.len() <= 3
+            && let Some(sections) = self.corpus.sections_data()?
+        {
+            let Some(sec0_node) = self.sec0_node_with_feature(&section[0], sec0_feature)? else {
+                return Ok(None);
+            };
+            return Ok(match section.len() {
+                1 => Some(sec0_node),
+                2 => sections
+                    .sec1
+                    .get(&sec0_node)
+                    .and_then(|headings| headings.get(section_key(&section[1]).as_ref()))
+                    .copied(),
+                _ => sections
+                    .sec2
+                    .get(&sec0_node)
+                    .and_then(|level1| level1.get(section_key(&section[1]).as_ref()))
+                    .and_then(|level2| level2.get(section_key(&section[2]).as_ref()))
+                    .copied(),
+            });
         }
 
         // Linear lookup for one-level sections and hierarchies deeper than the
@@ -855,10 +854,9 @@ impl<'a> MappedSections<'a> {
                 .section_types
                 .iter()
                 .position(|section_type| section_type == node_type)
+                && found[index].is_none()
             {
-                if found[index].is_none() {
-                    found[index] = Some(embedder);
-                }
+                found[index] = Some(embedder);
             }
         }
         Ok(found)

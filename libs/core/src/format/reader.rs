@@ -139,6 +139,9 @@ pub(crate) fn inspect_compiled_bytes(path: &Path, bytes: &[u8]) -> Result<Compil
     })
 }
 
+/// Feature metadata (`key -> value`) by feature name.
+type MetadataByFeature = BTreeMap<String, BTreeMap<String, Option<String>>>;
+
 /// An edge feature's entry in the feature table, before the sections that
 /// complete its [`CompiledEdgeFeature`] are read.
 struct EdgeFeatureEntry {
@@ -250,12 +253,9 @@ impl<'a> Reader<'a> {
         Ok(features)
     }
 
-    fn read_feature_metadata_section(
-        &mut self,
-    ) -> Result<(
-        BTreeMap<String, BTreeMap<String, Option<String>>>,
-        BTreeMap<String, BTreeMap<String, Option<String>>>,
-    )> {
+    /// Reads `CFRMETA1`: the metadata of every node feature, then of every
+    /// edge feature, by feature name.
+    fn read_feature_metadata_section(&mut self) -> Result<(MetadataByFeature, MetadataByFeature)> {
         let magic = self.take(FEATURE_METADATA_MAGIC.len())?;
         if magic != FEATURE_METADATA_MAGIC {
             return Err(self.invalid("invalid feature metadata section magic"));
