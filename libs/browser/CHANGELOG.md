@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Standalone program: `packaging/cfabric-browser.spec` builds `cfabric-browser` with PyInstaller into a program that needs no Python installation (`pip install .[desktop]`); `python -m cfabric_browser` also starts the browser
 - `cfabric-browser` command: serve one or more corpora given by name (`bhsa`), repository or data directory
 - JSON API: corpora, features, section tree, passages and nodes as render trees, node inspector, template check, search with live status events, paging, results in context, TSV export
 - Searches in worker processes: parallel, cancellable, with time limits and a result cap; results stream in and are put in canonical order when done

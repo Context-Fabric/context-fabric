@@ -112,3 +112,18 @@ Fonts are bundled from npm (`@fontsource`), so the browser needs no internet. Fo
 
 Tests: `pytest tests/` in `libs/browser` (they start real search workers on a small fixture corpus).
 
+
+### Standalone program
+
+`packaging/cfabric-browser.spec` builds a program that runs without a Python installation (with PyInstaller; about 60 MB on Windows). Build it in a separate virtual environment with normal, not editable, installs: PyInstaller does not find editable installs. On Windows, make that environment with a Python from python.org: PyInstaller cannot bundle the Microsoft Store Python.
+
+```bash
+cd libs/browser
+(cd frontend && npm run build)
+python -m venv build/env
+build/env/Scripts/python -m pip install ../core ".[desktop]"   # Linux/macOS: build/env/bin/python
+build/env/Scripts/pyinstaller packaging/cfabric-browser.spec --noconfirm
+dist/cfabric-browser/cfabric-browser bhsa
+```
+
+The program's entry point is `cfabric_browser/__main__.py` (also `python -m cfabric_browser`), which calls `multiprocessing.freeze_support()` so that search workers start correctly in the frozen program.

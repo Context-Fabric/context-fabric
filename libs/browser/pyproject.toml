@@ -34,6 +34,10 @@ dev = [
     "pytest>=7.0",
     "httpx2>=2.0",
 ]
+# building the standalone program (packaging/cfabric-browser.spec)
+desktop = [
+    "pyinstaller>=6.10",
+]
 
 [project.scripts]
 cfabric-browser = "cfabric_browser.cli:main"
