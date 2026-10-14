@@ -1092,7 +1092,7 @@ impl PySearch {
 
     /// Counts results of the studied `template` (GIL-free engine work).
     fn count_studied(&self, template: &str, limit: Option<usize>) -> crate::error::Result<usize> {
-        let engine = MappedSearch::new(&self.corpus);
+        let engine = MappedSearch::new(&self.corpus)?;
         // Full-tuple counting runs the join in count-only mode (no row
         // materialization); shallow counting needs the rows for dedup.
         if self.shallow == 0 {
@@ -1132,7 +1132,7 @@ impl PySearch {
         owned_sets: &Option<Vec<(String, Vec<u32>)>>,
         shallow: usize,
     ) -> PyResult<PyObject> {
-        let engine = MappedSearch::new(&self.corpus);
+        let engine = MappedSearch::new(&self.corpus)?;
         let sets = borrow_search_sets(owned_sets);
         // The engine work runs without the GIL; only building the Python
         // result objects needs it.
@@ -1218,7 +1218,7 @@ impl PySearch {
         let _ = (strategy, here);
         let _ = silent;
         let owned_sets = search_sets_from_py(sets)?;
-        let engine = MappedSearch::new(&self.corpus);
+        let engine = MappedSearch::new(&self.corpus)?;
         let result = py.allow_threads(|| match borrow_search_sets(&owned_sets) {
             Some(sets) => engine.search_with_sets(searchTemplate, &sets, Some(1)),
             None => engine.search(searchTemplate, Some(1)),
@@ -1323,7 +1323,7 @@ impl PySearch {
                 "Cannot show plan if there is no previous \"study()\"",
             );
         };
-        let engine = MappedSearch::new(&self.corpus);
+        let engine = MappedSearch::new(&self.corpus)?;
         let plan = match borrow_search_sets(&self.sets) {
             Some(sets) => engine.show_plan_with_sets(template, &sets, details)?,
             None => engine.show_plan(template, details)?,

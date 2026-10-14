@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::search::study::split_query_whitespace;
+use crate::search::template::split_query_whitespace;
 
 pub type SearchSets<'a> = HashMap<&'a str, Vec<u32>>;
 

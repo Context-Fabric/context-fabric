@@ -15,7 +15,7 @@ use context_fabric_core::*;
 fn operator_prefixed_atoms_emit_directional_sibling_relations() {
     let dir = tempfile::tempdir().unwrap();
     let mapped = mapped_mini_corpus(&dir);
-    let search = MappedSearch::new(&mapped);
+    let search = MappedSearch::new(&mapped).unwrap();
 
     // `<: word` (AdjacentBefore) between the previous sibling (w1) and the
     // operator atom (w2): w1 immediately before w2, both embedded in the sentence.
@@ -81,7 +81,7 @@ fn operator_prefixed_atoms_emit_directional_sibling_relations() {
 fn supports_feature_constraints_regex_limits_and_containment() {
     let dir = tempfile::tempdir().unwrap();
     let mapped = mapped_mini_corpus(&dir);
-    let search = MappedSearch::new(&mapped);
+    let search = MappedSearch::new(&mapped).unwrap();
 
     let hello = search.search("word word=hello", None).unwrap();
     assert_eq!(hello, vec![vec![1]]);
@@ -206,7 +206,7 @@ p [[ w
 fn supports_feature_relation_operators_between_named_nodes() {
     let dir = tempfile::tempdir().unwrap();
     let mapped = mapped_mini_corpus(&dir);
-    let search = MappedSearch::new(&mapped);
+    let search = MappedSearch::new(&mapped).unwrap();
 
     let same_pos = search
         .search(
@@ -297,7 +297,7 @@ w1 .number=score. w2
 fn supports_edge_relations_with_value_constraints() {
     let dir = tempfile::tempdir().unwrap();
     let mapped = mapped_mini_corpus(&dir);
-    let search = MappedSearch::new(&mapped);
+    let search = MappedSearch::new(&mapped).unwrap();
 
     let subject = search
         .search(
@@ -381,7 +381,7 @@ fn search_supports_python_style_escaped_spaces_in_values() {
     )
     .unwrap();
     let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
-    let mapped_search = MappedSearch::new(&mapped);
+    let mapped_search = MappedSearch::new(&mapped).unwrap();
     assert_eq!(
         mapped_search
             .search("word word=good\\ morning", None)
@@ -420,7 +420,7 @@ fn supports_custom_search_sets() {
     let corpus = Corpus::load(repo_path("libs/core/tests/fixtures/mini_corpus")).unwrap();
     let dir = tempfile::tempdir().unwrap();
     let mapped = mapped_mini_corpus(&dir);
-    let search = MappedSearch::new(&mapped);
+    let search = MappedSearch::new(&mapped).unwrap();
 
     let mut sets = HashMap::new();
     sets.insert("mywords", vec![1, 3]);
@@ -473,7 +473,7 @@ w ]] p
 fn supports_studied_search_fetch_and_count_workflow() {
     let dir = tempfile::tempdir().unwrap();
     let mapped = mapped_mini_corpus(&dir);
-    let search = MappedSearch::new(&mapped);
+    let search = MappedSearch::new(&mapped).unwrap();
 
     let study = search.study("word").unwrap();
     assert_eq!(
@@ -613,7 +613,7 @@ fn supports_escaped_query_value_literals() {
     let cache_path = dir.path().join("escaped.cfr");
     compile_features(dir.path(), &cache_path, &[]).unwrap();
     let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
-    let search = MappedSearch::new(&mapped);
+    let search = MappedSearch::new(&mapped).unwrap();
     assert_eq!(
         search.search(r"word word=a\|b", None).unwrap(),
         vec![vec![1]]
@@ -792,7 +792,7 @@ fn supports_negative_integer_query_values_like_python_syntax() {
     let cache_path = dir.path().join("negative.cfr");
     compile_features(dir.path(), &cache_path, &[]).unwrap();
     let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
-    let search = MappedSearch::new(&mapped);
+    let search = MappedSearch::new(&mapped).unwrap();
     assert_eq!(search.search("word score=-1", None).unwrap(), vec![vec![1]]);
     assert_eq!(search.search("word score<0", None).unwrap(), vec![vec![1]]);
     assert_eq!(
@@ -814,7 +814,7 @@ w1 -distance=-5> w2
 fn supports_named_atom_constraints_and_basic_relations() {
     let dir = tempfile::tempdir().unwrap();
     let mapped = mapped_mini_corpus(&dir);
-    let search = MappedSearch::new(&mapped);
+    let search = MappedSearch::new(&mapped).unwrap();
 
     let before = search
         .search(
@@ -1220,7 +1220,7 @@ p <relation=subject> w
 fn supports_with_and_without_quantified_blocks() {
     let dir = tempfile::tempdir().unwrap();
     let mapped = mapped_mini_corpus(&dir);
-    let search = MappedSearch::new(&mapped);
+    let search = MappedSearch::new(&mapped).unwrap();
 
     let with_interjection = search
         .search(
@@ -1400,7 +1400,7 @@ p:phrase
 fn edge_relations_drive_from_edge_rows() {
     let dir = tempfile::tempdir().unwrap();
     let mapped = mapped_mini_corpus(&dir);
-    let search = MappedSearch::new(&mapped);
+    let search = MappedSearch::new(&mapped).unwrap();
 
     // Forward edge `-parent>`: word -> phrase via the `parent` edge.
     let mut forward = search
@@ -1434,7 +1434,7 @@ fn edge_relations_drive_from_edge_rows() {
 fn embedding_drives_both_directions() {
     let dir = tempfile::tempdir().unwrap();
     let mapped = mapped_mini_corpus(&dir);
-    let search = MappedSearch::new(&mapped);
+    let search = MappedSearch::new(&mapped).unwrap();
 
     // `[[` container relation: phrase embeds word. Exercises reverse-embedding
     // driving (container found from a bound contained word) and the slot index.
@@ -1478,7 +1478,7 @@ fn embedding_drives_both_directions() {
 fn quantifier_attaches_to_preceding_atom_not_trailing_base() {
     let dir = tempfile::tempdir().unwrap();
     let mapped = mapped_mini_corpus(&dir);
-    let search = MappedSearch::new(&mapped);
+    let search = MappedSearch::new(&mapped).unwrap();
 
     // The quantifier modifies `sentence` (the atom before `/with/`), NOT the
     // trailing base atom `phrase`. Sentence 8 contains the interjection word 1, so
@@ -1503,7 +1503,7 @@ sentence
 fn operator_prefixed_parent_reference_emits_relation() {
     let dir = tempfile::tempdir().unwrap();
     let mapped = mapped_mini_corpus(&dir);
-    let search = MappedSearch::new(&mapped);
+    let search = MappedSearch::new(&mapped).unwrap();
 
     // `&& ..` is an operator-prefixed reference to the quantifier's parent: the
     // sibling phrase must overlap the sentence. Sentence 8 has overlapping phrases,
@@ -1527,7 +1527,7 @@ phrase
 fn different_slots_with_shared_start() {
     let dir = tempfile::tempdir().unwrap();
     let mapped = mapped_mini_corpus(&dir);
-    let search = MappedSearch::new(&mapped);
+    let search = MappedSearch::new(&mapped).unwrap();
 
     // `=:` shares the first slot (driveable window) and `##` requires different
     // slot sets: sentence 8 (slots 1-5) and phrase 6 (slots 1-3) share slot 1.
@@ -1561,7 +1561,7 @@ fn search_runs_simple_string_pool_queries() {
     .unwrap();
 
     let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
-    let search = MappedSearch::new(&mapped);
+    let search = MappedSearch::new(&mapped).unwrap();
 
     assert_eq!(search.search("word", None).unwrap().len(), 5);
     assert_eq!(
@@ -2765,7 +2765,7 @@ fn adjacent_before_uses_slot_boundaries_not_node_ids() {
     compile_features(dir.path(), &cache_path, &["otype", "oslots", "word"]).unwrap();
 
     let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
-    let search = MappedSearch::new(&mapped);
+    let search = MappedSearch::new(&mapped).unwrap();
 
     assert_eq!(
         search

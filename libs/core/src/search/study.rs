@@ -3,6 +3,7 @@
 use std::collections::HashSet;
 
 use crate::search::syntax::{is_quantifier_line, is_search_white_line, parse_relation_syntax};
+use crate::search::template::split_query_whitespace;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SearchStudy {
@@ -97,38 +98,6 @@ impl SearchStudy {
     pub fn count_prefixes(&self, width: usize, limit: Option<usize>) -> usize {
         self.fetch_prefixes(width, limit).len()
     }
-}
-
-pub(crate) fn split_query_whitespace(line: &str) -> Vec<String> {
-    let mut parts = Vec::new();
-    let mut current = String::new();
-    let mut escaped = false;
-    for ch in line.chars() {
-        if escaped {
-            current.push('\\');
-            current.push(ch);
-            escaped = false;
-            continue;
-        }
-        if ch == '\\' {
-            escaped = true;
-            continue;
-        }
-        if ch.is_whitespace() {
-            if !current.is_empty() {
-                parts.push(std::mem::take(&mut current));
-            }
-        } else {
-            current.push(ch);
-        }
-    }
-    if escaped {
-        current.push('\\');
-    }
-    if !current.is_empty() {
-        parts.push(current);
-    }
-    parts
 }
 
 /// Summarize a search template into a lightweight plan description for

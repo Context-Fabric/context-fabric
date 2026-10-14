@@ -46,6 +46,7 @@ fn fabric_facade_explores_loads_compiles_and_opens_mapped_corpora() {
     let mapped = fabric.open_mapped(&cache_path).unwrap();
     assert_eq!(
         MappedSearch::new(&mapped)
+            .unwrap()
             .search("word word=hello", None)
             .unwrap(),
         vec![vec![1]]

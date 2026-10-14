@@ -79,6 +79,32 @@ impl<'a> MappedNodeFeatureView<'a> {
             Self::Mixed(feature) => feature.items(),
         }
     }
+
+    /// Visits `(node, value)` rows in node order while `visit` returns `true`.
+    pub fn for_each_row(
+        &self,
+        visit: &mut impl FnMut(u32, MappedNodeValue<'a>) -> Result<bool>,
+    ) -> Result<()> {
+        match self {
+            Self::StringPool(feature) => {
+                for row in feature.rows() {
+                    let (node, value) = row?;
+                    if !visit(node, MappedNodeValue::Str(value))? {
+                        break;
+                    }
+                }
+            }
+            Self::Mixed(feature) => {
+                for row in feature.rows() {
+                    let (node, value) = row?;
+                    if !visit(node, value)? {
+                        break;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 pub(crate) fn build_string_pool_parts(

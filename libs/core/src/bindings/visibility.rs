@@ -12,8 +12,7 @@ use std::sync::RwLock;
 
 use crate::config::{OSLOTS, OTYPE};
 use crate::error::Result;
-use crate::mapped::FormatTemplate;
-use crate::mapped::MappedCompiledCorpus;
+use crate::mapped::{FormatTemplate, MappedCompiledCorpus};
 
 /// The set of loaded (exposed) feature names, or "everything" for `loadAll`.
 pub(crate) struct FeatureVisibility {

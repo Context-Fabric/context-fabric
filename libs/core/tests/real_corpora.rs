@@ -23,6 +23,7 @@ fn loads_bhsa_and_runs_lexical_queries() {
     assert_eq!(otype.str_value(426_591).unwrap(), Some("book"));
 
     let verbs = MappedSearch::new(&mapped)
+        .unwrap()
         .search("word sp=verb", Some(10))
         .unwrap();
     assert_eq!(verbs.len(), 10);
@@ -83,7 +84,7 @@ fn runs_representative_bhsa_curated_query_shapes() {
     )
     .unwrap();
     let mapped = MappedCompiledCorpus::open(&cache_path).unwrap();
-    let search = MappedSearch::new(&mapped);
+    let search = MappedSearch::new(&mapped).unwrap();
 
     let lexical = search.search("word sp=verb vt=perf", Some(5)).unwrap();
     assert_eq!(lexical.len(), 5);
