@@ -7,7 +7,8 @@ name = "context-fabric"
 version = "0.6.0rc1"
 description = "Graph-based corpus engine for annotated text with efficient traversal and search"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     {name = "Cody Kingham"},
     {name = "Dirk Roorda"},
@@ -17,10 +18,10 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Rust",
     "Topic :: Text Processing :: Linguistic",
     "Topic :: Scientific/Engineering :: Information Analysis",
@@ -62,7 +63,14 @@ python-source = "."
 include = [
     { path = "cfabric/py.typed", format = ["sdist", "wheel"] },
 ]
-exclude = ["**/.cfr/**"]
+exclude = [
+    "**/.cfr/**",
+    # Development notes and benchmark scripts are not part of the distribution.
+    { path = "NOTES.md", format = "sdist" },
+    { path = "PERFORMANCE_CUTOVER.md", format = "sdist" },
+    { path = "RUST_PORT_PLAN.md", format = "sdist" },
+    { path = "scripts/**", format = "sdist" },
+]
 
 [tool.cibuildwheel]
 build = "cp313-*"
