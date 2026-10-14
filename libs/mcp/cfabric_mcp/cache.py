@@ -25,6 +25,7 @@ class CachedSearchResult:
         corpus: The corpus name
         template: The search template
         results: Raw search results (list of node ID tuples)
+        total_count: Number of matches before the cache retention limit
         created_at: Unix timestamp when cached
         expires_at: Unix timestamp when cache entry expires
         last_accessed: Unix timestamp of last access (for LRU)
@@ -37,6 +38,16 @@ class CachedSearchResult:
     created_at: float
     expires_at: float
     last_accessed: float = field(default_factory=time.time)
+    total_count: int = 0
+
+    def __post_init__(self) -> None:
+        if self.total_count == 0:
+            self.total_count = len(self.results)
+
+    @property
+    def is_truncated(self) -> bool:
+        """Whether the retained results are only a prefix of all matches."""
+        return len(self.results) < self.total_count
 
     @property
     def is_expired(self) -> bool:
@@ -126,6 +137,7 @@ class SearchCache:
 
             # Sort by node-tuples for consistent ordering
             results = sorted(results)
+            total_count = len(results)
 
             # Limit results to max_results_per_entry
             if len(results) > self.max_results_per_entry:
@@ -147,6 +159,7 @@ class SearchCache:
                 created_at=now,
                 expires_at=now + ttl,
                 last_accessed=now,
+                total_count=total_count,
             )
 
             # Evict old entries if needed
@@ -194,11 +207,10 @@ class SearchCache:
         if not entry:
             return None
 
-        total = len(entry.results)
         page = entry.results[offset : offset + limit]
-        has_more = offset + limit < total
+        has_more = offset + limit < len(entry.results)
 
-        return page, has_more, total
+        return page, has_more, entry.total_count
 
     def _evict_if_needed(self) -> None:
         """Evict entries if cache is at capacity.

@@ -1075,6 +1075,10 @@ class Fabric:
                         fObj.unload()
         logger.debug("All additional features loaded - for details use CF.isLoaded()")
 
+    def _cfm_topology_is_single_source(self) -> bool:
+        """Return whether one .cfm cache can faithfully represent this corpus."""
+        return len(self.locations) == 1 and len(self.modules) == 1
+
     def _detect_cfm(self) -> Path | None:
         """Check if .cfm directory exists for the corpus.
 
@@ -1083,6 +1087,9 @@ class Fabric:
         Path | None
             Path to the .cfm/{CFM_VERSION}/ directory if it exists, else None.
         """
+        if not self._cfm_topology_is_single_source():
+            return None
+
         for loc in self.locations:
             for mod in self.modules:
                 cfm_path = Path(loc) / mod / '.cfm' / CFM_VERSION
@@ -1115,7 +1122,14 @@ class Fabric:
         silent = silentConvert(silent)
         set_logging_level(silent)
 
-        # Use the first location with the last module as source
+        if not self._cfm_topology_is_single_source():
+            logger.debug(
+                "Skipping .cfm compilation for a composed corpus; "
+                "the current .cfm format represents one source topology"
+            )
+            return False
+
+        # Use the only location and module as source
         source_dir = (
             self.locations[-1] + "/" + self.modules[-1]
             if self.modules and self.modules[-1]
