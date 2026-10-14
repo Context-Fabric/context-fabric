@@ -42,9 +42,10 @@ dist/
 *.egg-info/
 .eggs/
 
-# TF-specific
+# TF / Context-Fabric generated caches
 .tf/
 .cfm/
+.cfr/
 .ipynb_checkpoints/
 
 # IDE / Editor

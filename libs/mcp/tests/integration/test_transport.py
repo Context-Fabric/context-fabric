@@ -9,16 +9,15 @@ Tests that the server can start with all three transport modes:
 import subprocess
 import sys
 import time
-from pathlib import Path
 
 import pytest
 import requests
 
 
 @pytest.fixture
-def mini_corpus_path():
-    """Path to minimal test corpus."""
-    return str(Path(__file__).parent.parent / "fixtures" / "mini_corpus")
+def mini_corpus_path(fixtures_dir):
+    """Path to minimal test corpus (a temporary copy; see ``fixtures_dir``)."""
+    return str(fixtures_dir / "mini_corpus")
 
 
 @pytest.fixture
