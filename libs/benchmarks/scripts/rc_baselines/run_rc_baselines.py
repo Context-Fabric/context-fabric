@@ -28,7 +28,7 @@ Steps (``--steps`` takes a comma list; default runs all, timing-sensitive steps 
 ``queries``     the 34 parity queries on TF, CF Python and CF Rust (``query_suite.py``).
 ``oracle``      public-API value checks vs TF on every corpus (``oracle_parity.py``).
 ``perf``        cold/warm load, memory and per-call latency per engine (``perf_probe.py``).
-``perf_gate``   ``cfabric_benchmarks.perf_gate`` for TF and CF Rust (June-record tool).
+``perf_gate``   ``cfabric_benchmarks.perf_gate`` for TF, then CF Rust asserted against that TF run.
 ``legacy``      existing scripts: ``compare_bhsa_mapped_wheel_overhead.py``,
                 ``compare_bhsa_tf_mapped_subset.py``, the mapped-subset timings on
                 CF Python 0.5.8, ``bench_scalar_latency.py``, ``bench_batch_apis.py``.
@@ -260,8 +260,10 @@ class Runner:
                 str(self.tf_path("bhsa"))]
         self.run("perf_gate tf", [*base, "--engine", "tf", "--out", str(out / "tf.json")],
                  log=out / "tf.log")
+        # Assert CF against the TF run just made on this machine.
         self.run("perf_gate cf", [*base, "--engine", "cf", "--cache", str(self.bhsa_cfr), "--assert",
-                 "--out", str(out / "cf.json")], log=out / "cf.log")
+                 "--baseline", str(out / "tf.json"), "--out", str(out / "cf.json")],
+                 log=out / "cf.log")
 
     def step_legacy(self) -> None:
         out = self.results / "legacy"

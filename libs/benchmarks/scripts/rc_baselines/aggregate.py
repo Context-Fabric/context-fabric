@@ -4,7 +4,7 @@
 Writes, under ``libs/benchmarks/baselines/``:
 
 * ``rc1_baseline_<date>.json``: every parity, memory and speed figure plus
-  regressions against the June record (``cf_0.6.0_record.json``).
+  regressions against the 0.6.0 record (``cf_0.6.0_record.json``).
 * ``rc1_<date>/``: compact raw outputs (logs, per-engine JSON, oracle diffs,
   JUnit XML) and ``tables.md`` (the markdown tables used in RC1_BASELINES.md).
 
@@ -32,7 +32,7 @@ BASELINES = HERE.parents[1] / "baselines"
 JUNE_RECORD = BASELINES / "cf_0.6.0_record.json"
 JUNE_TF = BASELINES / "bhsa_tf.json"
 
-# A probe regresses when it is this much slower than the June record and the
+# A probe regresses when it is this much slower than the 0.6.0 record and the
 # absolute change exceeds the noise floor for its unit.
 REGRESSION_RATIO = 1.25
 NOISE_FLOOR = {"us": 0.1, "s": 0.005, "mb": 10.0}
@@ -344,8 +344,10 @@ def regressions_vs_june(perf: dict[str, Any], gate: dict[str, Any]) -> list[dict
         if not run:
             continue
         gate_probes = run.get("gate", run)
-        for name in ("F.sp.v", "F.g_word.v", "L.u", "L.d", "E.mother.f", "T.sectionFromNode", "T.text.verse"):
-            check(source, f"gate {name} per_call", june.get(name, {}).get("per_call_us"),
+        recorded_probes = [name for name, value in june.items()
+                           if isinstance(value, dict) and "per_call_us" in value]
+        for name in recorded_probes:
+            check(source, f"gate {name} per_call", june[name]["per_call_us"],
                   (gate_probes.get(name) or {}).get("per_call_us"), "us")
         check(source, "F.sp.freqList", june.get("F.sp.freqList_s"), gate_probes.get("F.sp.freqList_s"), "s")
         check(source, "F.sp.v full sweep", june.get("F.sp.v_full_sweep_s"), gate_probes.get("F.sp.v_full_sweep_s"), "s")
@@ -474,9 +476,9 @@ def render_tables(summary: dict[str, Any]) -> str:
         lines.append("")
 
     regressions = [r for r in summary["regressions_vs_june"] if r["regression"]]
-    lines += ["### Regressions vs June record (cf_0.6.0_record.json)", ""]
+    lines += ["### Regressions vs the 0.6.0 record (cf_0.6.0_record.json)", ""]
     if regressions:
-        lines += ["| Source | Metric | June | Now | Ratio |", "|---|---|---|---|---|"]
+        lines += ["| Source | Metric | Record | Now | Ratio |", "|---|---|---|---|---|"]
         for r in regressions:
             lines.append(f"| {r['source']} | {r['metric']} | {fmt(r['june'], 4)} {r['unit']} | "
                          f"{fmt(r['now'], 4)} {r['unit']} | {r['ratio']}x |")

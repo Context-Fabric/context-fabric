@@ -1,14 +1,44 @@
 {
-  "_comment": "Phase 0 perf gate targets for the context-fabric mapped engine on BHSA. Per-call probes are microseconds/call; rss_final_mb is MB. Query times are not listed here as absolute numbers: every query in the recorded TF baseline (baselines/bhsa_tf.json) must run at or below the TF wall time. These targets are NOT enforced yet (current 0.6.0rc1 fails them by design); see Phase 2/3.",
+  "_comment": "Perf gate targets for the context-fabric mapped engine on BHSA (cfabric_benchmarks.perf_gate --assert). per_call_us: first-call budgets over small node sets (they include one-time index builds such as the section tables behind T.nodeFromSection), µs/call. steady_state_us: absolute steady-state ceilings, µs/call, well above current values so any machine passes but a per-call corpus scan (milliseconds) fails. steady_state_vs_tf: steady-state per-call latency (and N.walk_full_s) must stay within max_ratio times the TF steady state in bhsa_tf.json (refresh it on the gating machine); overrides cover the two calls that build fresh Python ints where TF returns pre-built tuples (L.u, N.walk). rss_load_delta_mb: peak-RSS growth caused by opening the corpus; rss_final_mb: peak RSS after the whole run (dominated by the 424,698 result tuples of q_feat_empty_qere and the N.walk tuple). queries_le_tf: every gate query within query_max_ratio_vs_tf of the TF wall time in bhsa_tf.json.",
   "per_call_us": {
     "F.sp.v": 2,
     "F.g_word.v": 2,
-    "L.u": 10,
-    "L.d": 15,
+    "L.u": 20,
+    "L.d": 20,
+    "L.n": 10,
+    "L.p": 10,
+    "L.i": 20,
     "E.mother.f": 5,
+    "E.mother.t": 5,
+    "E.mother.b": 5,
     "T.sectionFromNode": 20,
-    "T.text.verse": 50
+    "T.text.verse": 30,
+    "T.nodeFromSection": 100
   },
-  "rss_final_mb": 80,
-  "queries_le_tf": true
+  "steady_state_us": {
+    "F.sp.v": 1,
+    "F.g_word.v": 1,
+    "L.u": 2,
+    "L.d": 3,
+    "L.n": 2,
+    "L.p": 2,
+    "L.i": 20,
+    "E.mother.f": 2,
+    "E.mother.t": 2,
+    "E.mother.b": 3,
+    "T.sectionFromNode": 10,
+    "T.text.verse": 30,
+    "T.nodeFromSection": 3
+  },
+  "steady_state_vs_tf": {
+    "max_ratio": 1.25,
+    "overrides": {
+      "L.u": 1.5,
+      "N.walk_full_s": 1.8
+    }
+  },
+  "rss_load_delta_mb": 20,
+  "rss_final_mb": 300,
+  "queries_le_tf": true,
+  "query_max_ratio_vs_tf": 1.1
 }

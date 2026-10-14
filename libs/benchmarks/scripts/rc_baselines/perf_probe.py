@@ -67,7 +67,7 @@ PROFILES: dict[str, dict[str, Any]] = {
         "small_feature": "sp",
         "large_feature": "g_word",
         "edge_feature": "mother",
-        # The eight perf_gate queries, templates from parity_queries.json.
+        # The perf_gate queries, templates from parity_queries.json.
         "query_ids": [
             "q_phrase_without_verb",
             "q_regex_gcons",
@@ -77,6 +77,10 @@ PROFILES: dict[str, dict[str, Any]] = {
             "q_feat_empty_qere",
             "q_multivalue_neg",
             "q_slot_equal",
+            "q_mother_basic",
+            "q_mother_reverse",
+            "q_mother_named_distinct_verse",
+            "q_slot_overlap_parent",
         ],
     },
     "n1904": {
