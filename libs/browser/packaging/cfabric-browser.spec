@@ -18,6 +18,7 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 import cfabric_browser
 
 package = Path(cfabric_browser.__file__).parent
+icons = Path(SPECPATH) / "icons"  # made by make_icons.py
 if not (package / "static" / "index.html").exists():
     raise SystemExit(
         f"No built interface in {package / 'static'}: run npm run build in frontend/"
@@ -44,6 +45,7 @@ exe = EXE(
     exclude_binaries=True,
     name="cfabric-browser",
     console=False,  # a window, no console
+    icon=str(icons / "cfabric-browser.ico"),
 )
 coll = COLLECT(exe, a.binaries, a.datas, name="cfabric-browser")
 if sys.platform == "darwin":
@@ -52,5 +54,6 @@ if sys.platform == "darwin":
         coll,
         name="Context-Fabric.app",
         bundle_identifier="ai.context-fabric.browser",
+        icon=str(icons / "cfabric-browser.icns"),
         version=cfabric_browser.__version__,
     )

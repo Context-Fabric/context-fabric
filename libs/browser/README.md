@@ -129,4 +129,6 @@ dist/cfabric-browser/cfabric-browser bhsa
 
 Its entry point is `packaging/cfabric-browser.py`, which adds `--window` (`--no-window` overrides it). As it has no console, it writes its output and errors to `~/.cfabric/logs/cfabric-browser.log`, and on Windows shows a message when it cannot start. If no window toolkit is available (on Linux, pywebview needs GTK or Qt), it opens a web browser instead.
 
+The program icons in `packaging/icons/` are drawn from the Context-Fabric mark (`frontend/public/favicon.svg`) by `packaging/make_icons.py` (needs Pillow); run it again when the mark changes.
+
 `packaging/smoke-test.sh` starts a built program as a server with a small corpus and checks that the interface is served and that a search runs; it needs only bash and curl. The workflow `browser-desktop.yml` builds the program on Windows, macOS (Apple silicon and Intel, as `Context-Fabric.app`) and Linux, smoke-tests each build, runs the Windows build once more on a runner where no Python can be reached, and keeps the builds as artifacts for 14 days. The builds are not signed, so Windows SmartScreen and macOS Gatekeeper warn about them. Like `cfabric_browser/__main__.py` (`python -m cfabric_browser`), it calls `multiprocessing.freeze_support()` so that search workers start correctly in the frozen program.
