@@ -1,0 +1,142 @@
+{
+ "engine": "cf_rust_mapped",
+ "engine_version": "0.6.0rc1",
+ "corpus": "bhsa",
+ "tf_path": "/private/tmp/cf_rc1/corpora/bhsa/tf",
+ "python": "3.13.12",
+ "mode": "warm",
+ "memory": {
+  "before_load": {
+   "peak_rss_mb": 23.5,
+   "rss_mb": 25.3,
+   "uss_mb": 15.3
+  },
+  "after_load": {
+   "peak_rss_mb": 37.8,
+   "rss_mb": 37.8,
+   "uss_mb": 21.1
+  },
+  "after_gate_probes": {
+   "peak_rss_mb": 115.5,
+   "rss_mb": 115.5,
+   "uss_mb": 35.5
+  },
+  "after_steady_probes": {
+   "peak_rss_mb": 234.3,
+   "rss_mb": 191.3,
+   "uss_mb": 81.2
+  },
+  "final": {
+   "peak_rss_mb": 287.4,
+   "rss_mb": 259.5,
+   "uss_mb": 122.8
+  }
+ },
+ "load_s": 0.0053,
+ "gate": {
+  "_intervals": {
+   "max_slot": 426590,
+   "phrase": [
+    651573,
+    904775
+   ],
+   "verse": [
+    1414389,
+    1437601
+   ]
+  },
+  "F.sp.v": {
+   "total_s": 0.0022,
+   "per_call_us": 0.22,
+   "n": 10000
+  },
+  "F.g_word.v": {
+   "total_s": 0.0036,
+   "per_call_us": 0.36,
+   "n": 10000
+  },
+  "L.u": {
+   "total_s": 0.0001,
+   "per_call_us": 2.56,
+   "n": 30
+  },
+  "L.d": {
+   "total_s": 0.0001,
+   "per_call_us": 3.57,
+   "n": 30
+  },
+  "E.mother.f": {
+   "total_s": 0.0004,
+   "per_call_us": 0.89,
+   "n": 500
+  },
+  "T.sectionFromNode": {
+   "total_s": 0.001,
+   "per_call_us": 4.77,
+   "n": 200
+  },
+  "T.text.verse": {
+   "total_s": 0.0013,
+   "per_call_us": 12.63,
+   "n": 100
+  },
+  "T.nodeFromSection": {
+   "total_s": 0.0127,
+   "per_call_us": 126.56,
+   "n": 100
+  },
+  "F.sp.freqList_s": 0.0006,
+  "F.sp.v_full_sweep_s": 0.049
+ },
+ "steady_us": {
+  "F.sp.v": 0.175,
+  "F.g_word.v": 0.194,
+  "L.u": 0.237,
+  "L.d": 0.318,
+  "L.n": 20492.294,
+  "L.p": 10271.766,
+  "L.i": 10381.562,
+  "E.mother.f": 0.082,
+  "E.mother.t": 517.747,
+  "E.mother.b": 517.986,
+  "T.sectionFromNode": 2.413,
+  "T.text.verse": 4.789,
+  "T.nodeFromSection": 0.334,
+  "N.walk_full_s": 0.0444,
+  "N.walk_nodes": 1446831
+ },
+ "queries": {
+  "q_phrase_without_verb": {
+   "s": 0.0849,
+   "count": 62771
+  },
+  "q_regex_gcons": {
+   "s": 0.0319,
+   "count": 816
+  },
+  "q_regex_typ": {
+   "s": 0.0283,
+   "count": 3098
+  },
+  "q_regex_gloss_space": {
+   "s": 0.0037,
+   "count": 406
+  },
+  "q_feat_exists_qere": {
+   "s": 0.0003,
+   "count": 1892
+  },
+  "q_feat_empty_qere": {
+   "s": 0.0241,
+   "count": 424698
+  },
+  "q_multivalue_neg": {
+   "s": 0.0208,
+   "count": 271
+  },
+  "q_slot_equal": {
+   "s": 0.0279,
+   "count": 3583
+  }
+ }
+}

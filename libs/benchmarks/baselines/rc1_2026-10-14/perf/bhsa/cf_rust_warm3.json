@@ -1,0 +1,21 @@
+{
+ "engine": "cf_rust",
+ "engine_version": "0.6.0rc1",
+ "corpus": "bhsa",
+ "tf_path": "/private/tmp/cf_rc1/corpora/bhsa/tf",
+ "python": "3.13.12",
+ "mode": "warm",
+ "memory": {
+  "before_load": {
+   "peak_rss_mb": 23.2,
+   "rss_mb": 25.0,
+   "uss_mb": 15.0
+  },
+  "after_load": {
+   "peak_rss_mb": 37.6,
+   "rss_mb": 37.6,
+   "uss_mb": 20.8
+  }
+ },
+ "load_s": 0.0106
+}

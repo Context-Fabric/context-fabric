@@ -1,0 +1,145 @@
+{
+ "engine": "cf_python",
+ "engine_version": "0.5.8",
+ "corpus": "bhsa",
+ "tf_path": "/private/tmp/cf_rc1/corpora/bhsa/tf",
+ "python": "3.13.12",
+ "mode": "warm",
+ "memory": {
+  "before_load": {
+   "peak_rss_mb": 37.1,
+   "rss_mb": 38.0,
+   "uss_mb": 26.3
+  },
+  "after_load": {
+   "peak_rss_mb": 430.1,
+   "rss_mb": 290.1,
+   "uss_mb": 960.9
+  },
+  "after_gate_probes": {
+   "peak_rss_mb": 430.1,
+   "rss_mb": 310.1,
+   "uss_mb": 966.0
+  },
+  "after_steady_probes": {
+   "peak_rss_mb": 430.1,
+   "rss_mb": 336.8,
+   "uss_mb": 966.3
+  },
+  "final": {
+   "peak_rss_mb": 559.1,
+   "rss_mb": 407.8,
+   "uss_mb": 989.9
+  }
+ },
+ "load_s": 0.42,
+ "gate": {
+  "_intervals": {
+   "max_slot": 426590,
+   "phrase": [
+    651573,
+    904775
+   ],
+   "verse": [
+    1414389,
+    1437601
+   ]
+  },
+  "F.sp.v": {
+   "total_s": 0.0027,
+   "per_call_us": 0.27,
+   "n": 10000
+  },
+  "F.g_word.v": {
+   "total_s": 0.0035,
+   "per_call_us": 0.35,
+   "n": 10000
+  },
+  "L.u": {
+   "total_s": 0.0,
+   "per_call_us": 1.53,
+   "n": 30
+  },
+  "L.d": {
+   "total_s": 0.0003,
+   "per_call_us": 8.43,
+   "n": 30
+  },
+  "E.mother.f": {
+   "total_s": 0.0003,
+   "per_call_us": 0.59,
+   "n": 500
+  },
+  "T.sectionFromNode": {
+   "total_s": 0.003,
+   "per_call_us": 14.84,
+   "n": 200
+  },
+  "T.text.verse": {
+   "total_s": 0.0035,
+   "per_call_us": 34.91,
+   "n": 100
+  },
+  "T.nodeFromSection": {
+   "total_s": 0.0001,
+   "per_call_us": 0.87,
+   "n": 100
+  },
+  "F.sp.freqList_s": 0.0023,
+  "F.sp.v_full_sweep_s": 0.082
+ },
+ "steady_us": {
+  "F.sp.v": 0.189,
+  "F.g_word.v": 0.222,
+  "L.u": 0.879,
+  "L.d": 3.455,
+  "L.n": 1.704,
+  "L.p": 1.689,
+  "L.i": 0.045,
+  "E.mother.f": 0.382,
+  "E.mother.t": 0.413,
+  "E.mother.b": null,
+  "T.sectionFromNode": 14.324,
+  "T.text.verse": 32.511,
+  "T.nodeFromSection": 0.272,
+  "N.walk_full_s": 0.1587,
+  "N.walk_nodes": 1446831,
+  "_errors": {
+   "E.mother.b": "AttributeError: 'tuple' object has no attribute 'tolist'"
+  }
+ },
+ "queries": {
+  "q_phrase_without_verb": {
+   "s": 0.4642,
+   "count": 62771
+  },
+  "q_regex_gcons": {
+   "s": 0.2062,
+   "count": 816
+  },
+  "q_regex_typ": {
+   "s": 0.1498,
+   "count": 3098
+  },
+  "q_regex_gloss_space": {
+   "s": 0.0053,
+   "count": 406
+  },
+  "q_feat_exists_qere": {
+   "s": 0.0701,
+   "count": 1892
+  },
+  "q_feat_empty_qere": {
+   "s": 0.1103,
+   "count": 424698
+  },
+  "q_multivalue_neg": {
+   "s": 0.1169,
+   "count": 271
+  },
+  "q_slot_equal": {
+   "s": 0.3322,
+   "count": 3583
+  }
+ }
+}

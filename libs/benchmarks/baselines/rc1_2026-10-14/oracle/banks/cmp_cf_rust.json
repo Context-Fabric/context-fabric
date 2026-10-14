@@ -1,0 +1,95 @@
+{
+ "engine": "cf_rust",
+ "engine_version": "0.6.0rc1",
+ "oracle_version": "13.0.19",
+ "total": 2370,
+ "passed": 2368,
+ "failed": 2,
+ "by_area": {
+  "E": {
+   "passed": 117,
+   "total": 117
+  },
+  "F": {
+   "passed": 948,
+   "total": 949
+  },
+  "L": {
+   "passed": 585,
+   "total": 585
+  },
+  "N": {
+   "passed": 2,
+   "total": 2
+  },
+  "T": {
+   "passed": 592,
+   "total": 593
+  },
+  "meta": {
+   "passed": 6,
+   "total": 6
+  },
+  "order": {
+   "passed": 118,
+   "total": 118
+  }
+ },
+ "failing_groups": [
+  {
+   "area": "F",
+   "check": "F.freqList[otype]",
+   "categories": {
+    "tf_error": 1
+   },
+   "failed": 1,
+   "total": 1,
+   "examples": [
+    {
+     "arg": null,
+     "expected": {
+      "__error__": "AttributeError"
+     },
+     "actual": [
+      [
+       "book",
+       1
+      ],
+      [
+       "chapter",
+       2
+      ],
+      [
+       "line",
+       12
+      ],
+      [
+       "sentence",
+       3
+      ],
+      [
+       "word",
+       99
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "area": "T",
+   "check": "T.text[line-term]",
+   "categories": {
+    "value": 1
+   },
+   "failed": 1,
+   "total": 117,
+   "examples": [
+    {
+     "arg": 56,
+     "expected": "",
+     "actual": ", "
+    }
+   ]
+  }
+ ]
+}

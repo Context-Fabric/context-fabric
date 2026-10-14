@@ -47,6 +47,7 @@ DEFAULT_BHSA_TF = _BENCHMARKS_DIR / ".corpora" / "bhsa" / "tf"
 DEFAULT_CACHE = Path("/tmp/cf_bhsa.cfr")
 DEFAULT_BASELINE = _BENCHMARKS_DIR / "baselines" / "bhsa_tf.json"
 DEFAULT_TARGETS = _BENCHMARKS_DIR / "baselines" / "targets.json"
+PARITY_QUERIES_JSON = _REPO_ROOT / "libs" / "core" / "tests" / "parity" / "parity_queries.json"
 
 # Probe sizes mirror the original bench so numbers stay comparable.
 _N_WORD_CALLS = 10000
@@ -92,7 +93,7 @@ def _load_engine(engine: str, bhsa_tf: Path, cache: Path) -> Any:
 
 def _query_templates() -> dict[str, str]:
     templates = dict(_QUERY_FALLBACKS)
-    queries_json = _REPO_ROOT / ".claude" / "parity_queries.json"
+    queries_json = PARITY_QUERIES_JSON
     if queries_json.exists():
         with open(queries_json) as handle:
             by_id = {q["id"]: q["template"] for q in json.load(handle)["queries"]}

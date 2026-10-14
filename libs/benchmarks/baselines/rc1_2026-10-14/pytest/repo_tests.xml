@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="3" time="0.020" timestamp="2026-10-14T14:05:15.689521-05:00" hostname="Codys-Macbook-2026.local"><testcase classname="tests.test_windows_paths.TestExpandDirWindowsPaths" name="test_windows_absolute_path_not_modified" time="0.003"><failure message="ModuleNotFoundError: No module named 'cfabric.utils'">tests/test_windows_paths.py:15: in test_windows_absolute_path_not_modified
+    from cfabric.utils.files import expandDir
+E   ModuleNotFoundError: No module named 'cfabric.utils'</failure></testcase><testcase classname="tests.test_windows_paths.TestExpandDirWindowsPaths" name="test_relative_path_gets_curdir_prepended" time="0.000"><failure message="ModuleNotFoundError: No module named 'cfabric.utils'">tests/test_windows_paths.py:41: in test_relative_path_gets_curdir_prepended
+    from cfabric.utils.files import expandDir
+E   ModuleNotFoundError: No module named 'cfabric.utils'</failure></testcase><testcase classname="tests.test_windows_paths.TestExpandDirWindowsPaths" name="test_unix_absolute_path_not_modified" time="0.000"><failure message="ModuleNotFoundError: No module named 'cfabric.utils'">tests/test_windows_paths.py:62: in test_unix_absolute_path_not_modified
+    from cfabric.utils.files import expandDir
+E   ModuleNotFoundError: No module named 'cfabric.utils'</failure></testcase></testsuite></testsuites>

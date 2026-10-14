@@ -1,0 +1,22 @@
+{
+ "engine": "tf",
+ "engine_version": "13.0.19",
+ "corpus": "bhsa",
+ "tf_path": "/private/tmp/cf_rc1/corpora/bhsa/tf",
+ "python": "3.13.12",
+ "mode": "cold",
+ "memory": {
+  "before_load": {
+   "peak_rss_mb": 20.2,
+   "rss_mb": 22.3,
+   "uss_mb": 12.9
+  },
+  "after_load": {
+   "peak_rss_mb": 6159.3,
+   "rss_mb": 6159.3,
+   "uss_mb": 5876.9
+  }
+ },
+ "cache_cleared": false,
+ "load_s": 38.201
+}

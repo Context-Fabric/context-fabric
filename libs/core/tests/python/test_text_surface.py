@@ -24,7 +24,7 @@ import pytest
 from cfabric import Fabric
 
 BHSA_CACHE = Path("/tmp/cf_bhsa.cfr")
-BHSA_TF = Path("/Users/cody/github/context-fabric/libs/benchmarks/.corpora/bhsa/tf")
+BHSA_TF = Path(__file__).resolve().parents[4] / "libs" / "benchmarks" / ".corpora" / "bhsa" / "tf"
 
 
 # --------------------------------------------------------------------------- #

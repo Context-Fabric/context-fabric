@@ -1,0 +1,30 @@
+{
+ "timestamp_utc": "2026-10-14T19:18:07+00:00",
+ "git_branch": "cf-rust-rc1",
+ "git_commit": "774e8d0118572ae323b28944a210f45477bedae6",
+ "git_dirty": true,
+ "machine": {
+  "cpu": "Apple M5 Max",
+  "cores": 18,
+  "memory_gb": 128,
+  "os": "Darwin 26.6.2 arm64"
+ },
+ "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+ "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+ "rust_venv": {
+  "path": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv",
+  "python/cfabric/tf": "3.13.12 0.6.0rc1 13.0.19"
+ },
+ "cf_python_venv": {
+  "path": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058",
+  "python/cfabric/tf": "3.13.12 0.5.8 13.0.19"
+ },
+ "scratch_corpora": "/private/tmp/cf_rc1/corpora",
+ "source_corpora": "/Users/cody/github/context-fabric/context-fabric/libs/benchmarks/.corpora",
+ "bhsa_checkout": "v1.8.1\ngb112c161cfd21eae403d51a2733740d8743460e7",
+ "load_avg_at_start": [
+  3.2802734375,
+  3.734375,
+  4.12060546875
+ ]
+}

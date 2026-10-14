@@ -1,0 +1,115 @@
+{
+ "engine": "cf_rust",
+ "engine_version": "0.6.0rc1",
+ "oracle_version": "13.0.19",
+ "total": 147308,
+ "passed": 147306,
+ "failed": 2,
+ "by_area": {
+  "E": {
+   "passed": 18353,
+   "total": 18353
+  },
+  "F": {
+   "passed": 102825,
+   "total": 102826
+  },
+  "L": {
+   "passed": 9175,
+   "total": 9175
+  },
+  "N": {
+   "passed": 2,
+   "total": 2
+  },
+  "T": {
+   "passed": 15110,
+   "total": 15110
+  },
+  "meta": {
+   "passed": 5,
+   "total": 6
+  },
+  "order": {
+   "passed": 1836,
+   "total": 1836
+  }
+ },
+ "failing_groups": [
+  {
+   "area": "meta",
+   "check": "C.levels",
+   "categories": {
+    "value": 1
+   },
+   "failed": 1,
+   "total": 1,
+   "examples": [
+    {
+     "arg": null,
+     "expected": "sha1:5f2a1e4844f1ae24f58a61fe4d0e20c0c175470e:len=447",
+     "actual": "sha1:2e8bfdd36f757c892bc242b04bfbd506cc7afae7:len=449"
+    }
+   ]
+  },
+  {
+   "area": "F",
+   "check": "F.freqList[otype]",
+   "categories": {
+    "tf_error": 1
+   },
+   "failed": 1,
+   "total": 1,
+   "examples": [
+    {
+     "arg": null,
+     "expected": {
+      "__error__": "AttributeError"
+     },
+     "actual": [
+      [
+       "book",
+       27
+      ],
+      [
+       "chapter",
+       260
+      ],
+      [
+       "clause",
+       42506
+      ],
+      [
+       "group",
+       8945
+      ],
+      [
+       "phrase",
+       69007
+      ],
+      [
+       "sentence",
+       8011
+      ],
+      [
+       "subphrase",
+       116178
+      ],
+      [
+       "verse",
+       7944
+      ],
+      [
+       "wg",
+       106868
+      ],
+      [
+       "word",
+       137779
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}
