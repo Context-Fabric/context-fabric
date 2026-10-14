@@ -6,7 +6,7 @@ name: Browser desktop program
 
 on:
   push:
-    branches: [master, main, 'desktop-*']
+    branches: [master, main, 'browser-*', 'desktop-*']
     paths:
       - 'libs/browser/**'
       - 'libs/core/cfabric/**'

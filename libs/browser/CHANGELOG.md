@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Program icon for the standalone program (Windows `.ico`, macOS `.icns`): the Context-Fabric mark in gold on a dark tile, drawn from `favicon.svg` by `packaging/make_icons.py`
 - Standalone program: output and errors go to `~/.cfabric/logs/cfabric-browser.log`, with a message on Windows when it cannot start; without a window toolkit it opens a web browser instead. `--no-window` runs it as a plain server. Built and smoke-tested on Windows, macOS and Linux by the `browser-desktop.yml` workflow (`packaging/smoke-test.sh`)
 - `--window`: the browser in a window of its own (pywebview) instead of a web browser; closing it stops the server. The window keeps its web storage (settings, saved workspaces) in `~/.cfabric/window`, and takes the first free port from 8107 so that it keeps the same address. The standalone program opens this window, without a console
 - Start without corpora: `cfabric-browser` on its own opens an empty browser that offers the corpora on this computer (*Open a corpus*) straight away; the first corpus opened goes into the first pane. With `--no-library`, a corpus is still required
