@@ -15,7 +15,8 @@ surface is preserved (existing signatures and return types unchanged).
 
 ### Changed
 - Replaced the pure-Python core engine with the Rust/PyO3 implementation packaged through maturin.
-- Core corpus loading is mmap-first; compiled cache and memory-mapped loading are public (`loadCompiled()`, `openMapped()`).
+- Core corpus loading is mmap-first; compiled cache and memory-mapped loading are public (`compile()`, `openMapped()`).
+- The package version is derived from `Cargo.toml` (single source of truth); runtime dependency is `numpy` (for `vs_array`), no longer `pyyaml`.
 - Dropped the in-memory search executor; the mapped engine is now the only search engine (`search.rs` 2816 -> 590 lines).
 - Bumped cache path versions (CFM 2, CFR 3); pre-v3 default caches are auto-invalidated and recompiled.
 
@@ -25,6 +26,8 @@ surface is preserved (existing signatures and return types unchanged).
 - **Additive batch APIs** (opt-in; existing scalar methods unchanged): `F.<feat>.vs` / `vs_array` (node-array value lookup returning a list / numpy array), `L.u_many` / `L.d_many`, `T.text_many` — ~10x faster than per-node loops.
 - **`.cfr` v3 format**: appended `levUp` / `levDown` / `boundary` / `sections` CSR sections (plain u32, mmap'd for random access, 0 added RSS); caches auto-invalidate via the bumped path version.
 - Computed-feature views for `levUp` / `levDown` / `sections` / `characters` / `boundary`; `F.otype.all`, `N.sortKeyChunk`.
+- **TF API surface parity**, enforced against Text-Fabric 13 by a test that walks TF's object graph: the `api` aliases (`Feature`, `FeatureString`, `AllFeatures`, `Locality`, ..., `loadLog`), `api.TF`, `ignored`, and an `api` back-reference on every member; the `TF.info` / `warning` / `error` / `indent` / `setSilent` message channel (`tmObj`); `TF.api`, `clearCache`, `featureSets`, `features` entries, `featuresRequested`/`Ignored`; `T.text(func=, explain=, **kwargs)`, `T.<sec0>Name` / `T.<sec0>Node`, `T.config` / `defaultFormats` / `splitFormat`; `F.otype.support` / `sInterval`, `N.makeSortKeyChunk`; TF parameter names and defaults throughout; `cfabric.fabric` mirrors the `tf.fabric` import path.
+- `cfabric/_core.pyi` is checked against the extension with mypy stubtest.
 - Text-Fabric oracle parity gates, golden comparison tooling, a 34-query parity gate, a recorded per-call performance gate, and public API compatibility tests.
 
 ### Fixed
@@ -37,6 +40,9 @@ surface is preserved (existing signatures and return types unchanged).
 - Quadratic precompute paths (`levUp` via first-slot candidates, `sections` via precomputed level arrays): BHSA v3 compile dropped from 2.5h+ to ~57 s.
 - Text-Fabric valued edge parsing for implicit `@edgeValues` rows and compact `target:value` syntax.
 - `Fabric.load("a b c")` whitespace feature split; `freqList` node-type/edge filters; `T.text` accepts int or iterable; `sectionTuple` split from `sectionFromNode`; `lastSlot`; `S.glean`/`S.showPlan`; `walk(events=True)`.
+- API objects are created once per `api`, so `api.S.study()` state persists and `api.L` / `api.T` caches survive attribute access (`api.T.sectionFromNode` 5.6 -> 1.0 µs, `api.L.u` 2.0 -> 0.4 µs on BHSA).
+- `TF.load(features)` exposes only the requested, warp, and T-API features (as TF); `add=True` widens the current API and returns `True`; unknown features return `False`.
+- Return containers match TF: `Fall`/`Eall`/`Call`/`sortNodes`/`locations`/`sectionTypes` are lists, `isLoaded` returns TF's info dict (or prints it), `ensureLoaded` returns a set, and `showPlan` / `relationsLegend` / `structureInfo` / `footprint` print and return `None`.
 - Downstream MCP and benchmark package imports for the new top-level `cfabric` API surface.
 
 ### Known divergences from Text-Fabric
