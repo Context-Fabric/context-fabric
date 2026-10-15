@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import time
 import zipfile
 from dataclasses import replace
 from pathlib import Path
@@ -155,6 +156,7 @@ def test_a_flat_zip_goes_into_its_version_with_extra_files(tmp_path: Path) -> No
     app = data.parent.parent / "app"
     assert (app / "config.yaml").read_bytes() == CONFIG
     assert (app / "__checkout__.txt").is_file()
+    assert list((tmp_path / "cache").iterdir()) == []
 
 
 def test_a_wrong_checksum_stops_before_unpacking(tmp_path: Path) -> None:
@@ -252,3 +254,82 @@ def test_the_catalogue_names_the_versions_the_browser_uses() -> None:
         "DT-UCPH/sp": ("7.2.4", "v7.2.4"),
         "ETCBC/dss": ("2.0.1", "v2.0.1"),
     }
+
+
+# downloading through the API
+
+
+@pytest.fixture
+def library(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    from cfabric_browser.app import create_app
+    from cfabric_browser.corpora import CorpusService
+    from cfabric_browser.downloads import DownloadJobs
+    from cfabric_browser.workers import SearchPool
+    from fastapi.testclient import TestClient
+
+    d = corpus(COMPLETE)
+    monkeypatch.setitem(DOWNLOADS, d.id, d)
+    root = tmp_path / "root"
+    root.mkdir()
+    service = CorpusService([], roots=(str(root),))
+    jobs = DownloadJobs(
+        root, cache=tmp_path / "cache", fetcher=Fetcher({d.url: COMPLETE})
+    )
+    app = create_app(service, SearchPool([]), manage_pool=False, downloads=jobs)
+    with TestClient(app) as client:
+        yield (client, jobs)
+
+
+def finished(client, path: str) -> dict:
+    for _ in range(200):
+        entry = client.get(path).json()
+        if entry["job"] and entry["job"]["state"] != "running":
+            return entry
+        time.sleep(0.05)
+    raise AssertionError("the download did not finish")
+
+
+def test_download_a_corpus_from_the_library(library) -> None:
+    (client, _) = library
+    entries = {d["id"]: d for d in client.get("/api/downloads").json()["downloads"]}
+    assert entries["Org/corpus"]["present"] is False
+    assert entries["ETCBC/bhsa"]["size"] == 33_963_367
+
+    started = client.post("/api/downloads/Org/corpus")
+    assert started.status_code == 202
+    assert started.json()["job"]["state"] == "running"
+    entry = finished(client, "/api/downloads/Org/corpus")
+    assert entry["job"]["state"] == "done"
+    assert entry["present"] is True
+    assert [c["id"] for c in client.get("/api/library").json()["corpora"]] == [
+        "Org/corpus"
+    ]
+
+    # once it is there, nothing is downloaded again
+    again = client.post("/api/downloads/Org/corpus").json()
+    assert again["job"]["state"] == "done"
+
+
+def test_a_failed_download_says_why(library) -> None:
+    (client, jobs) = library
+    jobs.options["fetcher"] = Fetcher({}, failures=2)
+    client.post("/api/downloads/Org/corpus")
+    entry = finished(client, "/api/downloads/Org/corpus")
+    assert entry["job"]["state"] == "failed"
+    assert "connection reset" in entry["job"]["error"]
+    assert entry["present"] is False
+
+
+def test_unknown_or_excluded_corpora_cannot_be_downloaded(tmp_path: Path) -> None:
+    from cfabric_browser.app import create_app
+    from cfabric_browser.corpora import CorpusService
+    from cfabric_browser.workers import SearchPool
+    from fastapi.testclient import TestClient
+
+    service = CorpusService([], roots=(str(tmp_path),), only=["ETCBC/bhsa"])
+    with TestClient(create_app(service, SearchPool([]), manage_pool=False)) as client:
+        assert [d["id"] for d in client.get("/api/downloads").json()["downloads"]] == [
+            "ETCBC/bhsa"
+        ]
+        assert client.post("/api/downloads/ETCBC/dss").status_code == 404
+        assert client.post("/api/downloads/ETCBC/lxx").status_code == 404

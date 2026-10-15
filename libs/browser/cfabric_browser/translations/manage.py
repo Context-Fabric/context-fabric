@@ -13,12 +13,12 @@ from __future__ import annotations
 import json
 import logging
 import shutil
-import threading
 from pathlib import Path
 from typing import Any
 
 from cfabric.display.config import read_app_config
 
+from cfabric_browser.jobs import BackgroundJobs
 from cfabric_browser.translations.build import CACHE, BuildError, build
 from cfabric_browser.translations.catalog import TRANSLATIONS, Translation
 
@@ -106,7 +106,7 @@ def remove_pending(root: str | Path, pending: str | Path = PENDING) -> list[str]
     return done
 
 
-class Jobs:
+class Jobs(BackgroundJobs):
     """Builds running in the background, one at a time per translation, with
     their progress for the library to show."""
 
@@ -117,61 +117,20 @@ class Jobs:
         pending: str | Path = PENDING,
         **build_options: Any,
     ) -> None:
+        super().__init__(expected=(BuildError,))
         self.root = root
         self.cache = cache
         self.pending = pending  # removals waiting for a restart
         self.build_options = build_options  # e.g. download=, for tests
-        self._lock = threading.Lock()
-        self._status: dict[str, dict[str, Any]] = {}
-
-    def status(self, tid: str) -> dict[str, Any] | None:
-        with self._lock:
-            status = self._status.get(tid)
-            return dict(status) if status else None
 
     def start(self, translation: Translation) -> dict[str, Any]:
-        with self._lock:
-            current = self._status.get(translation.id)
-            if current and current["state"] == "running":
-                return dict(current)
-            status = {
-                "state": "running",
-                "step": "download",
-                "done": 0,
-                "total": 0,
-                "error": None,
-            }
-            self._status[translation.id] = status
-        thread = threading.Thread(target=self._run, args=(translation,), daemon=True)
-        thread.start()
-        return dict(status)
-
-    def _progress(self, tid: str, step: str, done: int, total: int) -> None:
-        with self._lock:
-            self._status[tid].update(step=step, done=done, total=total)
-
-    def _run(self, translation: Translation) -> None:
-        tid = translation.id
-        try:
-            build(
+        return self.run(
+            translation.id,
+            lambda progress: build(
                 translation,
                 root=self.root,
                 cache=self.cache,
-                progress=lambda step, done, total: self._progress(
-                    tid, step, done, total
-                ),
+                progress=progress,
                 **self.build_options,
-            )
-        except BuildError as e:
-            self._finish(tid, str(e))
-        except OSError as e:
-            self._finish(tid, f"Could not write the corpus: {e}")
-        except Exception as e:
-            logger.exception("Building %s failed", tid)
-            self._finish(tid, f"Building failed: {e}")
-        else:
-            self._finish(tid, None)
-
-    def _finish(self, tid: str, error: str | None) -> None:
-        with self._lock:
-            self._status[tid].update(state="failed" if error else "done", error=error)
+            ),
+        )

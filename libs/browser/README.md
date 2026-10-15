@@ -51,6 +51,19 @@ Options:
 
 The server listens on `127.0.0.1` only. Pass `--host` to change that, and only when you know what you're doing.
 
+## Downloading corpora
+
+The BHSA (2021), the Samaritan Pentateuch (7.2.4) and the Dead Sea Scrolls (2.0.1) can be downloaded from the browser when they are not on this computer: *Open a corpus* lists them under *Can be downloaded*, with their size; *Download* gets one and opens it. From the command line:
+
+```bash
+cfabric-browser download               # the corpora that can be downloaded, and which are here
+cfabric-browser download bhsa sp dss
+```
+
+- They come from the corpora's own releases on GitHub, the same files Text-Fabric downloads, and each is checked against its checksum.
+- They go where Text-Fabric keeps its downloads (`~/text-fabric-data/github`), in its layout and with its `__checkout__.txt` files, so Text-Fabric uses them too. A data folder that is already there is never overwritten.
+- About 68 MB for the three (365 MB on disk). The first time a corpus is opened, it is prepared once, which takes a few minutes for the BHSA and the DSS.
+
 ## Translations
 
 Translations can be added as texts of their own, shown next to the Hebrew ones. The first is the **JPS 1917**, *The Holy Scriptures: A New Translation* of the Jewish Publication Society (1917). In *Open a corpus*, under *Translations*, *Add* downloads it from Sefaria's export (about 5 MB), prepares it in a few seconds and opens it; *Remove* deletes it again. From the command line:
@@ -214,6 +227,7 @@ All functions of the interface are available as a JSON API; interactive document
 | `GET /api/corpora/{c}/lexicon/{n}/occurrences?offset=&limit=&book=` | A page of the verses it occurs in, as plain render trees with its words highlighted |
 | `GET /api/corpora/{c}/lexicon/{n}/occurrences.tsv` | Every occurrence: section, word and verse text; `excel=true` for Excel |
 | `GET /api/library`, `POST /api/corpora` | Corpora found on this computer; open one by its id (e.g. `ETCBC/dss`) |
+| `GET /api/downloads[/{org}/{repo}]`, `POST /api/downloads/{org}/{repo}` | Corpora that can be downloaded, whether they are here, and the progress of a download (`job`); start one |
 | `GET /api/translations[/{t}]` | Translations that can be added, whether they are, and the progress of adding one (`job`) |
 | `POST /api/translations/{t}`, `DELETE /api/translations/{t}` | Add a translation (download and build it, in the background), or remove it |
 | `GET /api/corpora/{c}/nodes/{n}[/info]` | Render tree of a node; all its features, edges and surroundings |

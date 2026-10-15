@@ -38,6 +38,7 @@ from cfabric_browser.compare import (
 )
 from cfabric_browser.concordance import MAX_SIDE, Concordance, parse_filters
 from cfabric_browser.corpora import CorpusService, discover, resolve_corpus
+from cfabric_browser.downloads import DOWNLOADS, Download, DownloadJobs, is_present
 from cfabric_browser.interlinear import interlinear_verse
 from cfabric_browser.lexicon import Lexicon, render_verse
 from cfabric_browser.queries import (
@@ -117,10 +118,13 @@ def build_router(
     pool: SearchPool,
     library: bool = True,
     translations: Jobs | None = None,
+    downloads: DownloadJobs | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api")
-    # translations are built into the first place the library looks
+    # translations are built, and corpora downloaded, into the first place the
+    # library looks
     jobs = translations if translations is not None else Jobs(service.roots[0])
+    fetches = downloads if downloads is not None else DownloadJobs(service.roots[0])
 
     def corpus_api(corpus: str):
         if not service.has(corpus):
@@ -200,8 +204,11 @@ def build_router(
         return translation
 
     def offered(translation: Translation) -> bool:
+        return allowed(translation.corpus_id)
+
+    def allowed(corpusId: str) -> bool:
         only = {o.lower() for o in service.only}
-        return not only or translation.corpus_id.lower() in only
+        return not only or corpusId.lower() in only
 
     def translation_entry(translation: Translation) -> dict[str, Any]:
         added = is_built(translation, jobs.root)
@@ -266,6 +273,57 @@ def build_router(
             except OSError as e:
                 raise HTTPException(409, f"Could not remove it: {e}") from None
         return translation_entry(translation)
+
+    # corpora that can be downloaded: the BHSA, the SP and the DSS, from their
+    # own releases (cfabric_browser.downloads)
+
+    def download_of(org: str, repo: str) -> Download:
+        download = DOWNLOADS.get(f"{org}/{repo}")
+        if download is None or not allowed(download.id):
+            raise HTTPException(
+                404, f"Not a corpus that can be downloaded: {org}/{repo}"
+            )
+        return download
+
+    def download_entry(download: Download) -> dict[str, Any]:
+        return {
+            "id": download.id,
+            "name": download.name,
+            "title": download.title,
+            "version": download.version,
+            "size": download.size,
+            "unpacked": download.unpacked,
+            "terms": download.terms,
+            # in any of the places the library looks
+            "present": any(is_present(download, root) for root in service.roots),
+            "job": fetches.status(download.id),
+        }
+
+    @router.get("/downloads")
+    def list_downloads() -> dict[str, Any]:
+        if not library:
+            return {"enabled": False, "downloads": []}
+        return {
+            "enabled": True,
+            "downloads": [
+                download_entry(d) for d in DOWNLOADS.values() if allowed(d.id)
+            ],
+        }
+
+    @router.get("/downloads/{org}/{repo}")
+    def describe_download(org: str, repo: str) -> dict[str, Any]:
+        return download_entry(download_of(org, repo))
+
+    @router.post("/downloads/{org}/{repo}", status_code=202)
+    def start_download(org: str, repo: str) -> dict[str, Any]:
+        """Download a corpus in the background; `job` in the answer, and in
+        `GET /downloads/{org}/{repo}`, shows the progress."""
+        if not library:
+            raise HTTPException(403, "Downloading is switched off on this server")
+        download = download_of(org, repo)
+        if not download_entry(download)["present"]:
+            fetches.start(download)
+        return download_entry(download)
 
     @router.get("/corpora")
     def list_corpora() -> dict[str, Any]:

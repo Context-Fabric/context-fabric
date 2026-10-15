@@ -33,8 +33,10 @@ import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
+from typing import Any
 
 from cfabric_browser import __version__
+from cfabric_browser.jobs import BackgroundJobs
 from cfabric_browser.translations.build import _ssl_context
 
 ROOT = "~/text-fabric-data/github"
@@ -349,12 +351,38 @@ def get(
     keep: bool = False,
 ) -> Path:
     """Download and unpack a corpus, unless it is there already; returns its
-    data directory. The zip is removed afterwards, unless `keep`."""
+    data directory. The downloaded files are removed afterwards, unless `keep`."""
     if not is_present(download, root):
         (archive, extras) = fetch(
             download, cache=cache, progress=progress, fetcher=fetcher
         )
         install(download, archive, extras, root=root, progress=progress)
         if not keep:
-            archive.unlink(missing_ok=True)
+            for path in (archive, *extras.values()):
+                path.unlink(missing_ok=True)
     return download.data_dir(root)
+
+
+class DownloadJobs(BackgroundJobs):
+    """Downloads running in the background, one at a time per corpus, with their
+    progress for the library to show."""
+
+    def __init__(
+        self, root: str | Path = ROOT, cache: str | Path = CACHE, **options: Any
+    ) -> None:
+        super().__init__(expected=(DownloadError,))
+        self.root = root
+        self.cache = cache
+        self.options = options  # e.g. fetcher=, for tests
+
+    def start(self, download: Download) -> dict[str, Any]:
+        return self.run(
+            download.id,
+            lambda progress: get(
+                download,
+                root=self.root,
+                cache=self.cache,
+                progress=progress,
+                **self.options,
+            ),
+        )

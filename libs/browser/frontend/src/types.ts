@@ -392,3 +392,25 @@ export interface Translation {
     error: string | null;
   } | null;
 }
+
+/** A corpus that can be downloaded from its own release (`/api/downloads`). */
+export interface CorpusDownload {
+  /** org/repo, as in the library */
+  id: string;
+  name: string;
+  title: string;
+  version: string;
+  /** bytes to download, and on disk */
+  size: number;
+  unpacked: number;
+  /** where its terms of use are */
+  terms: string;
+  present: boolean;
+  job: {
+    state: "running" | "done" | "failed";
+    step: "download" | "unpack";
+    done: number;
+    total: number;
+    error: string | null;
+  } | null;
+}
