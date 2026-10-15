@@ -473,7 +473,7 @@ impl PySearch {
                     heading
                         .get(index)
                         .and_then(Option::as_ref)
-                        .map(&value_to_string)
+                        .map(value_to_string)
                         .unwrap_or_default()
                 };
                 format!("{} {}:{}", part(0), part(1), part(2))

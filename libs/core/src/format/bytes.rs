@@ -129,14 +129,15 @@ pub(crate) fn csr_row<'a>(
 
 /// Little-endian u32 values of a bounds-checked byte range of the map.
 pub struct MappedU32s<'a> {
-    chunks: std::slice::ChunksExact<'a, u8>,
+    words: std::slice::Iter<'a, [u8; 4]>,
 }
 
 impl<'a> MappedU32s<'a> {
     /// Iterates the little-endian u32s of `bytes` (whose length is a multiple of 4).
     pub(crate) fn new(bytes: &'a [u8]) -> Self {
+        let (words, _) = bytes.as_chunks::<4>();
         Self {
-            chunks: bytes.chunks_exact(4),
+            words: words.iter(),
         }
     }
 }
@@ -145,13 +146,11 @@ impl Iterator for MappedU32s<'_> {
     type Item = u32;
 
     fn next(&mut self) -> Option<u32> {
-        self.chunks
-            .next()
-            .map(|chunk| u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+        self.words.next().map(|word| u32::from_le_bytes(*word))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.chunks.size_hint()
+        self.words.size_hint()
     }
 }
 

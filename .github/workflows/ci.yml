@@ -15,8 +15,11 @@ jobs:
         working-directory: libs/core
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      # Pinned so a new clippy release can't fail CI with lints it just added;
+      # bump deliberately (and fix any new lints) when upgrading.
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.99.1
           components: rustfmt, clippy
       - uses: actions/setup-python@v5
         with:
