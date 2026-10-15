@@ -61,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Template problems as structured data (line, message, feature or node type), including problems inside quantifiers that the search engine only logs
 
 ### Fixed
+- Standalone program on Windows: it didn't start when unpacked with Explorer from the downloaded zip, because .NET Framework refuses assemblies marked as downloaded (`Zone.Identifier`) and the window needs one (pythonnet's `Python.Runtime.dll`). The program now takes that mark off its own libraries at startup. Any failure of the window now falls back to a web browser.
 - Switching between interfaces:
   - the Reader, the Interlinear and the Concordance passed on only their own corpus when no other texts were chosen;
   - a search in the reference corpus' pane no longer pushes out the only pane with the passage (*Panes*);
