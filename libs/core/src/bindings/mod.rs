@@ -57,5 +57,9 @@ pub fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<search::PySearch>()?;
     module.add_class::<search::PySearchExe>()?;
     module.add_class::<search_results::PySearchResultIterator>()?;
+    module.add(
+        "SearchTemplateError",
+        module.py().get_type::<errors::SearchTemplateError>(),
+    )?;
     Ok(())
 }

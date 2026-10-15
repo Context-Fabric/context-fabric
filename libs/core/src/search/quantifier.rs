@@ -140,7 +140,7 @@ pub(super) fn sibling_or_parent(
         .copied()
         .or_else(|| atom_stack.range(..indent).next_back().map(|(_, idx)| *idx))
         .ok_or_else(|| {
-            CfError::InvalidQuery("Lonely relation: not allowed at outermost level".to_string())
+            CfError::template("Lonely relation: not allowed at outermost level".to_string())
         })
 }
 
@@ -179,7 +179,7 @@ pub(super) fn collect_quantifier_block(
                 if matches!(kind, MappedQuantifierKind::Where)
                     && (alternatives.is_empty() || consequents.is_empty())
                 {
-                    return Err(CfError::InvalidQuery(
+                    return Err(CfError::template(
                         "/where/ requires antecedent and /have/ consequent templates".to_string(),
                     ));
                 }
@@ -236,7 +236,7 @@ pub(super) fn collect_quantifier_block(
         cur.push(strip_indent(lines[i], kw_indent));
         i += 1;
     }
-    Err(CfError::InvalidQuery(
+    Err(CfError::template(
         "unterminated mapped quantified block".to_string(),
     ))
 }

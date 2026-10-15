@@ -166,7 +166,7 @@ pub(super) fn parse_mapped_plan(template: &str) -> Result<MappedRelationPlan> {
             let host = atoms
                 .len()
                 .checked_sub(1)
-                .ok_or_else(|| CfError::InvalidQuery("quantifier without host atom".to_string()))?;
+                .ok_or_else(|| CfError::template("quantifier without host atom".to_string()))?;
             let (clean, parent_name) = clean_host_atom(&atoms[host]);
             let block = TextQuantifierBlock {
                 kind: block.kind,
@@ -301,7 +301,7 @@ pub(super) fn parse_mapped_plan(template: &str) -> Result<MappedRelationPlan> {
     }
 
     if atoms.is_empty() {
-        return Err(CfError::InvalidQuery("empty mapped query".to_string()));
+        return Err(CfError::template("empty mapped query".to_string()));
     }
     let mut relations = direct_relations;
     for relation in pending_relations {
@@ -333,7 +333,7 @@ pub(super) fn register_atom(
             .copied()
             .or_else(|| atom_stack.range(..indent).next_back().map(|(_, idx)| *idx));
         let Some(other) = other else {
-            return Err(CfError::InvalidQuery(
+            return Err(CfError::template(
                 "Lonely relation: not allowed at outermost level".to_string(),
             ));
         };
@@ -364,19 +364,17 @@ pub(super) fn handle_lonely_operator(
     direct_relations: &mut Vec<MappedRelation>,
 ) -> Result<()> {
     let Some((&top_indent, _)) = atom_stack.iter().next_back() else {
-        return Err(CfError::InvalidQuery(
+        return Err(CfError::template(
             "Lonely relation: not allowed at outermost level".to_string(),
         ));
     };
     if indent > top_indent {
-        return Err(CfError::InvalidQuery(
+        return Err(CfError::template(
             "Lonely relation: not allowed as first child".to_string(),
         ));
     }
     let Some(&sibling) = atom_stack.get(&indent) else {
-        return Err(CfError::InvalidQuery(format!(
-            "Unexpected indent: {indent}"
-        )));
+        return Err(CfError::template(format!("Unexpected indent: {indent}")));
     };
     // Connect previous sibling to the enclosing parent, if any.
     if let Some((_, &parent)) = atom_stack.range(..indent).next_back() {
@@ -396,7 +394,7 @@ pub(super) fn mapped_relation_endpoint(
     names
         .get(endpoint)
         .copied()
-        .ok_or_else(|| CfError::InvalidQuery(format!("unknown mapped relation atom {endpoint:?}")))
+        .ok_or_else(|| CfError::template(format!("unknown mapped relation atom {endpoint:?}")))
 }
 
 pub(super) fn nearest_bound_parent_index(atoms: &[SimpleAtom], index: usize) -> Option<usize> {

@@ -10,7 +10,7 @@ The core API mirrors Text-Fabric's (`tf.fabric.Fabric`)::
         print(api.T.text(node))
 """
 
-from cfabric._core import BANNER, NAME, VERSION, Fabric, get_cache_dir
+from cfabric._core import BANNER, NAME, VERSION, Fabric, SearchTemplateError, get_cache_dir
 from cfabric.downloader import download, list_corpora
 from cfabric.results import CorpusInfo, FeatureInfo, NodeInfo
 
@@ -20,6 +20,7 @@ __all__ = [
     "NAME",
     "BANNER",
     "Fabric",
+    "SearchTemplateError",
     "download",
     "get_cache_dir",
     "list_corpora",

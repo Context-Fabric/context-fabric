@@ -2,6 +2,8 @@
 
 use std::path::PathBuf;
 
+use crate::search::TemplateErrors;
+
 #[derive(Debug, thiserror::Error)]
 pub enum CfError {
     #[error("I/O error for {path}: {source}")]
@@ -32,8 +34,9 @@ pub enum CfError {
     #[error("missing required feature: {0}")]
     MissingFeature(String),
 
-    #[error("invalid query: {0}")]
-    InvalidQuery(String),
+    /// A bad search template, with Text-Fabric's messages.
+    #[error("{0}")]
+    Template(TemplateErrors),
 
     /// A running search was stopped by its [`Interrupt`](crate::search::Interrupt).
     #[error("search interrupted")]
@@ -44,6 +47,13 @@ pub enum CfError {
 
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
+}
+
+impl CfError {
+    /// A bad search template, found while planning it.
+    pub(crate) fn template(message: impl Into<String>) -> Self {
+        Self::Template(TemplateErrors::plan(message))
+    }
 }
 
 impl From<std::io::Error> for CfError {

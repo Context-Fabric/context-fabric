@@ -126,7 +126,7 @@ pub(super) fn parse_simple_constraint(part: &str) -> Result<SimpleConstraint> {
                     }
                 }
                 '~' => MappedMatcher::Regex(Regex::new(value).map_err(|source| {
-                    CfError::InvalidQuery(format!("invalid mapped regex {value:?}: {source}"))
+                    CfError::template(format!("invalid mapped regex {value:?}: {source}"))
                 })?),
                 '<' => MappedMatcher::Lt(value.to_string()),
                 '>' => MappedMatcher::Gt(value.to_string()),
@@ -138,7 +138,7 @@ pub(super) fn parse_simple_constraint(part: &str) -> Result<SimpleConstraint> {
             // No operator: `feature*` (no condition) or a bare feature (exists).
             if let Some(feature) = part.strip_suffix('*') {
                 if feature.is_empty() {
-                    return Err(CfError::InvalidQuery(format!(
+                    return Err(CfError::template(format!(
                         "unsupported mapped constraint syntax {part:?}"
                     )));
                 }
@@ -148,7 +148,7 @@ pub(super) fn parse_simple_constraint(part: &str) -> Result<SimpleConstraint> {
                 });
             }
             if part.is_empty() {
-                return Err(CfError::InvalidQuery(format!(
+                return Err(CfError::template(format!(
                     "unsupported mapped constraint syntax {part:?}"
                 )));
             }
@@ -187,7 +187,7 @@ pub(super) fn parse_alternative_strings(value: &str) -> Result<Vec<String>> {
         .map(|candidate| unescape_query_value(&candidate))
         .collect();
     if values.is_empty() {
-        return Err(CfError::InvalidQuery(
+        return Err(CfError::template(
             "mapped equality constraint must include at least one value".to_string(),
         ));
     }

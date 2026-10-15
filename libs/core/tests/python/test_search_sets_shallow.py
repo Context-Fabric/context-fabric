@@ -12,6 +12,10 @@ The ``loaded_api`` / ``mini_corpus_path`` fixtures come from ``conftest.py``.
 
 from __future__ import annotations
 
+import pytest
+
+from cfabric import SearchTemplateError
+
 
 # In the mini corpus, nodes 1-5 are words, 6 and 7 are phrases (6 covers words
 # 1-3, 7 covers words 4-5), and node 8 is the sentence.
@@ -28,8 +32,9 @@ def test_sets_restricts_candidates(loaded_api):
     labelled = tuple(search.search("x:noun", sets={"noun": [2, 4]}))
     assert labelled == ((2,), (4,))
 
-    # Without the set the same template (a name that is not an otype) is empty.
-    assert tuple(search.search("noun")) == ()
+    # Without the set the same template names an unknown node type.
+    with pytest.raises(SearchTemplateError, match='Unknown object type: "noun"'):
+        search.search("noun")
 
 
 def test_sets_intersect_with_constraints(loaded_api):

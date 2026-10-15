@@ -16,16 +16,16 @@ pub(super) fn parse_simple_atom(
     if skip_operator {
         // discard the leading relation-operator token
         let Some(operator) = parts.next() else {
-            return Err(CfError::InvalidQuery("empty mapped query".to_string()));
+            return Err(CfError::template("empty mapped query".to_string()));
         };
         if parts.len() == 0 {
-            return Err(CfError::InvalidQuery(format!(
+            return Err(CfError::template(format!(
                 "missing mapped atom after operator {operator:?}"
             )));
         }
     }
     let Some(first) = parts.next() else {
-        return Err(CfError::InvalidQuery("empty mapped query".to_string()));
+        return Err(CfError::template("empty mapped query".to_string()));
     };
     let node_type = first
         .split_once(':')

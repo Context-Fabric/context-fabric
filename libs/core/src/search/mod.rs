@@ -1,9 +1,12 @@
-//! Search templates over a mapped corpus: parsing, planning, and the join.
+//! Search templates over a mapped corpus: checking, parsing, planning, and
+//! the join.
 //!
-//! [`MappedSearch::prepare`] plans a template and returns a
-//! [`PreparedSearch`] that produces the matches on demand.
+//! [`MappedSearch::prepare`] checks a template as Text-Fabric does (see
+//! [`check`]), plans it, and returns a [`PreparedSearch`] that produces the
+//! matches on demand.
 
 mod candidates;
+mod check;
 mod constraint;
 mod interrupt;
 mod join;
@@ -14,6 +17,7 @@ mod relations;
 mod syntax;
 mod template;
 
+pub use check::{TemplateErrorKind, TemplateErrors, TemplateMessage};
 pub use interrupt::Interrupt;
 pub use prepared::PreparedSearch;
 pub use syntax::{RELATIONS_LEGEND, SEARCH_FAIL_FACTOR, SearchSets};
@@ -21,6 +25,7 @@ pub use syntax::{RELATIONS_LEGEND, SEARCH_FAIL_FACTOR, SearchSets};
 use crate::config::{OSLOTS, OTYPE};
 use crate::error::{CfError, Result};
 use crate::mapped::{EdgeFeatureView, MappedCompiledCorpus, StringPoolNodeFeatureView};
+use crate::search::check::{TemplateSchema, check_template};
 use crate::search::interrupt::InterruptPoll;
 use crate::search::plan::parse_mapped_plan;
 
@@ -61,8 +66,14 @@ impl<'a> MappedSearch<'a> {
         InterruptPoll::new(self.interrupt)
     }
 
-    /// Plan `template`.
+    /// Check `template` and plan it.
+    ///
+    /// # Errors
+    ///
+    /// [`CfError::Template`] with Text-Fabric's messages for a bad template.
     pub fn prepare(&self, template: &str, sets: Option<&SearchSets<'_>>) -> Result<PreparedSearch> {
+        let schema = TemplateSchema::new(self.corpus, sets)?;
+        check_template(template, &schema).map_err(CfError::Template)?;
         let plan = parse_mapped_plan(template)?;
         let atom_types = plan
             .atoms

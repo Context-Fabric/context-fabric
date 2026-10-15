@@ -33,6 +33,7 @@ __all__ = [
     "Search",
     "SearchExe",
     "SearchResultIterator",
+    "SearchTemplateError",
     "Text",
     "Timestamp",
     "VERSION",
@@ -570,6 +571,9 @@ _SearchResults: TypeAlias = (
 )
 """Without `shallow`: a lazy iterator (`limit=None`) or a tuple of result
 tuples; with `shallow`: a set of first nodes or of result-tuple prefixes."""
+
+class SearchTemplateError(ValueError):
+    """A search template that Text-Fabric reports as bad."""
 
 @final
 class SearchResultIterator(Iterator[tuple[int, ...]]):

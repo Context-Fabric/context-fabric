@@ -16,7 +16,10 @@ use crate::error::CfError;
 use crate::mapped::{
     MappedCompiledCorpus, SectionOptions, SectionsContext, TextOptions, TextRenderer,
 };
-use crate::search::{Interrupt, MappedSearch, PreparedSearch, SEARCH_FAIL_FACTOR, SearchSets};
+use crate::search::{
+    Interrupt, MappedSearch, PreparedSearch, SEARCH_FAIL_FACTOR, SearchSets, TemplateErrorKind,
+    TemplateErrors,
+};
 use crate::value::FeatureValue;
 
 /// Custom search sets owned on the Rust side: `(name, nodes)` pairs.
@@ -261,7 +264,8 @@ impl PySearch {
 
     /// Check a search template and prepare it for `fetch` / `count` / `showPlan`.
     ///
-    /// A bad template does not raise: its problem is recorded on `S.exe`.
+    /// A bad template does not raise: as in Text-Fabric, its problems are
+    /// recorded on `S.exe` (`good`, `badSyntax`, `badSemantics`).
     ///
     /// Args:
     ///     searchTemplate: The search template.
@@ -299,8 +303,8 @@ impl PySearch {
                 .prepare(searchTemplate, borrow_search_sets(&owned_sets).as_ref())
             {
                 Ok(_) => Ok(None),
-                Err(CfError::Interrupted) => Err(CfError::Interrupted),
-                Err(error) => Ok(Some(error.to_string())),
+                Err(CfError::Template(errors)) => Ok(Some(errors)),
+                Err(error) => Err(error),
             }
         })?;
         self.template = Some(searchTemplate.to_string());
@@ -308,7 +312,7 @@ impl PySearch {
         self.shallow = shallow.0;
         self.exe = Some(match outcome {
             None => PySearchExe::good(),
-            Some(message) => PySearchExe::bad(message),
+            Some(errors) => PySearchExe::bad(&errors),
         });
         Ok(())
     }
@@ -332,6 +336,7 @@ impl PySearch {
     ///     An iterator or tuple of result tuples, or a set when `shallow` is set.
     ///
     /// Raises:
+    ///     SearchTemplateError: For a template Text-Fabric reports as bad.
     ///     IndexError: For a node in `sets` that is not a node of the corpus.
     ///     KeyboardInterrupt: On Ctrl-C while the search runs.
     #[allow(non_snake_case, clippy::too_many_arguments)] // Text-Fabric's signature
@@ -361,6 +366,7 @@ impl PySearch {
     ///     limit: Return at most this many results, as for `search`.
     ///
     /// Raises:
+    ///     SearchTemplateError: When the studied template is bad.
     ///     KeyboardInterrupt: On Ctrl-C while the search runs.
     #[pyo3(signature = (limit=None))]
     fn fetch(&self, py: Python<'_>, limit: Option<i64>) -> PyResult<PyObject> {
@@ -380,6 +386,7 @@ impl PySearch {
     ///     The number of results (Text-Fabric prints it and returns `None`).
     ///
     /// Raises:
+    ///     SearchTemplateError: When the studied template is bad.
     ///     KeyboardInterrupt: On Ctrl-C while counting.
     #[pyo3(signature = (progress=None, limit=None))]
     fn count(
@@ -540,11 +547,13 @@ impl PySearchExe {
         }
     }
 
-    fn bad(message: String) -> Self {
+    /// A bad template's errors, recorded where Text-Fabric records them;
+    /// planning errors (such as a disconnected template) on neither list.
+    fn bad(errors: &TemplateErrors) -> Self {
         Self {
             good: false,
-            bad_syntax: vec![(None, message)],
-            bad_semantics: Vec::new(),
+            bad_syntax: errors.of_kind(TemplateErrorKind::Syntax),
+            bad_semantics: errors.of_kind(TemplateErrorKind::Semantics),
         }
     }
 }

@@ -2931,6 +2931,19 @@ w ]] p
         .unwrap();
     multi_atom_quant.sort_unstable();
     assert_eq!(multi_atom_quant, vec![vec![1, 6], vec![2, 6], vec![3, 6]]);
+    // After a relation line a quantifier has no atom to attach to (TF).
+    let error = search
+        .search(
+            "w:word\np:phrase\nw ]] p\n/with/\n  word word=hello\n/-/",
+            None,
+        )
+        .unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        "line 3: Quantifier: Does not immediately follow an atom at the same level\n\
+         line 5: Quantifier: Can not start with \"/-/:\"\n\
+         line 5: Quantifier: Does not immediately follow an atom at the same level"
+    );
 }
 
 #[test]

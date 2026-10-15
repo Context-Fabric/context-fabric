@@ -10,6 +10,7 @@ import re
 from collections import defaultdict
 from typing import Any
 
+from cfabric import SearchTemplateError
 from cfabric.results import NodeInfo, FeatureInfo, CorpusInfo
 from cfabric.describe import (
     describe_corpus_overview,
@@ -87,6 +88,30 @@ class _CachedSearch:
         if self._fresh_results is None:
             self._fresh_results = list(self._search_api.search(self._template))
         return sorted(self._fresh_results)
+
+
+def _template_errors(search_api: Any, template: str) -> list[str] | None:
+    """Study `template`; its error messages when it is bad, else `None`.
+
+    The syntax and semantic errors come from `S.exe`, one per line. Errors
+    that Text-Fabric reports outside those lists (a template without atoms,
+    or atoms not connected by relations) come from the `SearchTemplateError`
+    that fetching the bad template raises.
+    """
+    search_api.study(template)
+    exe = search_api.exe
+    if exe is None or exe.good:
+        return None
+    errors = [
+        f"Line {ln}: {msg}" if ln is not None else msg
+        for ln, msg in [*exe.badSyntax, *exe.badSemantics]
+    ]
+    if not errors:
+        try:
+            search_api.fetch(limit=1)
+        except SearchTemplateError as error:
+            errors = str(error).splitlines()
+    return errors
 
 
 def set_transport(transport: str) -> None:
@@ -318,19 +343,11 @@ def search(
 
     # First, validate the template
     try:
-        S.study(template)
+        errors = _template_errors(S, template)
     except Exception as e:
         logger.error("search: template study failed: %s", e)
         return {"error": f"Invalid search template: {e}", "template": template}
-
-    exe = S.exe
-    if exe and not exe.good:
-        # Return detailed errors from both syntax and semantics checks
-        errors = []
-        for ln, msg in getattr(exe, "badSyntax", []):
-            errors.append(f"Line {ln}: {msg}" if ln is not None else msg)
-        for ln, msg in getattr(exe, "badSemantics", []):
-            errors.append(f"Line {ln}: {msg}" if ln is not None else msg)
+    if errors is not None:
         return {
             "error": "Invalid search template",
             "errors": errors,
@@ -658,18 +675,11 @@ def search_csv(
 
     # Validate template
     try:
-        S.study(template)
+        errors = _template_errors(S, template)
     except Exception as e:
         logger.error("search_csv: template study failed: %s", e)
         return {"error": f"Invalid search template: {e}", "template": template}
-
-    exe = S.exe
-    if exe and not exe.good:
-        errors = []
-        for ln, msg in getattr(exe, "badSyntax", []):
-            errors.append(f"Line {ln}: {msg}" if ln is not None else msg)
-        for ln, msg in getattr(exe, "badSemantics", []):
-            errors.append(f"Line {ln}: {msg}" if ln is not None else msg)
+    if errors is not None:
         return {"error": "Invalid search template", "errors": errors, "template": template}
 
     # Execute search (uses cache)

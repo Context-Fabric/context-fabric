@@ -129,7 +129,7 @@ impl<'a> MappedSearch<'a> {
             };
             if !atom.quantifiers.is_empty() {
                 let (clean, _) = atom.clean.as_ref().ok_or_else(|| {
-                    CfError::InvalidQuery("quantified atom missing clean line".to_string())
+                    CfError::template("quantified atom missing clean line".to_string())
                 })?;
                 let mut yarn: HashSet<u32> = nodes.iter().copied().collect();
                 for block in &atom.quantifiers {
