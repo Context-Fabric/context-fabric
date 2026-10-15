@@ -40,6 +40,7 @@ WRITING = {
     "ara": ("arabic", "rtl"),
     "grc": ("greek", "ltr"),
     "cld": ("aramaic", "ltr"),
+    "eng": ("english", "ltr"),
     "": ("", "ltr"),
 }
 

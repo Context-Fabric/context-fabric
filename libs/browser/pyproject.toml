@@ -48,7 +48,7 @@ where = ["."]
 include = ["cfabric_browser*"]
 
 [tool.setuptools.package-data]
-cfabric_browser = ["static/**/*"]
+cfabric_browser = ["static/**/*", "translations/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

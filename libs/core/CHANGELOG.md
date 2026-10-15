@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `render_node` / `render_tuple` build JSON-ready render trees (plain and pretty), a port of TF's unravel algorithm, verified identical to TF on six corpora
   - `section_ref` / `node_from_section_ref` for references like `Genesis 1:1`, using the corpus' own separators
 - `cfabric.registry.CorpusRegistry`: thread-safe registry of named corpora with lazy loading and per-corpus search locks
+- `DisplayConfig` knows English (`writing: eng`, left to right)
 - Search cancellation and timeouts: `S.search(..., cancel=CancelToken())` or `S.search(..., timeout=10)` raise `SearchCancelled` / `SearchTimeout`
 
 ### Fixed
