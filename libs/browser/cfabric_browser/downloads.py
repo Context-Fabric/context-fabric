@@ -116,6 +116,7 @@ DOWNLOADS: dict[str, Download] = {
             sha256="8104fae1151c926cfcfd01f7e8a30a09af8c607546f14482990833b624b73168",
             layout="complete",
             terms="https://github.com/ETCBC/bhsa",
+            licence="CC BY-NC 4.0",
         ),
         Download(
             id="DT-UCPH/sp",
