@@ -10,10 +10,14 @@ interface Props {
   onInspect: (node: number) => void;
   onClose: () => void;
   onOpenPassage: (ref: string) => void;
+  /** Open the lexicon at this lexeme; offered for words of a corpus with a lexicon. */
+  onLexicon?: (lex: number) => void;
+  /** Which side of the screen the panel is on (the parallel interface has it on the left). */
+  side?: "start" | "end";
 }
 
 /** Everything about one node: its features, edges, and what it lies in. */
-export function Inspector({ corpus, node, onInspect, onClose, onOpenPassage }: Props) {
+export function Inspector({ corpus, node, onInspect, onClose, onOpenPassage, onLexicon, side = "end" }: Props) {
   const panel = useRef<HTMLElement>(null);
   const { data, error } = useQuery({
     queryKey: ["node", corpus.name, node],
@@ -48,6 +52,8 @@ export function Inspector({ corpus, node, onInspect, onClose, onOpenPassage }: P
   const technicalCount = features.filter(([name]) => isTechnical(name)).length;
   const listed = technical ? features : features.filter(([name]) => !isTechnical(name));
   const summary = data?.summary ?? [];
+  // the lexeme a word belongs to, in a corpus with a lexicon (BHSA)
+  const lexeme = corpus.lexicon ? data?.up.find((u) => u.type === "lex") : undefined;
   // a node without essentials (a phrase, a clause) shows its features straight away
   const open = allFeatures || summary.length === 0;
 
@@ -56,7 +62,9 @@ export function Inspector({ corpus, node, onInspect, onClose, onOpenPassage }: P
       ref={panel}
       tabIndex={-1}
       aria-label={`${data?.type ?? "Node"} ${node}`}
-      className="flex h-full min-h-0 w-full flex-col border-s border-rule bg-raised outline-none md:w-[22rem]"
+      className={`flex h-full min-h-0 w-full flex-col border-rule bg-raised outline-none md:w-[22rem] ${
+        side === "end" ? "border-s" : "border-e"
+      }`}
     >
       <header className="flex items-baseline gap-2 border-b border-rule px-4 py-3">
         <h2 className="text-[17px] font-semibold">{data?.type ?? "…"}</h2>
@@ -114,6 +122,16 @@ export function Inspector({ corpus, node, onInspect, onClose, onOpenPassage }: P
                 </div>
               ))}
             </dl>
+          ) : null}
+
+          {lexeme !== undefined && onLexicon ? (
+            <button
+              type="button"
+              onClick={() => onLexicon(lexeme.node)}
+              className="mb-3 block text-[13px] text-woad hover:underline"
+            >
+              Lexicon entry
+            </button>
           ) : null}
 
           {summary.length ? (
