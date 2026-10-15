@@ -33,7 +33,9 @@ class Translation:
     """A translation that can be downloaded and built into a corpus."""
 
     id: str
+    # short, as a column heading, and in full
     title: str
+    name: str
     language: str
     # where the corpus goes, in Text-Fabric layout: <org>/<repo>/tf/<version>
     org: str
@@ -109,6 +111,7 @@ JPS_BOOKS = tuple(
 JPS1917 = Translation(
     id="jps1917",
     title="JPS 1917",
+    name="The Holy Scriptures: A New Translation (Jewish Publication Society, 1917)",
     language="eng",
     org="Context-Fabric",
     repo="jps1917",

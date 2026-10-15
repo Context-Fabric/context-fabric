@@ -409,7 +409,7 @@ def write_corpus(
         "apiVersion": 3,
         "writing": translation.language,
         "provenanceSpec": {
-            "corpus": translation.title,
+            "corpus": f"{translation.title} = {translation.name}",
             "org": translation.org,
             "repo": translation.repo,
             "version": translation.version,

@@ -344,3 +344,27 @@ export interface Agreement {
   reason: string | null;
   verses: { verse: number; ref: string; units: Place[] }[];
 }
+
+/** A translation that can be added from the library (`/api/translations`). */
+export interface Translation {
+  id: string;
+  title: string;
+  name: string;
+  language: string;
+  /** the library id of its corpus, once added */
+  corpus: string;
+  licence: string;
+  licenceNote: string;
+  source: string;
+  added: boolean;
+  open: boolean;
+  /** removed when the browser starts again, because it is open */
+  removing: boolean;
+  job: {
+    state: "running" | "done" | "failed";
+    step: "download" | "build";
+    done: number;
+    total: number;
+    error: string | null;
+  } | null;
+}

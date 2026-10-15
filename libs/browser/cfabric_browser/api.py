@@ -47,6 +47,16 @@ from cfabric_browser.queries import (
     template_features,
 )
 from cfabric_browser.summary import summary
+from cfabric_browser.translations import TRANSLATIONS, Translation
+from cfabric_browser.translations.manage import (
+    Jobs,
+    cancel_removal,
+    is_built,
+    is_pending,
+    remove,
+    repo_of,
+    schedule_removal,
+)
 from cfabric_browser.witnesses import dress_signs, format_ref, parse_ref, place
 from cfabric_browser.workers import FINISHED, SearchJob, SearchPool
 
@@ -103,9 +113,14 @@ def render_options(
 
 
 def build_router(
-    service: CorpusService, pool: SearchPool, library: bool = True
+    service: CorpusService,
+    pool: SearchPool,
+    library: bool = True,
+    translations: Jobs | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api")
+    # translations are built into the first place the library looks
+    jobs = translations if translations is not None else Jobs(service.roots[0])
 
     def corpus_api(corpus: str):
         if not service.has(corpus):
@@ -175,6 +190,82 @@ def build_router(
         # start loading now, so the corpus is ready by the time it is shown
         threading.Thread(target=service.config, args=(spec.name,), daemon=True).start()
         return {"name": spec.name, "opened": True}
+
+    # translations: built from their source into a corpus, then in the library
+
+    def translation_of(tid: str) -> Translation:
+        translation = TRANSLATIONS.get(tid)
+        if translation is None or not offered(translation):
+            raise HTTPException(404, f"Unknown translation: {tid}")
+        return translation
+
+    def offered(translation: Translation) -> bool:
+        only = {o.lower() for o in service.only}
+        return not only or translation.corpus_id.lower() in only
+
+    def translation_entry(translation: Translation) -> dict[str, Any]:
+        added = is_built(translation, jobs.root)
+        repo = repo_of(translation, jobs.root).resolve()
+        return {
+            "id": translation.id,
+            "title": translation.title,
+            "name": translation.name,
+            "language": translation.language,
+            "corpus": translation.corpus_id,
+            "licence": translation.licence,
+            "licenceNote": translation.licence_note,
+            "source": translation.source,
+            "added": added,
+            "open": any(spec.path.is_relative_to(repo) for spec in service.specs),
+            # removed at the next start, because it is open
+            "removing": added and is_pending(translation, jobs.pending),
+            "job": jobs.status(translation.id),
+        }
+
+    @router.get("/translations")
+    def list_translations() -> dict[str, Any]:
+        if not library:
+            return {"enabled": False, "translations": []}
+        return {
+            "enabled": True,
+            "translations": [
+                translation_entry(t) for t in TRANSLATIONS.values() if offered(t)
+            ],
+        }
+
+    @router.get("/translations/{tid}")
+    def describe_translation(tid: str) -> dict[str, Any]:
+        return translation_entry(translation_of(tid))
+
+    @router.post("/translations/{tid}", status_code=202)
+    def add_translation(tid: str) -> dict[str, Any]:
+        """Download and build a translation; `job` in the answer, and in
+        `GET /translations/{tid}`, shows the progress."""
+        if not library:
+            raise HTTPException(403, "Adding texts is switched off on this server")
+        translation = translation_of(tid)
+        if is_built(translation, jobs.root):
+            # still there: adding it again only cancels a removal
+            cancel_removal(translation, jobs.pending)
+        else:
+            jobs.start(translation)
+        return translation_entry(translation)
+
+    @router.delete("/translations/{tid}")
+    def remove_translation(tid: str) -> dict[str, Any]:
+        if not library:
+            raise HTTPException(403, "Removing texts is switched off on this server")
+        translation = translation_of(tid)
+        if not is_built(translation, jobs.root):
+            raise HTTPException(404, f"{translation.title} has not been added")
+        if translation_entry(translation)["open"]:
+            schedule_removal(translation, jobs.pending)
+        else:
+            try:
+                remove(translation, jobs.root)
+            except OSError as e:
+                raise HTTPException(409, f"Could not remove it: {e}") from None
+        return translation_entry(translation)
 
     @router.get("/corpora")
     def list_corpora() -> dict[str, Any]:

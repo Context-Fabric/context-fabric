@@ -51,6 +51,23 @@ Options:
 
 The server listens on `127.0.0.1` only. Pass `--host` to change that, and only when you know what you're doing.
 
+## Translations
+
+Translations can be added as texts of their own, shown next to the Hebrew ones. The first is the **JPS 1917**, *The Holy Scriptures: A New Translation* of the Jewish Publication Society (1917). In *Open a corpus*, under *Translations*, *Add* downloads it from Sefaria's export (about 5 MB), prepares it in a few seconds and opens it; *Remove* deletes it again. From the command line:
+
+```bash
+cfabric-browser add            # the translations that can be added
+cfabric-browser add jps1917
+cfabric-browser remove jps1917
+```
+
+- It is public domain in the United States, because it was published before 1931. Elsewhere that depends on the translators' dates; check the rules in your country.
+- It becomes an ordinary corpus in `~/text-fabric-data/github/Context-Fabric/jps1917/tf/1917`, which Text-Fabric can also open: words (`text`, `trailer`, and `lower` for searching, as in `word lower=lord`), verses, chapters and books with the BHSA's English book names.
+- Its verses follow the Hebrew numbering, as in the BHSA, so they line up verse by verse. In three places the 1917 print joins verses that the BHSA divides: the Ten Commandments in Exodus 20:13–16 and Deuteronomy 5:17–20, and Numbers 25:19 with 26:1. Those are divided as in the BHSA, and the feature `printed` on a verse keeps the print's number (for instance `20:14` on Exodus 20:17).
+- A verse repeated in small type after the last verse of Malachi, Lamentations and Ecclesiastes, as read in the synagogue, is in the feature `note`.
+- Building it checks the source: its title and licence, the number of chapters and verses per book, and that there is no markup other than those notes. When something differs, it stops and says where.
+- The download is kept in `~/.cfabric/translations`, so adding it again needs no network. A translation that is open is removed when the browser starts again.
+
 ## Interfaces
 
 The browser has several interfaces, chosen in the menu at the right of the top bar (it shows the name of the one in use). Switching keeps the passage, the corpora, the search, the lexicon and the settings; what an interface cannot show is kept for the next one. The interface used last is remembered by the web browser (or the window); `--ui` only sets the one for a first start. *Choose which to offer…* in the menu leaves interfaces out of it, though never the one in use, nor both *Panes* and *Parallel*.
@@ -189,6 +206,8 @@ All functions of the interface are available as a JSON API; interactive document
 | `GET /api/corpora/{c}/lexicon/{n}/occurrences?offset=&limit=&book=` | A page of the verses it occurs in, as plain render trees with its words highlighted |
 | `GET /api/corpora/{c}/lexicon/{n}/occurrences.tsv` | Every occurrence: section, word and verse text; `excel=true` for Excel |
 | `GET /api/library`, `POST /api/corpora` | Corpora found on this computer; open one by its id (e.g. `ETCBC/dss`) |
+| `GET /api/translations[/{t}]` | Translations that can be added, whether they are, and the progress of adding one (`job`) |
+| `POST /api/translations/{t}`, `DELETE /api/translations/{t}` | Add a translation (download and build it, in the background), or remove it |
 | `GET /api/corpora/{c}/nodes/{n}[/info]` | Render tree of a node; all its features, edges and surroundings |
 | `GET /api/corpora/{c}/nodes/{n}/summary` | The essentials of a word, as on the card shown when hovering over it |
 | `POST /api/corpora/{c}/check` | Check a template without searching |

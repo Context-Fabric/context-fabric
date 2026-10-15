@@ -24,7 +24,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "is looked up in ~/text-fabric-data/github and ~/github. "
             "Prefix with 'name=' to choose the name shown in the browser. "
             "Without corpora, the browser starts empty and offers the corpora on "
-            "this computer to open."
+            "this computer to open. 'cfabric-browser add' lists the translations "
+            "that can be added (such as the JPS 1917); 'cfabric-browser add ID' "
+            "adds one and 'cfabric-browser remove ID' removes it."
         ),
     )
     parser.add_argument("corpora", nargs="*", metavar="CORPUS")
@@ -91,7 +93,66 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def translation_command(argv: list[str]) -> int:
+    """`cfabric-browser add [ID]` and `cfabric-browser remove ID`: add or
+    remove a translation without starting the browser."""
+    from cfabric_browser.corpora import SEARCH_ROOTS
+    from cfabric_browser.translations import TRANSLATIONS, BuildError, build
+    from cfabric_browser.translations.manage import is_built, remove
+
+    root = SEARCH_ROOTS[0]
+    (command, *rest) = argv
+    if not rest:
+        if command == "remove":
+            print("cfabric-browser: say which translation to remove", file=sys.stderr)
+            return 2
+        print("Translations that can be added (cfabric-browser add ID):")
+        for t in TRANSLATIONS.values():
+            state = "added" if is_built(t, root) else "not added"
+            print(f"  {t.id:<10} {t.name} ({state})")
+            print(f"  {'':<10} {t.licence_note}")
+        return 0
+    translation = TRANSLATIONS.get(rest[0].lower())
+    if translation is None:
+        known = ", ".join(TRANSLATIONS)
+        print(
+            f"cfabric-browser: no translation {rest[0]!r}; known: {known}",
+            file=sys.stderr,
+        )
+        return 2
+
+    if command == "remove":
+        if not remove(translation, root):
+            print(f"{translation.title} has not been added.")
+            return 0
+        print(f"Removed {translation.title}.")
+        return 0
+
+    print(f"Adding {translation.name}")
+    print(f"  {translation.licence_note}")
+    shown = {"step": ""}
+
+    def progress(step: str, done: int, total: int) -> None:
+        if step == "download":
+            print(f"\r  downloading {done}/{total}", end="", flush=True)
+        elif step != shown["step"]:
+            print("\n  building ...", flush=True)
+        shown["step"] = step
+
+    try:
+        data = build(translation, root=root, progress=progress)
+    except (BuildError, OSError) as e:
+        print(f"\ncfabric-browser: {e}", file=sys.stderr)
+        return 1
+    print(f"  done: {data}")
+    print(f"Open it from the library, or: cfabric-browser bhsa {translation.id}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] in ("add", "remove"):
+        return translation_command(argv)
     args = parse_args(argv)
     if not args.corpora and args.no_library:
         # nothing to show and no way to open anything
@@ -122,6 +183,13 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+
+    # translations removed while they were open
+    from cfabric_browser.corpora import SEARCH_ROOTS
+    from cfabric_browser.translations.manage import remove_pending
+
+    for removed in remove_pending(SEARCH_ROOTS[0]):
+        print(f"Removed the translation {removed}.", flush=True)
 
     settings = load_settings()
     librarySettings = settings.get("library") or {}
