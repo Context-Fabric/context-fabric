@@ -130,6 +130,34 @@ def diff_words(
     return marksA, marksB
 
 
+def align_words(a: Words, b: Words) -> list[list[int]]:
+    """For each word of `a`, the words of `b` that correspond to it.
+
+    As in the comparison, the consonants of each verse are matched without
+    word boundaries; a word of `b` goes with the word of `a` that its first
+    matching letter matches. A word of `b` without matching letters (a plus,
+    or a word written quite differently) goes with the word of `a` that the
+    word of `b` before it goes with (the first word of `a` at the start).
+    """
+    textA = "".join(c for (_, c) in a)
+    textB = "".join(c for (_, c) in b)
+    ownerA = [i for (i, (_, c)) in enumerate(a) for _ in c]
+    ownerB = [j for (j, (_, c)) in enumerate(b) for _ in c]
+    assigned: dict[int, int] = {}
+    matcher = SequenceMatcher(None, textA, textB, autojunk=False)
+    for i, j, n in matcher.get_matching_blocks():
+        for k in range(n):
+            assigned.setdefault(ownerB[j + k], ownerA[i + k])
+    under: list[list[int]] = [[] for _ in a]
+    if not a:
+        return under
+    current = 0
+    for j, (node, _) in enumerate(b):
+        current = assigned.get(j, current)
+        under[current].append(node)
+    return under
+
+
 def diff_units(a: Words, b: Words, known: list[bool] | None = None) -> list[Unit]:
     """The places where `a` and `b` differ, with the words that are marked there.
 

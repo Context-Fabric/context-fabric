@@ -38,6 +38,14 @@
   --level-3: #34477a;
   --level-4: #1f2b4d;
 
+  /* word colours in the interlinear (by part of speech or stem), in order of use */
+  --tone-1: #2f5fa8;
+  --tone-2: #a23b2a;
+  --tone-3: #2f7a52;
+  --tone-4: #8a5a10;
+  --tone-5: #7a3f96;
+  --tone-6: #1f7a8c;
+
   color-scheme: light;
 }
 
@@ -62,6 +70,13 @@
   --level-2: #6a7db3;
   --level-3: #8ea2d8;
   --level-4: #b9c6ea;
+
+  --tone-1: #8fb0ea;
+  --tone-2: #ec9886;
+  --tone-3: #7fcfa2;
+  --tone-4: #e2b46a;
+  --tone-5: #c99be0;
+  --tone-6: #7fcbd9;
 
   color-scheme: dark;
 }
@@ -155,3 +170,11 @@ body {
     animation-duration: 0.01ms !important;
   }
 }
+
+/* the interlinear's word colours */
+.tone-1 { color: var(--tone-1); }
+.tone-2 { color: var(--tone-2); }
+.tone-3 { color: var(--tone-3); }
+.tone-4 { color: var(--tone-4); }
+.tone-5 { color: var(--tone-5); }
+.tone-6 { color: var(--tone-6); }

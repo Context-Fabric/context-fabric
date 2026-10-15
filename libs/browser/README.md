@@ -55,7 +55,7 @@ The server listens on `127.0.0.1` only. Pass `--host` to change that, and only w
 
 The browser has several interfaces, chosen in the menu at the right of the top bar (it shows the name of the one in use). Switching keeps the passage, the corpora, the search, the lexicon and the settings; what an interface cannot show is kept for the next one. The interface used last is remembered by the web browser (or the window); `--ui` only sets the one for a first start. *Choose which to offer…* in the menu leaves interfaces out of it, though never the one in use, nor both *Panes* and *Parallel*.
 
-Three are built: *Panes*, *Parallel* and *Reader*. *Interlinear* and *Concordance* are planned; their addresses, `/interlinear/…` and `/concordance/…`, show a page saying so.
+Four are built: *Panes*, *Parallel*, *Reader* and *Interlinear*. *Concordance* is planned; its address, `/concordance/…`, shows a page saying so.
 
 ### Reader
 
@@ -88,6 +88,26 @@ Results are rows: the passage, then the verse the result lies in, in the searche
 
 The top bar also has *Display* (text format and what is shown, shared with *Panes*), *Workspaces* (a saved workspace remembers its interface: loading a parallel one from *Panes* switches over, and the other way round), *Cite* next to the chapter (a citation per shown text), and light or dark colours. On a phone the texts of a verse are shown below each other, each with its name.
 
+
+### Interlinear
+
+*Interlinear* (`/interlinear/bhsa/Genesis/1?under=sp&struct=1`) is after STEPBible, BibleHub and the Logos interlinears. It opens with the BHSA, and shows each word as a small block with lines under it. The blocks run from right to left, so a verse reads as a sentence.
+
+- **Lines** chooses the lines and their order. They are read by role, as on the hover card, so the SP and the DSS work too:
+  - the word;
+  - the transliteration of the lexeme (`BR>[`);
+  - the lexeme;
+  - the gloss;
+  - the part of speech;
+  - the morphology, in words;
+  - and any feature of the corpus (*Add a feature*).
+- **Under** shows another text word by word under the words, with its differences marked. The SP under the BHSA, for example: words are matched on their consonants, as in the comparison, so a different word division still lines up.
+- **Structure** groups the words in phrases, underlined with their function (`Pred`, `Subj`, `Objc`, …), and in clauses with their type (`WayX`, `xQtX`, …).
+- **Practise** hides a line; click a word's **?** to see it, or use *Show all* and *Hide again*.
+- **Colour** colours the words by part of speech, or the verbs by stem, with a legend.
+- Clicking a word opens the word panel on the right.
+
+A transliteration of the word as it sounds is not available yet: the BHSA's `phono` is a module of its own.
 ## Queries
 
 Queries use Text-Fabric's search template language, run by Context-Fabric's search engine. Queries written for the TF browser work unchanged and give the same results.
@@ -139,6 +159,7 @@ All functions of the interface are available as a JSON API; interactive document
 | `GET /api/agreement?a=bhsa&aref=…&b=sp&bref=…&c=dss&cref=…` | At each place where `a` and `b` differ, which scrolls of `c` (book view) agree with `a`, with `b`, or with neither |
 | `GET /api/compare?a=bhsa&aref=Genesis 1&b=sp&bref=Genesis 1` | Words that differ between two corresponding Hebrew passages, compared on their consonants verse by verse: `matres` (only matres lectionis) or `variant` |
 | `GET /api/searches/{id}/parallel?offset=&limit=&texts=` | A page of results as parallel rows: each result's verse in the searched corpus, highlighted, and in `texts` |
+| `GET /api/corpora/{c}/interlinear?ref=&features=&under=` | A passage word by word: per word its lines in words, the extra features, and its phrase and clause (with function and type); with `under`, another corpus' words aligned under them, with their differences |
 | `GET /api/parallel?lead=&ref=&texts=` | A chapter of `lead` (`Genesis 1`) in the corpora `texts`, as rows of verses with a cell per corpus (the DSS: per scroll), for the parallel interface |
 | `GET /api/corpora/{c}/lexicon` | All lexemes of a corpus with a lexicon (BHSA), in alphabetical order per language |
 | `GET /api/corpora/{c}/lexicon/{n}` | One lexeme, with its number of verses and how often it occurs per book |

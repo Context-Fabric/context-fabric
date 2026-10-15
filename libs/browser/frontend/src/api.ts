@@ -16,6 +16,7 @@ import type {
   SearchStatus,
   SectionItem,
   WitnessPassage,
+  InterlinearPassage,
   ParallelChapter,
 } from "./types";
 
@@ -112,6 +113,21 @@ export const api = {
   witnesses: (corpus: string, ref: string, params: RenderParams) =>
     request<WitnessPassage>(`${corpusPath(corpus)}/witnesses${query({ ref, ...params })}`),
 
+  /** A passage word by word, with extra feature lines and another corpus under it. */
+  interlinear: (
+    corpus: string,
+    ref: string,
+    params: { fmt?: string | null; features?: string[]; under?: string | null },
+  ) =>
+    request<InterlinearPassage>(
+      `${corpusPath(corpus)}/interlinear${query({
+        ref,
+        fmt: params.fmt,
+        features: params.features?.join(","),
+        under: params.under,
+      })}`,
+    ),
+
   /** A chapter of `lead` in the corpora `texts`, as rows of verses. */
   parallel: (lead: string, ref: string, texts: string[], params: RenderParams) =>
     request<ParallelChapter>(`/api/parallel${query({ lead, ref, texts: texts.join(","), ...params })}`),
@@ -137,8 +153,7 @@ export const api = {
       aWitnesses?: Record<string, string[]>;
     }>(`/api/compare${query({ a, aref, b, bref, bview })}`),
 
-  features: (corpus: string) =>
-    request<{ features: FeatureEntry[] }>(`${corpusPath(corpus)}/features`),
+  features: (corpus: string) => request<{ features: FeatureEntry[] }>(`${corpusPath(corpus)}/features`),
 
   feature: (corpus: string, name: string, sampleLimit = 200) =>
     request<{
@@ -166,15 +181,11 @@ export const api = {
       prev: SectionItem | null;
       next: SectionItem | null;
       trees: RenderTree[];
-    }>(
-      `${corpusPath(corpus)}/passage${query({ ref, ...params })}`,
-    ),
+    }>(`${corpusPath(corpus)}/passage${query({ ref, ...params })}`),
 
-  nodeSummary: (corpus: string, node: number) =>
-    request<NodeSummary>(`${corpusPath(corpus)}/nodes/${node}/summary`),
+  nodeSummary: (corpus: string, node: number) => request<NodeSummary>(`${corpusPath(corpus)}/nodes/${node}/summary`),
 
-  nodeInfo: (corpus: string, node: number) =>
-    request<NodeInfo>(`${corpusPath(corpus)}/nodes/${node}/info`),
+  nodeInfo: (corpus: string, node: number) => request<NodeInfo>(`${corpusPath(corpus)}/nodes/${node}/info`),
 
   check: (corpus: string, template: string, signal?: AbortSignal) =>
     request<{ ok: boolean; problems: Problem[] }>(`${corpusPath(corpus)}/check`, {
@@ -238,7 +249,14 @@ export const api = {
 
   lexeme: (corpus: string, node: number) => request<Lexeme>(`${corpusPath(corpus)}/lexicon/${node}`),
 
-  occurrences: (corpus: string, node: number, offset: number, limit: number, book: string | null, fmt?: string | null) =>
+  occurrences: (
+    corpus: string,
+    node: number,
+    offset: number,
+    limit: number,
+    book: string | null,
+    fmt?: string | null,
+  ) =>
     request<{ total: number; offset: number; rows: Occurrence[] }>(
       `${corpusPath(corpus)}/lexicon/${node}/occurrences${query({ offset, limit, book, fmt })}`,
     ),

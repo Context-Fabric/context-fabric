@@ -1,4 +1,5 @@
 import type { Parallel } from "./parallel/state";
+import { DEFAULT_LINES, type Interlinear } from "./interlinear/url";
 import type { Reader } from "./reader/url";
 import { emptyPane, MAX_PANES, type Pane, type Workspace } from "./state";
 
@@ -177,5 +178,35 @@ export function commonToReader(c: Common, corpus: string | null, ref: string | n
     mode: "verses",
     texts: corpus ? c.corpora.filter((t) => t !== corpus) : null,
     diff: c.diff,
+  };
+}
+
+// Interlinear
+
+/** What the Interlinear shows. `aligned` is its chapter in the reference corpus'
+ * numbering (the caller aligns it). It shows no search or lexicon. */
+export function interlinearToCommon(s: Interlinear, aligned: string | null): Partial<Common> {
+  const corpora = s.corpus ? [s.corpus, ...(s.under ? [s.under] : []), ...(s.texts ?? [])] : [];
+  return {
+    corpora: corpora.length ? [...new Set(corpora)] : undefined,
+    ref: aligned,
+    verse: s.verse,
+    searching: false,
+  };
+}
+
+/** A description in the Interlinear: `corpus` (the BHSA, when open) is shown;
+ * the other corpora are carried along. `ref` is in that corpus' numbering. */
+export function commonToInterlinear(c: Common, corpus: string | null, ref: string | null): Interlinear {
+  return {
+    corpus,
+    ref,
+    verse: c.verse,
+    lines: DEFAULT_LINES,
+    under: null,
+    structure: false,
+    hide: null,
+    colour: null,
+    texts: corpus ? c.corpora.filter((t) => t !== corpus) : null,
   };
 }

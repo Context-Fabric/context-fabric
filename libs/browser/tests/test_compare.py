@@ -2,6 +2,7 @@
 
 import pytest
 from cfabric_browser.compare import (
+    align_words,
     consonants,
     diff_units,
     diff_words,
@@ -167,3 +168,35 @@ class TestThreeWay:
         assert with_finals("ארצ") == "ארץ"
         assert with_finals("את") == "את"
         assert with_finals("") == ""
+
+
+class TestAlignWords:
+    def test_word_for_word(self):
+        a = words("בראשית ברא אלהים")
+        b = words("בראשית ברא אלהים", 11)
+        assert align_words(a, b) == [[11], [12], [13]]
+
+    def test_other_word_division(self):
+        # one word in SP where MT has two: it goes with the first
+        a = words("כי טוב ויהי")
+        b = words("כיטוב ויהי", 11)
+        assert align_words(a, b) == [[11], [], [12]]
+
+    def test_two_words_under_one(self):
+        a = words("כיטוב ויהי")
+        b = words("כי טוב ויהי", 11)
+        assert align_words(a, b) == [[11, 12], [13]]
+
+    def test_a_plus_goes_with_the_word_before(self):
+        a = words("ויאמר אלהים")
+        b = words("ויאמר משה אלהים", 11)
+        assert align_words(a, b) == [[11, 12], [13]]
+
+    def test_spelling_differs(self):
+        a = words("בורא שמים")
+        b = words("ברא שמים", 11)
+        assert align_words(a, b) == [[11], [12]]
+
+    def test_empty(self):
+        assert align_words([], words("ברא")) == []
+        assert align_words(words("ברא"), []) == [[]]
