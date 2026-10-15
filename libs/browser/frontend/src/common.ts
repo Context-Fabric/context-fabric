@@ -1,4 +1,5 @@
 import type { Parallel } from "./parallel/state";
+import type { Reader } from "./reader/url";
 import { emptyPane, MAX_PANES, type Pane, type Workspace } from "./state";
 
 // What is being looked at, apart from how an interface shows it. Switching goes
@@ -142,5 +143,39 @@ export function commonToParallel(c: Common): Parallel {
     sc: c.search?.corpus ?? null,
     q: c.search?.q ?? "",
     s: c.search?.s ?? null,
+  };
+}
+
+// Reader
+
+/**
+ * What the Reader shows. `aligned` is its chapter in the reference corpus'
+ * numbering (the caller aligns it). The Reader shows no search or lexicon, so
+ * those are left as they were.
+ */
+export function readerToCommon(r: Reader, aligned: string | null): Partial<Common> {
+  return {
+    corpora: r.corpus ? [r.corpus, ...(r.texts ?? []).filter((t) => t !== r.corpus)] : undefined,
+    ref: aligned,
+    verse: r.verse,
+    searching: false,
+    diff: r.diff,
+  };
+}
+
+/**
+ * A description in the Reader: the first corpus is read, the others are its
+ * parallels. `ref` is the chapter in that corpus' own numbering (the caller
+ * aligns it).
+ */
+export function commonToReader(c: Common, corpus: string | null, ref: string | null): Reader {
+  return {
+    corpus,
+    ref,
+    verse: c.verse,
+    panel: null,
+    mode: "verses",
+    texts: corpus ? c.corpora.filter((t) => t !== corpus) : null,
+    diff: c.diff,
   };
 }

@@ -55,7 +55,22 @@ The server listens on `127.0.0.1` only. Pass `--host` to change that, and only w
 
 The browser has several interfaces, chosen in the menu at the right of the top bar (it shows the name of the one in use). Switching keeps the passage, the corpora, the search, the lexicon and the settings; what an interface cannot show is kept for the next one. The interface used last is remembered by the web browser (or the window); `--ui` only sets the one for a first start. *Choose which to offer…* in the menu leaves interfaces out of it, though never the one in use, nor both *Panes* and *Parallel*.
 
-Two are built; *Reader*, *Interlinear* and *Concordance* are planned (their addresses, `/read/…`, `/interlinear/…` and `/concordance/…`, show a page saying so).
+Three are built: *Panes*, *Parallel* and *Reader*. *Interlinear* and *Concordance* are planned; their addresses, `/interlinear/…` and `/concordance/…`, show a page saying so.
+
+### Reader
+
+*Reader* (`/read/bhsa/Genesis/1?v=3&panel=parallels`) is after Sefaria. It shows one text in a quiet, wide column.
+
+- **Reading:**
+  - *Verses* gives a line per verse; *Running text* runs the verses on, with a new paragraph after each petuhah (פ) or setumah (ס) in the text.
+  - Scrolling goes on into the next chapters, and the address follows the chapter at the top.
+  - `‹ ›`, the arrow keys and the chapter name (for the books and chapters) work as in *Parallel*. The menu next to it chooses the text to read.
+- **The panel:** clicking a verse marks it and opens the panel, on the right (on a phone, from the bottom). Clicking a word opens the panel at that word. Its tabs:
+  - *Parallels*: the verse in the other texts, chosen with *Texts*; the DSS per scroll; *Show differences* marks them, in the text read as well.
+  - *Words*: the words of the verse with gloss and morphology; click one for everything about it.
+  - *Lexicon*: the verse's lexemes with gloss and frequency. *All* opens the lexicon in *Parallel*.
+  - *Search*: a search for words like one of the verse's, opened in *Parallel*.
+  - *Notes*: your own note and bookmark (★) on the verse, and a list of all your notes. They are kept in this browser (or the program's window), never sent anywhere, and are included in exported workspaces.
 
 - *Panes* (`/?c0=bhsa&ref0=Genesis+1&...`): up to four panes side by side, each with its own corpus, passage and view.
 - *Parallel* (`/Genesis/1?texts=bhsa,sp,dss`), laid out after [Parabible](https://parabible.com): a slim top bar with the chapter (`‹ ›` and ←/→ for the neighbours, the chapter name for a drawer with the books and their chapters), and a column per corpus. *Texts* turns open corpora on and off, orders the columns, and adds more from the corpora on this computer; `–` on a column removes it. The chapters follow the BHSA's numbering, also when the BHSA is not shown (it is opened in the background when it is on this computer); without it, the first column's. Each row is a verse: verses are matched by book (through the book concordance), chapter and verse number, there is a row for every verse number in any of the texts, and a text that lacks a verse has an empty cell. A corpus read by biblical book (DSS) shows in each cell the text of every scroll that has the verse, labelled with the scroll. A corpus without the chapter keeps a narrow column marked *not in this corpus*.

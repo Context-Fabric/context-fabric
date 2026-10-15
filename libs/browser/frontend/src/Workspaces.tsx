@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
+import { importNotes, loadNotes } from "./shared/notes";
 import { navigate, rememberUi, uiOfUrl, type Ui } from "./ui";
 
 // Saved workspaces: named snapshots of the workspace URL (panes, corpora,
@@ -163,7 +164,15 @@ export function Workspaces({ corpora, onLoad, current = "classic" }: Props) {
     download(
       title,
       JSON.stringify(
-        { format: FORMAT, version: 1, name: title, saved: new Date().toISOString(), url: currentUrl(current) },
+        {
+          format: FORMAT,
+          version: 1,
+          name: title,
+          saved: new Date().toISOString(),
+          url: currentUrl(current),
+          // the user's notes on verses (the Reader) travel with the workspace
+          notes: loadNotes(),
+        },
         null,
         2,
       ),
@@ -172,7 +181,9 @@ export function Workspaces({ corpora, onLoad, current = "classic" }: Props) {
 
   const importFile = async (file: File) => {
     try {
-      const result = workspaceFromFile(JSON.parse(await file.text()), corpora);
+      const data = JSON.parse(await file.text());
+      const result = workspaceFromFile(data, corpora);
+      if (typeof result !== "string" && data?.notes && typeof data.notes === "object") importNotes(data.notes);
       if (typeof result === "string") {
         setMessage(result);
         return;
