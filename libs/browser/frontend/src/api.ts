@@ -16,6 +16,7 @@ import type {
   SearchStatus,
   SectionItem,
   WitnessPassage,
+  ParallelChapter,
 } from "./types";
 
 export class ApiError extends Error {
@@ -110,6 +111,10 @@ export const api = {
 
   witnesses: (corpus: string, ref: string, params: RenderParams) =>
     request<WitnessPassage>(`${corpusPath(corpus)}/witnesses${query({ ref, ...params })}`),
+
+  /** A chapter of `lead` in the corpora `texts`, as rows of verses. */
+  parallel: (lead: string, ref: string, texts: string[], params: RenderParams) =>
+    request<ParallelChapter>(`/api/parallel${query({ lead, ref, texts: texts.join(","), ...params })}`),
 
   /** Words that differ between a passage of `a` and the corresponding passage of `b`. */
   compare: (a: string, aref: string, b: string, bref: string, bview: ReadBy = "sections") =>

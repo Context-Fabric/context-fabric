@@ -1,25 +1,21 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
-import { DisplayProvider, displayRef, Plain } from "../display/Display";
+import { displayRef } from "../display/Display";
 import { Library } from "../Library";
 import { useSettings, useTheme } from "../state";
 import { switchToClassic } from "../switch";
-import type { CorpusCard, ViewSettings } from "../types";
+import type { CorpusCard } from "../types";
 import { REFERENCE_IDS } from "../ui";
 import { UiSwitch } from "../UiSwitch";
 import { useParallel } from "./state";
+import { Table } from "./Table";
 
 // The parallel interface, after Parabible's layout: a slim top bar with the
 // chapter, a drawer with the books, and a column per corpus.
 
 function Mark() {
   return <img src="/favicon.svg" alt="" className="h-5 w-5" />;
-}
-
-/** The text formats a corpus has; another corpus' format falls back to its default. */
-function settingsFor(card: CorpusCard, settings: ViewSettings): ViewSettings {
-  return settings.fmt && !card.display.textFormats.includes(settings.fmt) ? { ...settings, fmt: null } : settings;
 }
 
 /** The open corpora and their cards. */
@@ -269,79 +265,6 @@ function Texts({
   );
 }
 
-/** One corpus' text of the chapter, verse by verse. (Rows aligned across columns come next.) */
-function Column({
-  card,
-  reference,
-  chapter,
-  settings,
-  onRemove,
-}: {
-  card: CorpusCard;
-  reference: string;
-  chapter: string;
-  settings: ViewSettings;
-  onRemove: () => void;
-}) {
-  const aligned = useQuery({
-    queryKey: ["align", card.name, reference, chapter],
-    queryFn: () =>
-      card.name === reference
-        ? Promise.resolve({ node: 0, ref: chapter, exact: true })
-        : api.align(card.name, reference, chapter),
-    enabled: !card.bookView,
-  });
-  const ref = aligned.data?.node === null ? null : (aligned.data?.ref ?? null);
-  const own = settingsFor(card, settings);
-  const passage = useQuery({
-    queryKey: ["passage", card.name, ref, "plain", own.fmt, own.hideTypes],
-    queryFn: () => api.passage(card.name, ref!, { mode: "plain", fmt: own.fmt, hide_types: own.hideTypes }),
-    enabled: ref !== null,
-    placeholderData: (previous) => previous,
-  });
-
-  return (
-    <section className="min-w-0" aria-label={card.name}>
-      <header className="sticky top-0 z-10 flex items-center border-b border-rule bg-vellum px-2 py-1 text-[13px]">
-        <span className="flex-1 text-center font-semibold" title={card.title}>
-          {card.name}
-        </span>
-        <button
-          type="button"
-          onClick={onRemove}
-          className="rounded px-1.5 text-stone hover:bg-woad-soft hover:text-ink"
-          aria-label={`Remove ${card.name}`}
-          title="Remove this text"
-        >
-          –
-        </button>
-      </header>
-      <div className={`px-2 py-2 ${passage.isFetching ? "opacity-70" : ""}`}>
-        {card.bookView ? (
-          <p className="text-[13px] text-stone">The scrolls will be shown here verse by verse.</p>
-        ) : aligned.data?.node === null ? (
-          <p className="text-[13px] text-stone">Not in {card.name}.</p>
-        ) : passage.error ? (
-          <p className="text-[13px] text-madder">{String((passage.error as Error).message)}</p>
-        ) : passage.data ? (
-          <DisplayProvider config={card.display} settings={own}>
-            {passage.data.trees.map((tree) => (
-              <p key={tree.node} dir={tree.direction} className="py-1">
-                <sup dir="ltr" className="me-1 text-[11px] font-semibold tabular-nums text-madder">
-                  {tree.heading.split(/[ :.]/).pop()}
-                </sup>
-                <Plain tree={tree} />
-              </p>
-            ))}
-          </DisplayProvider>
-        ) : (
-          <p className="text-[13px] text-stone">…</p>
-        )}
-      </div>
-    </section>
-  );
-}
-
 /** The first chapter of the first book, to start with. */
 async function firstChapter(corpus: string): Promise<string | null> {
   const books = await api.sections(corpus);
@@ -392,18 +315,16 @@ export function ParallelApp() {
     }
   }, [noCorpora]);
 
-  // the chapter in the lead corpus, for its neighbours
-  const leadCard = lead ? cards[lead] : undefined;
-  const leadSettings = leadCard ? settingsFor(leadCard, settings) : settings;
-  const leadPassage = useQuery({
-    queryKey: ["passage", lead, state.ref, "plain", leadSettings.fmt, leadSettings.hideTypes],
+  // the chapter in all shown corpora, verse by verse
+  const chapter = useQuery({
+    queryKey: ["parallel", lead, state.ref, texts.join(","), settings.fmt, settings.hideTypes],
     queryFn: () =>
-      api.passage(lead!, state.ref!, { mode: "plain", fmt: leadSettings.fmt, hide_types: leadSettings.hideTypes }),
-    enabled: lead !== null && state.ref !== null && leadCard !== undefined,
+      api.parallel(lead!, state.ref!, texts, { mode: "plain", fmt: settings.fmt, hide_types: settings.hideTypes }),
+    enabled: lead !== null && state.ref !== null && ready,
     placeholderData: (previous) => previous,
   });
-  const prev = leadPassage.data?.prev ?? null;
-  const next = leadPassage.data?.next ?? null;
+  const prev = chapter.data?.prev ?? null;
+  const next = chapter.data?.next ?? null;
 
   useEffect(() => {
     document.title = state.ref ? `${displayRef(state.ref)}: Context-Fabric` : "Context-Fabric Browser";
@@ -508,24 +429,20 @@ export function ParallelApp() {
         ) : !shown.length ? (
           <p className="p-10 text-stone">No text is shown. Choose one under Texts.</p>
         ) : (
-          <div
-            className="mx-auto grid gap-x-4 px-3 py-2"
-            style={{
-              gridTemplateColumns: `repeat(${shown.length}, minmax(0, 1fr))`,
-              maxWidth: `${Math.min(shown.length * 26, 110)}rem`,
-            }}
-          >
-            {shown.map((card) => (
-              <Column
-                key={card.name}
-                card={card}
-                reference={lead}
-                chapter={state.ref!}
+          chapter.error ? (
+            <p className="p-10 text-madder">{String((chapter.error as Error).message)}</p>
+          ) : chapter.data ? (
+            <div className={chapter.isFetching ? "opacity-70" : ""}>
+              <Table
+                data={chapter.data}
+                cards={cards}
                 settings={settings}
-                onRemove={() => actions.setTexts(texts.filter((t) => t !== card.name))}
+                onRemove={(name) => actions.setTexts(texts.filter((t) => t !== name))}
               />
-            ))}
-          </div>
+            </div>
+          ) : (
+            <p className="p-10 text-stone">Loading…</p>
+          )
         )}
       </main>
 
