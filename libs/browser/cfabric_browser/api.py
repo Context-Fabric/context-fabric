@@ -301,6 +301,7 @@ def build_router(
             "size": download.size,
             "unpacked": download.unpacked,
             "terms": download.terms,
+            "licence": download.licence,
             # in any of the places the library looks
             "present": any(is_present(download, root) for root in service.roots),
             "job": fetches.status(download.id),

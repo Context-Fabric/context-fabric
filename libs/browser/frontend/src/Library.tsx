@@ -319,7 +319,8 @@ function Downloads({ onDone }: { onDone: (corpus: string) => void }) {
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold">{d.title.split(" = ").pop()}</p>
               <p className="text-[13px] text-stone">
-                {d.id}, version {d.version}: {megabytes(d.size)} to download, {megabytes(d.unpacked)} on disk.{" "}
+                {d.id}, version {d.version}: {megabytes(d.size)} to download, {megabytes(d.unpacked)} on disk.
+                {d.licence ? ` Licence: ${d.licence}.` : ""}{" "}
                 <a href={d.terms} target="_blank" rel="noreferrer" className="text-woad hover:underline">
                   Terms of use
                 </a>
