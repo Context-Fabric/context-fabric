@@ -35,6 +35,7 @@ def create_app(
     static_dir: Path = STATIC,
     manage_pool: bool = True,
     library: bool = True,
+    ui: str = "classic",
 ) -> FastAPI:
     """Build the application.
 
@@ -51,6 +52,9 @@ def create_app(
     library: bool
         Let people open other corpora found on this computer. Switch this off
         when the browser is reachable by others.
+    ui: str
+        The interface to start in when the user has not chosen one yet:
+        `classic` (panes) or `parallel` (a column per corpus, a row per verse).
     """
 
     @asynccontextmanager
@@ -82,6 +86,7 @@ def create_app(
             "searchReady": pool.ready,
             "version": __version__,
             "coreVersion": coreVersion,
+            "ui": ui,
         }
 
     index = static_dir / "index.html"

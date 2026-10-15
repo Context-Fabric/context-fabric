@@ -104,6 +104,7 @@ class TestDescribe:
         data = client.get("/api/health").json()
         assert data["ok"] is True
         assert data["searchReady"] is True
+        assert data["ui"] == "classic"
 
     def test_list_corpora(self, client):
         data = client.get("/api/corpora").json()
@@ -113,6 +114,8 @@ class TestDescribe:
         card = client.get("/api/corpora/alpha").json()
         assert card["slotType"] == "word"
         assert card["maxSlot"] == 12
+        # org/repo from the Text-Fabric layout <org>/<repo>/tf/<version>
+        assert card["id"] == "fixtures/display_corpus"
         assert card["sectionTypes"] == ["book", "chapter", "verse"]
         assert {"type": "clause", "count": 3, "isSlot": False} in card["nodeTypes"]
         assert card["display"]["direction"] == "rtl"

@@ -28,6 +28,7 @@ Options:
 - `--max-results`: results kept per search (default 500,000).
 - `--no-open`: don't open a web browser.
 - `--window` (`--no-window`): show the browser in a window of its own instead of a web browser (needs pywebview: `pip install cfabric-browser[desktop]`). Closing the window stops the server. Without `--port` it uses the first free port from 8107, so several windows can run at once. The window keeps its settings, search history and saved workspaces in `~/.cfabric/window`.
+- `--ui classic|parallel`: the interface to start in until the user switches (default `classic`; permanently `ui:` in `~/.cfabric/browser.yaml`). See *Two interfaces*.
 - `--no-library`: don't let users open other corpora found on this computer. Then at least one corpus must be given.
 - `--only ORG/REPO`: limit the *Open a corpus* list to these corpora (repeatable), e.g. for a test with a few corpora; others can't be opened from the browser either. Permanently: `library: only:` in `~/.cfabric/browser.yaml`.
 - `--hide ORG/REPO`: leave a corpus out of the *Open a corpus* list (repeatable). To do this permanently, list them in `~/.cfabric/browser.yaml`:
@@ -41,6 +42,15 @@ Options:
   The list also shows copies of one corpus (same title, such as a fork) only once, keeping the one with the newest data.
 
 The server listens on `127.0.0.1` only. Pass `--host` to change that, and only when you know what you're doing.
+
+## Two interfaces
+
+The browser has two interfaces, with a switch (*Panes* / *Parallel*) in the top bar of each that keeps the passage, the corpora and the settings. The interface used last is remembered by the web browser (or the window); `--ui` only sets the one for a first start.
+
+- *Panes* (`/?c0=bhsa&ref0=Genesis+1&...`): up to four panes side by side, each with its own corpus, passage and view.
+- *Parallel* (`/Genesis/1?texts=bhsa,sp,dss`), laid out after [Parabible](https://parabible.com): a slim top bar with the chapter (`‹ ›` and ←/→ for the neighbours, the chapter name for a drawer with the books and their chapters), and a column per corpus. *Texts* turns open corpora on and off, orders the columns, and adds more from the corpora on this computer; `–` on a column removes it. The chapters follow the BHSA's numbering, also when the BHSA is not shown (it is opened in the background when it is on this computer); without it, the first column's.
+
+The parallel interface is being built: rows aligned verse by verse, the DSS, differences, the word panel and search follow.
 
 ## Queries
 
