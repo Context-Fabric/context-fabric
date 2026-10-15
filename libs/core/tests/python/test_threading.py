@@ -132,8 +132,9 @@ def test_count_releases_the_gil(pairs_api):
 def _hold_the_gil(seconds: float) -> None:
     """Hold the GIL for about ``seconds`` in one C call: ``sum`` over a
     ``range`` never lets other threads in, so it stands in for an engine call
-    that forgets to release the GIL."""
-    sample = 1_000_000
+    that forgets to release the GIL. The duration is calibrated, so it can be
+    off by a factor of two on slow or emulated machines."""
+    sample = 10_000_000
     started = time.perf_counter()
     sum(range(sample))
     per_item = (time.perf_counter() - started) / sample
@@ -143,7 +144,8 @@ def _hold_the_gil(seconds: float) -> None:
 def test_holding_the_gil_fails_the_check():
     """The check tells a call that holds the GIL from one that releases it."""
     with pytest.raises(AssertionError, match="ticks in"):
-        _assert_releases_the_gil(lambda: _hold_the_gil(1.0))
+        # Aim well past the shortest observable call even if calibration is off.
+        _assert_releases_the_gil(lambda: _hold_the_gil(3.0))
 
 
 def test_concurrent_searches_match_serial_results(api):
