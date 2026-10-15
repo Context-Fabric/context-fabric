@@ -7,9 +7,16 @@ export function Hero() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-12 items-center">
         {/* Content */}
         <div className="max-w-[480px] lg:max-w-none text-center lg:text-left mx-auto lg:mx-0">
-          <div className="inline-block text-[0.8125rem] font-medium text-[var(--color-accent)] tracking-wide uppercase mb-6">
-            AI-Native Corpus Engine
-          </div>
+          <Link
+            href="#whats-new"
+            className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-accent-muted)] pl-1.5 pr-3.5 py-1 mb-6 text-[0.8125rem] font-medium hover:border-[var(--color-accent)] transition-colors"
+          >
+            <span className="rounded-full bg-[var(--color-accent)] text-[#1C1F23] px-2 py-0.5 text-[0.6875rem] font-semibold uppercase tracking-wider">
+              New
+            </span>
+            0.6.0rc1: a new Rust engine
+            <span aria-hidden="true">&darr;</span>
+          </Link>
           <h1 className="text-[2.25rem] md:text-[3.25rem] leading-[1.15] mb-6 tracking-tight">
             From research notebooks to production APIs
           </h1>
