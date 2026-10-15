@@ -73,9 +73,8 @@ CONTEXT_FABRIC_RUN_PARITY=1 .venv/bin/python -m pytest tests/parity
 ```
 
 Text-Fabric holds BHSA in about 6.5 GB, and one pytest process keeps every
-corpus it loaded, so the full suite peaks above 7.5 GB; under a memory cap, run
-`test_tf_oracle_parity.py` and `test_tf_strict_api_parity.py` one test per
-process (`pytest "tests/parity/test_tf_oracle_parity.py::<test>[bhsa]"`).
+corpus it loaded, so the full suite peaks at about 9 GB of memory (about 2.5
+minutes on an M-series Mac).
 
 `tests/parity/test_golden.py` compares Context-Fabric with the Text-Fabric
 answers recorded in `tests/golden/golden/*.json` and checks that Text-Fabric
