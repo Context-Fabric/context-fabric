@@ -101,6 +101,8 @@ export const api = {
 
   startDownload: (id: string) => request<CorpusDownload>(`/api/downloads/${id}`, { method: "POST" }),
 
+  cancelDownload: (id: string) => request<CorpusDownload>(`/api/downloads/${id}`, { method: "DELETE" }),
+
   translations: () => request<{ enabled: boolean; translations: Translation[] }>("/api/translations"),
 
   translation: (id: string) => request<Translation>(`/api/translations/${encodeURIComponent(id)}`),

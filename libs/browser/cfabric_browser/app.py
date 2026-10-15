@@ -41,6 +41,7 @@ def create_app(
     hidden_uis: list[str] | None = None,
     translations: Jobs | None = None,
     downloads: DownloadJobs | None = None,
+    ask_downloads: bool = False,
 ) -> FastAPI:
     """Build the application.
 
@@ -69,6 +70,9 @@ def create_app(
     downloads: DownloadJobs | None
         Where corpora are downloaded to (`cfabric_browser.downloads`); by
         default the first place the library looks.
+    ask_downloads: bool
+        At the start, offer to download the corpora that can be downloaded and
+        are missing (the standalone program).
     """
 
     @asynccontextmanager
@@ -110,6 +114,8 @@ def create_app(
             "coreVersion": coreVersion,
             "ui": ui,
             "hiddenUis": list(hidden_uis or []),
+            # offer the missing corpora at the start (/api/downloads)
+            "askDownloads": ask_downloads and library,
         }
 
     index = static_dir / "index.html"

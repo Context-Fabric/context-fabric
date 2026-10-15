@@ -47,12 +47,14 @@ export function ParallelApp() {
   // the numbering the rows follow: the BHSA, or else the first column's
   const lead = reference.name ?? texts[0] ?? names[0] ?? null;
 
-  // a first visit shows every open corpus
+  // a first visit shows every open corpus, the reference (BHSA) first, as the
+  // one the others are compared with
   useEffect(() => {
     if (state.texts === null && ready && reference.settled && names.length) {
-      actions.setTexts(names);
+      const first = reference.name;
+      actions.setTexts(first && names.includes(first) ? [first, ...names.filter((n) => n !== first)] : names);
     }
-  }, [state.texts, ready, reference.settled, names, actions]);
+  }, [state.texts, ready, reference.settled, reference.name, names, actions]);
 
   // started without a chapter: the first one
   useEffect(() => {

@@ -68,7 +68,10 @@ if __name__ == "__main__":
         only = [arg for corpus in CORPORA for arg in ("--only", corpus)]
         # the test version starts in the parallel interface; the switch in its
         # top bar goes to the panes, and the window remembers the choice
-        status = main(["--window", "--ui", "parallel", *only, *sys.argv[1:]])
+        # and offers to download the corpora that are missing
+        status = main(
+            ["--window", "--ui", "parallel", "--ask-downloads", *only, *sys.argv[1:]]
+        )
     except SystemExit as e:  # argparse
         status = e.code if isinstance(e.code, int) else 1
     except Exception:  # noqa: BLE001 - into the log, then the error message

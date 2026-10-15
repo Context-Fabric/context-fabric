@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { App } from "./App";
 import { NotYet } from "./NotYet";
+import { StartDownloads } from "./StartDownloads";
 import { INTERFACES, isUi, rememberedUi, rememberUi, uiOfUrl, type Ui } from "./ui";
 
 const ParallelApp = lazy(() => import("./parallel/ParallelApp").then((m) => ({ default: m.ParallelApp })));
@@ -12,6 +13,15 @@ const InterlinearApp = lazy(() => import("./interlinear/InterlinearApp").then((m
 /** Shows the interface the URL is for; at the bare start page the one used last,
  * or the server's default (`--ui`). */
 export function Root() {
+  // the standalone program first offers the corpora that are missing
+  return (
+    <StartDownloads>
+      <Interface />
+    </StartDownloads>
+  );
+}
+
+function Interface() {
   const [fromUrl, setFromUrl] = useState<Ui | null>(() => uiOfUrl());
   useEffect(() => {
     const onPop = () => setFromUrl(uiOfUrl());
