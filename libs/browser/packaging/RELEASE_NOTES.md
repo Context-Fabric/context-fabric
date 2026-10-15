@@ -25,7 +25,7 @@ The program reads them where [Text-Fabric](https://annotation.github.io/text-fab
 
 The program isn't signed yet, so your computer warns about it the first time.
 
-**Windows:** unpack the zip, open the folder `cfabric-browser` and double-click `cfabric-browser.exe`. If Windows says "Windows protected your PC", click *More info* and then *Run anyway*. Keep the folder together: the program needs the `_internal` folder next to it.
+**Windows:** unpack the zip, open the folder `cfabric-browser` and double-click `cfabric-browser.exe`. If Windows says "Windows protected your PC", click *More info* and then *Run anyway*. Keep the folder together: the program needs the `_internal` folder next to it. If the window doesn't open, right-click the downloaded zip before unpacking it, choose *Properties*, tick *Unblock*, and unpack it again.
 
 **macOS:** unpack the zip and move `Context-Fabric.app` to *Applications*. The first time, right-click it, choose *Open*, and then *Open* again. If macOS only offers to move it to the bin, go to *System Settings → Privacy & Security* and click *Open Anyway*.
 
@@ -56,6 +56,7 @@ The program opens in **Parallel**, laid out after [Parabible](https://parabible.
 ## Known limitations
 
 - Fixed since test.2: switching from *Panes* to *Parallel* could give an empty page.
+- Fixed since test.3: on Windows, the program could fail to start when its zip was unpacked with Explorer.
 
 - On macOS and Linux, the window hasn't been tried by anyone yet. You're the first.
 - Corpora can't be downloaded from the program yet.

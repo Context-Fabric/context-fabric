@@ -1,6 +1,7 @@
 """Entry point of the standalone program: the browser in a window of its own."""
 
 import multiprocessing
+import os
 import sys
 import traceback
 from pathlib import Path
@@ -29,6 +30,25 @@ def log_to_file() -> bool:
     return True
 
 
+def unblock_libraries() -> None:
+    """Take Windows' download mark off the program's own libraries.
+
+    Unpacking a downloaded zip with Explorer marks every file as coming from the
+    internet (an alternate data stream `Zone.Identifier`), and .NET Framework
+    then refuses to load the assemblies the window needs (pythonnet's
+    `Python.Runtime.dll`). Removing the mark is what *Unblock* in a file's
+    properties does; only the libraries inside the program's folder are touched.
+    """
+    if sys.platform != "win32" or not getattr(sys, "frozen", False):
+        return
+    internal = Path(sys.executable).parent / "_internal"
+    for library in internal.rglob("*.dll"):
+        try:
+            os.remove(f"{library}:Zone.Identifier")
+        except OSError:
+            pass  # not marked, or not ours to change
+
+
 def show_error(message: str) -> None:
     """Tell the user that the program could not start (there is no console)."""
     if sys.platform == "win32":
@@ -42,6 +62,7 @@ if __name__ == "__main__":
     # In a frozen program, each search worker starts the program again; this
     # turns that start into the worker instead of a second window.
     multiprocessing.freeze_support()
+    unblock_libraries()
     try:
         only = [arg for corpus in CORPORA for arg in ("--only", corpus)]
         # the test version starts in the parallel interface; the switch in its

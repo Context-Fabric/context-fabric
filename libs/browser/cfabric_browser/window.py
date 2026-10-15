@@ -31,7 +31,6 @@ def run_window(app: Any, host: str, port: int, url: str) -> int:
     """Serve `app` in a background thread and show it in a window until closed."""
     try:
         import webview
-        from webview.errors import WebViewException
     except ImportError:
         print(
             "cfabric-browser: --window needs pywebview:"
@@ -64,8 +63,9 @@ def run_window(app: Any, host: str, port: int, url: str) -> int:
     STORAGE.mkdir(parents=True, exist_ok=True)
     try:
         webview.start(private_mode=False, storage_path=str(STORAGE))
-    except WebViewException as e:
-        # no window toolkit (on Linux pywebview needs GTK or Qt): use a web browser
+    except Exception as e:  # noqa: BLE001
+        # no window toolkit (on Linux pywebview needs GTK or Qt; on Windows .NET
+        # may refuse to load it), or the window failed: use a web browser
         print(f"No window possible ({e}); opening a web browser instead.", flush=True)
         print(f"Context-Fabric browser at {url}  (Ctrl+C to stop)", flush=True)
         webbrowser.open(url)
