@@ -7,7 +7,7 @@ use pyo3::types::{PyList, PyTuple};
 
 use crate::bindings::api_ref::ApiRef;
 use crate::bindings::convert::{
-    as_str_refs, collect_nodes, node_number, node_types_from_py, nodes_to_tuple,
+    NodeRange, as_str_refs, node_list, node_number, node_types_from_py, nodes_to_tuple,
 };
 use crate::mapped::{MappedCompiledCorpus, MappedSections, SectionsContext};
 
@@ -179,7 +179,7 @@ impl PyLocality {
         nodes: &Bound<'_, PyAny>,
         otype: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyObject> {
-        let nodes = collect_nodes(nodes)?;
+        let nodes = node_list(nodes, NodeRange::Lenient)?;
         let types = node_types_from_py(otype)?;
         let refs = as_str_refs(&types);
         let sections = MappedSections::new(&self.corpus)?;
@@ -206,7 +206,7 @@ impl PyLocality {
         nodes: &Bound<'_, PyAny>,
         otype: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyObject> {
-        let nodes = collect_nodes(nodes)?;
+        let nodes = node_list(nodes, NodeRange::Lenient)?;
         let types = node_types_from_py(otype)?;
         let refs = as_str_refs(&types);
         let sections = MappedSections::new(&self.corpus)?;

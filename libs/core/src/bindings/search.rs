@@ -5,10 +5,10 @@ use std::sync::Arc;
 
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyBool, PyDict, PyIterator, PySet, PyTuple};
+use pyo3::types::{PyBool, PyDict, PySet, PyTuple};
 
 use crate::bindings::api_ref::ApiRef;
-use crate::bindings::convert::nodes_from_py;
+use crate::bindings::convert::{NodeRange, node_list};
 use crate::bindings::timestamp::{Silent, write_console};
 use crate::mapped::{
     MappedCompiledCorpus, SectionOptions, SectionsContext, TextOptions, TextRenderer,
@@ -20,9 +20,13 @@ use crate::value::FeatureValue;
 type OwnedSearchSets = Vec<(String, Vec<u32>)>;
 
 /// Convert the Python `sets=` argument (a dict mapping a set name to an
-/// iterable of node ids) into owned `(name, nodes)` pairs. The engine's
+/// iterable of node ids) into owned `(name, nodes)` pairs. Every node must be
+/// a node of the corpus, `1..=max_node` (`IndexError` otherwise). The engine's
 /// `SearchSets` borrows the names, so the owned storage must outlive the call.
-fn search_sets_from_py(sets: Option<&Bound<'_, PyAny>>) -> PyResult<Option<OwnedSearchSets>> {
+fn search_sets_from_py(
+    sets: Option<&Bound<'_, PyAny>>,
+    max_node: u32,
+) -> PyResult<Option<OwnedSearchSets>> {
     let Some(sets) = sets else {
         return Ok(None);
     };
@@ -37,10 +41,7 @@ fn search_sets_from_py(sets: Option<&Bound<'_, PyAny>>) -> PyResult<Option<Owned
         let name = key
             .extract::<String>()
             .map_err(|_| PyTypeError::new_err("sets keys must be strings (custom set names)"))?;
-        let nodes = PyIterator::from_object(&value)?
-            .map(|item| item?.extract::<u32>())
-            .collect::<PyResult<Vec<_>>>()?;
-        owned.push((name, nodes));
+        owned.push((name, node_list(&value, NodeRange::Strict { max_node })?));
     }
     Ok(Some(owned))
 }
@@ -245,7 +246,7 @@ impl PySearch {
     ) -> PyResult<()> {
         let _ = (strategy, here);
         let _ = silent;
-        let owned_sets = search_sets_from_py(sets)?;
+        let owned_sets = search_sets_from_py(sets, self.corpus.max_node())?;
         let engine = MappedSearch::new(&self.corpus)?;
         let result = py.allow_threads(|| match borrow_search_sets(&owned_sets) {
             Some(sets) => engine.search_with_sets(searchTemplate, &sets, Some(1)),
@@ -291,7 +292,7 @@ impl PySearch {
     ) -> PyResult<PyObject> {
         let _ = here;
         let _ = silent;
-        let owned_sets = search_sets_from_py(sets)?;
+        let owned_sets = search_sets_from_py(sets, self.corpus.max_node())?;
         let limit = self.tf_limit(limit);
         self.run_search(py, searchTemplate, limit, &owned_sets, shallow.0)
     }
@@ -365,7 +366,7 @@ impl PySearch {
     /// section node becomes empty, and any other node becomes
     /// `"otype[<text of first 5 slots>...]"`. Fields are joined with a space.
     fn glean(&self, tup: &Bound<'_, PyAny>) -> PyResult<String> {
-        let nodes = nodes_from_py(Some(tup))?.unwrap_or_default();
+        let nodes = node_list(tup, NodeRange::Lenient)?;
         if nodes.is_empty() {
             return Ok(String::new());
         }

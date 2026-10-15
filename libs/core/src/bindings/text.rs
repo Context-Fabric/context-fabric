@@ -9,7 +9,7 @@ use pyo3::types::{PyDict, PyInt, PyList, PySet, PyString, PyTuple};
 
 use crate::bindings::api_ref::ApiRef;
 use crate::bindings::convert::{
-    collect_nodes, heading_from_py, heading_to_py, node_number, nodes_from_py, nodes_to_tuple,
+    NodeRange, heading_from_py, heading_to_py, node_list, node_number, nodes_to_tuple,
     option_feature_value_to_py, optional_node_number, section_from_py, structure_tree_to_py,
 };
 use crate::bindings::timestamp::write_console;
@@ -297,7 +297,7 @@ impl PyText {
         let nodes = if nodes.is_instance_of::<PyInt>() {
             vec![node_number(nodes)?]
         } else {
-            nodes_from_py(Some(nodes))?.unwrap_or_default()
+            node_list(nodes, NodeRange::Lenient)?
         };
         if explain {
             let func_rep = if func.is_some() { "" } else { "no " };
@@ -372,7 +372,7 @@ impl PyText {
             if item.is_instance_of::<PyInt>() {
                 renderer.render_into(node_number(&item)?, &options, &mut rendered)?;
             } else {
-                for node in collect_nodes(&item)? {
+                for node in node_list(&item, NodeRange::Lenient)? {
                     renderer.render_into(node, &options, &mut rendered)?;
                 }
             }

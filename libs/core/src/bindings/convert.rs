@@ -1,9 +1,9 @@
 //! Conversions between Python objects and core values: node numbers, node
 //! lists, feature values, headings and node type filters.
 
-use pyo3::exceptions::{PyAttributeError, PyOverflowError, PyTypeError};
+use pyo3::exceptions::{PyAttributeError, PyIndexError, PyOverflowError, PyTypeError};
 use pyo3::prelude::*;
-use pyo3::types::{PyInt, PyIterator, PyString, PyTuple};
+use pyo3::types::{PyInt, PyString, PyTuple};
 
 use crate::index::{StructureHeading, StructureTree};
 use crate::mapped::MappedNodeValue;
@@ -11,19 +11,6 @@ use crate::value::FeatureValue;
 
 pub(crate) fn nodes_to_tuple(py: Python<'_>, nodes: Vec<u32>) -> PyResult<PyObject> {
     Ok(PyTuple::new(py, nodes)?.into())
-}
-
-pub(crate) fn nodes_from_py(items: Option<&Bound<'_, PyAny>>) -> PyResult<Option<Vec<u32>>> {
-    let Some(items) = items else {
-        return Ok(None);
-    };
-    if items.is_none() {
-        return Ok(None);
-    }
-    let iter = PyIterator::from_object(items)?;
-    iter.map(|item| item?.extract::<u32>())
-        .collect::<PyResult<Vec<_>>>()
-        .map(Some)
 }
 
 pub(crate) fn option_feature_value_to_py(
@@ -162,19 +149,58 @@ pub(crate) fn mapped_value_from_feature(value: &FeatureValue) -> MappedNodeValue
     }
 }
 
+/// Which node numbers a node-list argument accepts.
+#[derive(Clone, Copy)]
+pub(crate) enum NodeRange {
+    /// Any integer. Numbers that name no node become node 0, so each entry is
+    /// answered like the single-node call (`None` / `()`), as by
+    /// [`node_number`]. For per-node lookups (`F.<f>.vs`, `L.u_many`,
+    /// `T.text_many`, ...).
+    Lenient,
+    /// Only the corpus's nodes `1..=max_node`; anything else raises
+    /// `IndexError` naming it. For calls that order or select nodes, which
+    /// cannot answer for a missing one (`N.sortNodes`, search `sets=`).
+    Strict { max_node: u32 },
+}
+
 /// Collects any Python iterable of node ids (`list` / `tuple` / `range` / `set`
-/// / numpy integer array) into an owned `Vec<u32>`. Shared by the additive batch
-/// APIs (`F.<feat>.vs`, `L.u_many`, `T.text_many`, ...) so the per-element
-/// Python<->Rust boundary crossing happens exactly once for the whole batch.
-pub(crate) fn collect_nodes(items: &Bound<'_, PyAny>) -> PyResult<Vec<u32>> {
+/// / numpy integer array) into an owned `Vec<u32>`, the per-element
+/// Python<->Rust boundary crossing happening once for the whole list. `range`
+/// decides what an out-of-range number does. Non-integers raise `TypeError`.
+pub(crate) fn node_list(items: &Bound<'_, PyAny>, range: NodeRange) -> PyResult<Vec<u32>> {
     let iter = items
         .try_iter()
         .map_err(|_| PyTypeError::new_err("expected an iterable of node ids (int)"))?;
     let mut nodes = Vec::with_capacity(items.len().unwrap_or(0));
     for item in iter {
-        nodes.push(item?.extract::<u32>()?);
+        let item = item?;
+        nodes.push(match range {
+            NodeRange::Lenient => node_number(&item)?,
+            NodeRange::Strict { max_node } => node_in_corpus(&item, max_node)?,
+        });
     }
     Ok(nodes)
+}
+
+/// A node of the corpus: `1..=max_node`, else `IndexError` naming `value`.
+fn node_in_corpus(value: &Bound<'_, PyAny>, max_node: u32) -> PyResult<u32> {
+    match value.extract::<u32>() {
+        Ok(node) if (1..=max_node).contains(&node) => Ok(node),
+        Ok(_) => Err(node_out_of_range(value, max_node)),
+        Err(error) if error.is_instance_of::<PyOverflowError>(value.py()) => {
+            Err(node_out_of_range(value, max_node))
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn node_out_of_range(value: &Bound<'_, PyAny>, max_node: u32) -> PyErr {
+    let shown = value
+        .str()
+        .map_or_else(|_| "?".to_string(), |text| text.to_string());
+    PyIndexError::new_err(format!(
+        "node {shown} is out of range: the nodes are 1 to {max_node}"
+    ))
 }
 
 /// Converts a Python node argument to a node number.

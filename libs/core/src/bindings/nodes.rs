@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
 use crate::bindings::api_ref::ApiRef;
-use crate::bindings::convert::{node_number, nodes_from_py};
+use crate::bindings::convert::{NodeRange, node_list, node_number};
 use crate::mapped::{
     Chunk, ChunkLengthKey, ChunkPositionKey, MappedCompiledCorpus, MappedSections, WalkEvent,
 };
@@ -23,6 +23,14 @@ pub(crate) struct PyNodes {
 impl PyNodes {
     pub(crate) fn new(corpus: Arc<MappedCompiledCorpus>, api: ApiRef) -> Self {
         Self { corpus, api }
+    }
+
+    /// Ordering calls take only the corpus's nodes: there is no place in the
+    /// canonical order for a missing one (TF raises `IndexError` too).
+    fn node_range(&self) -> NodeRange {
+        NodeRange::Strict {
+            max_node: self.corpus.max_node(),
+        }
     }
 }
 
@@ -50,7 +58,7 @@ impl PyNodes {
     /// Sort key of a tuple of nodes: the tuple of their sort keys.
     #[allow(non_snake_case)]
     fn sortKeyTuple(&self, py: Python<'_>, tup: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-        let nodes = nodes_from_py(Some(tup))?.unwrap_or_default();
+        let nodes = node_list(tup, NodeRange::Lenient)?;
         Ok(PyTuple::new(py, self.corpus.sort_key_tuple(&nodes)?)?.into())
     }
 
@@ -80,9 +88,12 @@ impl PyNodes {
     }
 
     /// The nodes of `nodeSet` in canonical order, as a list.
+    ///
+    /// Raises:
+    ///     IndexError: For a number that is not a node of the corpus.
     #[allow(non_snake_case)]
     fn sortNodes(&self, nodeSet: &Bound<'_, PyAny>) -> PyResult<Vec<u32>> {
-        let mut nodes = nodes_from_py(Some(nodeSet))?.unwrap_or_default();
+        let mut nodes = node_list(nodeSet, self.node_range())?;
         self.corpus.sort_nodes(&mut nodes)?;
         Ok(nodes)
     }
@@ -99,7 +110,10 @@ impl PyNodes {
     ) -> PyResult<PyObject> {
         // TF `N.walk` is a generator; return an iterator so `next(N.walk())`
         // works and the result is consumed once, as in TF.
-        let nodes = nodes_from_py(nodes)?;
+        let nodes = nodes
+            .filter(|nodes| !nodes.is_none())
+            .map(|nodes| node_list(nodes, self.node_range()))
+            .transpose()?;
         if !events
             && nodes.is_none()
             && let Some(order) = self.corpus.canonical_order()?

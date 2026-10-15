@@ -10,8 +10,8 @@ use pyo3::types::{PyDict, PyList, PyString, PyTuple};
 
 use crate::bindings::api_ref::ApiRef;
 use crate::bindings::convert::{
-    as_str_refs, collect_nodes, feature_value_from_py, feature_value_to_py,
-    mapped_value_from_feature, mapped_value_to_py, node_number, node_types_from_py, warp_only,
+    NodeRange, as_str_refs, feature_value_from_py, feature_value_to_py, mapped_value_from_feature,
+    mapped_value_to_py, node_list, node_number, node_types_from_py, warp_only,
 };
 use crate::bindings::visibility::FeatureVisibility;
 use crate::config::OTYPE;
@@ -304,7 +304,7 @@ impl PyNodeFeature {
     /// batches switch to a single sequential row scan (see `use_dense_gather`)
     /// instead of one binary search per node.
     fn vs(&self, py: Python<'_>, nodes: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-        let nodes = collect_nodes(nodes)?;
+        let nodes = node_list(nodes, NodeRange::Lenient)?;
         let max_node = self.corpus.max_node() as usize;
         let state = self.state()?;
         let values: Vec<PyObject> = match &state.feature {
@@ -390,7 +390,7 @@ impl PyNodeFeature {
                 self.name
             )));
         }
-        let nodes = collect_nodes(nodes)?;
+        let nodes = node_list(nodes, NodeRange::Lenient)?;
         let mut out: Vec<i64> = Vec::with_capacity(nodes.len());
         match self.corpus.mixed_node_feature(&self.name)? {
             None => out.resize(nodes.len(), fill),
