@@ -307,7 +307,9 @@ def test_download_a_corpus_from_the_library(library) -> None:
     entries = {d["id"]: d for d in client.get("/api/downloads").json()["downloads"]}
     assert entries["Org/corpus"]["present"] is False
     assert entries["ETCBC/bhsa"]["size"] == 33_963_367
-    assert entries["ETCBC/dss"]["licence"] == "CC BY-NC 4.0"
+    assert {d["licence"] for i, d in entries.items() if i != "Org/corpus"} == {
+        "CC BY-NC 4.0"
+    }
 
     started = client.post("/api/downloads/Org/corpus")
     assert started.status_code == 202
