@@ -1,21 +1,24 @@
 import { api } from "./api";
 import {
+  commonToConcordance,
   commonToInterlinear,
   commonToParallel,
   commonToReader,
   commonToWorkspace,
+  concordanceToCommon,
   interlinearToCommon,
   mergeCommon,
   readerToCommon,
   workspaceToCommon,
   type Common,
 } from "./common";
+import { serializeConcordance, type Concordance } from "./concordance/url";
 import { serializeInterlinear, type Interlinear } from "./interlinear/url";
 import { serializeParallel } from "./parallel/state";
 import { serializeReader, type Reader } from "./reader/url";
 import { serialize, type Workspace } from "./state";
 import type { CorpusCard } from "./types";
-import { alignRef, INTERFACES, navigate, REFERENCE_IDS, rememberUi, type Ui } from "./ui";
+import { alignRef, navigate, REFERENCE_IDS, rememberUi, type Ui } from "./ui";
 
 // Switching interfaces: the current interface describes what it shows (see
 // common.ts), that is added to what was kept from earlier in the session, and
@@ -80,6 +83,11 @@ export async function describeInterlinear(s: Interlinear): Promise<Partial<Commo
   return interlinearToCommon(s, aligned ? aligned.split(":")[0] : null);
 }
 
+/** What the Concordance shows. */
+export function describeConcordance(s: Concordance): Partial<Common> {
+  return concordanceToCommon(s);
+}
+
 /** Open interface `target` with what the current one shows (`current`). */
 export async function switchInterface(target: Ui, current: Partial<Common>): Promise<void> {
   const common = mergeCommon(kept(), current);
@@ -111,10 +119,10 @@ export async function switchInterface(target: Ui, current: Partial<Common>): Pro
     const lead = reference ?? corpus;
     const ref = common.ref && corpus && lead ? await alignRef(lead, common.ref, corpus) : null;
     navigate(serializeInterlinear(commonToInterlinear(common, corpus, ref ? ref.split(":")[0] : null)));
+  } else if (target === "concordance") {
+    const { reference } = await openCards();
+    navigate(serializeConcordance(commonToConcordance(common, reference ?? common.corpora[0] ?? null)));
   } else if (target === "parallel") {
     navigate(serializeParallel(commonToParallel(common)));
-  } else {
-    // not built yet: its page says so
-    navigate(INTERFACES.find((i) => i.id === target)!.prefix!);
   }
 }

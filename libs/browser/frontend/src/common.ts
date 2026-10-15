@@ -1,4 +1,5 @@
 import type { Parallel } from "./parallel/state";
+import type { Concordance } from "./concordance/url";
 import { DEFAULT_LINES, type Interlinear } from "./interlinear/url";
 import type { Reader } from "./reader/url";
 import { emptyPane, MAX_PANES, type Pane, type Workspace } from "./state";
@@ -208,5 +209,35 @@ export function commonToInterlinear(c: Common, corpus: string | null, ref: strin
     hide: null,
     colour: null,
     texts: corpus ? c.corpora.filter((t) => t !== corpus) : null,
+  };
+}
+
+// Concordance
+
+/** What the Concordance shows: a search. */
+export function concordanceToCommon(s: Concordance): Partial<Common> {
+  const corpora = s.corpus ? [s.corpus, ...(s.texts ?? [])] : [];
+  return {
+    corpora: corpora.length ? [...new Set(corpora)] : undefined,
+    search: s.corpus ? { corpus: s.corpus, q: s.q, s: s.s } : undefined,
+    searching: s.corpus !== null,
+  };
+}
+
+/** A description in the Concordance: its search, else an empty search in `corpus`. */
+export function commonToConcordance(c: Common, corpus: string | null): Concordance {
+  const searchCorpus = c.search?.corpus ?? corpus;
+  return {
+    corpus: searchCorpus,
+    q: c.search?.q ?? "",
+    s: c.search?.s ?? null,
+    sort: null,
+    filters: [],
+    per: "result",
+    sample: null,
+    seed: 1,
+    context: 6,
+    tab: "lines",
+    texts: searchCorpus ? c.corpora.filter((t) => t !== searchCorpus) : null,
   };
 }

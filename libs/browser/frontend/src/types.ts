@@ -304,6 +304,22 @@ export interface InterlinearVerse {
   } | null;
 }
 
+/** A word in a concordance line. */
+export interface KwicWord {
+  node: number;
+  text: string;
+  features: Record<string, string>;
+}
+
+/** A search result as a concordance line (`/kwic`). */
+export interface KwicLine {
+  index: number;
+  ref: string | null;
+  left: KwicWord[];
+  hit: KwicWord[];
+  right: KwicWord[];
+}
+
 /** A scroll at a place where two texts (MT, SP) differ: which one it agrees with. */
 export interface PlaceWitness {
   scroll: string;

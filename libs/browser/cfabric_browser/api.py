@@ -36,6 +36,7 @@ from cfabric_browser.compare import (
     compare_three,
     compare_witnesses,
 )
+from cfabric_browser.concordance import MAX_SIDE, Concordance, parse_filters
 from cfabric_browser.corpora import CorpusService, discover, resolve_corpus
 from cfabric_browser.interlinear import interlinear_verse
 from cfabric_browser.lexicon import Lexicon, render_verse
@@ -946,6 +947,133 @@ def build_router(
         tree = render_node(api, config, aligned["node"], mode, own).to_dict()
         dress_signs(api, tree["fragments"])
         return {"trees": [tree]}
+
+    # the concordance: results as lines with the hit in context
+
+    concordances: dict[str, tuple[int, Concordance]] = {}
+    concordanceLock = threading.Lock()
+
+    def concordance(job: SearchJob) -> Concordance:
+        """The concordance of a search's results, rebuilt when they change."""
+        snapshot = job.snapshot()
+        with concordanceLock:
+            cached = concordances.get(job.id)
+            if cached and cached[0] == snapshot["version"]:
+                return cached[1]
+        api = corpus_api(job.corpus)
+        built = Concordance(api, service.config(job.corpus), job.page(0, job.count))
+        with concordanceLock:
+            concordances[job.id] = (snapshot["version"], built)
+            # keep a few: they hold a list of words per result
+            for old in list(concordances)[:-8]:
+                del concordances[old]
+        return built
+
+    def concordance_selection(
+        conc: Concordance,
+        filters: str | None,
+        per: str,
+        sample: int | None,
+        seed: int,
+    ) -> list[int]:
+        return conc.select(parse_filters(filters), per == "verse", sample, seed)
+
+    @router.get("/searches/{search_id}/kwic")
+    def kwic(
+        search_id: str,
+        offset: int = Query(0, ge=0),
+        limit: int = Query(50, ge=1, le=MAX_PAGE),
+        left: int = Query(6, ge=0, le=MAX_SIDE),
+        right: int = Query(6, ge=0, le=MAX_SIDE),
+        sort: str | None = Query(
+            None, description="`<position>.<feature>`: hit.lex, L1.text, R2.sp, ..."
+        ),
+        filter: str | None = Query(
+            None, description="Features of the hit: vs:qal,book:Genesis"
+        ),
+        per: Literal["result", "verse"] = "result",
+        sample: int | None = Query(None, ge=1),
+        seed: int = 1,
+        features: str | None = Query(
+            None, description="Comma separated features to give per word"
+        ),
+        fmt: str | None = None,
+        lang: str = "en",
+    ) -> dict[str, Any]:
+        """A page of the results as concordance lines (KWIC): per result its
+        hit, the words before it (`left`) and after it (`right`), and its verse.
+        Sorting, filtering, one line per verse and sampling apply to all
+        results. See `cfabric_browser.concordance`."""
+        job = search_job(search_id)
+        conc = concordance(job)
+        selection = concordance_selection(conc, filter, per, sample, seed)
+        try:
+            selection = conc.sort(selection, sort)
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from None
+        api = conc.api
+        config = service.config(job.corpus)
+        names = _items(features) or []
+        lines = []
+        for i in selection[offset : offset + limit]:
+            line = conc.line(i, left, right, names, fmt)
+            verse = line.pop("verse")
+            line["ref"] = (
+                section_ref_for(api, config, verse, lang=lang) if verse else None
+            )
+            lines.append(line)
+        return {
+            "search": job.snapshot(),
+            "total": len(selection),
+            "words": conc.last - conc.first + 1,
+            "offset": offset,
+            "lines": lines,
+        }
+
+    @router.get("/searches/{search_id}/kwic/facets")
+    def kwic_facets(
+        search_id: str,
+        feature: str,
+        filter: str | None = None,
+        per: Literal["result", "verse"] = "result",
+        top: int = Query(50, ge=1, le=500),
+    ) -> dict[str, Any]:
+        """How often each value of a feature of the hit's first word occurs in
+        the (filtered) results, most frequent first; `book` gives the books in
+        their order."""
+        job = search_job(search_id)
+        conc = concordance(job)
+        selection = concordance_selection(conc, filter, per, None, 1)
+        return {
+            "feature": feature,
+            "total": len(selection),
+            "values": conc.facet(selection, feature, top),
+        }
+
+    @router.get("/searches/{search_id}/collocations")
+    def collocations(
+        search_id: str,
+        feature: str = "lex",
+        window: int = Query(3, ge=1, le=10),
+        filter: str | None = None,
+        per: Literal["result", "verse"] = "result",
+        min_count: int = Query(2, ge=1, alias="min"),
+        top: int = Query(40, ge=1, le=500),
+    ) -> dict[str, Any]:
+        """The values of a feature of the words within `window` words of the
+        hits, by their logDice score: how typical they are near the hit,
+        compared with the whole corpus."""
+        job = search_job(search_id)
+        conc = concordance(job)
+        selection = concordance_selection(conc, filter, per, None, 1)
+        return {
+            "feature": feature,
+            "window": window,
+            "hits": len(selection),
+            "values": conc.collocations(
+                selection, feature, window, id(conc.api), min_count, top
+            ),
+        }
 
     # statistics over the results of a search
 
