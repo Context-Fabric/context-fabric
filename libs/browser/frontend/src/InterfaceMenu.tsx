@@ -1,0 +1,134 @@
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import type { Common } from "./common";
+import { switchInterface } from "./switch";
+import { canHide, hiddenUis, INTERFACES, rememberHiddenUis, type Ui } from "./ui";
+
+interface Props {
+  current: Ui;
+  /** What the current interface shows, for the next one. */
+  describe: () => Partial<Common> | Promise<Partial<Common>>;
+}
+
+/** The menu of interfaces: switch to another, keeping the passage and the corpora,
+ * and choose which ones the menu offers. */
+export function InterfaceMenu({ current, describe }: Props) {
+  const [open, setOpen] = useState(false);
+  const [choosing, setChoosing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const panel = useRef<HTMLDivElement>(null);
+  // hidden here, or else as the server says (`ui: hide:` in browser.yaml)
+  const { data: health } = useQuery({
+    queryKey: ["health"],
+    queryFn: async () =>
+      (await fetch("/api/health").then((r) => r.json())) as {
+        version: string;
+        coreVersion: string | null;
+        hiddenUis?: Ui[];
+      },
+  });
+  const [hidden, setHidden] = useState<Ui[] | null>(() => hiddenUis());
+  const shownHidden = hidden ?? health?.hiddenUis ?? [];
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (panel.current && !panel.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const ready = INTERFACES.filter((i) => i.ready);
+  const offered = ready.filter((i) => i.id === current || !shownHidden.includes(i.id));
+  const name = INTERFACES.find((i) => i.id === current)?.name ?? current;
+
+  const go = async (target: Ui) => {
+    if (target === current) return setOpen(false);
+    setBusy(true);
+    try {
+      await switchInterface(target, await describe());
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleHidden = (ui: Ui, hide: boolean) => {
+    const next = hide ? [...shownHidden, ui] : shownHidden.filter((h) => h !== ui);
+    setHidden(next);
+    rememberHiddenUis(next);
+  };
+
+  return (
+    <div className="relative" ref={panel}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        disabled={busy}
+        onClick={() => {
+          setChoosing(false);
+          setOpen((o) => !o);
+        }}
+        className="rounded border border-rule-strong px-2.5 py-0.5 text-[13px] hover:bg-woad-soft aria-expanded:bg-woad-soft"
+        title="Choose an interface"
+      >
+        {name} <span aria-hidden>▾</span>
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute end-0 top-full z-30 mt-1 w-[19rem] whitespace-normal rounded border border-rule-strong bg-raised py-1.5 text-[14px] shadow-lg"
+        >
+          {offered.map((i) => (
+            <button
+              key={i.id}
+              type="button"
+              role="menuitemradio"
+              aria-checked={i.id === current}
+              onClick={() => go(i.id)}
+              className="flex w-full flex-col items-start px-3 py-1.5 text-left hover:bg-woad-soft aria-checked:bg-woad-soft/60"
+            >
+              <span className="font-semibold">
+                {i.name}
+                {i.id === current ? <span className="ms-1.5 text-[12px] font-normal text-stone">in use</span> : null}
+              </span>
+              <span className="text-[12px] leading-snug text-stone">{i.about}</span>
+            </button>
+          ))}
+          <div className="mt-1 border-t border-rule px-3 pt-1.5">
+            {choosing ? (
+              <fieldset className="flex flex-col gap-1 text-[13px]">
+                <legend className="mb-1 text-[12px] text-stone">Offer in this menu</legend>
+                {ready.map((i) => {
+                  const shown = !shownHidden.includes(i.id);
+                  return (
+                    <label key={i.id} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={shown}
+                        disabled={shown && !canHide(i.id, shownHidden, current)}
+                        onChange={(e) => toggleHidden(i.id, !e.target.checked)}
+                        className="accent-[var(--woad)]"
+                      />
+                      {i.name}
+                    </label>
+                  );
+                })}
+              </fieldset>
+            ) : (
+              <button type="button" onClick={() => setChoosing(true)} className="text-[13px] text-woad hover:underline">
+                Choose which to offer…
+              </button>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

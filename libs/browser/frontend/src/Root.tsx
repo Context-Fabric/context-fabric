@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { App } from "./App";
-import { rememberedUi, rememberUi, uiOfUrl, type Ui } from "./ui";
+import { NotYet } from "./NotYet";
+import { INTERFACES, isUi, rememberedUi, rememberUi, uiOfUrl, type Ui } from "./ui";
 
 const ParallelApp = lazy(() => import("./parallel/ParallelApp").then((m) => ({ default: m.ParallelApp })));
 
@@ -15,7 +16,10 @@ export function Root() {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
-  const remembered = rememberedUi();
+  // only a built interface counts as remembered or as the server's default
+  const ready = (ui: Ui | null | undefined): ui is Ui => isUi(ui) && INTERFACES.some((i) => i.id === ui && i.ready);
+  const stored = rememberedUi();
+  const remembered = ready(stored) ? stored : null;
   const health = useQuery({
     queryKey: ["health"],
     queryFn: async () =>
@@ -23,14 +27,17 @@ export function Root() {
     enabled: fromUrl === null && remembered === null,
   });
   const ui: Ui | null =
-    fromUrl ?? remembered ?? (health.data ? (health.data.ui ?? "classic") : health.isError ? "classic" : null);
+    fromUrl ??
+    remembered ??
+    (health.data ? (ready(health.data.ui) ? health.data.ui : "classic") : health.isError ? "classic" : null);
 
   useEffect(() => {
-    if (ui) rememberUi(ui);
+    if (ready(ui)) rememberUi(ui);
   }, [ui]);
 
   if (ui === null) return null;
   if (ui === "classic") return <App key="classic" />;
+  if (ui !== "parallel") return <NotYet ui={ui} />;
   return (
     <Suspense fallback={<main className="p-10 text-stone">Opening…</main>}>
       <ParallelApp key="parallel" />

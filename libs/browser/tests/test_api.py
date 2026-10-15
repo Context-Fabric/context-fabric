@@ -105,6 +105,7 @@ class TestDescribe:
         assert data["ok"] is True
         assert data["searchReady"] is True
         assert data["ui"] == "classic"
+        assert data["hiddenUis"] == []
 
     def test_list_corpora(self, client):
         data = client.get("/api/corpora").json()
