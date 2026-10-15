@@ -4,7 +4,9 @@ building a translation, downloading a corpus.
 A job has a key (a translation id, a corpus id); one job per key runs at a
 time. Its status is a small dict that the API returns as it is::
 
-    {"state": "running" | "done" | "failed", "step": ..., "done": n, "total": m, "error": None}
+    {"state": "running" | "done" | "failed" | "cancelled", "step": ..., "done": n, "total": m, "error": None}
+
+A job is cancelled at its next report of progress (`cancel`).
 """
 
 from __future__ import annotations
@@ -20,6 +22,10 @@ logger = logging.getLogger(__name__)
 Progress = Callable[[str, int, int], None]
 
 
+class JobCancelled(Exception):
+    """Raised inside a job when it has been cancelled."""
+
+
 class BackgroundJobs:
     """Jobs in threads, with their progress and how they ended.
 
@@ -32,6 +38,7 @@ class BackgroundJobs:
         self.expected = expected
         self._lock = threading.Lock()
         self._status: dict[str, dict[str, Any]] = {}
+        self._cancelled: set[str] = set()
 
     def status(self, key: str) -> dict[str, Any] | None:
         with self._lock:
@@ -54,17 +61,33 @@ class BackgroundJobs:
                 "error": None,
             }
             self._status[key] = status
+            self._cancelled.discard(key)
         thread = threading.Thread(target=self._run, args=(key, work), daemon=True)
         thread.start()
         return dict(status)
 
+    def cancel(self, key: str) -> bool:
+        """Stop a running job at its next report of progress; False if none runs."""
+        with self._lock:
+            current = self._status.get(key)
+            if not current or current["state"] != "running":
+                return False
+            self._cancelled.add(key)
+            return True
+
     def _progress(self, key: str, step: str, done: int, total: int) -> None:
         with self._lock:
+            if key in self._cancelled:
+                raise JobCancelled(key)
             self._status[key].update(step=step, done=done, total=total)
 
     def _run(self, key: str, work: Callable[[Progress], Any]) -> None:
         try:
             work(lambda step, done, total: self._progress(key, step, done, total))
+        except JobCancelled:
+            with self._lock:
+                self._status[key].update(state="cancelled", error=None)
+                self._cancelled.discard(key)
         except self.expected as e:
             self._finish(key, str(e))
         except OSError as e:

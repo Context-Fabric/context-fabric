@@ -35,16 +35,29 @@ def sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+# a real corpus (the display test corpus of the core package), so that it can
+# also be opened after downloading
+FIXTURE = (
+    Path(__file__).resolve().parents[2]
+    / "core"
+    / "tests"
+    / "fixtures"
+    / "display_corpus"
+)
 COMPLETE = make_zip(
     {
-        "Org/corpus/app/config.yaml": b"apiVersion: 3\n",
+        "Org/corpus/app/config.yaml": (FIXTURE / "app" / "config.yaml").read_bytes(),
         "Org/corpus/app/__checkout__.txt": CHECKOUT,
-        "Org/corpus/tf/1.0/otype.tf": b"@node\n",
+        **{
+            f"Org/corpus/tf/1.0/{f.name}": f.read_bytes()
+            for f in sorted((FIXTURE / "tf" / "1.0").glob("*.tf"))
+        },
         "Org/corpus/tf/1.0/__checkout__.txt": CHECKOUT,
         "Org/module/tf/1.0/extra.tf": b"@node\n",
         "Org/module/tf/1.0/__checkout__.txt": CHECKOUT,
     }
 )
+FILES = 2 + len(list((FIXTURE / "tf" / "1.0").glob("*.tf"))) + 3
 FLAT = make_zip({"otype.tf": b"@node\n", "book.tf": b"@node\n"})
 CONFIG = b"writing: hbo\n"
 
@@ -107,7 +120,7 @@ def test_a_complete_zip_is_unpacked_in_text_fabric_layout(tmp_path: Path) -> Non
     assert (data / "__checkout__.txt").read_bytes() == CHECKOUT
     assert (tmp_path / "root" / "Org" / "module" / "tf" / "1.0" / "extra.tf").is_file()
     assert ("download", len(COMPLETE), len(COMPLETE)) in steps
-    assert steps[-1] == ("unpack", 6, 6)
+    assert steps[-1] == ("unpack", FILES, FILES)
     # nothing left behind: no staging folder, no zip
     assert sorted(p.name for p in (tmp_path / "root").iterdir()) == ["Org"]
     assert list((tmp_path / "cache").iterdir()) == []
@@ -300,10 +313,12 @@ def test_download_a_corpus_from_the_library(library) -> None:
     assert started.json()["job"]["state"] == "running"
     entry = finished(client, "/api/downloads/Org/corpus")
     assert entry["job"]["state"] == "done"
+    assert entry["job"]["step"] == "prepare"
     assert entry["present"] is True
-    assert [c["id"] for c in client.get("/api/library").json()["corpora"]] == [
-        "Org/corpus"
-    ]
+    # it is open and loaded
+    library = client.get("/api/library").json()["corpora"]
+    assert [(c["id"], c["open"]) for c in library] == [("Org/corpus", True)]
+    assert client.get("/api/corpora/corpus").json()["title"] == "Display test corpus"
 
     # once it is there, nothing is downloaded again
     again = client.post("/api/downloads/Org/corpus").json()
@@ -333,3 +348,40 @@ def test_unknown_or_excluded_corpora_cannot_be_downloaded(tmp_path: Path) -> Non
         ]
         assert client.post("/api/downloads/ETCBC/dss").status_code == 404
         assert client.post("/api/downloads/ETCBC/lxx").status_code == 404
+
+
+def test_a_download_can_be_cancelled(library) -> None:
+    (client, jobs) = library
+
+    class Slow:
+        def __call__(self, url, target, report):
+            for _ in range(200):
+                report(1, 100)
+                time.sleep(0.01)
+
+    jobs.options["fetcher"] = Slow()
+    client.post("/api/downloads/Org/corpus")
+    time.sleep(0.1)
+    client.delete("/api/downloads/Org/corpus")
+    entry = finished(client, "/api/downloads/Org/corpus")
+    assert entry["job"]["state"] == "cancelled"
+    assert entry["present"] is False
+
+
+def test_the_program_asks_at_the_start() -> None:
+    from cfabric_browser.app import create_app
+    from cfabric_browser.corpora import CorpusService
+    from cfabric_browser.workers import SearchPool
+    from fastapi.testclient import TestClient
+
+    def health(**options) -> dict:
+        app = create_app(
+            CorpusService([]), SearchPool([]), manage_pool=False, **options
+        )
+        with TestClient(app) as client:
+            return client.get("/api/health").json()
+
+    assert health()["askDownloads"] is False
+    assert health(ask_downloads=True)["askDownloads"] is True
+    # not where corpora can't be opened
+    assert health(ask_downloads=True, library=False)["askDownloads"] is False

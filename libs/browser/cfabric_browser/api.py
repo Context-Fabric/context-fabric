@@ -161,12 +161,10 @@ def build_router(
             corpora.append({**entry, "open": path in opened})
         return {"enabled": True, "corpora": corpora}
 
-    @router.post("/corpora", status_code=201)
-    def open_corpus(request: OpenRequest) -> dict[str, Any]:
-        """Open a corpus from the library. Only library ids are accepted, no paths."""
-        if not library:
-            raise HTTPException(403, "Opening corpora is switched off on this server")
-        (requested, _, version) = request.id.partition("@")
+    def open_from_library(requestedId: str, name: str | None = None) -> dict[str, Any]:
+        """Open a corpus of the library by its id (`ETCBC/dss`, optionally with
+        `@version`); `opened` is False when it was open already."""
+        (requested, _, version) = requestedId.partition("@")
         # any corpus on disk can be opened by its id, also copies and hidden ones,
         # but not one outside a library limited with `only`
         ids = {
@@ -175,12 +173,10 @@ def build_router(
         }
         corpusId = ids.get(requested.lower())
         if corpusId is None:
-            raise HTTPException(404, f"Not in the library: {request.id}")
+            raise HTTPException(404, f"Not in the library: {requestedId}")
         target = f"{corpusId}@{version}" if version else corpusId
         try:
-            spec = resolve_corpus(
-                f"{request.name}={target}" if request.name else target, service.roots
-            )
+            spec = resolve_corpus(f"{name}={target}" if name else target, service.roots)
         except FileNotFoundError as e:
             raise HTTPException(404, str(e)) from None
         if service.has(spec.name):
@@ -191,9 +187,20 @@ def build_router(
             return {"name": spec.name, "opened": False}
         service.add(spec)
         pool.add_corpus(spec.name, str(spec.path))
-        # start loading now, so the corpus is ready by the time it is shown
-        threading.Thread(target=service.config, args=(spec.name,), daemon=True).start()
         return {"name": spec.name, "opened": True}
+
+    @router.post("/corpora", status_code=201)
+    def open_corpus(request: OpenRequest) -> dict[str, Any]:
+        """Open a corpus from the library. Only library ids are accepted, no paths."""
+        if not library:
+            raise HTTPException(403, "Opening corpora is switched off on this server")
+        result = open_from_library(request.id, request.name)
+        if result["opened"]:
+            # start loading now, so the corpus is ready by the time it is shown
+            threading.Thread(
+                target=service.config, args=(result["name"],), daemon=True
+            ).start()
+        return result
 
     # translations: built from their source into a corpus, then in the library
 
@@ -322,7 +329,23 @@ def build_router(
             raise HTTPException(403, "Downloading is switched off on this server")
         download = download_of(org, repo)
         if not download_entry(download)["present"]:
-            fetches.start(download)
+
+            def prepare(progress) -> None:
+                # open it and load it once, which compiles it: minutes for the
+                # BHSA, after which it opens in about a second
+                progress("prepare", 0, 1)
+                name = open_from_library(download.id)["name"]
+                service.config(name)
+                progress("prepare", 1, 1)
+
+            fetches.start(download, then=prepare)
+        return download_entry(download)
+
+    @router.delete("/downloads/{org}/{repo}")
+    def cancel_download(org: str, repo: str) -> dict[str, Any]:
+        """Stop a download; a corpus being prepared is not stopped."""
+        download = download_of(org, repo)
+        fetches.cancel(download.id)
         return download_entry(download)
 
     @router.get("/corpora")

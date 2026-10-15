@@ -334,7 +334,9 @@ function Downloads({ onDone }: { onDone: (corpus: string) => void }) {
               <span className="shrink-0 text-[13px] text-stone" role="status">
                 {d.job.step === "download"
                   ? `${megabytes(d.job.done)} of ${megabytes(d.job.total || d.size)}…`
-                  : "Unpacking…"}
+                  : d.job.step === "unpack"
+                    ? "Unpacking…"
+                    : "Preparing…"}
               </span>
             ) : d.present ? (
               <span className="shrink-0 text-[13px] text-stone">Opening…</span>

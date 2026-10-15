@@ -62,7 +62,8 @@ cfabric-browser download bhsa sp dss
 
 - They come from the corpora's own releases on GitHub, the same files Text-Fabric downloads, and each is checked against its checksum.
 - They go where Text-Fabric keeps its downloads (`~/text-fabric-data/github`), in its layout and with its `__checkout__.txt` files, so Text-Fabric uses them too. A data folder that is already there is never overwritten.
-- About 68 MB for the three (365 MB on disk). The first time a corpus is opened, it is prepared once, which takes a few minutes for the BHSA and the DSS.
+- About 68 MB for the three (365 MB on disk). Right after downloading, each is opened and prepared once, which takes a few minutes for the BHSA and the DSS; after that it opens in a few seconds.
+- With `--ask-downloads` (as the standalone program starts), the browser first offers the missing ones on a screen of their own, with one *Download* button; *Not now* is remembered.
 
 ## Translations
 
@@ -227,7 +228,7 @@ All functions of the interface are available as a JSON API; interactive document
 | `GET /api/corpora/{c}/lexicon/{n}/occurrences?offset=&limit=&book=` | A page of the verses it occurs in, as plain render trees with its words highlighted |
 | `GET /api/corpora/{c}/lexicon/{n}/occurrences.tsv` | Every occurrence: section, word and verse text; `excel=true` for Excel |
 | `GET /api/library`, `POST /api/corpora` | Corpora found on this computer; open one by its id (e.g. `ETCBC/dss`) |
-| `GET /api/downloads[/{org}/{repo}]`, `POST /api/downloads/{org}/{repo}` | Corpora that can be downloaded, whether they are here, and the progress of a download (`job`); start one |
+| `GET /api/downloads[/{org}/{repo}]`, `POST`/`DELETE /api/downloads/{org}/{repo}` | Corpora that can be downloaded, whether they are here, and the progress of a download (`job`: download, unpack, prepare); start or cancel one |
 | `GET /api/translations[/{t}]` | Translations that can be added, whether they are, and the progress of adding one (`job`) |
 | `POST /api/translations/{t}`, `DELETE /api/translations/{t}` | Add a translation (download and build it, in the background), or remove it |
 | `GET /api/corpora/{c}/nodes/{n}[/info]` | Render tree of a node; all its features, edges and surroundings |

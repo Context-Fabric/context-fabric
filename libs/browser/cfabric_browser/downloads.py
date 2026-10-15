@@ -375,14 +375,23 @@ class DownloadJobs(BackgroundJobs):
         self.cache = cache
         self.options = options  # e.g. fetcher=, for tests
 
-    def start(self, download: Download) -> dict[str, Any]:
-        return self.run(
-            download.id,
-            lambda progress: get(
+    def start(
+        self,
+        download: Download,
+        then: Callable[[Progress], Any] | None = None,
+    ) -> dict[str, Any]:
+        """Download and unpack a corpus; then `then(progress)`, e.g. open and
+        prepare it (the first loading compiles it, which takes minutes)."""
+
+        def work(progress: Progress) -> None:
+            get(
                 download,
                 root=self.root,
                 cache=self.cache,
                 progress=progress,
                 **self.options,
-            ),
-        )
+            )
+            if then is not None:
+                then(progress)
+
+        return self.run(download.id, work)

@@ -92,6 +92,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="the interface to start in until the user chooses one: panes, parallel,"
         " reader, interlinear or concordance; see also ui: in ~/.cfabric/browser.yaml",
     )
+    parser.add_argument(
+        "--ask-downloads",
+        action="store_true",
+        help="at the start, offer to download the BHSA, the SP and the DSS when they"
+        " are not on this computer (the standalone program does this)",
+    )
     parser.add_argument("--version", action="version", version=__version__)
     return parser.parse_args(argv)
 
@@ -281,7 +287,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"cfabric-browser: {e} (ui: in browser.yaml)", file=sys.stderr)
         return 2
     app = create_app(
-        service, pool, library=not args.no_library, ui=ui, hidden_uis=hidden
+        service,
+        pool,
+        library=not args.no_library,
+        ui=ui,
+        hidden_uis=hidden,
+        ask_downloads=args.ask_downloads,
     )
 
     host = args.host

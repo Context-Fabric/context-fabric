@@ -407,8 +407,8 @@ export interface CorpusDownload {
   terms: string;
   present: boolean;
   job: {
-    state: "running" | "done" | "failed";
-    step: "download" | "unpack";
+    state: "running" | "done" | "failed" | "cancelled";
+    step: "download" | "unpack" | "prepare";
     done: number;
     total: number;
     error: string | null;
