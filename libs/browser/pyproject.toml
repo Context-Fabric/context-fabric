@@ -38,6 +38,8 @@ dev = [
 desktop = [
     "pyinstaller>=6.10",
     "pywebview>=5.0",
+    # certificates for downloading translations (macOS has none for Python)
+    "certifi",
 ]
 
 [project.scripts]

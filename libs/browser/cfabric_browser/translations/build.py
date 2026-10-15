@@ -27,6 +27,7 @@ import html
 import json
 import re
 import shutil
+import ssl
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
@@ -70,11 +71,23 @@ def hebrew_verses() -> dict[str, list[int]]:
     return json.loads(data.read_text(encoding="utf-8"))
 
 
+def _ssl_context() -> ssl.SSLContext:
+    """The system's certificates, or certifi's where it is installed: the
+    standalone program on macOS has none of its own."""
+    try:
+        import certifi
+    except ImportError:
+        return ssl.create_default_context()
+    return ssl.create_default_context(cafile=certifi.where())
+
+
 def _download(url: str) -> bytes:
     request = urllib.request.Request(
         url, headers={"User-Agent": f"cfabric-browser/{__version__}"}
     )
-    with urllib.request.urlopen(request, timeout=60) as response:
+    with urllib.request.urlopen(
+        request, timeout=60, context=_ssl_context()
+    ) as response:
         return response.read()
 
 
