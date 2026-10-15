@@ -354,6 +354,7 @@ class CorpusService:
         self._books: dict[str, dict[str, str]] = {}
         self._bookIndexes: dict[str, BookIndex | None] = {}
         self._lexicons: dict[str, Lexicon | None] = {}
+        self._translations: dict[str, dict[str, Any] | None] = {}
         self._lock = threading.Lock()
         for spec in specs or ():
             self.add(spec)
@@ -542,6 +543,24 @@ class CorpusService:
             "exact": len(section) == 2,
         }
 
+    def translation(self, name: str) -> dict[str, Any] | None:
+        """What the app config says about a translation (`translation:`, written
+        by `cfabric_browser.translations`): licence, source, how to cite it.
+        None for a corpus that is not a translation."""
+        with self._lock:
+            if name in self._translations:
+                return self._translations[name]
+        found = None
+        config = find_app_config(self._specs[name].path)
+        if config is not None:
+            try:
+                found = read_app_config(config).get("translation") or None
+            except Exception:  # noqa: BLE001 - a broken config: not a translation
+                found = None
+        with self._lock:
+            self._translations[name] = found
+        return found
+
     def card(self, name: str) -> dict[str, Any]:
         """Everything a client needs to know about a corpus to work with it."""
         api = self.api(name)
@@ -576,5 +595,7 @@ class CorpusService:
             "bookView": self.book_index(name) is not None,
             # whether the corpus has a lexicon with glosses (BHSA)
             "lexicon": has_lexicon(api),
+            # a translation (JPS 1917): licence, source, how to cite it
+            "translation": self.translation(name),
             "display": config.to_dict(),
         }

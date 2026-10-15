@@ -52,6 +52,8 @@ export function HoverCard({ corpus, hovered, note }: Props) {
     queryKey: ["summary", corpus.name, hovered.node],
     queryFn: () => api.nodeSummary(corpus.name, hovered.node),
     staleTime: Infinity,
+    // a translation's words have no gloss or morphology: no card
+    enabled: !corpus.translation,
   });
   const card = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
@@ -71,6 +73,7 @@ export function HoverCard({ corpus, hovered, note }: Props) {
   }, [hovered, data]);
 
   const script = scriptClass(corpus.display, corpus.display.direction);
+  if (corpus.translation) return null;
   return (
     <div
       ref={card}

@@ -109,7 +109,11 @@ class TestDescribe:
 
     def test_list_corpora(self, client):
         data = client.get("/api/corpora").json()
-        assert data == {"corpora": [{"name": "alpha", "title": "Display test corpus"}]}
+        assert data == {
+            "corpora": [
+                {"name": "alpha", "title": "Display test corpus", "translation": False}
+            ]
+        }
 
     def test_corpus_card(self, client):
         card = client.get("/api/corpora/alpha").json()

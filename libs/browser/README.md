@@ -68,6 +68,14 @@ cfabric-browser remove jps1917
 - Building it checks the source: its title and licence, the number of chapters and verses per book, and that there is no markup other than those notes. When something differs, it stops and says where.
 - The download is kept in `~/.cfabric/translations`, so adding it again needs no network. A translation that is open is removed when the browser starts again.
 
+In the interfaces:
+- *Parallel*, *Panes* and the Reader (also under *Parallels*): a text like the others, read from left to right. A note printed after a verse is shown dimmed after it, and a verse divided differently in the print says so (`(20:13 in the print)`).
+- *Interlinear*: a translation can't be paired word by word with the Hebrew, so under *Under* (heading *Translations*) it comes as a line under each verse. It is not offered as the text shown word by word.
+- *Concordance*: search in English, e.g. `word lower=lord`; sorting and collocations go by the word in lower case.
+- *Differences*: translations are left out of the comparison.
+- The card shown when hovering over a word stays away for English words, which have no gloss or morphology; a search term made from one uses `lower`.
+- *Cite* names the 1917 edition and Sefaria's export.
+
 ## Interfaces
 
 The browser has several interfaces, chosen in the menu at the right of the top bar (it shows the name of the one in use). Switching keeps the passage, the corpora, the search, the lexicon and the settings; what an interface cannot show is kept for the next one. The interface used last is remembered by the web browser (or the window); `--ui` only sets the one for a first start. *Choose which to offer…* in the menu leaves interfaces out of it, though never the one in use, nor both *Panes* and *Parallel*.

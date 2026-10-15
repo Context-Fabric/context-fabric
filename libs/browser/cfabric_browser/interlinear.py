@@ -141,12 +141,29 @@ def under_verse(
     service, corpus: str, ref: str, verse: int, other: str, opts: RenderOptions
 ) -> dict[str, Any] | None:
     """The verse in `other`, word by word under the words of `corpus`, with the
-    words that differ (`matres` or `variant`, as in the comparison)."""
+    words that differ (`matres` or `variant`, as in the comparison).
+
+    A translation is not paired word by word: it comes as the verse's text
+    (`translation`, `text`, and a `note` printed after it, if any)."""
     aligned = service.align(corpus, ref, other, opts.lang)
     if aligned is None or not aligned["exact"]:
         return None
     oApi = service.api(other)
     oConfig = service.config(other)
+    if service.translation(other) is not None:
+        node = aligned["node"]
+        noteFeature = getattr(oApi.F, "note", None)
+        return {
+            "corpus": other,
+            "ref": aligned["ref"],
+            "translation": True,
+            "text": oApi.T.text(node, fmt=oConfig.default_format).strip(),
+            "note": noteFeature.v(node) if noteFeature else None,
+            "words": [],
+            "under": [],
+            "marks": {},
+            "marksHere": {},
+        }
     a = verse_words(service.api(corpus), service.config(corpus), verse)
     b = verse_words(oApi, oConfig, aligned["node"])
     fmt = opts.fmt if opts.fmt in oConfig.text_formats else oConfig.default_format

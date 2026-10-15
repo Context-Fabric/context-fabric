@@ -274,6 +274,8 @@ def build_router(
                 {
                     "name": name,
                     "title": service.config(name).provenance.get("corpus") or name,
+                    # translations are not compared with the other texts
+                    "translation": service.translation(name) is not None,
                 }
                 for name in service.names()
             ]
@@ -624,9 +626,13 @@ def build_router(
                     continue
                 tree = render_node(api, config, int(v), mode, own).to_dict()
                 dress_signs(api, tree["fragments"])
-                cells.setdefault(key, {}).setdefault(name, {"trees": []})[
-                    "trees"
-                ].append(tree)
+                cell = cells.setdefault(key, {}).setdefault(name, {"trees": []})
+                cell["trees"].append(tree)
+                # a translation: a note printed after the verse, and the verse's
+                # number in the print where it is divided differently
+                for extra in ("note", "printed"):
+                    if extra in api.Fall() and (value := api.Fs(extra).v(int(v))):
+                        cell[extra] = value
 
         rows = [
             {
@@ -692,9 +698,21 @@ def build_router(
         ]
         for tree in trees:
             dress_signs(api, tree["fragments"])
+        # a translation: notes printed after verses, and verse numbers in the
+        # print where it divides differently (`cfabric_browser.translations`)
+        extras = {
+            extra: {
+                str(n): value
+                for n in nodes[:MAX_PASSAGE]
+                if (value := api.Fs(extra).v(n))
+            }
+            for extra in ("note", "printed")
+            if service.translation(corpus) is not None and extra in api.Fall()
+        }
         return {
             "node": node,
             "ref": section_ref_for(api, config, node, lang=opts.lang),
+            **{f"{extra}s": values for (extra, values) in extras.items()},
             "total": len(nodes),
             "truncated": len(nodes) > MAX_PASSAGE,
             "path": section_path(api, config, node, opts.lang),

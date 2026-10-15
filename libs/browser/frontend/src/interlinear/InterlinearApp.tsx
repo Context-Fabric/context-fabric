@@ -297,6 +297,8 @@ function Verse({
   onHover,
 }: VerseProps) {
   const under = verse.under;
+  // a translation is shown as a line under the verse, not word by word
+  const line = under?.translation ? under : null;
   const byNode = new Map((under?.words ?? []).map((w) => [w.node, w.text]));
   const block = (word: Word, i: number) => {
     const value = state.colour ? colourValue(word, state.colour) : null;
@@ -311,7 +313,7 @@ function Verse({
         tone={value !== null ? (tones.get(value) ?? null) : null}
         mark={under?.marksHere[String(word.node)]}
         under={
-          state.under
+          state.under && !line
             ? under
               ? (under.under[i] ?? []).map((n) => ({ text: byNode.get(n) ?? "", mark: under.marks[String(n)] }))
               : []
@@ -367,6 +369,16 @@ function Verse({
         {state.under && under === null ? (
           <p dir="ltr" className="w-full text-[12px] text-stone">
             Not in {state.under}.
+          </p>
+        ) : null}
+        {line && underCard ? (
+          <p
+            dir={underCard.display.direction}
+            lang={underCard.display.languageCode || undefined}
+            className="w-full border-t border-rule pt-1.5 text-start text-[15px] leading-relaxed"
+          >
+            {line.text}
+            {line.note ? <span className="ms-1 text-[0.9em] text-stone">[{line.note}]</span> : null}
           </p>
         ) : null}
       </div>
@@ -522,11 +534,14 @@ export function InterlinearApp() {
           className={select}
           title="The text shown word by word"
         >
-          {names.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
+          {/* a translation has no lines word by word: it can only go under a text */}
+          {names
+            .filter((n) => n === corpus || !cards[n]?.translation)
+            .map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
         </select>
         <Lines
           lines={state.lines}
@@ -542,11 +557,24 @@ export function InterlinearApp() {
             title="Another text, word by word under the words"
           >
             <option value="">nothing</option>
-            {comparable.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
+            {comparable
+              .filter((n) => !cards[n].translation)
+              .map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            {comparable.some((n) => cards[n].translation) ? (
+              <optgroup label="Translations, a line per verse">
+                {comparable
+                  .filter((n) => cards[n].translation)
+                  .map((n) => (
+                    <option key={n} value={n}>
+                      {cards[n].title.split(" = ")[0]}
+                    </option>
+                  ))}
+              </optgroup>
+            ) : null}
           </select>
         </label>
         <label

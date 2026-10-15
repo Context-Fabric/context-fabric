@@ -360,3 +360,26 @@ def test_translations_outside_only_are_not_offered(tmp_path: Path) -> None:
     with TestClient(create_app(service, SearchPool([]), manage_pool=False)) as client:
         assert client.get("/api/translations").json()["translations"] == []
         assert client.post("/api/translations/jps1917").status_code == 404
+
+
+def test_an_open_translation_shows_its_notes_and_print_numbers(library) -> None:
+    from cfabric_browser.corpora import resolve_corpus
+
+    (client, service, _) = library
+    client.post("/api/translations/test")
+    added(client)
+    service.add(resolve_corpus("tr=Context-Fabric/test-translation", service.roots))
+
+    assert client.get("/api/corpora").json()["corpora"][0]["translation"] is True
+    card = client.get("/api/corpora/tr").json()
+    assert card["translation"]["id"] == "test"
+    assert card["display"]["direction"] == "ltr"
+
+    alpha = client.get("/api/corpora/tr/passage", params={"ref": "Alpha 1"}).json()
+    assert sorted(alpha["printeds"].values()) == ["1:2", "1:2", "1:3"]
+    end = client.get("/api/corpora/tr/passage", params={"ref": "Alpha 2"}).json()
+    assert list(end["notes"].values()) == ["The end, again."]
+
+    # an English word: no gloss or morphology, but the word to search for
+    summary = client.get("/api/corpora/tr/nodes/1/summary").json()["summary"]
+    assert summary == [{"label": "word", "value": "in", "feature": "lower"}]

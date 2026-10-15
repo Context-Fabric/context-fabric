@@ -86,8 +86,21 @@ function CellView({
         <p key={tree.node} dir={tree.direction}>
           {numbers ? <VerseNumber verse={verse} /> : null}
           <Plain tree={tree} />
+          {cell.printed ? (
+            <span
+              className="ms-1 text-[11px] text-stone"
+              title="This verse's number in the 1917 print, which divides the verses differently here"
+            >
+              ({cell.printed} in the print)
+            </span>
+          ) : null}
         </p>
       ))}
+      {cell.note ? (
+        <p className="mt-1 text-[0.85em] text-stone" title="Printed after the verse in small type">
+          [{cell.note}]
+        </p>
+      ) : null}
     </>
   );
 }

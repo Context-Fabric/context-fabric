@@ -77,7 +77,7 @@ export interface RenderParams {
 const corpusPath = (corpus: string) => `/api/corpora/${encodeURIComponent(corpus)}`;
 
 export const api = {
-  corpora: () => request<{ corpora: { name: string; title: string }[] }>("/api/corpora"),
+  corpora: () => request<{ corpora: { name: string; title: string; translation?: boolean }[] }>("/api/corpora"),
 
   corpus: (corpus: string) => request<CorpusCard>(corpusPath(corpus)),
 
@@ -230,6 +230,9 @@ export const api = {
       prev: SectionItem | null;
       next: SectionItem | null;
       trees: RenderTree[];
+      /** A translation: per verse node, a note printed after it, and its number in the print. */
+      notes?: Record<string, string>;
+      printeds?: Record<string, string>;
     }>(`${corpusPath(corpus)}/passage${query({ ref, ...params })}`),
 
   nodeSummary: (corpus: string, node: number) => request<NodeSummary>(`${corpusPath(corpus)}/nodes/${node}/summary`),

@@ -17,6 +17,8 @@ function useVersions() {
 }
 
 function corpusLine(corpus: CorpusCard): string {
+  // a translation: its edition and where the text came from
+  if (corpus.translation) return `${corpus.translation.cite}.`;
   const title = corpus.title || corpus.name;
   const doi = corpus.doi ? ` https://doi.org/${corpus.doi}.` : "";
   return `${title}, version ${corpus.version}.${doi}`;
