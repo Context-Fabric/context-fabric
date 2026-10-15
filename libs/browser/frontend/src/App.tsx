@@ -10,6 +10,8 @@ import { Workspaces } from "./Workspaces";
 import { BookView } from "./read/BookView";
 import { ReadView } from "./read/ReadView";
 import { SearchView } from "./search/SearchView";
+import { switchToParallel } from "./switch";
+import { UiSwitch } from "./UiSwitch";
 import {
   emptyPane,
   MAX_PANES,
@@ -671,6 +673,7 @@ export function App() {
             defaultFormat={firstCard?.display.defaultFormat ?? null}
             onChange={setSettings}
           />
+          <UiSwitch current="classic" onSwitch={() => switchToParallel(ws)} />
           <button
             type="button"
             onClick={toggleTheme}

@@ -52,6 +52,15 @@ class CorpusSpec:
         return {"name": self.name, "path": str(self.path)}
 
 
+def corpus_id(path: Path) -> str | None:
+    """`org/repo` of a data directory in Text-Fabric layout (`<org>/<repo>/tf/<version>`),
+    e.g. `ETCBC/bhsa`; None for a data directory elsewhere."""
+    if path.parent.name != "tf":
+        return None
+    repo = path.parent.parent
+    return f"{repo.parent.name}/{repo.name}"
+
+
 def _is_data_dir(path: Path) -> bool:
     return (path / ".cfm").is_dir() or any(path.glob("otype.tf"))
 
@@ -552,6 +561,7 @@ class CorpusService:
         provenance = config.provenance
         return {
             "name": name,
+            "id": corpus_id(self._specs[name].path),
             "title": provenance.get("corpus") or name,
             # the version actually loaded, which may differ from the app config's
             "version": self._specs[name].path.name,

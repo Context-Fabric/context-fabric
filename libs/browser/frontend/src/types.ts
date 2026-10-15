@@ -73,6 +73,8 @@ export interface DisplayConfig {
 
 export interface CorpusCard {
   name: string;
+  /** `org/repo` when the corpus is in Text-Fabric layout (`ETCBC/bhsa`). */
+  id: string | null;
   title: string;
   version: string;
   doi: string | null;

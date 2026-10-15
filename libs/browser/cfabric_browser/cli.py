@@ -73,6 +73,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="do not let users open other corpora found on this computer",
     )
+    parser.add_argument(
+        "--ui",
+        choices=["classic", "parallel"],
+        default=None,
+        help="the interface to start in until the user switches: classic (panes)"
+        " or parallel (a column per corpus, a row per verse); see also ui: in"
+        " ~/.cfabric/browser.yaml",
+    )
     parser.add_argument("--version", action="version", version=__version__)
     return parser.parse_args(argv)
 
@@ -128,7 +136,11 @@ def main(argv: list[str] | None = None) -> int:
         max_results=args.max_results,
         timeout=args.timeout,
     )
-    app = create_app(service, pool, library=not args.no_library)
+    ui = args.ui or settings.get("ui") or "classic"
+    if ui not in ("classic", "parallel"):
+        print(f"cfabric-browser: unknown ui {ui!r} in browser.yaml", file=sys.stderr)
+        return 2
+    app = create_app(service, pool, library=not args.no_library, ui=ui)
 
     host = args.host
     port = args.port
