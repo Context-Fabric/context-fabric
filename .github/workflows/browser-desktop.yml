@@ -63,6 +63,13 @@ jobs:
           program=dist/cfabric-browser/cfabric-browser
           [ -f "$program.exe" ] && program=$program.exe
           bash packaging/smoke-test.sh "$program" ../core/tests/fixtures/display_corpus
+      - name: Add a translation (downloads the JPS 1917 from Sefaria)
+        run: |
+          program=dist/cfabric-browser/cfabric-browser
+          [ -f "$program.exe" ] && program=$program.exe
+          # on macOS the program as people start it, inside the app
+          [ -d dist/Context-Fabric.app ] && program=dist/Context-Fabric.app/Contents/MacOS/cfabric-browser
+          bash packaging/translation-test.sh "$program"
       - name: Size
         run: du -sh dist/*
       - name: Pack (keeps file permissions)
