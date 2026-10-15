@@ -1,18 +1,18 @@
 **A test version.** Context-Fabric as a program of its own, for reading, searching and comparing the Hebrew Bible (BHSA), the Samaritan Pentateuch and the Dead Sea Scrolls side by side. You don't need to install Python. Please report what goes wrong, and what you would like to see, in an [issue](https://github.com/Context-Fabric/context-fabric/issues) or by email to [martijn.naaijer@uzh.ch](mailto:martijn.naaijer@uzh.ch).
 
-## Before you start: the three corpora
+## The corpora
 
-This test is about three corpora only:
+This test is about three corpora, all under the licence CC BY-NC 4.0:
 
-| Corpus | Version | Folder in your home folder |
+| Corpus | Version | Download |
 |---|---|---|
-| BHSA (Hebrew Bible) | 2021 | `text-fabric-data/github/ETCBC/bhsa/tf/2021` |
-| Samaritan Pentateuch | 7.2.4 | `text-fabric-data/github/DT-UCPH/sp/tf/7.2.4` |
-| Dead Sea Scrolls | 2.0.1 | `text-fabric-data/github/ETCBC/dss/tf/2.0.1` |
+| BHSA (Hebrew Bible) | 2021 | 34 MB |
+| Samaritan Pentateuch | 7.2.4 | 4 MB |
+| Dead Sea Scrolls | 2.0.1 | 30 MB |
 
-The program reads them where [Text-Fabric](https://annotation.github.io/text-fabric/) has downloaded them. If you have used Text-Fabric with these corpora, they are probably there already. Other corpora on your computer are not offered in this test. The program can't download these corpora itself yet.
+**New in this version: you don't need them on your computer first.** When they are missing, the program offers to download them the first time it starts, from their own releases on GitHub (the same files [Text-Fabric](https://annotation.github.io/text-fabric/) uses). It puts them where Text-Fabric keeps its downloads (`text-fabric-data/github` in your home folder), so if you have used Text-Fabric with these corpora, the program finds them there and downloads nothing. Other corpora on your computer are not offered in this test.
 
-**New in this version: an English translation.** The program can add the JPS 1917 (*The Holy Scriptures: A New Translation*, Jewish Publication Society, 1917) itself; see *Use*.
+**Also new since test.4: an English translation.** The program can add the JPS 1917 (*The Holy Scriptures: A New Translation*, Jewish Publication Society, 1917) itself; see *Use*.
 
 ## Download
 
@@ -46,7 +46,8 @@ The program opens in **Parallel**, laid out after [Parabible](https://parabible.
 
 - **The JPS 1917 translation:** in *Texts → Add a text…*, under *Translations*, click *Add*. The program downloads it from Sefaria (about 5 MB, once), prepares it in a few seconds and shows it as a column next to the Hebrew. Its verses are numbered as in the Hebrew Bible, so they line up with the BHSA. In the Interlinear, choose it under *Under* for a line of English under each verse; in the Concordance, search it in English, for instance `word lower=lord`. It is in the public domain in the United States; elsewhere that depends on the translators' dates. *Remove* deletes it again.
 
-- **The first time:** the BHSA opens by itself, and *Open a corpus* offers the three corpora. Choose the SP there, and add the DSS with *Texts → Add a text…*. The program remembers your choice. Opening a large corpus (such as the BHSA) the first time takes a little longer, because it is prepared once; after that it opens in about a second.
+- **The first time:** if the corpora are not on your computer, the program shows *Getting the corpora*: click *Download (68 MB)*. Each corpus is downloaded, unpacked and prepared once, which takes a few minutes in all (the download itself less than a minute on a fast connection); you see the progress of each. Then Parallel opens with the three. *Not now* skips this; the corpora can then be downloaded later in *Texts → Add a text…*, under *Can be downloaded*. Without an internet connection the program says so and offers *Try again*.
+- If the corpora are there already, the BHSA opens by itself, and *Open a corpus* offers the others. Opening a corpus the first time takes a little longer, because it is prepared once; after that it opens in a few seconds.
 - **Reading:** click the chapter name at the top for the books and chapters; `‹` and `›` (or the arrow keys) go to the previous and next chapter. *Texts* turns corpora on and off and changes their order. The Dead Sea Scrolls show, per verse, the text of every scroll that has it; dimmed letters are reconstructed by the editors.
 - **Differences** marks the words where the texts differ from the first column. With the BHSA, the SP and the DSS shown, the DSS column also says which scrolls side with the BHSA and which with the SP.
 - **Words:** hover over a word to see its gloss, lexeme, part of speech and morphology. Click it for all its features, in a panel on the left. Words in the Dead Sea Scrolls get their gloss from the BHSA.
@@ -62,7 +63,7 @@ The program opens in **Parallel**, laid out after [Parabible](https://parabible.
 - Fixed since test.2: switching from *Panes* to *Parallel* could give an empty page.
 - Fixed since test.3: on Windows, the program could fail to start when its zip was unpacked with Explorer.
 - New since test.4: the JPS 1917 translation.
+- New since test.5: downloading the three corpora from the program.
 
 - On macOS and Linux, the window hasn't been tried by anyone yet. You're the first.
-- The BHSA, the SP and the DSS can't be downloaded from the program yet; only the translation can.
 - In three places the 1917 print joins verses that the BHSA divides (the Ten Commandments in Exodus 20 and Deuteronomy 5, and Numbers 25:19 with 26:1). The program divides them as the BHSA does and shows the print's number next to those verses.
