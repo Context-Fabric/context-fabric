@@ -271,19 +271,60 @@ class CorpusDescription:
 # =============================================================================
 
 
-def _parse_otext_format_pairs(api: Api) -> list[tuple[str, str, str, str, str]]:
-    """Parse otext metadata to find orig/trans format pairs.
+ORIGINAL_MARKER = "-orig-"
+"""Infix of an original-script format name, e.g. ``text-orig-full``."""
 
-    Returns list of (base_name, orig_name, trans_name, orig_spec, trans_spec)
+TRANSLITERATION_MARKERS = ("-trans-", "-translit-")
+"""Infixes of transliteration format names (BHSA ``text-trans-full``,
+N1904 ``text-translit-plain``)."""
+
+
+def _parse_otext_format_pairs(api: Api) -> list[tuple[str, str, str, str, str]]:
+    """Pair each original-script format with its transliteration.
+
+    Formats come from the ``fmt:`` keys of the ``otext`` configuration
+    (``T.config``). An original format pairs with the transliteration whose
+    name differs only in the marker: ``text-orig-full`` with
+    ``text-trans-full`` or ``text-translit-full``.
+
+    Parameters
+    ----------
+    api : Api
+        Context Fabric API instance
+
+    Returns
+    -------
+    list[tuple[str, str, str, str, str]]
+        ``(base_name, orig_name, trans_name, orig_spec, trans_spec)`` per pair,
+        in the order of the original formats, where ``base_name`` is the name
+        without its marker (``text-full``).
     """
-    return []
+    templates = {
+        key.removeprefix("fmt:"): spec
+        for key, spec in api.T.config.items()
+        if key.startswith("fmt:")
+    }
+    transliterations: dict[str, str] = {}
+    for name in templates:
+        for marker in TRANSLITERATION_MARKERS:
+            if marker in name:
+                transliterations.setdefault(name.replace(marker, "-", 1), name)
+
+    pairs = []
+    for orig_name, orig_spec in templates.items():
+        if ORIGINAL_MARKER not in orig_name:
+            continue
+        base_name = orig_name.replace(ORIGINAL_MARKER, "-", 1)
+        trans_name = transliterations.get(base_name)
+        if trans_name is not None:
+            pairs.append((base_name, orig_name, trans_name, orig_spec, templates[trans_name]))
+    return pairs
 
 
 def _get_exhaustive_text_samples(
     api: Api,
     orig_format_name: str,
     trans_format_name: str,
-    orig_format_spec: str = "",
 ) -> tuple[list[TextFormatSample], set[str]]:
     """Get text samples with EXHAUSTIVE character coverage.
 
@@ -299,8 +340,6 @@ def _get_exhaustive_text_samples(
         Original script format name (e.g., "lex-orig-plain")
     trans_format_name : str
         Transliteration format name (e.g., "lex-trans-plain")
-    orig_format_spec : str
-        Unused, kept for API compatibility
 
     Returns
     -------
@@ -382,10 +421,7 @@ def _build_text_representations(api: Api) -> TextRepresentationInfo:
 
     formats = []
     for base_name, orig_name, trans_name, orig_spec, trans_spec in pairs:
-        # Pass orig_spec for fast StringPool-based character discovery
-        samples, covered_chars = _get_exhaustive_text_samples(
-            api, orig_name, trans_name, orig_format_spec=orig_spec
-        )
+        samples, covered_chars = _get_exhaustive_text_samples(api, orig_name, trans_name)
 
         if samples:
             formats.append(
