@@ -65,27 +65,35 @@ export async function describeWorkspace(ws: Workspace): Promise<Partial<Common>>
 
 /** What the Reader shows, with its chapter in the reference corpus' numbering. */
 export async function describeReader(r: Reader): Promise<Partial<Common>> {
+  const { cards, reference } = await openCards();
   let aligned: string | null = null;
-  if (r.corpus && r.ref) {
-    const { reference } = await openCards();
-    aligned = reference ? await alignRef(r.corpus, r.ref, reference) : r.ref;
-  }
-  return readerToCommon(r, aligned ? aligned.split(":")[0] : null);
+  if (r.corpus && r.ref) aligned = reference ? await alignRef(r.corpus, r.ref, reference) : r.ref;
+  return readerToCommon(
+    r,
+    aligned ? aligned.split(":")[0] : null,
+    cards.map((c) => c.name),
+  );
 }
 
 /** What the Interlinear shows, with its chapter in the reference corpus' numbering. */
 export async function describeInterlinear(s: Interlinear): Promise<Partial<Common>> {
+  const { cards, reference } = await openCards();
   let aligned: string | null = null;
-  if (s.corpus && s.ref) {
-    const { reference } = await openCards();
-    aligned = reference ? await alignRef(s.corpus, s.ref, reference) : s.ref;
-  }
-  return interlinearToCommon(s, aligned ? aligned.split(":")[0] : null);
+  if (s.corpus && s.ref) aligned = reference ? await alignRef(s.corpus, s.ref, reference) : s.ref;
+  return interlinearToCommon(
+    s,
+    aligned ? aligned.split(":")[0] : null,
+    cards.map((c) => c.name),
+  );
 }
 
 /** What the Concordance shows. */
-export function describeConcordance(s: Concordance): Partial<Common> {
-  return concordanceToCommon(s);
+export async function describeConcordance(s: Concordance): Promise<Partial<Common>> {
+  const { cards } = await openCards();
+  return concordanceToCommon(
+    s,
+    cards.map((c) => c.name),
+  );
 }
 
 /** Open interface `target` with what the current one shows (`current`). */

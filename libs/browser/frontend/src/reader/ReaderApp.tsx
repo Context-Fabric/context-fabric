@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { splitRef } from "../common";
+import { Cite, citePassage } from "../Cite";
 import { useDifferences, type PaneDiff } from "../differences";
 import { DisplayProvider, displayRef, Plain } from "../display/Display";
 import { DisplayOptions } from "../DisplayOptions";
@@ -346,6 +347,14 @@ export function ReaderApp() {
         >
           ›
         </button>
+        {card && state.ref ? (
+          <Cite
+            align="start"
+            text={(software, date) =>
+              citePassage(card, state.verse ? `${state.ref}:${state.verse}` : state.ref!, software, date)
+            }
+          />
+        ) : null}
         <label className="ms-1 flex items-center gap-1 text-[13px]">
           <span className="sr-only">Text</span>
           <select

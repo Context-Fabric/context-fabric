@@ -67,9 +67,11 @@ export function workspaceToCommon(ws: Workspace, aligned: string | null): Partia
   const where = aligned ? splitRef(aligned) : null;
   return {
     corpora,
-    ref: where?.chapter ?? null,
-    verse: where?.verse ?? null,
-    search: search ? { corpus: search.corpus!, q: search.query, s: search.search } : null,
+    // panes without a passage say nothing about it: the one kept from before stays
+    ref: where?.chapter,
+    verse: where ? where.verse : undefined,
+    // likewise without a search pane: the search kept from before stays, though not shown
+    search: search ? { corpus: search.corpus!, q: search.query, s: search.search } : undefined,
     searching: search !== undefined,
     lexicon: lexicon ? { corpus: lexicon.corpus!, lex: lexicon.lex } : null,
     diff: ws.diff,
@@ -94,7 +96,9 @@ export function commonToWorkspace(c: Common, refs: Record<string, string | null>
 
   const replace = (corpus: string, pane: Pane) => {
     const at = panes.findIndex((p) => p.corpus === corpus);
-    if (at >= 0) panes[at] = pane;
+    // a pane of its own when the pane it would take holds the only passage
+    const only = at === reading && !panes.some((p, i) => i !== at && withRef(p));
+    if (at >= 0 && !(only && panes.length < MAX_PANES)) panes[at] = pane;
     else panes = [pane, ...panes];
   };
   if (c.lexicon) replace(c.lexicon.corpus, { ...emptyPane(c.lexicon.corpus), view: "lexicon", lex: c.lexicon.lex });
@@ -153,11 +157,12 @@ export function commonToParallel(c: Common): Parallel {
 /**
  * What the Reader shows. `aligned` is its chapter in the reference corpus'
  * numbering (the caller aligns it). The Reader shows no search or lexicon, so
- * those are left as they were.
+ * those are left as they were. Without chosen parallels it shows all `open`
+ * corpora (the same holds for the Interlinear and the Concordance).
  */
-export function readerToCommon(r: Reader, aligned: string | null): Partial<Common> {
+export function readerToCommon(r: Reader, aligned: string | null, open: string[] = []): Partial<Common> {
   return {
-    corpora: r.corpus ? [r.corpus, ...(r.texts ?? []).filter((t) => t !== r.corpus)] : undefined,
+    corpora: r.corpus ? [...new Set([r.corpus, ...(r.texts ?? open)])] : undefined,
     ref: aligned,
     verse: r.verse,
     searching: false,
@@ -186,8 +191,8 @@ export function commonToReader(c: Common, corpus: string | null, ref: string | n
 
 /** What the Interlinear shows. `aligned` is its chapter in the reference corpus'
  * numbering (the caller aligns it). It shows no search or lexicon. */
-export function interlinearToCommon(s: Interlinear, aligned: string | null): Partial<Common> {
-  const corpora = s.corpus ? [s.corpus, ...(s.under ? [s.under] : []), ...(s.texts ?? [])] : [];
+export function interlinearToCommon(s: Interlinear, aligned: string | null, open: string[] = []): Partial<Common> {
+  const corpora = s.corpus ? [s.corpus, ...(s.under ? [s.under] : []), ...(s.texts ?? open)] : [];
   return {
     corpora: corpora.length ? [...new Set(corpora)] : undefined,
     ref: aligned,
@@ -215,12 +220,13 @@ export function commonToInterlinear(c: Common, corpus: string | null, ref: strin
 // Concordance
 
 /** What the Concordance shows: a search. */
-export function concordanceToCommon(s: Concordance): Partial<Common> {
-  const corpora = s.corpus ? [s.corpus, ...(s.texts ?? [])] : [];
+export function concordanceToCommon(s: Concordance, open: string[] = []): Partial<Common> {
+  const corpora = s.corpus ? [s.corpus, ...(s.texts ?? open)] : [];
   return {
     corpora: corpora.length ? [...new Set(corpora)] : undefined,
     search: s.corpus ? { corpus: s.corpus, q: s.q, s: s.s } : undefined,
-    searching: s.corpus !== null,
+    // an empty concordance doesn't open the search elsewhere
+    searching: s.corpus !== null && s.q.trim() !== "",
   };
 }
 

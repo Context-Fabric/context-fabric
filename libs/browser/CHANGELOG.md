@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- *Cite* in the Reader and the Interlinear (the chapter, or the verse chosen).
 - *Concordance*, the fifth interface, after Sketch Engine and AntConc:
   - search results as lines with the hit in context, sorted by the hit or the words around it;
   - facets with counts that filter;
@@ -60,4 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Template problems as structured data (line, message, feature or node type), including problems inside quantifiers that the search engine only logs
 
 ### Fixed
+- Switching between interfaces:
+  - the Reader, the Interlinear and the Concordance passed on only their own corpus when no other texts were chosen;
+  - a search in the reference corpus' pane no longer pushes out the only pane with the passage (*Panes*);
+  - going through *Panes* no longer forgets the passage or the search of the interface before;
+  - an empty Concordance doesn't open the search panel in *Parallel*.
+- The Concordance on a phone: the facets fold away behind *Filters*, and the page scrolls as a whole.
 - Switching from *Panes* to *Parallel* could leave an empty page when the panes showed exactly the open corpora, in their order: the two interfaces shared a cache entry for the corpus cards
