@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from cfabric_browser import __version__
 from cfabric_browser.api import build_router
 from cfabric_browser.corpora import CorpusService
+from cfabric_browser.translations.manage import Jobs
 from cfabric_browser.workers import SearchPool
 
 STATIC = Path(__file__).parent / "static"
@@ -37,6 +38,7 @@ def create_app(
     library: bool = True,
     ui: str = "classic",
     hidden_uis: list[str] | None = None,
+    translations: Jobs | None = None,
 ) -> FastAPI:
     """Build the application.
 
@@ -59,6 +61,9 @@ def create_app(
         `concordance` (see `cfabric_browser.interfaces`).
     hidden_uis: list[str] | None
         Interfaces to leave out of the menu until the user chooses otherwise.
+    translations: Jobs | None
+        Where translations are built and how (`cfabric_browser.translations`);
+        by default into the first place the library looks.
     """
 
     @asynccontextmanager
@@ -76,7 +81,9 @@ def create_app(
         version=__version__,
         lifespan=lifespan,
     )
-    app.include_router(build_router(service, pool, library=library))
+    app.include_router(
+        build_router(service, pool, library=library, translations=translations)
+    )
 
     try:
         coreVersion = metadata.version("context-fabric")

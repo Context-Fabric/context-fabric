@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
+import type { Translation } from "./types";
 
 interface Props {
   onOpen: (corpus: string) => void;
@@ -77,9 +78,14 @@ export function Library({ onOpen, onClose }: Props) {
                   <li key={c.id} className="flex items-baseline gap-3 border-b border-rule py-2 last:border-b-0">
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold">{c.title?.split(" = ").pop() ?? c.name}</p>
-                      <p className="truncate text-[13px] text-stone" title={c.copies?.length ? `Also on this computer: ${c.copies.join(", ")}` : undefined}>
+                      <p
+                        className="truncate text-[13px] text-stone"
+                        title={c.copies?.length ? `Also on this computer: ${c.copies.join(", ")}` : undefined}
+                      >
                         {c.id}, version {c.version}
-                        {c.copies?.length ? ` (also ${c.copies.length === 1 ? "a copy" : `${c.copies.length} copies`} elsewhere)` : ""}
+                        {c.copies?.length
+                          ? ` (also ${c.copies.length === 1 ? "a copy" : `${c.copies.length} copies`} elsewhere)`
+                          : ""}
                       </p>
                     </div>
                     <button
@@ -93,10 +99,11 @@ export function Library({ onOpen, onClose }: Props) {
                   </li>
                 ))}
               </ul>
+              <Translations onAdded={(corpus) => open.mutate(corpus)} />
               {data.corpora.length === 0 ? (
                 <p className="text-stone">
-                  No corpora found in ~/text-fabric-data/github or ~/github. Download one with Text-Fabric
-                  first, or start the browser with the path of a corpus.
+                  No corpora found in ~/text-fabric-data/github or ~/github. Download one with Text-Fabric first, or
+                  start the browser with the path of a corpus.
                 </p>
               ) : null}
             </>
@@ -105,4 +112,156 @@ export function Library({ onOpen, onClose }: Props) {
       </div>
     </dialog>
   );
+}
+
+/** Translations that can be added: downloaded and built on this computer, then
+ * opened like any other corpus. */
+function Translations({ onAdded }: { onAdded: (corpus: string) => void }) {
+  const client = useQueryClient();
+  // the translations added here, to open once they are built
+  const [started, setStarted] = useState<string[]>([]);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const { data } = useQuery({
+    queryKey: ["translations"],
+    queryFn: api.translations,
+    refetchInterval: (q) => (q.state.data?.translations.some((t) => t.job?.state === "running") ? 500 : false),
+  });
+  const refresh = async () => {
+    await client.invalidateQueries({ queryKey: ["translations"] });
+    await client.invalidateQueries({ queryKey: ["library"] });
+  };
+  const add = useMutation({
+    mutationFn: (id: string) => api.addTranslation(id),
+    onSuccess: (entry) => {
+      // show the running job straight away, so that a finished job of before isn't taken for this one
+      client.setQueryData(["translations"], (old: { enabled: boolean; translations: Translation[] } | undefined) =>
+        old ? { ...old, translations: old.translations.map((t) => (t.id === entry.id ? entry : t)) } : old,
+      );
+      if (!entry.added) setStarted((ids) => [...ids, entry.id]);
+      void refresh();
+    },
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => api.removeTranslation(id),
+    onSuccess: () => {
+      setRemoving(null);
+      void refresh();
+    },
+  });
+
+  const translations = data?.enabled ? data.translations : [];
+  useEffect(() => {
+    for (const t of translations) {
+      if (started.includes(t.id) && t.job && t.job.state !== "running") {
+        setStarted((ids) => ids.filter((id) => id !== t.id));
+        void refresh();
+        if (t.added) onAdded(t.corpus);
+      }
+    }
+  });
+
+  if (translations.length === 0) return null;
+  const error = add.error ?? remove.error;
+  return (
+    <section className="flex flex-col gap-2 border-t border-rule pt-3">
+      <h3 className="text-[15px] font-semibold">Translations</h3>
+      <p className="text-[13px] text-stone">
+        Downloaded from their source and prepared on this computer, then shown next to the Hebrew texts.
+      </p>
+      {error ? (
+        <p className="text-[13px] text-madder" role="alert">
+          {String((error as Error).message)}
+        </p>
+      ) : null}
+      <ul className="flex flex-col">
+        {translations.map((t) => (
+          <li key={t.id} className="flex items-start gap-3 border-b border-rule py-2 last:border-b-0">
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">
+                {t.title} <span className="font-normal text-stone">({languageName(t.language)})</span>
+              </p>
+              <p className="text-[13px]">{t.name}</p>
+              <p className="text-[12px] text-stone">
+                {t.licenceNote} Source: {t.source}.
+              </p>
+              {t.job?.state === "failed" ? (
+                <p className="text-[13px] text-madder" role="alert">
+                  Could not add it: {t.job.error}
+                </p>
+              ) : null}
+              {t.removing ? (
+                <p className="text-[13px] text-stone">It is open, so it is removed when the browser starts again.</p>
+              ) : null}
+            </div>
+            <TranslationButton
+              t={t}
+              confirming={removing === t.id}
+              busy={add.isPending || remove.isPending}
+              onAdd={() => add.mutate(t.id)}
+              onRemove={() => (removing === t.id ? remove.mutate(t.id) : setRemoving(t.id))}
+              onCancel={() => setRemoving(null)}
+            />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+const BUTTON = "shrink-0 rounded border border-rule-strong px-3 py-1 text-[13px] hover:border-woad disabled:opacity-50";
+
+function TranslationButton(props: {
+  t: Translation;
+  confirming: boolean;
+  busy: boolean;
+  onAdd: () => void;
+  onRemove: () => void;
+  onCancel: () => void;
+}) {
+  const { t, confirming, busy } = props;
+  if (t.job?.state === "running") {
+    return (
+      <span className="shrink-0 text-[13px] text-stone" role="status">
+        {t.job.step === "download" && t.job.total ? `Downloading ${t.job.done} of ${t.job.total}…` : "Preparing…"}
+      </span>
+    );
+  }
+  if (!t.added) {
+    return (
+      <button type="button" disabled={busy} onClick={props.onAdd} className={BUTTON}>
+        {t.job?.state === "failed" ? "Try again" : "Add"}
+      </button>
+    );
+  }
+  if (t.removing) {
+    return (
+      <button type="button" disabled={busy} onClick={props.onAdd} className={BUTTON}>
+        Keep it
+      </button>
+    );
+  }
+  if (confirming) {
+    return (
+      <span className="flex shrink-0 items-baseline gap-2 text-[13px]">
+        Remove it?
+        <button type="button" disabled={busy} onClick={props.onRemove} className={`${BUTTON} text-madder`}>
+          Remove
+        </button>
+        <button type="button" onClick={props.onCancel} className={BUTTON}>
+          No
+        </button>
+      </span>
+    );
+  }
+  return (
+    <button type="button" disabled={busy} onClick={props.onRemove} className={BUTTON}>
+      Remove
+    </button>
+  );
+}
+
+const LANGUAGES: Record<string, string> = { eng: "English", deu: "German", nld: "Dutch", fra: "French" };
+
+function languageName(code: string): string {
+  return LANGUAGES[code] ?? code;
 }

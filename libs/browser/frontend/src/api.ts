@@ -19,6 +19,7 @@ import type {
   InterlinearPassage,
   KwicLine,
   ParallelChapter,
+  Translation,
 } from "./types";
 
 export class ApiError extends Error {
@@ -93,6 +94,17 @@ export const api = {
         open: boolean;
       }[];
     }>("/api/library"),
+
+  translations: () => request<{ enabled: boolean; translations: Translation[] }>("/api/translations"),
+
+  translation: (id: string) => request<Translation>(`/api/translations/${encodeURIComponent(id)}`),
+
+  /** Download and build a translation; `job` shows the progress. */
+  addTranslation: (id: string) =>
+    request<Translation>(`/api/translations/${encodeURIComponent(id)}`, { method: "POST" }),
+
+  removeTranslation: (id: string) =>
+    request<Translation>(`/api/translations/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   openCorpus: (id: string) =>
     request<{ name: string; opened: boolean }>("/api/corpora", {

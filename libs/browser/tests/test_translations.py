@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import replace
 from pathlib import Path
 
@@ -245,3 +246,117 @@ def test_build_stops_on_a_wrong_count(tmp_path: Path) -> None:
 def test_the_jps_catalogue_has_the_bhsa_books_in_order() -> None:
     assert [name for (name, _) in JPS.books] == list(hebrew_verses())
     assert sum(map(sum, hebrew_verses().values())) == 23213
+
+
+# adding and removing, through the API
+
+
+@pytest.fixture
+def library(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    from cfabric_browser.app import create_app
+    from cfabric_browser.corpora import CorpusService
+    from cfabric_browser.translations.manage import Jobs
+    from cfabric_browser.workers import SearchPool
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setitem(TRANSLATIONS, "test", TEST)
+    root = tmp_path / "root"
+    root.mkdir()
+    service = CorpusService([], roots=(str(root),))
+    jobs = Jobs(
+        root,
+        cache=tmp_path / "cache",
+        pending=tmp_path / "remove.json",
+        download=Downloads(),
+    )
+    app = create_app(service, SearchPool([]), manage_pool=False, translations=jobs)
+    with TestClient(app) as client:
+        yield (client, service, jobs)
+
+
+def added(client, tid: str = "test") -> dict:
+    for _ in range(200):
+        entry = client.get(f"/api/translations/{tid}").json()
+        if entry["job"] and entry["job"]["state"] != "running":
+            return entry
+        time.sleep(0.05)
+    raise AssertionError("the build did not finish")
+
+
+def test_add_and_remove_a_translation(library) -> None:
+    (client, _, _) = library
+    entries = {
+        t["id"]: t for t in client.get("/api/translations").json()["translations"]
+    }
+    assert entries["test"]["added"] is False
+    assert entries["test"]["licenceNote"].startswith("Published in 1917")
+
+    started = client.post("/api/translations/test")
+    assert started.status_code == 202
+    assert started.json()["job"]["state"] == "running"
+    entry = added(client)
+    assert entry["job"] == {
+        "state": "done",
+        "step": "build",
+        "done": 1,
+        "total": 1,
+        "error": None,
+    }
+    assert entry["added"] is True
+
+    corpora = client.get("/api/library").json()["corpora"]
+    assert [(c["id"], c["title"]) for c in corpora] == [
+        ("Context-Fabric/test-translation", f"JPS 1917 = {TEST.name}")
+    ]
+
+    removed = client.delete("/api/translations/test").json()
+    assert (removed["added"], removed["removing"]) == (False, False)
+    assert client.get("/api/library").json()["corpora"] == []
+    assert client.delete("/api/translations/test").status_code == 404
+
+
+def test_an_open_translation_is_removed_at_the_next_start(
+    library, tmp_path: Path
+) -> None:
+    from cfabric_browser.corpora import resolve_corpus
+    from cfabric_browser.translations.manage import remove_pending
+
+    (client, service, jobs) = library
+    client.post("/api/translations/test")
+    added(client)
+    # open, without loading it
+    service.add(resolve_corpus("Context-Fabric/test-translation", service.roots))
+
+    entry = client.delete("/api/translations/test").json()
+    assert (entry["open"], entry["added"], entry["removing"]) == (True, True, True)
+    # adding it again cancels the removal
+    assert client.post("/api/translations/test").json()["removing"] is False
+    client.delete("/api/translations/test")
+
+    assert remove_pending(jobs.root, jobs.pending) == ["test"]
+    assert not (jobs.root / "Context-Fabric" / "test-translation").exists()
+    assert not (tmp_path / "remove.json").exists()
+
+
+def test_a_failed_build_says_why(library, tmp_path: Path) -> None:
+    (client, _, jobs) = library
+    jobs.build_options["download"] = lambda url: source_file(
+        [["A."]], license="CC-BY-NC"
+    )
+    client.post("/api/translations/test")
+    entry = added(client)
+    assert entry["job"]["state"] == "failed"
+    assert "licence is 'CC-BY-NC'" in entry["job"]["error"]
+    assert entry["added"] is False
+
+
+def test_translations_outside_only_are_not_offered(tmp_path: Path) -> None:
+    from cfabric_browser.app import create_app
+    from cfabric_browser.corpora import CorpusService
+    from cfabric_browser.workers import SearchPool
+    from fastapi.testclient import TestClient
+
+    service = CorpusService([], roots=(str(tmp_path),), only=["ETCBC/bhsa"])
+    with TestClient(create_app(service, SearchPool([]), manage_pool=False)) as client:
+        assert client.get("/api/translations").json()["translations"] == []
+        assert client.post("/api/translations/jps1917").status_code == 404
