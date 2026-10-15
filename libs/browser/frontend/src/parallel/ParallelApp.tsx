@@ -1,15 +1,18 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
-import { displayRef } from "../display/Display";
+import { DisplayProvider, displayRef } from "../display/Display";
+import { HoverCard, useHover } from "../HoverCard";
 import { Library } from "../Library";
-import { useSettings, useTheme } from "../state";
+import { Inspector } from "../Inspector";
+import { LexiconView } from "../lexicon/LexiconView";
+import { emptyPane, serialize, useSettings, useTheme } from "../state";
 import { switchToClassic } from "../switch";
 import type { CorpusCard } from "../types";
-import { REFERENCE_IDS } from "../ui";
+import { alignRef, chapterOf, navigate, REFERENCE_IDS, rememberUi } from "../ui";
 import { UiSwitch } from "../UiSwitch";
 import { useParallel } from "./state";
-import { Table } from "./Table";
+import { settingsFor, Table } from "./Table";
 
 // The parallel interface, after Parabible's layout: a slim top bar with the
 // chapter, a drawer with the books, and a column per corpus.
@@ -35,7 +38,12 @@ function useCards() {
     enabled: names.length > 0,
     placeholderData: (previous) => previous,
   });
-  return { corpora, names, cards: cards.data ?? {}, ready: corpora.data !== undefined && (!names.length || !!cards.data) };
+  return {
+    corpora,
+    names,
+    cards: cards.data ?? {},
+    ready: corpora.data !== undefined && (!names.length || !!cards.data),
+  };
 }
 
 /** The corpus whose verse numbering the rows follow: the BHSA, opened in the
@@ -58,7 +66,8 @@ function useReference(cards: Record<string, CorpusCard>, ready: boolean): { name
   }, [ready, open, entry, client]);
 
   if (open) return { name: open.name, settled: true };
-  const settled = ready && (library.isError || (library.data !== undefined && (!entry || !library.data.enabled)) || failed);
+  const settled =
+    ready && (library.isError || (library.data !== undefined && (!entry || !library.data.enabled)) || failed);
   return { name: null, settled };
 }
 
@@ -212,9 +221,7 @@ function Texts({
                     <input
                       type="checkbox"
                       checked={shown}
-                      onChange={(e) =>
-                        onChange(e.target.checked ? [...texts, name] : texts.filter((t) => t !== name))
-                      }
+                      onChange={(e) => onChange(e.target.checked ? [...texts, name] : texts.filter((t) => t !== name))}
                       className="accent-[var(--woad)]"
                     />
                     <span className="truncate" title={cards[name]?.title}>
@@ -283,6 +290,9 @@ export function ParallelApp() {
   const [library, setLibrary] = useState(false);
   const { corpora, names, cards, ready } = useCards();
   const reference = useReference(cards, ready);
+  // the word shown in the panel on the left
+  const [inspected, setInspected] = useState<{ corpus: string; node: number } | null>(null);
+  const [lexiconHovered, onLexiconHover] = useHover();
 
   const texts = (state.texts ?? []).filter((t) => names.includes(t));
   // the numbering the rows follow: the BHSA, or else the first column's
@@ -330,17 +340,31 @@ export function ParallelApp() {
     document.title = state.ref ? `${displayRef(state.ref)}: Context-Fabric` : "Context-Fabric Browser";
   }, [state.ref]);
 
+  /** Read the chapter of a passage of `corpus` (`Genesis 1:3`, a verse of a lexeme), at its verse. */
+  const openPassage = async (corpus: string, ref: string) => {
+    if (!lead) return;
+    const aligned = await alignRef(corpus, ref, lead);
+    if (!aligned) return;
+    const verse = Number(aligned.split(":")[1]);
+    actions.open(chapterOf(aligned), true, Number.isInteger(verse) ? verse : null);
+  };
+
+  // the corpus whose lexicon the top bar offers (BHSA)
+  const lexiconCorpus = [...texts, ...names].find((n) => cards[n]?.lexicon) ?? null;
+  const lexiconCard = state.lexicon ? cards[state.lexicon] : undefined;
+
   // ← and → go to the previous and next chapter
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
+      if (state.lexicon) return;
       if (e.altKey || e.ctrlKey || e.metaKey || target.closest("input, textarea, select, [contenteditable]")) return;
       if (e.key === "ArrowLeft" && prev) actions.open(prev.ref);
       if (e.key === "ArrowRight" && next) actions.open(next.ref);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [prev, next, actions]);
+  }, [prev, next, actions, state.lexicon]);
 
   if (corpora.error) {
     return (
@@ -392,13 +416,18 @@ export function ParallelApp() {
           ›
         </button>
         <div className="ms-auto flex items-center gap-1 sm:gap-2">
-          <Texts
-            names={names}
-            cards={cards}
-            texts={texts}
-            onChange={actions.setTexts}
-            onAdd={() => setLibrary(true)}
-          />
+          {lexiconCorpus ? (
+            <button
+              type="button"
+              aria-pressed={state.lexicon !== null}
+              onClick={() => actions.setLexicon(state.lexicon ? null : lexiconCorpus)}
+              className="rounded px-2.5 py-1 text-[14px] hover:bg-woad-soft aria-pressed:bg-ink aria-pressed:text-vellum"
+              title={`The lexicon of ${lexiconCorpus}`}
+            >
+              Lexicon
+            </button>
+          ) : null}
+          <Texts names={names} cards={cards} texts={texts} onChange={actions.setTexts} onAdd={() => setLibrary(true)} />
           <button
             type="button"
             onClick={toggleTheme}
@@ -411,25 +440,74 @@ export function ParallelApp() {
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 overflow-y-auto">
-        {noCorpora ? (
-          <div className="p-10">
-            <h1 className="mb-2 text-[20px] font-semibold">No corpus is open</h1>
-            <p className="mb-4 max-w-prose text-stone">Add a text from the corpora on this computer.</p>
-            <button
-              type="button"
-              onClick={() => setLibrary(true)}
-              className="rounded bg-ink px-3 py-1.5 text-[14px] text-vellum hover:opacity-90"
-            >
-              Add a text
-            </button>
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        {inspected && cards[inspected.corpus] ? (
+          <div className="max-h-[45vh] min-h-0 border-b border-rule md:max-h-none md:border-b-0">
+            <Inspector
+              corpus={cards[inspected.corpus]}
+              node={inspected.node}
+              side="start"
+              onInspect={(node) => setInspected({ corpus: inspected.corpus, node })}
+              onClose={() => setInspected(null)}
+              onOpenPassage={(ref) => void openPassage(inspected.corpus, ref)}
+              onLexicon={(lex) => actions.setLexicon(inspected.corpus, lex)}
+            />
           </div>
-        ) : !ready || !state.ref || !lead ? (
-          <p className="p-10 text-stone">Opening…</p>
-        ) : !shown.length ? (
-          <p className="p-10 text-stone">No text is shown. Choose one under Texts.</p>
-        ) : (
-          chapter.error ? (
+        ) : null}
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+          {lexiconCard ? (
+            <div className="flex h-full min-h-0 flex-col">
+              <p className="border-b border-rule px-4 py-1.5 text-[13px]">
+                <button type="button" onClick={() => actions.setLexicon(null)} className="text-woad hover:underline">
+                  ← Back to {state.ref ? displayRef(state.ref) : "the text"}
+                </button>
+              </p>
+              <div className="min-h-0 flex-1">
+                <DisplayProvider
+                  config={lexiconCard.display}
+                  settings={settingsFor(lexiconCard, settings)}
+                  onInspect={(node) => setInspected({ corpus: lexiconCard.name, node })}
+                  onHover={onLexiconHover}
+                >
+                  <LexiconView
+                    corpus={lexiconCard}
+                    lex={state.lex}
+                    settings={settingsFor(lexiconCard, settings)}
+                    onLex={(lex) => actions.setLexicon(lexiconCard.name, lex)}
+                    onOpenPassage={(ref) => void openPassage(lexiconCard.name, ref)}
+                    onSearch={(query) => {
+                      // searching is in the classic interface for now
+                      rememberUi("classic");
+                      navigate(
+                        serialize({
+                          panes: [{ ...emptyPane(lexiconCard.name), view: "search", query }],
+                          sync: false,
+                          diff: false,
+                        }),
+                      );
+                    }}
+                  />
+                  {lexiconHovered ? <HoverCard corpus={lexiconCard} hovered={lexiconHovered} /> : null}
+                </DisplayProvider>
+              </div>
+            </div>
+          ) : noCorpora ? (
+            <div className="p-10">
+              <h1 className="mb-2 text-[20px] font-semibold">No corpus is open</h1>
+              <p className="mb-4 max-w-prose text-stone">Add a text from the corpora on this computer.</p>
+              <button
+                type="button"
+                onClick={() => setLibrary(true)}
+                className="rounded bg-ink px-3 py-1.5 text-[14px] text-vellum hover:opacity-90"
+              >
+                Add a text
+              </button>
+            </div>
+          ) : !ready || !state.ref || !lead ? (
+            <p className="p-10 text-stone">Opening…</p>
+          ) : !shown.length ? (
+            <p className="p-10 text-stone">No text is shown. Choose one under Texts.</p>
+          ) : chapter.error ? (
             <p className="p-10 text-madder">{String((chapter.error as Error).message)}</p>
           ) : chapter.data ? (
             <div className={chapter.isFetching ? "opacity-70" : ""}>
@@ -437,14 +515,16 @@ export function ParallelApp() {
                 data={chapter.data}
                 cards={cards}
                 settings={settings}
+                verse={state.verse}
                 onRemove={(name) => actions.setTexts(texts.filter((t) => t !== name))}
+                onInspect={(corpus, node) => setInspected({ corpus, node })}
               />
             </div>
           ) : (
             <p className="p-10 text-stone">Loading…</p>
-          )
-        )}
-      </main>
+          )}
+        </main>
+      </div>
 
       {navOpen && lead ? (
         <Navigate

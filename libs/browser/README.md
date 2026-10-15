@@ -50,7 +50,9 @@ The browser has two interfaces, with a switch (*Panes* / *Parallel*) in the top 
 - *Panes* (`/?c0=bhsa&ref0=Genesis+1&...`): up to four panes side by side, each with its own corpus, passage and view.
 - *Parallel* (`/Genesis/1?texts=bhsa,sp,dss`), laid out after [Parabible](https://parabible.com): a slim top bar with the chapter (`‹ ›` and ←/→ for the neighbours, the chapter name for a drawer with the books and their chapters), and a column per corpus. *Texts* turns open corpora on and off, orders the columns, and adds more from the corpora on this computer; `–` on a column removes it. The chapters follow the BHSA's numbering, also when the BHSA is not shown (it is opened in the background when it is on this computer); without it, the first column's. Each row is a verse: verses are matched by book (through the book concordance), chapter and verse number, there is a row for every verse number in any of the texts, and a text that lacks a verse has an empty cell. A corpus read by biblical book (DSS) shows in each cell the text of every scroll that has the verse, labelled with the scroll. A corpus without the chapter keeps a narrow column marked *not in this corpus*.
 
-The parallel interface is being built: differences, the word panel and search follow.
+Hovering over a word shows the same card as in *Panes*; clicking it opens the word panel on the left, with the same contents as the inspector and, for a BHSA word, *Lexicon entry*. *Lexicon* in the top bar (when a corpus with a lexicon is open) shows the lexicon instead of the chapter; a verse in it opens its chapter with that verse marked (`&v=26`; the lexicon is `&lexicon=bhsa&lx=…`). Its *Search* goes to the search in *Panes* for now.
+
+The parallel interface is being built: differences and search follow.
 
 ## Queries
 
