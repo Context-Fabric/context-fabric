@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { splitRef } from "../common";
+import { Cite, citePassage } from "../Cite";
 import { displayRef, scriptClass } from "../display/Display";
 import { DisplayOptions } from "../DisplayOptions";
 import { HoverCard, useHover } from "../HoverCard";
@@ -503,6 +504,14 @@ export function InterlinearApp() {
         >
           ›
         </button>
+        {card && state.ref ? (
+          <Cite
+            align="start"
+            text={(software, date) =>
+              citePassage(card, state.verse ? `${state.ref}:${state.verse}` : state.ref!, software, date)
+            }
+          />
+        ) : null}
         <select
           value={corpus ?? ""}
           onChange={async (e) => {

@@ -71,6 +71,7 @@ All five are built: *Panes*, *Parallel*, *Reader*, *Interlinear* and *Concordanc
   - *Lexicon*: the verse's lexemes with gloss and frequency. *All* opens the lexicon in *Parallel*.
   - *Search*: a search for words like one of the verse's, opened in *Parallel*.
   - *Notes*: your own note and bookmark (★) on the verse, and a list of all your notes. They are kept in this browser (or the program's window), never sent anywhere, and are included in exported workspaces.
+- *Cite*, next to the chapter, cites the chapter, or the verse chosen.
 
 - *Panes* (`/?c0=bhsa&ref0=Genesis+1&...`): up to four panes side by side, each with its own corpus, passage and view.
 - *Parallel* (`/Genesis/1?texts=bhsa,sp,dss`), laid out after [Parabible](https://parabible.com): a slim top bar with the chapter (`‹ ›` and ←/→ for the neighbours, the chapter name for a drawer with the books and their chapters), and a column per corpus. *Texts* turns open corpora on and off, orders the columns, and adds more from the corpora on this computer; `–` on a column removes it. The chapters follow the BHSA's numbering, also when the BHSA is not shown (it is opened in the background when it is on this computer); without it, the first column's. Each row is a verse: verses are matched by book (through the book concordance), chapter and verse number, there is a row for every verse number in any of the texts, and a text that lacks a verse has an empty cell. A corpus read by biblical book (DSS) shows in each cell the text of every scroll that has the verse, labelled with the scroll. A corpus without the chapter keeps a narrow column marked *not in this corpus*.
@@ -106,6 +107,7 @@ The top bar also has *Display* (text format and what is shown, shared with *Pane
 - **Practise** hides a line; click a word's **?** to see it, or use *Show all* and *Hide again*.
 - **Colour** colours the words by part of speech, or the verbs by stem, with a legend.
 - Clicking a word opens the word panel on the right.
+- *Cite*, next to the chapter, cites the chapter, or the verse chosen.
 
 A transliteration of the word as it sounds is not available yet: the BHSA's `phono` is a module of its own.
 
@@ -123,6 +125,9 @@ A transliteration of the word as it sounds is not available yet: the BHSA's `pho
   - *Download lines*: a TSV table of passage, before, hit and after, in the order and with the filters shown, at most 20,000.
 - **Collocations:** the lexemes (or forms, or parts of speech) within 1 to 5 words of the hits, with their count there, their frequency in the corpus and their logDice score. logDice measures how typical a word is near the hit (at most 14).
 - **Statistics:** as in the other interfaces.
+
+*Cite* in the line with the number of results cites the search. On a phone the facets fold away behind *Filters*.
+
 ## Queries
 
 Queries use Text-Fabric's search template language, run by Context-Fabric's search engine. Queries written for the TF browser work unchanged and give the same results.

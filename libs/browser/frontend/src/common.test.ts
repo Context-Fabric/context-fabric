@@ -45,7 +45,7 @@ describe("panes", () => {
       corpora: ["bhsa", "sp", "dss"],
       ref: "Genesis 1",
       verse: 3,
-      search: null,
+      search: undefined,
       searching: false,
       lexicon: null,
       diff: true,
@@ -53,7 +53,10 @@ describe("panes", () => {
   });
 
   it("describe a search pane as the search", () => {
-    const searching = { ...ws, panes: [...ws.panes, { ...emptyPane("bhsa"), view: "search" as const, query: "word", search: "s1" }] };
+    const searching = {
+      ...ws,
+      panes: [...ws.panes, { ...emptyPane("bhsa"), view: "search" as const, query: "word", search: "s1" }],
+    };
     const common = workspaceToCommon(searching, "Genesis 1:3");
     expect(common.search).toEqual({ corpus: "bhsa", q: "word", s: "s1" });
     expect(common.searching).toBe(true);
@@ -84,6 +87,31 @@ describe("panes", () => {
     expect(made.panes[0].query).toBe("word");
   });
 
+  it("give the search a pane of its own when its corpus' pane holds the only passage", () => {
+    // the SP has no Isaiah, the DSS is read by book
+    const common = {
+      ...reading,
+      ref: "Jesaia 6",
+      search: { corpus: "bhsa", q: "word", s: null },
+      searching: true,
+    };
+    const made = commonToWorkspace(common, { bhsa: "Jesaia 6", sp: null, dss: null }, ["dss"]);
+    expect(made.panes.map((p) => [p.corpus, p.view, p.ref])).toEqual([
+      ["bhsa", "search", null],
+      ["bhsa", "read", "Jesaia 6"],
+      ["sp", "read", null],
+      ["dss", "read", null],
+    ]);
+  });
+
+  it("without a passage or search leave the kept ones alone", () => {
+    const ws = commonToWorkspace({ ...reading, ref: null }, {}, ["dss"]);
+    const common = workspaceToCommon(ws, null);
+    const search = { corpus: "bhsa", q: "word", s: "s1" };
+    const merged = mergeCommon({ ...EMPTY, ref: "Jesaia 6", verse: 3, search, searching: true }, common);
+    expect([merged.ref, merged.search, merged.searching]).toEqual(["Jesaia 6", search, false]);
+  });
+
   it("have at most four", () => {
     const many = { ...reading, corpora: ["a", "b", "c", "d", "e"] };
     expect(commonToWorkspace(many, {}, []).panes).toHaveLength(4);
@@ -102,7 +130,12 @@ describe("parallel", () => {
   });
 
   it("does not show the lexicon while searching", () => {
-    const common = { ...reading, search: { corpus: "bhsa", q: "w", s: null }, searching: true, lexicon: { corpus: "bhsa", lex: 7 } };
+    const common = {
+      ...reading,
+      search: { corpus: "bhsa", q: "w", s: null },
+      searching: true,
+      lexicon: { corpus: "bhsa", lex: 7 },
+    };
     const parallel = commonToParallel(common);
     expect(parallel.searching).toBe(true);
     expect(parallel.lexicon).toBeNull();

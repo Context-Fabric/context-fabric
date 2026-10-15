@@ -289,6 +289,7 @@ export function ConcordanceApp() {
   }, [state.corpus, ready, reference.settled, reference.name, names, actions]);
 
   const status = useSearchStatus(state.s);
+  const [facetsOpen, setFacetsOpen] = useState(false);
   const gone = useSearchGone(state.s);
   const { data: features } = useQuery({
     queryKey: ["features", corpus],
@@ -379,7 +380,7 @@ export function ConcordanceApp() {
     const lead = reference.name ?? corpus;
     const aligned = lead === corpus ? ref : await alignRef(corpus, ref, lead);
     const { chapter, verse } = splitRef(aligned ?? ref);
-    await switchInterface("reader", { ...describeConcordance(state), ref: chapter, verse, searching: false });
+    await switchInterface("reader", { ...(await describeConcordance(state)), ref: chapter, verse, searching: false });
   };
 
   const download = async () => {
@@ -423,7 +424,8 @@ export function ConcordanceApp() {
   const select = "rounded border border-rule-strong bg-raised px-1.5 py-0.5 text-[13px]";
 
   return (
-    <div className="flex h-full flex-col">
+    // on a phone the whole page scrolls; on a wider screen the lines and facets scroll apart
+    <div className="flex h-full flex-col overflow-y-auto md:overflow-hidden">
       <header className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-rule bg-raised px-2 py-1.5 sm:px-3">
         <span className="me-1" title="Context-Fabric">
           <Mark />
@@ -550,9 +552,22 @@ export function ConcordanceApp() {
             />
           ) : null}
 
-          <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+          <div className="flex flex-1 flex-col md:min-h-0 md:flex-row">
             {status && status.count > 0 ? (
-              <aside className="max-h-[30vh] min-h-0 overflow-y-auto border-b border-rule p-3 md:max-h-none md:w-[17rem] md:border-b-0 md:border-e">
+              // on a phone the facets are folded away, so that the lines have the room
+              <button
+                type="button"
+                aria-expanded={facetsOpen}
+                onClick={() => setFacetsOpen(!facetsOpen)}
+                className="border-b border-rule px-4 py-1.5 text-start text-[13px] text-woad md:hidden"
+              >
+                {facetsOpen ? "▾" : "▸"} Filters{state.filters.length ? ` (${state.filters.length})` : ""}
+              </button>
+            ) : null}
+            {status && status.count > 0 ? (
+              <aside
+                className={`${facetsOpen ? "" : "hidden"} min-h-0 border-b border-rule p-3 md:block md:overflow-y-auto md:w-[17rem] md:border-b-0 md:border-e`}
+              >
                 {state.filters.length ? (
                   <div className="mb-3 flex flex-wrap gap-1">
                     {state.filters.map(([f, v]) => (
@@ -581,7 +596,7 @@ export function ConcordanceApp() {
               </aside>
             ) : null}
 
-            <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+            <main className="min-w-0 flex-1 md:min-h-0 md:overflow-y-auto">
               {status && status.count > 0 ? (
                 <>
                   <nav

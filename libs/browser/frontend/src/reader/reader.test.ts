@@ -52,6 +52,11 @@ describe("switching to and from the Reader", () => {
     expect(mergeCommon(kept, common).search).toEqual(kept.search);
   });
 
+  it("carries all open corpora when no parallels were chosen", () => {
+    const common = readerToCommon({ ...reader, corpus: "sp", texts: null }, null, ["bhsa", "sp", "dss"]);
+    expect(common.corpora).toEqual(["sp", "bhsa", "dss"]);
+  });
+
   it("reads the first corpus, with the others as parallels", () => {
     const common = { ...EMPTY, corpora: ["sp", "bhsa"], ref: "Genesis 1", verse: 2 };
     expect(commonToReader(common, "sp", "Genesis 1")).toEqual({
