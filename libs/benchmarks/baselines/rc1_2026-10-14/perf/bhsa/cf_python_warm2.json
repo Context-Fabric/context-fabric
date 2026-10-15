@@ -12,10 +12,10 @@
    "uss_mb": 26.2
   },
   "after_load": {
-   "peak_rss_mb": 429.9,
-   "rss_mb": 289.7,
-   "uss_mb": 960.5
+   "peak_rss_mb": 430.5,
+   "rss_mb": 290.2,
+   "uss_mb": 961.0
   }
  },
- "load_s": 0.6626
+ "load_s": 0.4804
 }

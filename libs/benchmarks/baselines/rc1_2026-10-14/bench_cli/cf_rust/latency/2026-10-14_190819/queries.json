@@ -1,0 +1,902 @@
+[
+  {
+    "id": "lex_001",
+    "category": "lexical",
+    "template": "word sp=verb",
+    "description": "All verbs",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_002",
+    "category": "lexical",
+    "template": "word sp=subs",
+    "description": "All substantives (nouns)",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_003",
+    "category": "lexical",
+    "template": "word sp=prep",
+    "description": "All prepositions",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_004",
+    "category": "lexical",
+    "template": "word sp=conj",
+    "description": "All conjunctions",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_005",
+    "category": "lexical",
+    "template": "word sp=nmpr",
+    "description": "All proper nouns",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_006",
+    "category": "lexical",
+    "template": "word sp=art",
+    "description": "All articles",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_007",
+    "category": "lexical",
+    "template": "word sp=adjv",
+    "description": "All adjectives",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_008",
+    "category": "lexical",
+    "template": "word sp=advb",
+    "description": "All adverbs",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_009",
+    "category": "lexical",
+    "template": "word vt=perf",
+    "description": "Perfect tense verbs",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_010",
+    "category": "lexical",
+    "template": "word vt=impf",
+    "description": "Imperfect tense verbs",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_011",
+    "category": "lexical",
+    "template": "word vt=wayq",
+    "description": "Wayyiqtol verbs",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_012",
+    "category": "lexical",
+    "template": "word vt=impv",
+    "description": "Imperative verbs",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_013",
+    "category": "lexical",
+    "template": "word vt=ptca",
+    "description": "Active participles",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_014",
+    "category": "lexical",
+    "template": "word vt=infc",
+    "description": "Infinitive construct",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_015",
+    "category": "lexical",
+    "template": "word vs=qal",
+    "description": "Qal stem verbs",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_016",
+    "category": "lexical",
+    "template": "word vs=piel",
+    "description": "Piel stem verbs",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_017",
+    "category": "lexical",
+    "template": "word vs=hif",
+    "description": "Hiphil stem verbs",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_018",
+    "category": "lexical",
+    "template": "word vs=nif",
+    "description": "Niphal stem verbs",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_019",
+    "category": "lexical",
+    "template": "word gn=m",
+    "description": "Masculine words",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_020",
+    "category": "lexical",
+    "template": "word gn=f",
+    "description": "Feminine words",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_021",
+    "category": "lexical",
+    "template": "word nu=sg",
+    "description": "Singular words",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_022",
+    "category": "lexical",
+    "template": "word nu=pl",
+    "description": "Plural words",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_023",
+    "category": "lexical",
+    "template": "word nu=du",
+    "description": "Dual words",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_024",
+    "category": "lexical",
+    "template": "word sp=verb vt=perf",
+    "description": "Perfect verbs",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_025",
+    "category": "lexical",
+    "template": "word sp=verb vs=qal",
+    "description": "Qal verbs",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_026",
+    "category": "lexical",
+    "template": "word sp=subs gn=m nu=pl",
+    "description": "Masculine plural nouns",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_027",
+    "category": "lexical",
+    "template": "word sp=subs gn=f nu=sg",
+    "description": "Feminine singular nouns",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_028",
+    "category": "lexical",
+    "template": "word sp=verb vt=impv gn=m",
+    "description": "Masculine imperatives",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_029",
+    "category": "lexical",
+    "template": "word sp=verb vs=hif vt=perf",
+    "description": "Hiphil perfects",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "lex_030",
+    "category": "lexical",
+    "template": "word language=Aramaic",
+    "description": "Aramaic words",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_001",
+    "category": "structural",
+    "template": "phrase function=Pred",
+    "description": "Predicate phrases",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_002",
+    "category": "structural",
+    "template": "phrase function=Subj",
+    "description": "Subject phrases",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_003",
+    "category": "structural",
+    "template": "phrase function=Objc",
+    "description": "Object phrases",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_004",
+    "category": "structural",
+    "template": "phrase function=Cmpl",
+    "description": "Complement phrases",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_005",
+    "category": "structural",
+    "template": "phrase function=Adju",
+    "description": "Adjunct phrases",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_006",
+    "category": "structural",
+    "template": "phrase function=Time",
+    "description": "Time phrases",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_007",
+    "category": "structural",
+    "template": "phrase function=Loca",
+    "description": "Location phrases",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_008",
+    "category": "structural",
+    "template": "phrase typ=VP",
+    "description": "Verbal phrases",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_009",
+    "category": "structural",
+    "template": "phrase typ=NP",
+    "description": "Noun phrases",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_010",
+    "category": "structural",
+    "template": "phrase typ=PP",
+    "description": "Prepositional phrases",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_011",
+    "category": "structural",
+    "template": "phrase typ=CP",
+    "description": "Conjunction phrases",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_012",
+    "category": "structural",
+    "template": "phrase typ=AdvP",
+    "description": "Adverb phrases",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_013",
+    "category": "structural",
+    "template": "clause kind=VC",
+    "description": "Verbal clauses",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_014",
+    "category": "structural",
+    "template": "clause kind=NC",
+    "description": "Nominal clauses",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_015",
+    "category": "structural",
+    "template": "clause domain=Q",
+    "description": "Quotation clauses",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_016",
+    "category": "structural",
+    "template": "clause domain=N",
+    "description": "Narrative clauses",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_017",
+    "category": "structural",
+    "template": "clause typ=Way0",
+    "description": "Wayyiqtol clauses",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_018",
+    "category": "structural",
+    "template": "clause typ=NmCl",
+    "description": "Nominal clauses",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_019",
+    "category": "structural",
+    "template": "clause typ=InfC",
+    "description": "Infinitive clauses",
+    "expected_complexity": "low",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_020",
+    "category": "structural",
+    "template": "\nclause\n  phrase function=Subj\n",
+    "description": "Clauses with subject phrases",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_021",
+    "category": "structural",
+    "template": "\nclause\n  phrase function=Pred\n",
+    "description": "Clauses with predicate phrases",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_022",
+    "category": "structural",
+    "template": "\nclause kind=VC\n  phrase function=Objc\n",
+    "description": "Verbal clauses with objects",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_023",
+    "category": "structural",
+    "template": "\nphrase typ=NP\n  word sp=subs\n",
+    "description": "Noun phrases with substantives",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_024",
+    "category": "structural",
+    "template": "\nphrase typ=VP\n  word sp=verb\n",
+    "description": "Verb phrases with verbs",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_025",
+    "category": "structural",
+    "template": "\nphrase typ=PP\n  word sp=prep\n",
+    "description": "Prepositional phrases with prepositions",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_026",
+    "category": "structural",
+    "template": "\nclause\n  phrase function=Subj\n  phrase function=Pred\n",
+    "description": "Clauses with both subject and predicate",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_027",
+    "category": "structural",
+    "template": "\nclause\n  phrase function=Pred\n  phrase function=Objc\n",
+    "description": "Clauses with predicate and object",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_028",
+    "category": "structural",
+    "template": "\nsentence\n  clause\n",
+    "description": "Sentences containing clauses",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_029",
+    "category": "structural",
+    "template": "\nverse\n  clause kind=VC\n",
+    "description": "Verses with verbal clauses",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "struct_030",
+    "category": "structural",
+    "template": "\nclause\n  phrase\n    word sp=verb vt=wayq\n",
+    "description": "Clauses with wayyiqtol verbs",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_001",
+    "category": "quantified",
+    "template": "\nclause\n/with/\n  phrase function=Subj\n/-/\n",
+    "description": "Clauses with subject phrases",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_002",
+    "category": "quantified",
+    "template": "\nclause kind=VC\n/with/\n  phrase function=Objc\n/-/\n",
+    "description": "Verbal clauses with objects",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_003",
+    "category": "quantified",
+    "template": "\nclause\n/without/\n  phrase function=Subj\n/-/\n",
+    "description": "Clauses without explicit subjects",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_004",
+    "category": "quantified",
+    "template": "\nphrase typ=NP\n/with/\n  word sp=art\n/-/\n",
+    "description": "Noun phrases with articles",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_005",
+    "category": "quantified",
+    "template": "\nphrase typ=NP\n/without/\n  word sp=art\n/-/\n",
+    "description": "Noun phrases without articles",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_006",
+    "category": "quantified",
+    "template": "\nclause\n/with/\n  phrase function=Time\n/-/\n",
+    "description": "Clauses with time phrases",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_007",
+    "category": "quantified",
+    "template": "\nclause\n/with/\n  phrase function=Loca\n/-/\n",
+    "description": "Clauses with location phrases",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_008",
+    "category": "quantified",
+    "template": "\nphrase function=Pred\n/with/\n  word vt=perf\n/-/\n",
+    "description": "Predicate phrases with perfect verbs",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_009",
+    "category": "quantified",
+    "template": "\nphrase function=Pred\n/with/\n  word vt=impf\n/-/\n",
+    "description": "Predicate phrases with imperfect verbs",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_010",
+    "category": "quantified",
+    "template": "\nclause domain=Q\n/with/\n  phrase function=Voct\n/-/\n",
+    "description": "Quotations with vocatives",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_011",
+    "category": "quantified",
+    "template": "\nclause\n/with/\n  phrase function=Nega\n/-/\n",
+    "description": "Clauses with negation",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_012",
+    "category": "quantified",
+    "template": "\nphrase typ=NP\n/with/\n  word sp=adjv\n/-/\n",
+    "description": "Noun phrases with adjectives",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_013",
+    "category": "quantified",
+    "template": "\nclause kind=NC\n/with/\n  phrase function=PreC\n/-/\n",
+    "description": "Nominal clauses with predicative complements",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_014",
+    "category": "quantified",
+    "template": "\nverse\n/with/\n  clause domain=Q\n/-/\n",
+    "description": "Verses containing quotations",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_015",
+    "category": "quantified",
+    "template": "\nsentence\n/with/\n  clause kind=VC\n  clause kind=NC\n/-/\n",
+    "description": "Sentences with both verbal and nominal clauses",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_016",
+    "category": "quantified",
+    "template": "\nphrase function=Subj\n/with/\n  word sp=nmpr\n/-/\n",
+    "description": "Subject phrases with proper nouns",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_017",
+    "category": "quantified",
+    "template": "\nclause\n/with/\n  phrase function=Subj\n  phrase function=Objc\n/-/\n",
+    "description": "Clauses with both subject and object",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_018",
+    "category": "quantified",
+    "template": "\nclause\n/without/\n  phrase function=Objc\n/-/\n",
+    "description": "Intransitive clauses (no object)",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_019",
+    "category": "quantified",
+    "template": "\nphrase typ=VP\n/with/\n  word vs=hif\n/-/\n",
+    "description": "Verb phrases with hiphil verbs",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "quant_020",
+    "category": "quantified",
+    "template": "\nclause\n/with/\n  phrase function=Cmpl\n/-/\n",
+    "description": "Clauses with complements",
+    "expected_complexity": "medium",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_001",
+    "category": "complex",
+    "template": "\nclause kind=VC\n  phrase function=Subj\n    word sp=nmpr\n  phrase function=Pred\n    word vt=perf\n",
+    "description": "Verbal clauses: proper noun subject + perfect predicate",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_002",
+    "category": "complex",
+    "template": "\nclause kind=VC\n  phrase function=Pred\n    word vt=wayq\n  phrase function=Objc\n",
+    "description": "Wayyiqtol clauses with objects",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_003",
+    "category": "complex",
+    "template": "\nsentence\n  clause kind=VC\n    phrase function=Subj\n    phrase function=Pred\n      word vt=perf\n",
+    "description": "Sentences with subject + perfect verb clauses",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_004",
+    "category": "complex",
+    "template": "\nclause domain=Q\n  phrase function=Pred\n    word sp=verb\n  phrase function=Objc\n    word sp=subs\n",
+    "description": "Quotations with verb + noun object",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_005",
+    "category": "complex",
+    "template": "\nverse\n  clause kind=VC\n    phrase function=Pred\n      word vs=qal vt=perf\n",
+    "description": "Verses with qal perfect verbs",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_006",
+    "category": "complex",
+    "template": "\nclause\n  phrase function=Subj\n    word sp=subs gn=m nu=sg\n",
+    "description": "Clauses with masculine singular noun subjects",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_007",
+    "category": "complex",
+    "template": "\nclause\n  phrase function=Pred\n  phrase function=Subj\n  phrase function=Objc\n",
+    "description": "Transitive clauses (pred + subj + obj)",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_008",
+    "category": "complex",
+    "template": "\nclause kind=NC\n  phrase function=Subj\n  phrase function=PreC\n",
+    "description": "Nominal clauses with subject and predicate complement",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_009",
+    "category": "complex",
+    "template": "\nsentence\n  clause\n    phrase typ=PP\n      word sp=prep\n",
+    "description": "Sentences with prepositional phrases",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_010",
+    "category": "complex",
+    "template": "\nclause\n  phrase function=Pred\n    word sp=verb vt=impv\n",
+    "description": "Imperative clauses",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_011",
+    "category": "complex",
+    "template": "\nclause\n/with/\n  phrase function=Subj\n    word sp=nmpr\n/-/\n  phrase function=Pred\n",
+    "description": "Clauses: proper noun subject with predicate",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_012",
+    "category": "complex",
+    "template": "\nclause kind=VC\n/with/\n  phrase function=Time\n/-/\n  phrase function=Pred\n    word vt=perf\n",
+    "description": "Verbal clauses with time phrase + perfect",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_013",
+    "category": "complex",
+    "template": "\nclause domain=N\n  phrase function=Pred\n    word vt=wayq vs=qal\n",
+    "description": "Narrative wayyiqtol qal verbs",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_014",
+    "category": "complex",
+    "template": "\nverse\n  clause\n    phrase function=Subj\n    phrase function=Pred\n    phrase function=Objc\n",
+    "description": "Verses with full transitive clauses",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_015",
+    "category": "complex",
+    "template": "\nclause\n  phrase function=Pred\n    word sp=verb vs=piel\n  phrase function=Objc\n",
+    "description": "Piel verbs with objects",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_016",
+    "category": "complex",
+    "template": "\nclause\n/with/\n  phrase function=Adju\n/-/\n  phrase function=Pred\n  phrase function=Subj\n",
+    "description": "Clauses with adjuncts, predicate, and subject",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_017",
+    "category": "complex",
+    "template": "\nsentence\n  clause kind=VC\n  clause kind=VC\n",
+    "description": "Sentences with multiple verbal clauses",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_018",
+    "category": "complex",
+    "template": "\nchapter\n/with/\n  verse\n    clause domain=Q\n/-/\n",
+    "description": "Chapters containing quotations",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_019",
+    "category": "complex",
+    "template": "\nclause\n  phrase function=Pred\n    word sp=verb gn=m nu=sg ps=p3\n",
+    "description": "3rd person masculine singular verbs",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  },
+  {
+    "id": "complex_020",
+    "category": "complex",
+    "template": "\nclause kind=VC domain=N\n  phrase function=Pred\n    word vt=wayq\n  phrase function=Subj\n    word sp=nmpr\n",
+    "description": "Narrative wayyiqtol with proper noun subject",
+    "expected_complexity": "high",
+    "validated": true,
+    "validation_error": null
+  }
+]

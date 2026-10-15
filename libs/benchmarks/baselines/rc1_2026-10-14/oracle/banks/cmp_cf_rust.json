@@ -3,8 +3,8 @@
  "engine_version": "0.6.0rc1",
  "oracle_version": "13.0.19",
  "total": 2370,
- "passed": 2368,
- "failed": 2,
+ "passed": 2369,
+ "failed": 1,
  "by_area": {
   "E": {
    "passed": 117,
@@ -23,7 +23,7 @@
    "total": 2
   },
   "T": {
-   "passed": 592,
+   "passed": 593,
    "total": 593
   },
   "meta": {
@@ -72,22 +72,6 @@
        99
       ]
      ]
-    }
-   ]
-  },
-  {
-   "area": "T",
-   "check": "T.text[line-term]",
-   "categories": {
-    "value": 1
-   },
-   "failed": 1,
-   "total": 117,
-   "examples": [
-    {
-     "arg": 56,
-     "expected": "",
-     "actual": ", "
     }
    ]
   }

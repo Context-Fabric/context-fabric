@@ -7,32 +7,32 @@
  "mode": "warm",
  "memory": {
   "before_load": {
-   "peak_rss_mb": 36.8,
-   "rss_mb": 37.6,
-   "uss_mb": 26.0
+   "peak_rss_mb": 37.0,
+   "rss_mb": 37.8,
+   "uss_mb": 26.2
   },
   "after_load": {
-   "peak_rss_mb": 302.3,
-   "rss_mb": 301.3,
-   "uss_mb": 411.6
+   "peak_rss_mb": 303.4,
+   "rss_mb": 302.4,
+   "uss_mb": 412.6
   },
   "after_gate_probes": {
-   "peak_rss_mb": 310.1,
-   "rss_mb": 310.1,
-   "uss_mb": 413.9
+   "peak_rss_mb": 309.3,
+   "rss_mb": 309.3,
+   "uss_mb": 413.2
   },
   "after_steady_probes": {
-   "peak_rss_mb": 317.8,
-   "rss_mb": 317.8,
-   "uss_mb": 414.1
+   "peak_rss_mb": 317.1,
+   "rss_mb": 317.1,
+   "uss_mb": 413.3
   },
   "final": {
-   "peak_rss_mb": 348.5,
-   "rss_mb": 343.1,
-   "uss_mb": 438.2
+   "peak_rss_mb": 348.4,
+   "rss_mb": 343.2,
+   "uss_mb": 438.4
   }
  },
- "load_s": 0.5602,
+ "load_s": 0.7415,
  "gate": {
   "_intervals": {
    "max_slot": 137779,
@@ -46,8 +46,8 @@
    ]
   },
   "F.sp.v": {
-   "total_s": 0.0023,
-   "per_call_us": 0.23,
+   "total_s": 0.0025,
+   "per_call_us": 0.25,
    "n": 10000
   },
   "F.unicode.v": {
@@ -57,52 +57,52 @@
   },
   "L.u": {
    "total_s": 0.0,
-   "per_call_us": 1.47,
+   "per_call_us": 1.54,
    "n": 30
   },
   "L.d": {
    "total_s": 0.0003,
-   "per_call_us": 8.62,
+   "per_call_us": 9.26,
    "n": 30
   },
   "E.parent.f": {
-   "total_s": 0.0012,
-   "per_call_us": 2.44,
+   "total_s": 0.0014,
+   "per_call_us": 2.71,
    "n": 500
   },
   "T.sectionFromNode": {
-   "total_s": 0.0033,
-   "per_call_us": 16.52,
+   "total_s": 0.0038,
+   "per_call_us": 18.97,
    "n": 200
   },
   "T.text.verse": {
-   "total_s": 0.0027,
-   "per_call_us": 27.03,
+   "total_s": 0.0029,
+   "per_call_us": 28.85,
    "n": 100
   },
   "T.nodeFromSection": {
    "total_s": 0.0001,
-   "per_call_us": 0.64,
+   "per_call_us": 0.66,
    "n": 100
   },
   "F.sp.freqList_s": 0.0013,
-  "F.sp.v_full_sweep_s": 0.025
+  "F.sp.v_full_sweep_s": 0.027
  },
  "steady_us": {
   "F.sp.v": 0.178,
-  "F.unicode.v": 0.193,
-  "L.u": 0.843,
-  "L.d": 3.496,
-  "L.n": 1.61,
-  "L.p": 1.577,
-  "L.i": 0.038,
-  "E.parent.f": 2.085,
-  "E.parent.t": 1.025,
+  "F.unicode.v": 0.192,
+  "L.u": 0.85,
+  "L.d": 3.456,
+  "L.n": 1.553,
+  "L.p": 1.541,
+  "L.i": 0.04,
+  "E.parent.f": 2.089,
+  "E.parent.t": 1.017,
   "E.parent.b": null,
-  "T.sectionFromNode": 15.649,
-  "T.text.verse": 23.867,
-  "T.nodeFromSection": 0.25,
-  "N.walk_full_s": 0.0526,
+  "T.sectionFromNode": 16.069,
+  "T.text.verse": 23.47,
+  "T.nodeFromSection": 0.255,
+  "N.walk_full_s": 0.0517,
   "N.walk_nodes": 497525,
   "_errors": {
    "E.parent.b": "AttributeError: 'tuple' object has no attribute 'tolist'"
@@ -110,19 +110,19 @@
  },
  "queries": {
   "n_word_verb": {
-   "s": 0.0271,
+   "s": 0.0259,
    "count": 28357
   },
   "n_clause_phrase_word": {
-   "s": 0.1759,
+   "s": 0.1755,
    "count": 78879
   },
   "n_regex_lemma": {
-   "s": 0.0625,
+   "s": 0.0609,
    "count": 4
   },
   "n_sentence_without_verb": {
-   "s": 0.0817,
+   "s": 0.0812,
    "count": 187
   }
  }

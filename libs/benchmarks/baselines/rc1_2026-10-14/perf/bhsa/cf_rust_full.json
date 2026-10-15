@@ -7,32 +7,32 @@
  "mode": "warm",
  "memory": {
   "before_load": {
-   "peak_rss_mb": 23.5,
-   "rss_mb": 25.3,
-   "uss_mb": 15.3
+   "peak_rss_mb": 23.7,
+   "rss_mb": 25.5,
+   "uss_mb": 15.4
   },
   "after_load": {
-   "peak_rss_mb": 37.9,
-   "rss_mb": 37.9,
-   "uss_mb": 21.1
+   "peak_rss_mb": 32.6,
+   "rss_mb": 32.6,
+   "uss_mb": 15.9
   },
   "after_gate_probes": {
-   "peak_rss_mb": 115.5,
-   "rss_mb": 115.5,
-   "uss_mb": 35.5
+   "peak_rss_mb": 109.6,
+   "rss_mb": 109.6,
+   "uss_mb": 26.8
   },
   "after_steady_probes": {
-   "peak_rss_mb": 235.9,
-   "rss_mb": 192.9,
-   "uss_mb": 81.4
+   "peak_rss_mb": 206.0,
+   "rss_mb": 163.0,
+   "uss_mb": 40.3
   },
   "final": {
-   "peak_rss_mb": 289.4,
-   "rss_mb": 261.2,
-   "uss_mb": 124.5
+   "peak_rss_mb": 269.5,
+   "rss_mb": 249.6,
+   "uss_mb": 96.2
   }
  },
- "load_s": 0.0107,
+ "load_s": 0.0027,
  "gate": {
   "_intervals": {
    "max_slot": 426590,
@@ -46,97 +46,113 @@
    ]
   },
   "F.sp.v": {
-   "total_s": 0.0026,
-   "per_call_us": 0.26,
+   "total_s": 0.0011,
+   "per_call_us": 0.11,
    "n": 10000
   },
   "F.g_word.v": {
-   "total_s": 0.0041,
-   "per_call_us": 0.41,
+   "total_s": 0.0018,
+   "per_call_us": 0.18,
    "n": 10000
   },
   "L.u": {
    "total_s": 0.0001,
-   "per_call_us": 3.27,
+   "per_call_us": 2.37,
    "n": 30
   },
   "L.d": {
    "total_s": 0.0001,
-   "per_call_us": 3.8,
+   "per_call_us": 2.6,
    "n": 30
   },
   "E.mother.f": {
-   "total_s": 0.0005,
-   "per_call_us": 0.98,
+   "total_s": 0.0007,
+   "per_call_us": 1.31,
    "n": 500
   },
   "T.sectionFromNode": {
-   "total_s": 0.001,
-   "per_call_us": 5.23,
+   "total_s": 0.0004,
+   "per_call_us": 2.05,
    "n": 200
   },
   "T.text.verse": {
-   "total_s": 0.0014,
-   "per_call_us": 14.34,
+   "total_s": 0.0008,
+   "per_call_us": 8.0,
    "n": 100
   },
   "T.nodeFromSection": {
-   "total_s": 0.013,
-   "per_call_us": 130.37,
+   "total_s": 0.0061,
+   "per_call_us": 60.82,
    "n": 100
   },
   "F.sp.freqList_s": 0.0005,
-  "F.sp.v_full_sweep_s": 0.05
+  "F.sp.v_full_sweep_s": 0.013
  },
  "steady_us": {
-  "F.sp.v": 0.179,
-  "F.g_word.v": 0.206,
-  "L.u": 0.252,
-  "L.d": 0.346,
-  "L.n": 21647.943,
-  "L.p": 10670.029,
-  "L.i": 10538.325,
-  "E.mother.f": 0.081,
-  "E.mother.t": 519.228,
-  "E.mother.b": 523.214,
-  "T.sectionFromNode": 2.388,
-  "T.text.verse": 5.301,
-  "T.nodeFromSection": 0.349,
-  "N.walk_full_s": 0.0469,
+  "F.sp.v": 0.029,
+  "F.g_word.v": 0.038,
+  "L.u": 0.131,
+  "L.d": 0.136,
+  "L.n": 0.109,
+  "L.p": 0.094,
+  "L.i": 0.021,
+  "E.mother.f": 0.032,
+  "E.mother.t": 0.03,
+  "E.mother.b": 0.04,
+  "T.sectionFromNode": 0.45,
+  "T.text.verse": 1.558,
+  "T.nodeFromSection": 0.202,
+  "N.walk_full_s": 0.0298,
   "N.walk_nodes": 1446831
  },
  "queries": {
   "q_phrase_without_verb": {
-   "s": 0.0869,
+   "s": 0.0358,
    "count": 62771
   },
   "q_regex_gcons": {
-   "s": 0.0333,
+   "s": 0.0069,
    "count": 816
   },
   "q_regex_typ": {
-   "s": 0.0285,
+   "s": 0.0068,
    "count": 3098
   },
   "q_regex_gloss_space": {
-   "s": 0.0038,
+   "s": 0.0032,
    "count": 406
   },
   "q_feat_exists_qere": {
-   "s": 0.0003,
+   "s": 0.0002,
    "count": 1892
   },
   "q_feat_empty_qere": {
-   "s": 0.0252,
+   "s": 0.019,
    "count": 424698
   },
   "q_multivalue_neg": {
-   "s": 0.0213,
+   "s": 0.0093,
    "count": 271
   },
   "q_slot_equal": {
-   "s": 0.0284,
+   "s": 0.0116,
    "count": 3583
+  },
+  "q_mother_basic": {
+   "s": 0.0117,
+   "count": 13917
+  },
+  "q_mother_reverse": {
+   "s": 0.0113,
+   "count": 13917
+  },
+  "q_mother_named_distinct_verse": {
+   "s": 0.0261,
+   "count": 710
+  },
+  "q_slot_overlap_parent": {
+   "s": 0.0332,
+   "count": 887
   }
  }
 }

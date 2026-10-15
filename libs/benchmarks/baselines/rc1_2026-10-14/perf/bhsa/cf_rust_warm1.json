@@ -7,15 +7,15 @@
  "mode": "warm",
  "memory": {
   "before_load": {
-   "peak_rss_mb": 23.4,
-   "rss_mb": 25.2,
-   "uss_mb": 15.2
+   "peak_rss_mb": 23.7,
+   "rss_mb": 25.5,
+   "uss_mb": 15.3
   },
   "after_load": {
-   "peak_rss_mb": 37.8,
-   "rss_mb": 37.8,
-   "uss_mb": 21.0
+   "peak_rss_mb": 32.5,
+   "rss_mb": 32.5,
+   "uss_mb": 15.9
   }
  },
- "load_s": 0.0106
+ "load_s": 0.0026
 }

@@ -118,21 +118,21 @@ def parse_golden(results: Path) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for log in sorted((results / "golden").glob("*.log")):
         engine = log.stem
-        counts: dict[str, dict[str, dict[str, int]]] = defaultdict(lambda: defaultdict(lambda: {"pass": 0, "fail": 0}))
+        counts: dict[str, dict[str, int]] = defaultdict(lambda: {"pass": 0, "fail": 0})
         failures = []
         lines = log.read_text().splitlines()
         for index, line in enumerate(lines):
-            match = re.match(r"^(PASS|FAIL) (\w+) (\w+):(\S+?)(:.*)?$", line)
+            match = re.match(r"^(PASS|FAIL) (\w+):(\S+?)(:.*)?$", line)
             if not match:
                 continue
-            status, mode, corpus, probe = match.group(1), match.group(2), match.group(3), match.group(4)
-            counts[corpus][mode]["pass" if status == "PASS" else "fail"] += 1
+            status, corpus, probe = match.group(1), match.group(2), match.group(3)
+            counts[corpus]["pass" if status == "PASS" else "fail"] += 1
             if status == "FAIL":
                 detail = [ln.strip() for ln in lines[index + 1:index + 3] if ln.startswith("  ")]
-                failures.append({"corpus": corpus, "mode": mode, "probe": probe,
-                                 "detail": [d[:400] for d in detail] or [match.group(5) or ""]})
+                failures.append({"corpus": corpus, "probe": probe,
+                                 "detail": [d[:400] for d in detail] or [match.group(4) or ""]})
         skips = [ln for ln in lines if ln.startswith("SKIP")]
-        out[engine] = {"counts": {c: dict(m) for c, m in counts.items()}, "failures": failures, "skips": skips}
+        out[engine] = {"counts": dict(counts), "failures": failures, "skips": skips}
     return out
 
 
@@ -449,12 +449,11 @@ def render_tables(summary: dict[str, Any]) -> str:
 
     golden = summary["parity"]["golden"]
     if golden:
-        lines += ["### Golden probes (TF truth)", "", "| Engine | Corpus | Mode | Pass | Fail |", "|---|---|---|---|---|"]
+        lines += ["### Golden probes (TF truth)", "", "| Engine | Corpus | Pass | Fail |", "|---|---|---|---|"]
         for engine, data in golden.items():
-            for corpus, modes in data["counts"].items():
-                for mode, c in modes.items():
-                    label = "CF Python 0.5.8" if engine == "cf_python" else "CF Rust 0.6.0rc1"
-                    lines.append(f"| {label} | {corpus} | {mode} | {c['pass']} | {c['fail']} |")
+            label = "CF Python 0.5.8" if engine == "cf_python" else "CF Rust 0.6.0rc1"
+            for corpus, c in data["counts"].items():
+                lines.append(f"| {label} | {corpus} | {c['pass']} | {c['fail']} |")
         lines.append("")
 
     regressions = [r for r in summary["regressions_vs_june"] if r["regression"]]

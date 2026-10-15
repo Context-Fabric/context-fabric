@@ -7,32 +7,32 @@
  "mode": "warm",
  "memory": {
   "before_load": {
-   "peak_rss_mb": 37.1,
-   "rss_mb": 38.0,
-   "uss_mb": 26.3
+   "peak_rss_mb": 36.9,
+   "rss_mb": 37.8,
+   "uss_mb": 26.2
   },
   "after_load": {
-   "peak_rss_mb": 430.1,
-   "rss_mb": 290.1,
-   "uss_mb": 960.9
+   "peak_rss_mb": 430.2,
+   "rss_mb": 289.7,
+   "uss_mb": 960.5
   },
   "after_gate_probes": {
-   "peak_rss_mb": 430.1,
-   "rss_mb": 310.1,
-   "uss_mb": 966.0
+   "peak_rss_mb": 430.2,
+   "rss_mb": 309.6,
+   "uss_mb": 965.5
   },
   "after_steady_probes": {
-   "peak_rss_mb": 430.1,
-   "rss_mb": 336.8,
-   "uss_mb": 966.3
+   "peak_rss_mb": 430.2,
+   "rss_mb": 336.2,
+   "uss_mb": 965.8
   },
   "final": {
-   "peak_rss_mb": 559.1,
-   "rss_mb": 407.8,
-   "uss_mb": 989.9
+   "peak_rss_mb": 558.9,
+   "rss_mb": 421.0,
+   "uss_mb": 1002.1
   }
  },
- "load_s": 0.42,
+ "load_s": 0.3346,
  "gate": {
   "_intervals": {
    "max_slot": 426590,
@@ -46,63 +46,63 @@
    ]
   },
   "F.sp.v": {
-   "total_s": 0.0027,
-   "per_call_us": 0.27,
+   "total_s": 0.0026,
+   "per_call_us": 0.26,
    "n": 10000
   },
   "F.g_word.v": {
-   "total_s": 0.0035,
-   "per_call_us": 0.35,
+   "total_s": 0.0033,
+   "per_call_us": 0.33,
    "n": 10000
   },
   "L.u": {
    "total_s": 0.0,
-   "per_call_us": 1.53,
+   "per_call_us": 1.5,
    "n": 30
   },
   "L.d": {
-   "total_s": 0.0003,
-   "per_call_us": 8.43,
+   "total_s": 0.0002,
+   "per_call_us": 7.92,
    "n": 30
   },
   "E.mother.f": {
    "total_s": 0.0003,
-   "per_call_us": 0.59,
+   "per_call_us": 0.54,
    "n": 500
   },
   "T.sectionFromNode": {
-   "total_s": 0.003,
-   "per_call_us": 14.84,
+   "total_s": 0.0028,
+   "per_call_us": 14.22,
    "n": 200
   },
   "T.text.verse": {
    "total_s": 0.0035,
-   "per_call_us": 34.91,
+   "per_call_us": 35.12,
    "n": 100
   },
   "T.nodeFromSection": {
    "total_s": 0.0001,
-   "per_call_us": 0.87,
+   "per_call_us": 0.79,
    "n": 100
   },
-  "F.sp.freqList_s": 0.0023,
+  "F.sp.freqList_s": 0.0018,
   "F.sp.v_full_sweep_s": 0.082
  },
  "steady_us": {
-  "F.sp.v": 0.189,
-  "F.g_word.v": 0.222,
-  "L.u": 0.879,
-  "L.d": 3.455,
-  "L.n": 1.704,
-  "L.p": 1.689,
-  "L.i": 0.045,
-  "E.mother.f": 0.382,
-  "E.mother.t": 0.413,
+  "F.sp.v": 0.183,
+  "F.g_word.v": 0.208,
+  "L.u": 0.82,
+  "L.d": 3.269,
+  "L.n": 1.576,
+  "L.p": 1.593,
+  "L.i": 0.037,
+  "E.mother.f": 0.349,
+  "E.mother.t": 0.389,
   "E.mother.b": null,
-  "T.sectionFromNode": 14.324,
-  "T.text.verse": 32.511,
-  "T.nodeFromSection": 0.272,
-  "N.walk_full_s": 0.1587,
+  "T.sectionFromNode": 13.752,
+  "T.text.verse": 31.315,
+  "T.nodeFromSection": 0.263,
+  "N.walk_full_s": 0.1563,
   "N.walk_nodes": 1446831,
   "_errors": {
    "E.mother.b": "AttributeError: 'tuple' object has no attribute 'tolist'"
@@ -110,36 +110,52 @@
  },
  "queries": {
   "q_phrase_without_verb": {
-   "s": 0.4642,
+   "s": 0.2905,
    "count": 62771
   },
   "q_regex_gcons": {
-   "s": 0.2062,
+   "s": 0.1971,
    "count": 816
   },
   "q_regex_typ": {
-   "s": 0.1498,
+   "s": 0.1465,
    "count": 3098
   },
   "q_regex_gloss_space": {
-   "s": 0.0053,
+   "s": 0.0049,
    "count": 406
   },
   "q_feat_exists_qere": {
-   "s": 0.0701,
+   "s": 0.0691,
    "count": 1892
   },
   "q_feat_empty_qere": {
-   "s": 0.1103,
+   "s": 0.1077,
    "count": 424698
   },
   "q_multivalue_neg": {
-   "s": 0.1169,
+   "s": 0.1113,
    "count": 271
   },
   "q_slot_equal": {
-   "s": 0.3322,
+   "s": 0.3023,
    "count": 3583
+  },
+  "q_mother_basic": {
+   "s": 0.1387,
+   "count": 13917
+  },
+  "q_mother_reverse": {
+   "s": 0.1229,
+   "count": 13917
+  },
+  "q_mother_named_distinct_verse": {
+   "s": 0.2728,
+   "count": 710
+  },
+  "q_slot_overlap_parent": {
+   "s": 1.3087,
+   "count": 887
   }
  }
 }

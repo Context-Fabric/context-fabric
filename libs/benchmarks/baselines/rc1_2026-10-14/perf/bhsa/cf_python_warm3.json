@@ -8,14 +8,14 @@
  "memory": {
   "before_load": {
    "peak_rss_mb": 37.0,
-   "rss_mb": 37.8,
+   "rss_mb": 37.9,
    "uss_mb": 26.2
   },
   "after_load": {
-   "peak_rss_mb": 429.9,
-   "rss_mb": 290.4,
-   "uss_mb": 961.2
+   "peak_rss_mb": 430.6,
+   "rss_mb": 291.0,
+   "uss_mb": 961.8
   }
  },
- "load_s": 0.7587
+ "load_s": 0.42
 }

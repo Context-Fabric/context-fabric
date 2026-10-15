@@ -3,8 +3,8 @@
  "engine_version": "0.6.0rc1",
  "oracle_version": "13.0.19",
  "total": 355975,
- "passed": 355973,
- "failed": 2,
+ "passed": 355974,
+ "failed": 1,
  "by_area": {
   "E": {
    "passed": 39221,
@@ -27,7 +27,7 @@
    "total": 32306
   },
   "meta": {
-   "passed": 5,
+   "passed": 6,
    "total": 6
   },
   "order": {
@@ -36,22 +36,6 @@
   }
  },
  "failing_groups": [
-  {
-   "area": "meta",
-   "check": "C.levels",
-   "categories": {
-    "value": 1
-   },
-   "failed": 1,
-   "total": 1,
-   "examples": [
-    {
-     "arg": null,
-     "expected": "sha1:3842c818f8811a33b3ea8ad3b17eabdb991deefe:len=626",
-     "actual": "sha1:57291524211987383a6efa62dad9bd645ce8ecf0:len=628"
-    }
-   ]
-  },
   {
    "area": "F",
    "check": "F.freqList[otype]",

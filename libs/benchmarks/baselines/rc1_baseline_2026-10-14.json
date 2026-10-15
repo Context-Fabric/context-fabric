@@ -1,11 +1,11 @@
 {
  "date": "2026-10-14",
- "results_dir": "/tmp/cf_rc1/runs/final",
+ "results_dir": "/tmp/cf_rc1/runs/final2_20261014T235119",
  "environment": {
-  "timestamp_utc": "2026-10-14T19:18:07+00:00",
+  "timestamp_utc": "2026-10-14T23:51:20+00:00",
   "git_branch": "cf-rust-rc1",
-  "git_commit": "774e8d0118572ae323b28944a210f45477bedae6",
-  "git_dirty": true,
+  "git_commit": "d2fa4027cd2cf6c354fb99926e32384747d63532",
+  "git_dirty": false,
   "machine": {
    "cpu": "Apple M5 Max",
    "cores": 18,
@@ -26,9 +26,9 @@
   "source_corpora": "/Users/cody/github/context-fabric/context-fabric/libs/benchmarks/.corpora",
   "bhsa_checkout": "v1.8.1\ngb112c161cfd21eae403d51a2733740d8743460e7",
   "load_avg_at_start": [
-   3.2802734375,
-   3.734375,
-   4.12060546875
+   3.36474609375,
+   3.6025390625,
+   3.7451171875
   ]
  },
  "steps": [
@@ -48,11 +48,11 @@
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 0.7,
+   "seconds": 0.0,
    "load_avg_at_start": [
-    6.66,
-    7.67,
-    8.59
+    3.36,
+    3.6,
+    3.75
    ],
    "log": "setup/copy_bhsa.log"
   },
@@ -72,11 +72,11 @@
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 0.5,
+   "seconds": 0.0,
    "load_avg_at_start": [
-    6.66,
-    7.67,
-    8.59
+    3.36,
+    3.6,
+    3.75
    ],
    "log": "setup/copy_n1904.log"
   },
@@ -98,9 +98,9 @@
    "exit": 0,
    "seconds": 0.0,
    "load_avg_at_start": [
-    6.66,
-    7.67,
-    8.59
+    3.36,
+    3.6,
+    3.75
    ],
    "log": "setup/copy_banks.log"
   },
@@ -118,15 +118,15 @@
     "--cold",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/bhsa/tf_cold.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/tf_cold.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 39.4,
+   "seconds": 36.2,
    "load_avg_at_start": [
-    6.66,
-    7.67,
-    8.59
+    3.36,
+    3.6,
+    3.75
    ],
    "log": "perf/bhsa/tf_cold.log"
   },
@@ -143,15 +143,15 @@
     "/private/tmp/cf_rc1/corpora/bhsa/tf",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/bhsa/tf_warm1.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/tf_warm1.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 7.2,
+   "seconds": 6.1,
    "load_avg_at_start": [
-    6.35,
-    7.43,
-    8.45
+    3.29,
+    3.55,
+    3.72
    ],
    "log": "perf/bhsa/tf_warm1.log"
   },
@@ -168,15 +168,15 @@
     "/private/tmp/cf_rc1/corpora/bhsa/tf",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/bhsa/tf_warm2.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/tf_warm2.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 6.8,
+   "seconds": 6.1,
    "load_avg_at_start": [
-    6.43,
-    7.42,
-    8.44
+    3.27,
+    3.54,
+    3.72
    ],
    "log": "perf/bhsa/tf_warm2.log"
   },
@@ -193,15 +193,15 @@
     "/private/tmp/cf_rc1/corpora/bhsa/tf",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/bhsa/tf_warm3.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/tf_warm3.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 6.8,
+   "seconds": 6.2,
    "load_avg_at_start": [
-    6.23,
-    7.36,
-    8.41
+    3.16,
+    3.52,
+    3.71
    ],
    "log": "perf/bhsa/tf_warm3.log"
   },
@@ -217,15 +217,15 @@
     "--tf-path",
     "/private/tmp/cf_rc1/corpora/bhsa/tf",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/bhsa/tf_full.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/tf_full.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 13.6,
+   "seconds": 12.1,
    "load_avg_at_start": [
-    6.29,
-    7.36,
-    8.4
+    3.29,
+    3.53,
+    3.71
    ],
    "log": "perf/bhsa/tf_full.log"
   },
@@ -243,15 +243,15 @@
     "--cold",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/bhsa/cf_python_cold.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_python_cold.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 73.4,
+   "seconds": 68.0,
    "load_avg_at_start": [
-    6.46,
-    7.34,
-    8.38
+    3.25,
+    3.51,
+    3.7
    ],
    "log": "perf/bhsa/cf_python_cold.log"
   },
@@ -268,15 +268,15 @@
     "/private/tmp/cf_rc1/corpora/bhsa/tf",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/bhsa/cf_python_warm1.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_python_warm1.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 1.1,
+   "seconds": 0.5,
    "load_avg_at_start": [
-    7.31,
-    7.39,
-    8.31
+    4.5,
+    3.85,
+    3.81
    ],
    "log": "perf/bhsa/cf_python_warm1.log"
   },
@@ -293,15 +293,15 @@
     "/private/tmp/cf_rc1/corpora/bhsa/tf",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/bhsa/cf_python_warm2.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_python_warm2.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 0.8,
+   "seconds": 0.6,
    "load_avg_at_start": [
-    7.31,
-    7.39,
-    8.31
+    4.5,
+    3.85,
+    3.81
    ],
    "log": "perf/bhsa/cf_python_warm2.log"
   },
@@ -318,15 +318,15 @@
     "/private/tmp/cf_rc1/corpora/bhsa/tf",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/bhsa/cf_python_warm3.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_python_warm3.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 0.9,
+   "seconds": 0.5,
    "load_avg_at_start": [
-    7.31,
-    7.39,
-    8.31
+    4.5,
+    3.85,
+    3.81
    ],
    "log": "perf/bhsa/cf_python_warm3.log"
   },
@@ -342,15 +342,15 @@
     "--tf-path",
     "/private/tmp/cf_rc1/corpora/bhsa/tf",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/bhsa/cf_python_full.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_python_full.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 13.5,
+   "seconds": 14.6,
    "load_avg_at_start": [
-    7.31,
-    7.39,
-    8.31
+    4.5,
+    3.85,
+    3.81
    ],
    "log": "perf/bhsa/cf_python_full.log"
   },
@@ -368,15 +368,15 @@
     "--cold",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/bhsa/cf_rust_cold.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_rust_cold.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 34.6,
+   "seconds": 28.8,
    "load_avg_at_start": [
-    6.95,
-    7.31,
-    8.26
+    4.58,
+    3.9,
+    3.83
    ],
    "log": "perf/bhsa/cf_rust_cold.log"
   },
@@ -393,15 +393,15 @@
     "/private/tmp/cf_rc1/corpora/bhsa/tf",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/bhsa/cf_rust_warm1.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_rust_warm1.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 0.1,
+   "seconds": 0.0,
    "load_avg_at_start": [
-    6.66,
-    7.19,
-    8.18
+    4.27,
+    3.91,
+    3.83
    ],
    "log": "perf/bhsa/cf_rust_warm1.log"
   },
@@ -418,15 +418,15 @@
     "/private/tmp/cf_rc1/corpora/bhsa/tf",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/bhsa/cf_rust_warm2.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_rust_warm2.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 0.1,
+   "seconds": 0.0,
    "load_avg_at_start": [
-    6.66,
-    7.19,
-    8.18
+    4.27,
+    3.91,
+    3.83
    ],
    "log": "perf/bhsa/cf_rust_warm2.log"
   },
@@ -443,15 +443,15 @@
     "/private/tmp/cf_rc1/corpora/bhsa/tf",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/bhsa/cf_rust_warm3.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_rust_warm3.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 0.1,
+   "seconds": 0.0,
    "load_avg_at_start": [
-    6.66,
-    7.19,
-    8.18
+    4.27,
+    3.91,
+    3.83
    ],
    "log": "perf/bhsa/cf_rust_warm3.log"
   },
@@ -467,15 +467,15 @@
     "--tf-path",
     "/private/tmp/cf_rc1/corpora/bhsa/tf",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/bhsa/cf_rust_full.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_rust_full.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 43.3,
+   "seconds": 1.2,
    "load_avg_at_start": [
-    6.66,
-    7.19,
-    8.18
+    4.27,
+    3.91,
+    3.83
    ],
    "log": "perf/bhsa/cf_rust_full.log"
   },
@@ -490,11 +490,11 @@
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 32.5,
+   "seconds": 28.1,
    "load_avg_at_start": [
-    6.42,
-    7.07,
-    8.08
+    4.27,
+    3.91,
+    3.83
    ],
    "log": "setup/compile_bhsa_cfr.log"
   },
@@ -512,15 +512,15 @@
     "--mapped-cache",
     "/private/tmp/cf_rc1/cf_bhsa.cfr",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/bhsa/cf_rust_mapped_full.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_rust_mapped_full.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 41.9,
+   "seconds": 1.1,
    "load_avg_at_start": [
-    6.01,
-    6.9,
-    7.99
+    3.76,
+    3.82,
+    3.8
    ],
    "log": "perf/bhsa/cf_rust_mapped_full.log"
   },
@@ -538,15 +538,15 @@
     "--cold",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/n1904/tf_cold.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/tf_cold.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 12.5,
+   "seconds": 11.8,
    "load_avg_at_start": [
-    5.69,
-    6.71,
-    7.86
+    3.62,
+    3.79,
+    3.79
    ],
    "log": "perf/n1904/tf_cold.log"
   },
@@ -563,15 +563,15 @@
     "/private/tmp/cf_rc1/corpora/n1904/tf",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/n1904/tf_warm1.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/tf_warm1.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 2.2,
+   "seconds": 1.9,
    "load_avg_at_start": [
-    5.51,
-    6.63,
-    7.82
+    3.45,
+    3.74,
+    3.78
    ],
    "log": "perf/n1904/tf_warm1.log"
   },
@@ -588,15 +588,15 @@
     "/private/tmp/cf_rc1/corpora/n1904/tf",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/n1904/tf_warm2.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/tf_warm2.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 2.0,
+   "seconds": 1.9,
    "load_avg_at_start": [
-    5.51,
-    6.63,
-    7.82
+    3.45,
+    3.74,
+    3.78
    ],
    "log": "perf/n1904/tf_warm2.log"
   },
@@ -613,15 +613,15 @@
     "/private/tmp/cf_rc1/corpora/n1904/tf",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/n1904/tf_warm3.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/tf_warm3.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 2.2,
+   "seconds": 1.9,
    "load_avg_at_start": [
-    5.71,
-    6.66,
-    7.82
+    3.33,
+    3.72,
+    3.77
    ],
    "log": "perf/n1904/tf_warm3.log"
   },
@@ -637,15 +637,15 @@
     "--tf-path",
     "/private/tmp/cf_rc1/corpora/n1904/tf",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/n1904/tf_full.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/tf_full.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 6.8,
+   "seconds": 6.2,
    "load_avg_at_start": [
-    5.71,
-    6.66,
-    7.82
+    3.33,
+    3.72,
+    3.77
    ],
    "log": "perf/n1904/tf_full.log"
   },
@@ -663,15 +663,15 @@
     "--cold",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/n1904/cf_python_cold.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_python_cold.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 22.6,
+   "seconds": 21.2,
    "load_avg_at_start": [
-    5.62,
-    6.6,
-    7.79
+    3.22,
+    3.69,
+    3.75
    ],
    "log": "perf/n1904/cf_python_cold.log"
   },
@@ -688,15 +688,15 @@
     "/private/tmp/cf_rc1/corpora/n1904/tf",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/n1904/cf_python_warm1.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_python_warm1.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 0.7,
+   "seconds": 0.6,
    "load_avg_at_start": [
-    5.17,
-    6.43,
-    7.7
+    3.7,
+    3.75,
+    3.77
    ],
    "log": "perf/n1904/cf_python_warm1.log"
   },
@@ -713,15 +713,15 @@
     "/private/tmp/cf_rc1/corpora/n1904/tf",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/n1904/cf_python_warm2.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_python_warm2.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
    "seconds": 0.6,
    "load_avg_at_start": [
-    5.17,
-    6.43,
-    7.7
+    3.7,
+    3.75,
+    3.77
    ],
    "log": "perf/n1904/cf_python_warm2.log"
   },
@@ -738,15 +738,15 @@
     "/private/tmp/cf_rc1/corpora/n1904/tf",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/n1904/cf_python_warm3.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_python_warm3.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
    "seconds": 0.7,
    "load_avg_at_start": [
-    5.17,
-    6.43,
-    7.7
+    3.7,
+    3.75,
+    3.77
    ],
    "log": "perf/n1904/cf_python_warm3.log"
   },
@@ -762,15 +762,15 @@
     "--tf-path",
     "/private/tmp/cf_rc1/corpora/n1904/tf",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/n1904/cf_python_full.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_python_full.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 12.9,
+   "seconds": 13.3,
    "load_avg_at_start": [
-    5.32,
-    6.44,
-    7.69
+    3.7,
+    3.75,
+    3.77
    ],
    "log": "perf/n1904/cf_python_full.log"
   },
@@ -788,15 +788,15 @@
     "--cold",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/n1904/cf_rust_cold.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_rust_cold.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 8.6,
+   "seconds": 7.8,
    "load_avg_at_start": [
-    5.34,
-    6.41,
-    7.67
+    3.78,
+    3.76,
+    3.78
    ],
    "log": "perf/n1904/cf_rust_cold.log"
   },
@@ -813,15 +813,15 @@
     "/private/tmp/cf_rc1/corpora/n1904/tf",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/n1904/cf_rust_warm1.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_rust_warm1.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 0.1,
+   "seconds": 0.0,
    "load_avg_at_start": [
-    4.99,
-    6.3,
-    7.61
+    3.64,
+    3.73,
+    3.77
    ],
    "log": "perf/n1904/cf_rust_warm1.log"
   },
@@ -838,15 +838,15 @@
     "/private/tmp/cf_rc1/corpora/n1904/tf",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/n1904/cf_rust_warm2.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_rust_warm2.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 0.1,
+   "seconds": 0.0,
    "load_avg_at_start": [
-    4.99,
-    6.3,
-    7.61
+    3.64,
+    3.73,
+    3.77
    ],
    "log": "perf/n1904/cf_rust_warm2.log"
   },
@@ -863,15 +863,15 @@
     "/private/tmp/cf_rc1/corpora/n1904/tf",
     "--load-only",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/n1904/cf_rust_warm3.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_rust_warm3.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 0.1,
+   "seconds": 0.0,
    "load_avg_at_start": [
-    4.99,
-    6.3,
-    7.61
+    3.64,
+    3.73,
+    3.77
    ],
    "log": "perf/n1904/cf_rust_warm3.log"
   },
@@ -887,15 +887,15 @@
     "--tf-path",
     "/private/tmp/cf_rc1/corpora/n1904/tf",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/n1904/cf_rust_full.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_rust_full.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 30.3,
+   "seconds": 1.0,
    "load_avg_at_start": [
-    4.99,
-    6.3,
-    7.61
+    3.64,
+    3.73,
+    3.77
    ],
    "log": "perf/n1904/cf_rust_full.log"
   },
@@ -910,11 +910,11 @@
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 8.5,
+   "seconds": 7.8,
    "load_avg_at_start": [
-    4.47,
-    6.05,
-    7.47
+    3.58,
+    3.72,
+    3.76
    ],
    "log": "setup/compile_n1904_cfr.log"
   },
@@ -932,15 +932,15 @@
     "--mapped-cache",
     "/private/tmp/cf_rc1/cf_n1904.cfr",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf/n1904/cf_rust_mapped_full.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_rust_mapped_full.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 30.2,
+   "seconds": 1.0,
    "load_avg_at_start": [
-    4.41,
-    5.98,
-    7.43
+    3.62,
+    3.72,
+    3.76
    ],
    "log": "perf/n1904/cf_rust_mapped_full.log"
   },
@@ -955,15 +955,15 @@
     "--engine",
     "tf",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf_gate/tf.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf_gate/tf.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 8.2,
+   "seconds": 13.4,
    "load_avg_at_start": [
-    4.73,
-    5.9,
-    7.35
+    3.62,
+    3.72,
+    3.76
    ],
    "log": "perf_gate/tf.log"
   },
@@ -980,16 +980,18 @@
     "--cache",
     "/private/tmp/cf_rc1/cf_bhsa.cfr",
     "--assert",
+    "--baseline",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf_gate/tf.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/perf_gate/cf.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf_gate/cf.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 0.4,
+   "seconds": 1.3,
    "load_avg_at_start": [
-    4.91,
-    5.92,
-    7.35
+    3.41,
+    3.67,
+    3.74
    ],
    "log": "perf_gate/cf.log"
   },
@@ -1007,17 +1009,44 @@
     "--timeout",
     "300",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/queries/tf.jsonl"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/queries/tf.jsonl"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 20.1,
+   "seconds": 19.4,
    "load_avg_at_start": [
-    4.91,
-    5.92,
-    7.35
+    3.41,
+    3.67,
+    3.74
    ],
    "log": "queries/tf.log"
+  },
+  {
+   "step": "query suite cf_python_cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/query_suite.py",
+    "--engine",
+    "cf_python",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--mode",
+    "auto",
+    "--timeout",
+    "300",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/queries/cf_python_cold.jsonl",
+    "--clear-cache"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 80.2,
+   "load_avg_at_start": [
+    3.33,
+    3.64,
+    3.73
+   ],
+   "log": "queries/cf_python_cold.log"
   },
   {
    "step": "query suite cf_python",
@@ -1033,15 +1062,15 @@
     "--timeout",
     "300",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/queries/cf_python.jsonl"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/queries/cf_python.jsonl"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 29.2,
+   "seconds": 28.4,
    "load_avg_at_start": [
-    4.85,
-    5.84,
-    7.29
+    3.96,
+    3.81,
+    3.79
    ],
    "log": "queries/cf_python.log"
   },
@@ -1059,15 +1088,15 @@
     "--timeout",
     "300",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/queries/cf_rust.jsonl"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/queries/cf_rust.jsonl"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 6.7,
+   "seconds": 4.0,
    "load_avg_at_start": [
-    4.18,
-    5.58,
-    7.15
+    3.4,
+    3.69,
+    3.74
    ],
    "log": "queries/cf_rust.log"
   },
@@ -1085,15 +1114,15 @@
     "--timeout",
     "300",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/queries/cf_rust_inprocess.jsonl"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/queries/cf_rust_inprocess.jsonl"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 4.9,
+   "seconds": 2.5,
    "load_avg_at_start": [
-    4.08,
-    5.52,
-    7.1
+    3.37,
+    3.67,
+    3.74
    ],
    "log": "queries/cf_rust_inprocess.log"
   },
@@ -1106,15 +1135,15 @@
     "--tf-path",
     "/private/tmp/cf_rc1/corpora/bhsa/tf",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/plan.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/plan.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 6.3,
+   "seconds": 5.8,
    "load_avg_at_start": [
-    4.15,
-    5.51,
-    7.09
+    3.37,
+    3.67,
+    3.74
    ],
    "log": "oracle/bhsa/plan.log"
   },
@@ -1129,63 +1158,17 @@
     "--tf-path",
     "/private/tmp/cf_rc1/corpora/bhsa/tf",
     "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/plan.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/plan.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_tf.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_tf.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 22.6,
+   "seconds": 22.4,
    "load_avg_at_start": [
-    3.98,
-    5.45,
-    7.06
-   ],
-   "log": "oracle/bhsa/eval_tf.log"
-  },
-  {
-   "step": "oracle plan bhsa",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "plan",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/bhsa/tf",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/plan.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 6.1,
-   "load_avg_at_start": [
-    3.1,
-    3.08,
-    4.69
-   ],
-   "log": "oracle/bhsa/plan.log"
-  },
-  {
-   "step": "oracle eval bhsa tf",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "eval",
-    "--engine",
-    "tf",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/bhsa/tf",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/plan.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_tf.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 22.2,
-   "load_avg_at_start": [
-    3.17,
-    3.1,
-    4.68
+    3.42,
+    3.68,
+    3.74
    ],
    "log": "oracle/bhsa/eval_tf.log"
   },
@@ -1200,19 +1183,45 @@
     "--tf-path",
     "/private/tmp/cf_rc1/corpora/bhsa/tf",
     "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/plan.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/plan.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_cf_rust.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_cf_rust.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 185.8,
+   "seconds": 10.6,
    "load_avg_at_start": [
-    3.55,
-    3.18,
-    4.67
+    3.45,
+    3.66,
+    3.73
    ],
    "log": "oracle/bhsa/eval_cf_rust.log"
+  },
+  {
+   "step": "oracle eval bhsa cf_python_cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "eval",
+    "--engine",
+    "cf_python",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/plan.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_cf_python_cold.json",
+    "--clear-cache"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 85.0,
+   "load_avg_at_start": [
+    3.62,
+    3.69,
+    3.74
+   ],
+   "log": "oracle/bhsa/eval_cf_python_cold.log"
   },
   {
    "step": "oracle eval bhsa cf_python",
@@ -1225,17 +1234,17 @@
     "--tf-path",
     "/private/tmp/cf_rc1/corpora/bhsa/tf",
     "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/plan.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/plan.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_cf_python.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_cf_python.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 32.0,
+   "seconds": 31.1,
    "load_avg_at_start": [
-    3.3,
-    3.2,
-    4.37
+    4.18,
+    3.88,
+    3.81
    ],
    "log": "oracle/bhsa/eval_cf_python.log"
   },
@@ -1246,21 +1255,21 @@
     "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
     "compare",
     "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/plan.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/plan.json",
     "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_tf.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_tf.json",
     "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_tf.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_tf.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/cmp_tf.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/cmp_tf.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
    "seconds": 0.1,
    "load_avg_at_start": [
-    3.21,
-    3.18,
-    4.32
+    4.04,
+    3.88,
+    3.81
    ],
    "log": "oracle/bhsa/cmp_tf.log"
   },
@@ -1271,23 +1280,48 @@
     "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
     "compare",
     "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/plan.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/plan.json",
     "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_tf.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_tf.json",
     "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_cf_rust.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_cf_rust.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/cmp_cf_rust.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/cmp_cf_rust.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
    "seconds": 0.1,
    "load_avg_at_start": [
-    3.21,
-    3.18,
-    4.32
+    4.04,
+    3.88,
+    3.81
    ],
    "log": "oracle/bhsa/cmp_cf_rust.log"
+  },
+  {
+   "step": "oracle compare bhsa cf_python_cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "compare",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/plan.json",
+    "--expected",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_tf.json",
+    "--actual",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_cf_python_cold.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/cmp_cf_python_cold.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.1,
+   "load_avg_at_start": [
+    4.04,
+    3.88,
+    3.81
+   ],
+   "log": "oracle/bhsa/cmp_cf_python_cold.log"
   },
   {
    "step": "oracle compare bhsa cf_python",
@@ -1296,21 +1330,21 @@
     "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
     "compare",
     "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/plan.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/plan.json",
     "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_tf.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_tf.json",
     "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_cf_python.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_cf_python.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/cmp_cf_python.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/cmp_cf_python.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
    "seconds": 0.1,
    "load_avg_at_start": [
-    3.21,
-    3.18,
-    4.32
+    4.04,
+    3.88,
+    3.81
    ],
    "log": "oracle/bhsa/cmp_cf_python.log"
   },
@@ -1323,15 +1357,15 @@
     "--tf-path",
     "/private/tmp/cf_rc1/corpora/n1904/tf",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/plan.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/plan.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 1.8,
+   "seconds": 1.7,
    "load_avg_at_start": [
-    3.21,
-    3.18,
-    4.32
+    4.04,
+    3.88,
+    3.81
    ],
    "log": "oracle/n1904/plan.log"
   },
@@ -1346,17 +1380,17 @@
     "--tf-path",
     "/private/tmp/cf_rc1/corpora/n1904/tf",
     "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/plan.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/plan.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_tf.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_tf.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 8.8,
+   "seconds": 9.1,
    "load_avg_at_start": [
-    3.19,
-    3.17,
-    4.32
+    4.04,
+    3.88,
+    3.81
    ],
    "log": "oracle/n1904/eval_tf.log"
   },
@@ -1371,19 +1405,45 @@
     "--tf-path",
     "/private/tmp/cf_rc1/corpora/n1904/tf",
     "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/plan.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/plan.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_cf_rust.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_cf_rust.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 34.6,
+   "seconds": 5.2,
    "load_avg_at_start": [
-    3.34,
-    3.2,
-    4.32
+    4.04,
+    3.88,
+    3.81
    ],
    "log": "oracle/n1904/eval_cf_rust.log"
+  },
+  {
+   "step": "oracle eval n1904 cf_python_cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "eval",
+    "--engine",
+    "cf_python",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/plan.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_cf_python_cold.json",
+    "--clear-cache"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 29.0,
+   "load_avg_at_start": [
+    3.8,
+    3.83,
+    3.79
+   ],
+   "log": "oracle/n1904/eval_cf_python_cold.log"
   },
   {
    "step": "oracle eval n1904 cf_python",
@@ -1396,17 +1456,17 @@
     "--tf-path",
     "/private/tmp/cf_rc1/corpora/n1904/tf",
     "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/plan.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/plan.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_cf_python.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_cf_python.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 10.1,
+   "seconds": 9.9,
    "load_avg_at_start": [
-    4.11,
-    3.4,
-    4.35
+    3.68,
+    3.8,
+    3.78
    ],
    "log": "oracle/n1904/eval_cf_python.log"
   },
@@ -1417,21 +1477,21 @@
     "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
     "compare",
     "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/plan.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/plan.json",
     "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_tf.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_tf.json",
     "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_tf.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_tf.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/cmp_tf.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/cmp_tf.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
    "seconds": 0.1,
    "load_avg_at_start": [
-    4.18,
-    3.44,
-    4.35
+    3.42,
+    3.74,
+    3.76
    ],
    "log": "oracle/n1904/cmp_tf.log"
   },
@@ -1442,23 +1502,48 @@
     "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
     "compare",
     "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/plan.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/plan.json",
     "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_tf.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_tf.json",
     "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_cf_rust.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_cf_rust.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/cmp_cf_rust.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/cmp_cf_rust.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
    "seconds": 0.1,
    "load_avg_at_start": [
-    4.18,
-    3.44,
-    4.35
+    3.42,
+    3.74,
+    3.76
    ],
    "log": "oracle/n1904/cmp_cf_rust.log"
+  },
+  {
+   "step": "oracle compare n1904 cf_python_cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "compare",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/plan.json",
+    "--expected",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_tf.json",
+    "--actual",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_cf_python_cold.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/cmp_cf_python_cold.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.1,
+   "load_avg_at_start": [
+    3.42,
+    3.74,
+    3.76
+   ],
+   "log": "oracle/n1904/cmp_cf_python_cold.log"
   },
   {
    "step": "oracle compare n1904 cf_python",
@@ -1467,21 +1552,21 @@
     "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
     "compare",
     "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/plan.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/plan.json",
     "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_tf.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_tf.json",
     "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_cf_python.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_cf_python.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/cmp_cf_python.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/cmp_cf_python.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
    "seconds": 0.1,
    "load_avg_at_start": [
-    4.18,
-    3.44,
-    4.35
+    3.42,
+    3.74,
+    3.76
    ],
    "log": "oracle/n1904/cmp_cf_python.log"
   },
@@ -1494,15 +1579,15 @@
     "--tf-path",
     "/private/tmp/cf_rc1/corpora/banks/tf",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/plan.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/plan.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
    "seconds": 0.1,
    "load_avg_at_start": [
-    4.18,
-    3.44,
-    4.35
+    3.42,
+    3.74,
+    3.76
    ],
    "log": "oracle/banks/plan.log"
   },
@@ -1517,17 +1602,17 @@
     "--tf-path",
     "/private/tmp/cf_rc1/corpora/banks/tf",
     "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/plan.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/plan.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_tf.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_tf.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
    "seconds": 0.1,
    "load_avg_at_start": [
-    4.18,
-    3.44,
-    4.35
+    3.42,
+    3.74,
+    3.76
    ],
    "log": "oracle/banks/eval_tf.log"
   },
@@ -1542,19 +1627,45 @@
     "--tf-path",
     "/private/tmp/cf_rc1/corpora/banks/tf",
     "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/plan.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/plan.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_cf_rust.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_cf_rust.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
    "seconds": 0.1,
    "load_avg_at_start": [
-    4.18,
-    3.44,
-    4.35
+    3.42,
+    3.74,
+    3.76
    ],
    "log": "oracle/banks/eval_cf_rust.log"
+  },
+  {
+   "step": "oracle eval banks cf_python_cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "eval",
+    "--engine",
+    "cf_python",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/banks/tf",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/plan.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_cf_python_cold.json",
+    "--clear-cache"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.1,
+   "load_avg_at_start": [
+    3.42,
+    3.74,
+    3.76
+   ],
+   "log": "oracle/banks/eval_cf_python_cold.log"
   },
   {
    "step": "oracle eval banks cf_python",
@@ -1567,17 +1678,17 @@
     "--tf-path",
     "/private/tmp/cf_rc1/corpora/banks/tf",
     "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/plan.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/plan.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_cf_python.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_cf_python.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
    "seconds": 0.1,
    "load_avg_at_start": [
-    4.18,
-    3.44,
-    4.35
+    3.42,
+    3.74,
+    3.76
    ],
    "log": "oracle/banks/eval_cf_python.log"
   },
@@ -1588,21 +1699,21 @@
     "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
     "compare",
     "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/plan.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/plan.json",
     "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_tf.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_tf.json",
     "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_tf.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_tf.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/cmp_tf.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/cmp_tf.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
    "seconds": 0.0,
    "load_avg_at_start": [
-    4.18,
-    3.44,
-    4.35
+    3.42,
+    3.74,
+    3.76
    ],
    "log": "oracle/banks/cmp_tf.log"
   },
@@ -1613,23 +1724,48 @@
     "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
     "compare",
     "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/plan.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/plan.json",
     "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_tf.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_tf.json",
     "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_cf_rust.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_cf_rust.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/cmp_cf_rust.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/cmp_cf_rust.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
    "seconds": 0.0,
    "load_avg_at_start": [
-    4.18,
-    3.44,
-    4.35
+    3.42,
+    3.74,
+    3.76
    ],
    "log": "oracle/banks/cmp_cf_rust.log"
+  },
+  {
+   "step": "oracle compare banks cf_python_cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "compare",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/plan.json",
+    "--expected",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_tf.json",
+    "--actual",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_cf_python_cold.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/cmp_cf_python_cold.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.0,
+   "load_avg_at_start": [
+    3.42,
+    3.74,
+    3.76
+   ],
+   "log": "oracle/banks/cmp_cf_python_cold.log"
   },
   {
    "step": "oracle compare banks cf_python",
@@ -1638,21 +1774,21 @@
     "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
     "compare",
     "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/plan.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/plan.json",
     "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_tf.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_tf.json",
     "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_cf_python.json",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_cf_python.json",
     "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/cmp_cf_python.json"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/cmp_cf_python.json"
    ],
    "cwd": "/tmp",
    "exit": 0,
    "seconds": 0.0,
    "load_avg_at_start": [
-    4.18,
-    3.44,
-    4.35
+    3.42,
+    3.74,
+    3.76
    ],
    "log": "oracle/banks/cmp_cf_python.log"
   },
@@ -1667,11 +1803,11 @@
    ],
    "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1",
    "exit": 0,
-   "seconds": 61.5,
+   "seconds": 0.2,
    "load_avg_at_start": [
-    4.18,
-    3.44,
-    4.35
+    3.42,
+    3.74,
+    3.76
    ],
    "log": "golden/cf_rust.log"
   },
@@ -1682,17 +1818,15 @@
     "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/tests/golden/compare.py",
     "bhsa",
     "n1904",
-    "banks",
-    "--mode",
-    "python"
+    "banks"
    ],
    "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1",
    "exit": 1,
-   "seconds": 2.9,
+   "seconds": 1.8,
    "load_avg_at_start": [
-    4.45,
-    3.68,
-    4.37
+    3.42,
+    3.74,
+    3.76
    ],
    "log": "golden/cf_python.log"
   },
@@ -1704,12 +1838,12 @@
     "--check"
    ],
    "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core",
-   "exit": 1,
-   "seconds": 0.3,
+   "exit": 0,
+   "seconds": 0.1,
    "load_avg_at_start": [
-    4.45,
-    3.68,
-    4.37
+    3.71,
+    3.79,
+    3.78
    ],
    "log": "rust/cargo_fmt.log"
   },
@@ -1723,60 +1857,13 @@
    ],
    "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core",
    "exit": 0,
-   "seconds": 166.9,
+   "seconds": 143.5,
    "load_avg_at_start": [
-    4.45,
-    3.68,
-    4.37
+    3.71,
+    3.79,
+    3.78
    ],
    "log": "rust/cargo_test.log"
-  },
-  {
-   "step": "cf_rust_parity",
-   "command": [
-    "cargo",
-    "run",
-    "--release",
-    "--quiet",
-    "--bin",
-    "cf_rust_parity",
-    "--",
-    "/private/tmp/cf_rc1/cf_bhsa.cfr",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/tests/parity/parity_queries.json",
-    "",
-    "300"
-   ],
-   "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core",
-   "exit": 0,
-   "seconds": 4.9,
-   "load_avg_at_start": [
-    4.29,
-    4.32,
-    4.54
-   ],
-   "log": "rust/cf_rust_parity.log"
-  },
-  {
-   "step": "cf_rust_validate_corpora",
-   "command": [
-    "cargo",
-    "run",
-    "--release",
-    "--quiet",
-    "--bin",
-    "cf_rust_validate_corpora",
-    "--",
-    "/private/tmp/cf_rc1/corpora"
-   ],
-   "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core",
-   "exit": 0,
-   "seconds": 22.9,
-   "load_avg_at_start": [
-    4.19,
-    4.3,
-    4.53
-   ],
-   "log": "rust/cf_rust_validate_corpora.log"
   },
   {
    "step": "pytest core_python",
@@ -1789,15 +1876,15 @@
     "-rA",
     "-p",
     "no:cacheprovider",
-    "--junitxml=/private/tmp/cf_rc1/runs/final/pytest/core_python.xml"
+    "--junitxml=/private/tmp/cf_rc1/runs/final2_20261014T235119/pytest/core_python.xml"
    ],
    "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core",
-   "exit": 1,
-   "seconds": 57.6,
+   "exit": 0,
+   "seconds": 61.1,
    "load_avg_at_start": [
-    4.51,
-    4.36,
-    4.54
+    4.6,
+    4.28,
+    3.98
    ],
    "log": "pytest/core_python.log"
   },
@@ -1812,15 +1899,15 @@
     "-rA",
     "-p",
     "no:cacheprovider",
-    "--junitxml=/private/tmp/cf_rc1/runs/final/pytest/core_parity.xml"
+    "--junitxml=/private/tmp/cf_rc1/runs/final2_20261014T235119/pytest/core_parity.xml"
    ],
    "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core",
    "exit": 0,
-   "seconds": 69.2,
+   "seconds": 130.6,
    "load_avg_at_start": [
-    4.03,
-    4.22,
-    4.48
+    4.17,
+    4.21,
+    3.98
    ],
    "log": "pytest/core_parity.log"
   },
@@ -1835,15 +1922,15 @@
     "-rA",
     "-p",
     "no:cacheprovider",
-    "--junitxml=/private/tmp/cf_rc1/runs/final/pytest/benchmarks.xml"
+    "--junitxml=/private/tmp/cf_rc1/runs/final2_20261014T235119/pytest/benchmarks.xml"
    ],
    "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks",
    "exit": 0,
-   "seconds": 2.0,
+   "seconds": 1.3,
    "load_avg_at_start": [
-    4.3,
-    4.27,
-    4.48
+    3.87,
+    3.97,
+    3.91
    ],
    "log": "pytest/benchmarks.log"
   },
@@ -1858,158 +1945,57 @@
     "-rA",
     "-p",
     "no:cacheprovider",
-    "--junitxml=/private/tmp/cf_rc1/runs/final/pytest/mcp.xml"
+    "--junitxml=/private/tmp/cf_rc1/runs/final2_20261014T235119/pytest/mcp.xml"
    ],
    "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/mcp",
    "exit": 0,
-   "seconds": 21.6,
+   "seconds": 21.8,
    "load_avg_at_start": [
-    4.3,
-    4.27,
-    4.48
+    3.87,
+    3.97,
+    3.91
    ],
    "log": "pytest/mcp.log"
-  },
-  {
-   "step": "pytest repo_tests",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "-m",
-    "pytest",
-    "tests",
-    "-q",
-    "-rA",
-    "-p",
-    "no:cacheprovider",
-    "--junitxml=/private/tmp/cf_rc1/runs/final/pytest/repo_tests.xml"
-   ],
-   "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1",
-   "exit": 1,
-   "seconds": 0.2,
-   "load_avg_at_start": [
-    4.09,
-    4.22,
-    4.45
-   ],
-   "log": "pytest/repo_tests.log"
-  },
-  {
-   "step": "wheel overhead",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/scripts/compare_bhsa_mapped_wheel_overhead.py",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/bhsa/tf",
-    "--cache-path",
-    "/private/tmp/cf_rc1/bhsa-mapped-curated.cfr",
-    "--limit",
-    "5"
-   ],
-   "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core",
-   "exit": 0,
-   "seconds": 19.0,
-   "load_avg_at_start": [
-    4.09,
-    4.22,
-    4.45
-   ],
-   "log": "legacy/compare_bhsa_mapped_wheel_overhead.log"
-  },
-  {
-   "step": "tf vs mapped subset",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/scripts/compare_bhsa_tf_mapped_subset.py",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/bhsa/tf",
-    "--cache-path",
-    "/private/tmp/cf_rc1/bhsa-mapped-curated.cfr",
-    "--limit",
-    "5"
-   ],
-   "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core",
-   "exit": 0,
-   "seconds": 19.8,
-   "load_avg_at_start": [
-    3.76,
-    4.14,
-    4.42
-   ],
-   "log": "legacy/compare_bhsa_tf_mapped_subset.log"
-  },
-  {
-   "step": "mapped subset cf_python",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/scripts/python_bhsa_mapped_subset.py",
-    "/private/tmp/cf_rc1/corpora/bhsa/tf",
-    "5"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 12.6,
-   "load_avg_at_start": [
-    3.65,
-    4.08,
-    4.39
-   ],
-   "log": "legacy/python_bhsa_mapped_subset_cf_python.log"
-  },
-  {
-   "step": "mapped subset raw rust",
-   "command": [
-    "cargo",
-    "run",
-    "--release",
-    "--quiet",
-    "--bin",
-    "cf_rust_validate_bhsa_mapped_curated",
-    "--",
-    "/private/tmp/cf_rc1/corpora/bhsa/tf",
-    "/private/tmp/cf_rc1/bhsa-mapped-curated.cfr",
-    "5"
-   ],
-   "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core",
-   "exit": 0,
-   "seconds": 2.0,
-   "load_avg_at_start": [
-    3.52,
-    4.03,
-    4.36
-   ],
-   "log": "legacy/cf_rust_validate_bhsa_mapped_curated.log"
   },
   {
    "step": "bench_scalar_latency",
    "command": [
     "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/bench_scalar_latency.py"
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/bench_scalar_latency.py",
+    "--tf",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--cache",
+    "/private/tmp/cf_rc1/cf_bhsa.cfr"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 15.7,
+   "seconds": 7.0,
    "load_avg_at_start": [
-    3.52,
-    4.03,
-    4.36
+    3.96,
+    3.98,
+    3.91
    ],
-   "log": "legacy/bench_scalar_latency.log"
+   "log": "microbench/bench_scalar_latency.log"
   },
   {
    "step": "bench_batch_apis",
    "command": [
     "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/bench_batch_apis.py"
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/bench_batch_apis.py",
+    "--tf",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--cache",
+    "/private/tmp/cf_rc1/cf_bhsa.cfr"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 5.7,
+   "seconds": 2.0,
    "load_avg_at_start": [
-    5.82,
-    4.52,
-    4.53
+    4.18,
+    4.02,
+    3.93
    ],
-   "log": "legacy/bench_batch_apis.log"
+   "log": "microbench/bench_batch_apis.log"
   },
   {
    "step": "cfabric-bench latency cf_rust",
@@ -2027,15 +2013,15 @@
     "--runs",
     "1",
     "--output-dir",
-    "/private/tmp/cf_rc1/runs/final/bench_cli/cf_rust/latency"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/bench_cli/cf_rust/latency"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 135.7,
+   "seconds": 127.6,
    "load_avg_at_start": [
-    5.51,
-    4.48,
-    4.52
+    4.18,
+    4.02,
+    3.93
    ],
    "log": "bench_cli/cf_rust/latency.log"
   },
@@ -2055,15 +2041,15 @@
     "--workers",
     "4",
     "--output-dir",
-    "/private/tmp/cf_rc1/runs/final/bench_cli/cf_rust/memory"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/bench_cli/cf_rust/memory"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 138.1,
+   "seconds": 138.9,
    "load_avg_at_start": [
-    5.05,
-    4.63,
-    4.57
+    4.25,
+    4.14,
+    3.98
    ],
    "log": "bench_cli/cf_rust/memory.log"
   },
@@ -2083,15 +2069,15 @@
     "--runs",
     "1",
     "--output-dir",
-    "/private/tmp/cf_rc1/runs/final/bench_cli/cf_python/latency"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/bench_cli/cf_python/latency"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 200.3,
+   "seconds": 203.1,
    "load_avg_at_start": [
-    3.71,
-    4.49,
-    4.54
+    4.63,
+    4.31,
+    4.07
    ],
    "log": "bench_cli/cf_python/latency.log"
   },
@@ -2111,900 +2097,92 @@
     "--workers",
     "4",
     "--output-dir",
-    "/private/tmp/cf_rc1/runs/final/bench_cli/cf_python/memory"
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/bench_cli/cf_python/memory"
    ],
    "cwd": "/tmp",
    "exit": 0,
-   "seconds": 140.9,
+   "seconds": 145.9,
    "load_avg_at_start": [
-    3.42,
-    3.92,
-    4.28
+    4.31,
+    3.91,
+    3.92
    ],
    "log": "bench_cli/cf_python/memory.log"
-  },
-  {
-   "step": "query suite tf",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/query_suite.py",
-    "--engine",
-    "tf",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/bhsa/tf",
-    "--mode",
-    "auto",
-    "--timeout",
-    "300",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/queries/tf.jsonl"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 18.9,
-   "load_avg_at_start": [
-    3.28,
-    3.73,
-    4.12
-   ],
-   "log": "queries/tf.log"
-  },
-  {
-   "step": "query suite cf_python_cold",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/query_suite.py",
-    "--engine",
-    "cf_python",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/bhsa/tf",
-    "--mode",
-    "auto",
-    "--timeout",
-    "300",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/queries/cf_python_cold.jsonl",
-    "--clear-cache"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 79.2,
-   "load_avg_at_start": [
-    3.32,
-    3.73,
-    4.11
-   ],
-   "log": "queries/cf_python_cold.log"
-  },
-  {
-   "step": "query suite cf_python",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/query_suite.py",
-    "--engine",
-    "cf_python",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/bhsa/tf",
-    "--mode",
-    "auto",
-    "--timeout",
-    "300",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/queries/cf_python.jsonl"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 28.3,
-   "load_avg_at_start": [
-    4.26,
-    3.86,
-    4.12
-   ],
-   "log": "queries/cf_python.log"
-  },
-  {
-   "step": "query suite cf_rust",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/query_suite.py",
-    "--engine",
-    "cf_rust",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/bhsa/tf",
-    "--mode",
-    "isolated",
-    "--timeout",
-    "300",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/queries/cf_rust.jsonl"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 6.9,
-   "load_avg_at_start": [
-    6.02,
-    4.42,
-    4.32
-   ],
-   "log": "queries/cf_rust.log"
-  },
-  {
-   "step": "query suite cf_rust_inprocess",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/query_suite.py",
-    "--engine",
-    "cf_rust",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/bhsa/tf",
-    "--mode",
-    "in-process",
-    "--timeout",
-    "300",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/queries/cf_rust_inprocess.jsonl"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 4.7,
-   "load_avg_at_start": [
-    6.02,
-    4.45,
-    4.33
-   ],
-   "log": "queries/cf_rust_inprocess.log"
-  },
-  {
-   "step": "oracle plan bhsa",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "plan",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/bhsa/tf",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/plan.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 5.8,
-   "load_avg_at_start": [
-    5.62,
-    4.39,
-    4.31
-   ],
-   "log": "oracle/bhsa/plan.log"
-  },
-  {
-   "step": "oracle eval bhsa tf",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "eval",
-    "--engine",
-    "tf",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/bhsa/tf",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/plan.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_tf.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 22.1,
-   "load_avg_at_start": [
-    5.25,
-    4.34,
-    4.29
-   ],
-   "log": "oracle/bhsa/eval_tf.log"
-  },
-  {
-   "step": "oracle eval bhsa cf_rust",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "eval",
-    "--engine",
-    "cf_rust",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/bhsa/tf",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/plan.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_cf_rust.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 188.7,
-   "load_avg_at_start": [
-    4.88,
-    4.31,
-    4.28
-   ],
-   "log": "oracle/bhsa/eval_cf_rust.log"
-  },
-  {
-   "step": "oracle eval bhsa cf_python_cold",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "eval",
-    "--engine",
-    "cf_python",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/bhsa/tf",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/plan.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_cf_python_cold.json",
-    "--clear-cache"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 87.2,
-   "load_avg_at_start": [
-    4.46,
-    4.31,
-    4.28
-   ],
-   "log": "oracle/bhsa/eval_cf_python_cold.log"
-  },
-  {
-   "step": "oracle eval bhsa cf_python",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "eval",
-    "--engine",
-    "cf_python",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/bhsa/tf",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/plan.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_cf_python.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 31.4,
-   "load_avg_at_start": [
-    5.21,
-    4.59,
-    4.38
-   ],
-   "log": "oracle/bhsa/eval_cf_python.log"
-  },
-  {
-   "step": "oracle compare bhsa tf",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "compare",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/plan.json",
-    "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_tf.json",
-    "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_tf.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/cmp_tf.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 0.1,
-   "load_avg_at_start": [
-    4.68,
-    4.53,
-    4.37
-   ],
-   "log": "oracle/bhsa/cmp_tf.log"
-  },
-  {
-   "step": "oracle compare bhsa cf_rust",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "compare",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/plan.json",
-    "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_tf.json",
-    "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_cf_rust.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/cmp_cf_rust.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 0.1,
-   "load_avg_at_start": [
-    4.68,
-    4.53,
-    4.37
-   ],
-   "log": "oracle/bhsa/cmp_cf_rust.log"
-  },
-  {
-   "step": "oracle compare bhsa cf_python_cold",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "compare",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/plan.json",
-    "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_tf.json",
-    "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_cf_python_cold.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/cmp_cf_python_cold.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 0.1,
-   "load_avg_at_start": [
-    4.68,
-    4.53,
-    4.37
-   ],
-   "log": "oracle/bhsa/cmp_cf_python_cold.log"
-  },
-  {
-   "step": "oracle compare bhsa cf_python",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "compare",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/plan.json",
-    "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_tf.json",
-    "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/values_cf_python.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/bhsa/cmp_cf_python.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 0.1,
-   "load_avg_at_start": [
-    4.68,
-    4.53,
-    4.37
-   ],
-   "log": "oracle/bhsa/cmp_cf_python.log"
-  },
-  {
-   "step": "oracle plan n1904",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "plan",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/n1904/tf",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/plan.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 1.8,
-   "load_avg_at_start": [
-    4.68,
-    4.53,
-    4.37
-   ],
-   "log": "oracle/n1904/plan.log"
-  },
-  {
-   "step": "oracle eval n1904 tf",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "eval",
-    "--engine",
-    "tf",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/n1904/tf",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/plan.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_tf.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 8.6,
-   "load_avg_at_start": [
-    4.46,
-    4.49,
-    4.35
-   ],
-   "log": "oracle/n1904/eval_tf.log"
-  },
-  {
-   "step": "oracle eval n1904 cf_rust",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "eval",
-    "--engine",
-    "cf_rust",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/n1904/tf",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/plan.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_cf_rust.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 34.5,
-   "load_avg_at_start": [
-    4.51,
-    4.5,
-    4.36
-   ],
-   "log": "oracle/n1904/eval_cf_rust.log"
-  },
-  {
-   "step": "oracle eval n1904 cf_python_cold",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "eval",
-    "--engine",
-    "cf_python",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/n1904/tf",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/plan.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_cf_python_cold.json",
-    "--clear-cache"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 29.0,
-   "load_avg_at_start": [
-    4.06,
-    4.38,
-    4.32
-   ],
-   "log": "oracle/n1904/eval_cf_python_cold.log"
-  },
-  {
-   "step": "oracle eval n1904 cf_python",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "eval",
-    "--engine",
-    "cf_python",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/n1904/tf",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/plan.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_cf_python.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 9.9,
-   "load_avg_at_start": [
-    4.73,
-    4.5,
-    4.36
-   ],
-   "log": "oracle/n1904/eval_cf_python.log"
-  },
-  {
-   "step": "oracle compare n1904 tf",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "compare",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/plan.json",
-    "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_tf.json",
-    "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_tf.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/cmp_tf.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 0.1,
-   "load_avg_at_start": [
-    4.62,
-    4.49,
-    4.36
-   ],
-   "log": "oracle/n1904/cmp_tf.log"
-  },
-  {
-   "step": "oracle compare n1904 cf_rust",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "compare",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/plan.json",
-    "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_tf.json",
-    "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_cf_rust.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/cmp_cf_rust.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 0.1,
-   "load_avg_at_start": [
-    4.62,
-    4.49,
-    4.36
-   ],
-   "log": "oracle/n1904/cmp_cf_rust.log"
-  },
-  {
-   "step": "oracle compare n1904 cf_python_cold",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "compare",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/plan.json",
-    "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_tf.json",
-    "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_cf_python_cold.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/cmp_cf_python_cold.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 0.1,
-   "load_avg_at_start": [
-    4.62,
-    4.49,
-    4.36
-   ],
-   "log": "oracle/n1904/cmp_cf_python_cold.log"
-  },
-  {
-   "step": "oracle compare n1904 cf_python",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "compare",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/plan.json",
-    "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_tf.json",
-    "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/values_cf_python.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/n1904/cmp_cf_python.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 0.1,
-   "load_avg_at_start": [
-    4.62,
-    4.49,
-    4.36
-   ],
-   "log": "oracle/n1904/cmp_cf_python.log"
-  },
-  {
-   "step": "oracle plan banks",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "plan",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/banks/tf",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/plan.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 0.1,
-   "load_avg_at_start": [
-    4.62,
-    4.49,
-    4.36
-   ],
-   "log": "oracle/banks/plan.log"
-  },
-  {
-   "step": "oracle eval banks tf",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "eval",
-    "--engine",
-    "tf",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/banks/tf",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/plan.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_tf.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 0.1,
-   "load_avg_at_start": [
-    4.62,
-    4.49,
-    4.36
-   ],
-   "log": "oracle/banks/eval_tf.log"
-  },
-  {
-   "step": "oracle eval banks cf_rust",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "eval",
-    "--engine",
-    "cf_rust",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/banks/tf",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/plan.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_cf_rust.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 0.1,
-   "load_avg_at_start": [
-    4.62,
-    4.49,
-    4.36
-   ],
-   "log": "oracle/banks/eval_cf_rust.log"
-  },
-  {
-   "step": "oracle eval banks cf_python_cold",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "eval",
-    "--engine",
-    "cf_python",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/banks/tf",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/plan.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_cf_python_cold.json",
-    "--clear-cache"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 0.1,
-   "load_avg_at_start": [
-    4.62,
-    4.49,
-    4.36
-   ],
-   "log": "oracle/banks/eval_cf_python_cold.log"
-  },
-  {
-   "step": "oracle eval banks cf_python",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "eval",
-    "--engine",
-    "cf_python",
-    "--tf-path",
-    "/private/tmp/cf_rc1/corpora/banks/tf",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/plan.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_cf_python.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 0.1,
-   "load_avg_at_start": [
-    4.62,
-    4.49,
-    4.36
-   ],
-   "log": "oracle/banks/eval_cf_python.log"
-  },
-  {
-   "step": "oracle compare banks tf",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "compare",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/plan.json",
-    "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_tf.json",
-    "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_tf.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/cmp_tf.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 0.0,
-   "load_avg_at_start": [
-    4.62,
-    4.49,
-    4.36
-   ],
-   "log": "oracle/banks/cmp_tf.log"
-  },
-  {
-   "step": "oracle compare banks cf_rust",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "compare",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/plan.json",
-    "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_tf.json",
-    "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_cf_rust.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/cmp_cf_rust.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 0.0,
-   "load_avg_at_start": [
-    4.62,
-    4.49,
-    4.36
-   ],
-   "log": "oracle/banks/cmp_cf_rust.log"
-  },
-  {
-   "step": "oracle compare banks cf_python_cold",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "compare",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/plan.json",
-    "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_tf.json",
-    "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_cf_python_cold.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/cmp_cf_python_cold.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 0.0,
-   "load_avg_at_start": [
-    4.62,
-    4.49,
-    4.36
-   ],
-   "log": "oracle/banks/cmp_cf_python_cold.log"
-  },
-  {
-   "step": "oracle compare banks cf_python",
-   "command": [
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
-    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
-    "compare",
-    "--plan",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/plan.json",
-    "--expected",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_tf.json",
-    "--actual",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/values_cf_python.json",
-    "--out",
-    "/private/tmp/cf_rc1/runs/final/oracle/banks/cmp_cf_python.json"
-   ],
-   "cwd": "/tmp",
-   "exit": 0,
-   "seconds": 0.0,
-   "load_avg_at_start": [
-    4.62,
-    4.49,
-    4.36
-   ],
-   "log": "oracle/banks/cmp_cf_python.log"
   }
  ],
  "parity": {
   "cargo": {
    "fmt_check": {
-    "ok": false,
-    "hunks": 104,
-    "files": [
-     "src/bin/cf_rust_parity.rs",
-     "src/bindings/accessors.rs",
-     "src/bindings/fabric.rs",
-     "src/bindings/features.rs",
-     "src/compiled.rs",
-     "src/io.rs",
-     "src/mapped_search.rs",
-     "src/mapped_sections.rs",
-     "src/mapped_text.rs",
-     "src/precompute.rs",
-     "src/search.rs",
-     "tests/core_port.rs",
-     "tests/mapped_locality.rs",
-     "tests/mapped_perf.rs",
-     "tests/xcorpus_defects.rs"
-    ]
+    "ok": true,
+    "hunks": 0,
+    "files": []
    },
    "test": {
-    "passed": 131,
+    "passed": 101,
     "failed": 0,
-    "ignored": 1,
+    "ignored": 0,
     "failed_tests": [],
-    "ignored_tests": [
-     "bhsa_compile_size_and_timing_probe"
-    ]
-   },
-   "cf_rust_parity_bin": {
-    "ok": 34,
-    "total": 34,
-    "wall_s": 4.375,
-    "not_ok": []
-   },
-   "cf_rust_validate_corpora_tail": [
-    "ok corpus=bhsa load_ms=17604.242 nodes=1446831 slots=426590 query=word results=5",
-    "ok corpus=n1904 load_ms=5085.209 nodes=497525 slots=137779 query=word results=5",
-    "ok corpus=banks load_ms=1.226 nodes=117 slots=99 query=word results=5"
-   ]
+    "ignored_tests": []
+   }
   },
   "pytest": {
    "benchmarks": {
-    "tests": 45,
+    "tests": 56,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
-    "passed": 45,
+    "passed": 56,
     "failing": [],
     "skipped_detail": []
    },
    "core_parity": {
-    "tests": 43,
+    "tests": 52,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
-    "passed": 43,
+    "passed": 52,
     "failing": [],
     "skipped_detail": []
    },
    "core_python": {
-    "tests": 100,
-    "failures": 1,
+    "tests": 261,
+    "failures": 0,
     "errors": 0,
-    "skipped": 2,
-    "passed": 97,
-    "failing": [
-     {
-      "test": "tests.python.test_text_formats::test_languages_match_tf",
-      "kind": "failure",
-      "message": "AssertionError: assert {'': {'langua...engali'}, ...} == {'': {'langua...engali'}, ...}"
-     }
-    ],
+    "skipped": 8,
+    "passed": 253,
+    "failing": [],
     "skipped_detail": [
      {
+      "test": "tests.python.test_tf_api_surface::test_return_container_types_match_text_fabric[api.F.word.s('hello')]",
+      "reason": "tuple instead of a lazy iterable (same members)"
+     },
+     {
+      "test": "tests.python.test_tf_api_surface::test_return_container_types_match_text_fabric[api.F.otype.s('phrase')]",
+      "reason": "tuple instead of range (same members)"
+     },
+     {
+      "test": "tests.python.test_tf_api_surface::test_return_container_types_match_text_fabric[api.E.oslots.s(8)]",
+      "reason": "tuple instead of array.array (same members)"
+     },
+     {
+      "test": "tests.python.test_tf_api_surface::test_return_container_types_match_text_fabric[api.E.distance.freqList()]",
+      "reason": "Text-Fabric raises TypeError sorting None edge values"
+     },
+     {
+      "test": "tests.python.test_tf_api_surface::test_return_container_types_match_text_fabric[api.E.parent.f(1)]",
+      "reason": "tuple; Text-Fabric returns a frozenset or tuple per feature"
+     },
+     {
+      "test": "tests.python.test_tf_api_surface::test_return_container_types_match_text_fabric[api.S.glean((1, 2))]",
+      "reason": "Text-Fabric raises IndexError on datasets with fewer than 3 section levels"
+     },
+     {
       "test": "tests.python.test_xcorpus_sections::test_quran_top_section_uses_number_not_name",
-      "reason": "quran corpus not available at /Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.corpora/quran/tf"
+      "reason": "quran corpus not available at /private/tmp/cf_rc1/corpora/quran/tf"
      },
      {
       "test": "tests.python.test_xcorpus_sections::test_quran_node_from_section_round_trips_and_fast_miss",
-      "reason": "quran corpus not available at /Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.corpora/quran/tf"
+      "reason": "quran corpus not available at /private/tmp/cf_rc1/corpora/quran/tf"
      }
     ]
    },
@@ -3016,59 +2194,27 @@
     "passed": 166,
     "failing": [],
     "skipped_detail": []
-   },
-   "repo_tests": {
-    "tests": 3,
-    "failures": 3,
-    "errors": 0,
-    "skipped": 0,
-    "passed": 0,
-    "failing": [
-     {
-      "test": "tests.test_windows_paths.TestExpandDirWindowsPaths::test_windows_absolute_path_not_modified",
-      "kind": "failure",
-      "message": "ModuleNotFoundError: No module named 'cfabric.utils'"
-     },
-     {
-      "test": "tests.test_windows_paths.TestExpandDirWindowsPaths::test_relative_path_gets_curdir_prepended",
-      "kind": "failure",
-      "message": "ModuleNotFoundError: No module named 'cfabric.utils'"
-     },
-     {
-      "test": "tests.test_windows_paths.TestExpandDirWindowsPaths::test_unix_absolute_path_not_modified",
-      "kind": "failure",
-      "message": "ModuleNotFoundError: No module named 'cfabric.utils'"
-     }
-    ],
-    "skipped_detail": []
    }
   },
   "golden": {
    "cf_python": {
     "counts": {
      "bhsa": {
-      "python": {
-       "pass": 13,
-       "fail": 0
-      }
+      "pass": 13,
+      "fail": 0
      },
      "n1904": {
-      "python": {
-       "pass": 10,
-       "fail": 0
-      }
+      "pass": 10,
+      "fail": 0
      },
      "banks": {
-      "python": {
-       "pass": 5,
-       "fail": 6
-      }
+      "pass": 5,
+      "fail": 6
      }
     },
     "failures": [
      {
       "corpus": "banks",
-      "mode": "python",
       "probe": "banks_top",
       "detail": [
        "expected: [100]",
@@ -3077,7 +2223,6 @@
      },
      {
       "corpus": "banks",
-      "mode": "python",
       "probe": "banks_structure_forest",
       "detail": [
        "expected: [[100, [[101, [[115, [[103, []], [104, []], [105, []], [106, []]]], [116, [[107, []], [108, []], [109, []]]]]], [102, [[117, [[110, []], [111, []], [112, []], [113, []], [114, []]]]]]]]]",
@@ -3086,7 +2231,6 @@
      },
      {
       "corpus": "banks",
-      "mode": "python",
       "probe": "banks_sentence_heading",
       "detail": [
        "expected: [[\"book\", \"Consider Phlebas\"], [\"chapter\", 1], [\"sentence\", 1]]",
@@ -3095,7 +2239,6 @@
      },
      {
       "corpus": "banks",
-      "mode": "python",
       "probe": "banks_sentence_from_heading",
       "detail": [
        "expected: 115",
@@ -3104,7 +2247,6 @@
      },
      {
       "corpus": "banks",
-      "mode": "python",
       "probe": "banks_sentence_structure_pretty",
       "detail": [
        "expected: \"  sentence:1\\n      line:1\\n      line:2\\n      line:3\\n      line:4\"",
@@ -3113,7 +2255,6 @@
      },
      {
       "corpus": "banks",
-      "mode": "python",
       "probe": "banks_sentence_structure_pretty_full",
       "detail": [
        "expected: \"  book:Consider Phlebas-chapter:1-sentence:1\\n      book:Consider Phlebas-chapter:1-sentence:1-line:1\\n      book:Consider Phlebas-chapter:1-sentence:1-line:2\\n      book:Consider Phlebas-chapter:1-sentence:1-line:3\\n      book:Consider Phlebas-chapter:1-sentence:1-line:4\"",
@@ -3126,46 +2267,16 @@
    "cf_rust": {
     "counts": {
      "bhsa": {
-      "materialized": {
-       "pass": 13,
-       "fail": 0
-      },
-      "mapped": {
-       "pass": 13,
-       "fail": 0
-      },
-      "python": {
-       "pass": 13,
-       "fail": 0
-      }
+      "pass": 13,
+      "fail": 0
      },
      "n1904": {
-      "materialized": {
-       "pass": 10,
-       "fail": 0
-      },
-      "mapped": {
-       "pass": 10,
-       "fail": 0
-      },
-      "python": {
-       "pass": 10,
-       "fail": 0
-      }
+      "pass": 10,
+      "fail": 0
      },
      "banks": {
-      "materialized": {
-       "pass": 11,
-       "fail": 0
-      },
-      "mapped": {
-       "pass": 11,
-       "fail": 0
-      },
-      "python": {
-       "pass": 11,
-       "fail": 0
-      }
+      "pass": 11,
+      "fail": 0
      }
     },
     "failures": [],
@@ -3175,12 +2286,12 @@
   "query_suite": {
    "cf_python": {
     "engine_version": "0.5.8",
-    "load_s": 0.327,
+    "load_s": 0.347,
     "mode": "in-process",
     "total": 34,
     "count_and_sample_ok": 33,
     "result_set_equal_to_tf": 33,
-    "wall_s_completed": 27.566,
+    "wall_s_completed": 27.614,
     "not_ok": [
      {
       "id": "q_knear_after",
@@ -3193,85 +2304,85 @@
     "per_query": {
      "q_with_or_subj": {
       "status": "ok",
-      "seconds": 1.4497,
+      "seconds": 1.4542,
       "count": 28228,
       "set_matches_tf": true
      },
      "q_where_have": {
       "status": "ok",
-      "seconds": 0.6887,
+      "seconds": 0.8573,
       "count": 31431,
       "set_matches_tf": true
      },
      "q_where_have_parent": {
       "status": "ok",
-      "seconds": 0.6829,
+      "seconds": 0.6892,
       "count": 241249,
       "set_matches_tf": true
      },
      "q_phrase_without_verb": {
       "status": "ok",
-      "seconds": 0.4327,
+      "seconds": 0.4338,
       "count": 62771,
       "set_matches_tf": true
      },
      "q_mother_basic": {
       "status": "ok",
-      "seconds": 0.1399,
+      "seconds": 0.1408,
       "count": 13917,
       "set_matches_tf": true
      },
      "q_mother_named_distinct_verse": {
       "status": "ok",
-      "seconds": 0.2716,
+      "seconds": 0.2711,
       "count": 710,
       "set_matches_tf": true
      },
      "q_mother_reverse": {
       "status": "ok",
-      "seconds": 0.1271,
+      "seconds": 0.1267,
       "count": 13917,
       "set_matches_tf": true
      },
      "q_agree_nu_eq": {
       "status": "ok",
-      "seconds": 0.7517,
+      "seconds": 0.7115,
       "count": 3759,
       "set_matches_tf": true
      },
      "q_agree_nu_neq": {
       "status": "ok",
-      "seconds": 0.6716,
+      "seconds": 0.6755,
       "count": 525,
       "set_matches_tf": true
      },
      "q_samelex_adjacent": {
       "status": "ok",
-      "seconds": 1.3222,
+      "seconds": 1.321,
       "count": 475,
       "set_matches_tf": true
      },
      "q_knear_before": {
       "status": "ok",
-      "seconds": 0.2426,
+      "seconds": 0.243,
       "count": 1,
       "set_matches_tf": true
      },
      "q_knear_after": {
       "status": "wrong",
-      "seconds": 0.1347,
+      "seconds": 0.1372,
       "count": 46,
       "set_matches_tf": false
      },
      "q_regex_gcons": {
       "status": "ok",
-      "seconds": 0.2143,
+      "seconds": 0.2096,
       "count": 816,
       "set_matches_tf": true
      },
      "q_regex_typ": {
       "status": "ok",
-      "seconds": 0.1449,
+      "seconds": 0.1462,
       "count": 3098,
       "set_matches_tf": true
      },
@@ -3283,115 +2394,115 @@
      },
      "q_feat_exists_qere": {
       "status": "ok",
-      "seconds": 0.069,
+      "seconds": 0.0702,
       "count": 1892,
       "set_matches_tf": true
      },
      "q_feat_empty_qere": {
       "status": "ok",
-      "seconds": 0.149,
+      "seconds": 0.15,
       "count": 424698,
       "set_matches_tf": true
      },
      "q_multivalue_neg": {
       "status": "ok",
-      "seconds": 0.1105,
+      "seconds": 0.1095,
       "count": 271,
       "set_matches_tf": true
      },
      "q_multivalue_pos_agree": {
       "status": "ok",
-      "seconds": 1.0243,
+      "seconds": 1.0361,
       "count": 10638,
       "set_matches_tf": true
      },
      "q_slot_equal": {
       "status": "ok",
-      "seconds": 0.3165,
+      "seconds": 0.3105,
       "count": 3583,
       "set_matches_tf": true
      },
      "q_slot_diff_start": {
       "status": "ok",
-      "seconds": 0.5366,
+      "seconds": 0.5221,
       "count": 702,
       "set_matches_tf": true
      },
      "q_slot_disjoint": {
       "status": "ok",
-      "seconds": 1.3923,
+      "seconds": 1.3975,
       "count": 168504,
       "set_matches_tf": true
      },
      "q_slot_overlap_parent": {
       "status": "ok",
-      "seconds": 1.2657,
+      "seconds": 1.2366,
       "count": 887,
       "set_matches_tf": true
      },
      "q_adj_before": {
       "status": "ok",
-      "seconds": 1.6897,
+      "seconds": 1.6836,
       "count": 162653,
       "set_matches_tf": true
      },
      "q_adj_after": {
       "status": "ok",
-      "seconds": 1.6666,
+      "seconds": 1.6684,
       "count": 162653,
       "set_matches_tf": true
      },
      "q_section_adjacency": {
       "status": "ok",
-      "seconds": 0.2008,
+      "seconds": 0.2565,
       "count": 1,
       "set_matches_tf": true
      },
      "q_start_end_agree_mismatch": {
       "status": "ok",
-      "seconds": 0.4114,
+      "seconds": 0.4049,
       "count": 262,
       "set_matches_tf": true
      },
      "q_phrase_gap": {
       "status": "ok",
-      "seconds": 2.561,
+      "seconds": 2.5732,
       "count": 716,
       "set_matches_tf": true
      },
      "q_slot_containment": {
       "status": "ok",
-      "seconds": 5.4075,
+      "seconds": 5.3222,
       "count": 2739,
       "set_matches_tf": true
      },
      "q_idiom_chen": {
       "status": "ok",
-      "seconds": 0.4969,
+      "seconds": 0.4624,
       "count": 40,
       "set_matches_tf": true
      },
      "q_complex_subj_prec": {
       "status": "ok",
-      "seconds": 1.1055,
+      "seconds": 1.0976,
       "count": 2303,
       "set_matches_tf": true
      },
      "q_rank_lex_numeric": {
       "status": "ok",
-      "seconds": 0.4202,
+      "seconds": 0.4184,
       "count": 28095,
       "set_matches_tf": true
      },
      "q_lex_only_ezra_neh": {
       "status": "ok",
-      "seconds": 1.2506,
+      "seconds": 1.2582,
       "count": 382,
       "set_matches_tf": true
      },
      "q_order_lo_then_impf": {
       "status": "ok",
-      "seconds": 0.2121,
+      "seconds": 0.2144,
       "count": 692,
       "set_matches_tf": true
      }
@@ -3399,215 +2510,215 @@
    },
    "cf_python_cold": {
     "engine_version": "0.5.8",
-    "load_s": 66.191,
+    "load_s": 67.336,
     "mode": "in-process",
     "total": 34,
     "count_and_sample_ok": 34,
     "result_set_equal_to_tf": 34,
-    "wall_s_completed": 11.553,
+    "wall_s_completed": 11.469,
     "not_ok": [],
     "per_query": {
      "q_with_or_subj": {
       "status": "ok",
-      "seconds": 0.3683,
+      "seconds": 0.3756,
       "count": 28228,
       "set_matches_tf": true
      },
      "q_where_have": {
       "status": "ok",
-      "seconds": 0.556,
+      "seconds": 0.5105,
       "count": 31431,
       "set_matches_tf": true
      },
      "q_where_have_parent": {
       "status": "ok",
-      "seconds": 0.4358,
+      "seconds": 0.4521,
       "count": 241249,
       "set_matches_tf": true
      },
      "q_phrase_without_verb": {
       "status": "ok",
-      "seconds": 0.2684,
+      "seconds": 0.2128,
       "count": 62771,
       "set_matches_tf": true
      },
      "q_mother_basic": {
       "status": "ok",
-      "seconds": 0.0436,
+      "seconds": 0.0449,
       "count": 13917,
       "set_matches_tf": true
      },
      "q_mother_named_distinct_verse": {
       "status": "ok",
-      "seconds": 0.0924,
+      "seconds": 0.0918,
       "count": 710,
       "set_matches_tf": true
      },
      "q_mother_reverse": {
       "status": "ok",
-      "seconds": 0.0454,
+      "seconds": 0.0444,
       "count": 13917,
       "set_matches_tf": true
      },
      "q_agree_nu_eq": {
       "status": "ok",
-      "seconds": 0.4035,
+      "seconds": 0.4117,
       "count": 3759,
       "set_matches_tf": true
      },
      "q_agree_nu_neq": {
       "status": "ok",
-      "seconds": 0.4778,
+      "seconds": 0.4517,
       "count": 525,
       "set_matches_tf": true
      },
      "q_samelex_adjacent": {
       "status": "ok",
-      "seconds": 0.3524,
+      "seconds": 0.3599,
       "count": 475,
       "set_matches_tf": true
      },
      "q_knear_before": {
       "status": "ok",
-      "seconds": 0.0944,
+      "seconds": 0.0949,
       "count": 1,
       "set_matches_tf": true
      },
      "q_knear_after": {
       "status": "ok",
-      "seconds": 0.1632,
+      "seconds": 0.162,
       "count": 50,
       "set_matches_tf": true
      },
      "q_regex_gcons": {
       "status": "ok",
-      "seconds": 0.1072,
+      "seconds": 0.1107,
       "count": 816,
       "set_matches_tf": true
      },
      "q_regex_typ": {
       "status": "ok",
-      "seconds": 0.1291,
+      "seconds": 0.13,
       "count": 3098,
       "set_matches_tf": true
      },
      "q_regex_gloss_space": {
       "status": "ok",
-      "seconds": 0.0034,
+      "seconds": 0.0036,
       "count": 406,
       "set_matches_tf": true
      },
      "q_feat_exists_qere": {
       "status": "ok",
-      "seconds": 0.0505,
+      "seconds": 0.052,
       "count": 1892,
       "set_matches_tf": true
      },
      "q_feat_empty_qere": {
       "status": "ok",
-      "seconds": 0.126,
+      "seconds": 0.1256,
       "count": 424698,
       "set_matches_tf": true
      },
      "q_multivalue_neg": {
       "status": "ok",
-      "seconds": 0.1767,
+      "seconds": 0.1798,
       "count": 271,
       "set_matches_tf": true
      },
      "q_multivalue_pos_agree": {
       "status": "ok",
-      "seconds": 0.5491,
+      "seconds": 0.525,
       "count": 10638,
       "set_matches_tf": true
      },
      "q_slot_equal": {
       "status": "ok",
-      "seconds": 0.0944,
+      "seconds": 0.0861,
       "count": 3583,
       "set_matches_tf": true
      },
      "q_slot_diff_start": {
       "status": "ok",
-      "seconds": 0.0753,
+      "seconds": 0.07,
       "count": 702,
       "set_matches_tf": true
      },
      "q_slot_disjoint": {
       "status": "ok",
-      "seconds": 0.4538,
+      "seconds": 0.4543,
       "count": 168504,
       "set_matches_tf": true
      },
      "q_slot_overlap_parent": {
       "status": "ok",
-      "seconds": 0.4516,
+      "seconds": 0.4504,
       "count": 887,
       "set_matches_tf": true
      },
      "q_adj_before": {
       "status": "ok",
-      "seconds": 0.433,
+      "seconds": 0.435,
       "count": 162653,
       "set_matches_tf": true
      },
      "q_adj_after": {
       "status": "ok",
-      "seconds": 0.4169,
+      "seconds": 0.4365,
       "count": 162653,
       "set_matches_tf": true
      },
      "q_section_adjacency": {
       "status": "ok",
-      "seconds": 0.2147,
+      "seconds": 0.2161,
       "count": 1,
       "set_matches_tf": true
      },
      "q_start_end_agree_mismatch": {
       "status": "ok",
-      "seconds": 0.3644,
+      "seconds": 0.3525,
       "count": 262,
       "set_matches_tf": true
      },
      "q_phrase_gap": {
       "status": "ok",
-      "seconds": 0.5906,
+      "seconds": 0.6171,
       "count": 716,
       "set_matches_tf": true
      },
      "q_slot_containment": {
       "status": "ok",
-      "seconds": 1.8653,
+      "seconds": 1.8183,
       "count": 2739,
       "set_matches_tf": true
      },
      "q_idiom_chen": {
       "status": "ok",
-      "seconds": 0.5116,
+      "seconds": 0.5174,
       "count": 40,
       "set_matches_tf": true
      },
      "q_complex_subj_prec": {
       "status": "ok",
-      "seconds": 0.7725,
+      "seconds": 0.782,
       "count": 2303,
       "set_matches_tf": true
      },
      "q_rank_lex_numeric": {
       "status": "ok",
-      "seconds": 0.1475,
+      "seconds": 0.1494,
       "count": 28095,
       "set_matches_tf": true
      },
      "q_lex_only_ezra_neh": {
       "status": "ok",
-      "seconds": 0.4261,
+      "seconds": 0.4423,
       "count": 382,
       "set_matches_tf": true
      },
      "q_order_lo_then_impf": {
       "status": "ok",
-      "seconds": 0.2926,
+      "seconds": 0.3022,
       "count": 692,
       "set_matches_tf": true
      }
@@ -3620,306 +2731,90 @@
     "total": 34,
     "count_and_sample_ok": 34,
     "result_set_equal_to_tf": 34,
-    "wall_s_completed": 4.954,
+    "wall_s_completed": 2.366,
     "not_ok": [],
     "per_query": {
      "q_with_or_subj": {
       "status": "ok",
-      "seconds": 0.1792,
+      "seconds": 0.0835,
       "count": 28228,
       "set_matches_tf": true
      },
      "q_where_have": {
       "status": "ok",
-      "seconds": 0.1815,
+      "seconds": 0.0872,
       "count": 31431,
       "set_matches_tf": true
      },
      "q_where_have_parent": {
       "status": "ok",
-      "seconds": 0.1894,
+      "seconds": 0.1153,
       "count": 241249,
       "set_matches_tf": true
      },
      "q_phrase_without_verb": {
       "status": "ok",
-      "seconds": 0.1104,
+      "seconds": 0.0456,
       "count": 62771,
       "set_matches_tf": true
      },
      "q_mother_basic": {
       "status": "ok",
-      "seconds": 0.0813,
+      "seconds": 0.0201,
       "count": 13917,
       "set_matches_tf": true
      },
      "q_mother_named_distinct_verse": {
       "status": "ok",
-      "seconds": 0.0968,
+      "seconds": 0.0319,
       "count": 710,
       "set_matches_tf": true
      },
      "q_mother_reverse": {
       "status": "ok",
-      "seconds": 0.073,
+      "seconds": 0.0194,
       "count": 13917,
       "set_matches_tf": true
      },
      "q_agree_nu_eq": {
       "status": "ok",
-      "seconds": 0.1176,
+      "seconds": 0.0481,
       "count": 3759,
       "set_matches_tf": true
      },
      "q_agree_nu_neq": {
       "status": "ok",
-      "seconds": 0.1187,
+      "seconds": 0.0465,
       "count": 525,
       "set_matches_tf": true
      },
      "q_samelex_adjacent": {
       "status": "ok",
-      "seconds": 0.1917,
+      "seconds": 0.1144,
       "count": 475,
       "set_matches_tf": true
      },
      "q_knear_before": {
       "status": "ok",
-      "seconds": 0.0302,
+      "seconds": 0.0153,
       "count": 1,
       "set_matches_tf": true
      },
      "q_knear_after": {
       "status": "ok",
-      "seconds": 0.0158,
+      "seconds": 0.0017,
       "count": 50,
       "set_matches_tf": true
      },
      "q_regex_gcons": {
       "status": "ok",
-      "seconds": 0.0535,
+      "seconds": 0.0103,
       "count": 816,
       "set_matches_tf": true
      },
      "q_regex_typ": {
       "status": "ok",
-      "seconds": 0.0428,
-      "count": 3098,
-      "set_matches_tf": true
-     },
-     "q_regex_gloss_space": {
-      "status": "ok",
-      "seconds": 0.0159,
-      "count": 406,
-      "set_matches_tf": true
-     },
-     "q_feat_exists_qere": {
-      "status": "ok",
-      "seconds": 0.0053,
-      "count": 1892,
-      "set_matches_tf": true
-     },
-     "q_feat_empty_qere": {
-      "status": "ok",
-      "seconds": 0.0923,
-      "count": 424698,
-      "set_matches_tf": true
-     },
-     "q_multivalue_neg": {
-      "status": "ok",
-      "seconds": 0.0425,
-      "count": 271,
-      "set_matches_tf": true
-     },
-     "q_multivalue_pos_agree": {
-      "status": "ok",
-      "seconds": 0.1284,
-      "count": 10638,
-      "set_matches_tf": true
-     },
-     "q_slot_equal": {
-      "status": "ok",
-      "seconds": 0.0389,
-      "count": 3583,
-      "set_matches_tf": true
-     },
-     "q_slot_diff_start": {
-      "status": "ok",
-      "seconds": 0.0567,
-      "count": 702,
-      "set_matches_tf": true
-     },
-     "q_slot_disjoint": {
-      "status": "ok",
-      "seconds": 0.2021,
-      "count": 168504,
-      "set_matches_tf": true
-     },
-     "q_slot_overlap_parent": {
-      "status": "ok",
-      "seconds": 0.727,
-      "count": 887,
-      "set_matches_tf": true
-     },
-     "q_adj_before": {
-      "status": "ok",
-      "seconds": 0.2766,
-      "count": 162653,
-      "set_matches_tf": true
-     },
-     "q_adj_after": {
-      "status": "ok",
-      "seconds": 0.2609,
-      "count": 162653,
-      "set_matches_tf": true
-     },
-     "q_section_adjacency": {
-      "status": "ok",
-      "seconds": 0.0519,
-      "count": 1,
-      "set_matches_tf": true
-     },
-     "q_start_end_agree_mismatch": {
-      "status": "ok",
-      "seconds": 0.1255,
-      "count": 262,
-      "set_matches_tf": true
-     },
-     "q_phrase_gap": {
-      "status": "ok",
-      "seconds": 0.3888,
-      "count": 716,
-      "set_matches_tf": true
-     },
-     "q_slot_containment": {
-      "status": "ok",
-      "seconds": 0.4584,
-      "count": 2739,
-      "set_matches_tf": true
-     },
-     "q_idiom_chen": {
-      "status": "ok",
-      "seconds": 0.0702,
-      "count": 40,
-      "set_matches_tf": true
-     },
-     "q_complex_subj_prec": {
-      "status": "ok",
-      "seconds": 0.1991,
-      "count": 2303,
-      "set_matches_tf": true
-     },
-     "q_rank_lex_numeric": {
-      "status": "ok",
-      "seconds": 0.1006,
-      "count": 28095,
-      "set_matches_tf": true
-     },
-     "q_lex_only_ezra_neh": {
-      "status": "ok",
-      "seconds": 0.1229,
-      "count": 382,
-      "set_matches_tf": true
-     },
-     "q_order_lo_then_impf": {
-      "status": "ok",
-      "seconds": 0.1081,
-      "count": 692,
-      "set_matches_tf": true
-     }
-    }
-   },
-   "cf_rust_inprocess": {
-    "engine_version": "0.6.0rc1",
-    "load_s": 0.01,
-    "mode": "in-process",
-    "total": 34,
-    "count_and_sample_ok": 34,
-    "result_set_equal_to_tf": 34,
-    "wall_s_completed": 4.384,
-    "not_ok": [],
-    "per_query": {
-     "q_with_or_subj": {
-      "status": "ok",
-      "seconds": 0.1482,
-      "count": 28228,
-      "set_matches_tf": true
-     },
-     "q_where_have": {
-      "status": "ok",
-      "seconds": 0.1599,
-      "count": 31431,
-      "set_matches_tf": true
-     },
-     "q_where_have_parent": {
-      "status": "ok",
-      "seconds": 0.1692,
-      "count": 241249,
-      "set_matches_tf": true
-     },
-     "q_phrase_without_verb": {
-      "status": "ok",
-      "seconds": 0.0869,
-      "count": 62771,
-      "set_matches_tf": true
-     },
-     "q_mother_basic": {
-      "status": "ok",
-      "seconds": 0.065,
-      "count": 13917,
-      "set_matches_tf": true
-     },
-     "q_mother_named_distinct_verse": {
-      "status": "ok",
-      "seconds": 0.0873,
-      "count": 710,
-      "set_matches_tf": true
-     },
-     "q_mother_reverse": {
-      "status": "ok",
-      "seconds": 0.0614,
-      "count": 13917,
-      "set_matches_tf": true
-     },
-     "q_agree_nu_eq": {
-      "status": "ok",
-      "seconds": 0.0944,
-      "count": 3759,
-      "set_matches_tf": true
-     },
-     "q_agree_nu_neq": {
-      "status": "ok",
-      "seconds": 0.0995,
-      "count": 525,
-      "set_matches_tf": true
-     },
-     "q_samelex_adjacent": {
-      "status": "ok",
-      "seconds": 0.1783,
-      "count": 475,
-      "set_matches_tf": true
-     },
-     "q_knear_before": {
-      "status": "ok",
-      "seconds": 0.0178,
-      "count": 1,
-      "set_matches_tf": true
-     },
-     "q_knear_after": {
-      "status": "ok",
-      "seconds": 0.0106,
-      "count": 50,
-      "set_matches_tf": true
-     },
-     "q_regex_gcons": {
-      "status": "ok",
-      "seconds": 0.0301,
-      "count": 816,
-      "set_matches_tf": true
-     },
-     "q_regex_typ": {
-      "status": "ok",
-      "seconds": 0.028,
+      "seconds": 0.0089,
       "count": 3098,
       "set_matches_tf": true
      },
@@ -3931,7 +2826,7 @@
      },
      "q_feat_exists_qere": {
       "status": "ok",
-      "seconds": 0.0005,
+      "seconds": 0.0007,
       "count": 1892,
       "set_matches_tf": true
      },
@@ -3943,103 +2838,319 @@
      },
      "q_multivalue_neg": {
       "status": "ok",
-      "seconds": 0.0155,
+      "seconds": 0.0045,
       "count": 271,
       "set_matches_tf": true
      },
      "q_multivalue_pos_agree": {
       "status": "ok",
-      "seconds": 0.1133,
+      "seconds": 0.0568,
       "count": 10638,
       "set_matches_tf": true
      },
      "q_slot_equal": {
       "status": "ok",
-      "seconds": 0.0281,
+      "seconds": 0.0175,
       "count": 3583,
       "set_matches_tf": true
      },
      "q_slot_diff_start": {
       "status": "ok",
-      "seconds": 0.0473,
+      "seconds": 0.0235,
       "count": 702,
       "set_matches_tf": true
      },
      "q_slot_disjoint": {
       "status": "ok",
-      "seconds": 0.1867,
+      "seconds": 0.13,
       "count": 168504,
       "set_matches_tf": true
      },
      "q_slot_overlap_parent": {
       "status": "ok",
-      "seconds": 0.6947,
+      "seconds": 0.0388,
       "count": 887,
       "set_matches_tf": true
      },
      "q_adj_before": {
       "status": "ok",
-      "seconds": 0.2495,
+      "seconds": 0.175,
       "count": 162653,
       "set_matches_tf": true
      },
      "q_adj_after": {
       "status": "ok",
-      "seconds": 0.248,
+      "seconds": 0.1771,
       "count": 162653,
       "set_matches_tf": true
      },
      "q_section_adjacency": {
       "status": "ok",
-      "seconds": 0.0419,
+      "seconds": 0.0168,
       "count": 1,
       "set_matches_tf": true
      },
      "q_start_end_agree_mismatch": {
       "status": "ok",
-      "seconds": 0.1172,
+      "seconds": 0.053,
       "count": 262,
       "set_matches_tf": true
      },
      "q_phrase_gap": {
       "status": "ok",
-      "seconds": 0.3733,
+      "seconds": 0.2873,
       "count": 716,
       "set_matches_tf": true
      },
      "q_slot_containment": {
       "status": "ok",
-      "seconds": 0.4462,
+      "seconds": 0.3773,
       "count": 2739,
       "set_matches_tf": true
      },
      "q_idiom_chen": {
       "status": "ok",
-      "seconds": 0.061,
+      "seconds": 0.0228,
       "count": 40,
       "set_matches_tf": true
      },
      "q_complex_subj_prec": {
       "status": "ok",
-      "seconds": 0.1668,
+      "seconds": 0.0707,
       "count": 2303,
       "set_matches_tf": true
      },
      "q_rank_lex_numeric": {
       "status": "ok",
-      "seconds": 0.0846,
+      "seconds": 0.0501,
       "count": 28095,
       "set_matches_tf": true
      },
      "q_lex_only_ezra_neh": {
       "status": "ok",
-      "seconds": 0.1101,
+      "seconds": 0.1108,
       "count": 382,
       "set_matches_tf": true
      },
      "q_order_lo_then_impf": {
       "status": "ok",
-      "seconds": 0.0785,
+      "seconds": 0.021,
+      "count": 692,
+      "set_matches_tf": true
+     }
+    }
+   },
+   "cf_rust_inprocess": {
+    "engine_version": "0.6.0rc1",
+    "load_s": 0.003,
+    "mode": "in-process",
+    "total": 34,
+    "count_and_sample_ok": 34,
+    "result_set_equal_to_tf": 34,
+    "wall_s_completed": 2.197,
+    "not_ok": [],
+    "per_query": {
+     "q_with_or_subj": {
+      "status": "ok",
+      "seconds": 0.084,
+      "count": 28228,
+      "set_matches_tf": true
+     },
+     "q_where_have": {
+      "status": "ok",
+      "seconds": 0.0794,
+      "count": 31431,
+      "set_matches_tf": true
+     },
+     "q_where_have_parent": {
+      "status": "ok",
+      "seconds": 0.1104,
+      "count": 241249,
+      "set_matches_tf": true
+     },
+     "q_phrase_without_verb": {
+      "status": "ok",
+      "seconds": 0.0392,
+      "count": 62771,
+      "set_matches_tf": true
+     },
+     "q_mother_basic": {
+      "status": "ok",
+      "seconds": 0.0142,
+      "count": 13917,
+      "set_matches_tf": true
+     },
+     "q_mother_named_distinct_verse": {
+      "status": "ok",
+      "seconds": 0.0257,
+      "count": 710,
+      "set_matches_tf": true
+     },
+     "q_mother_reverse": {
+      "status": "ok",
+      "seconds": 0.0137,
+      "count": 13917,
+      "set_matches_tf": true
+     },
+     "q_agree_nu_eq": {
+      "status": "ok",
+      "seconds": 0.0407,
+      "count": 3759,
+      "set_matches_tf": true
+     },
+     "q_agree_nu_neq": {
+      "status": "ok",
+      "seconds": 0.0404,
+      "count": 525,
+      "set_matches_tf": true
+     },
+     "q_samelex_adjacent": {
+      "status": "ok",
+      "seconds": 0.1083,
+      "count": 475,
+      "set_matches_tf": true
+     },
+     "q_knear_before": {
+      "status": "ok",
+      "seconds": 0.0097,
+      "count": 1,
+      "set_matches_tf": true
+     },
+     "q_knear_after": {
+      "status": "ok",
+      "seconds": 0.0013,
+      "count": 50,
+      "set_matches_tf": true
+     },
+     "q_regex_gcons": {
+      "status": "ok",
+      "seconds": 0.0057,
+      "count": 816,
+      "set_matches_tf": true
+     },
+     "q_regex_typ": {
+      "status": "ok",
+      "seconds": 0.0071,
+      "count": 3098,
+      "set_matches_tf": true
+     },
+     "q_regex_gloss_space": {
+      "status": "ok",
+      "seconds": 0.0032,
+      "count": 406,
+      "set_matches_tf": true
+     },
+     "q_feat_exists_qere": {
+      "status": "ok",
+      "seconds": 0.0004,
+      "count": 1892,
+      "set_matches_tf": true
+     },
+     "q_feat_empty_qere": {
+      "status": "ok",
+      "seconds": 0.0764,
+      "count": 424698,
+      "set_matches_tf": true
+     },
+     "q_multivalue_neg": {
+      "status": "ok",
+      "seconds": 0.0041,
+      "count": 271,
+      "set_matches_tf": true
+     },
+     "q_multivalue_pos_agree": {
+      "status": "ok",
+      "seconds": 0.0486,
+      "count": 10638,
+      "set_matches_tf": true
+     },
+     "q_slot_equal": {
+      "status": "ok",
+      "seconds": 0.0122,
+      "count": 3583,
+      "set_matches_tf": true
+     },
+     "q_slot_diff_start": {
+      "status": "ok",
+      "seconds": 0.0191,
+      "count": 702,
+      "set_matches_tf": true
+     },
+     "q_slot_disjoint": {
+      "status": "ok",
+      "seconds": 0.1235,
+      "count": 168504,
+      "set_matches_tf": true
+     },
+     "q_slot_overlap_parent": {
+      "status": "ok",
+      "seconds": 0.034,
+      "count": 887,
+      "set_matches_tf": true
+     },
+     "q_adj_before": {
+      "status": "ok",
+      "seconds": 0.1677,
+      "count": 162653,
+      "set_matches_tf": true
+     },
+     "q_adj_after": {
+      "status": "ok",
+      "seconds": 0.1687,
+      "count": 162653,
+      "set_matches_tf": true
+     },
+     "q_section_adjacency": {
+      "status": "ok",
+      "seconds": 0.0122,
+      "count": 1,
+      "set_matches_tf": true
+     },
+     "q_start_end_agree_mismatch": {
+      "status": "ok",
+      "seconds": 0.0482,
+      "count": 262,
+      "set_matches_tf": true
+     },
+     "q_phrase_gap": {
+      "status": "ok",
+      "seconds": 0.2832,
+      "count": 716,
+      "set_matches_tf": true
+     },
+     "q_slot_containment": {
+      "status": "ok",
+      "seconds": 0.3703,
+      "count": 2739,
+      "set_matches_tf": true
+     },
+     "q_idiom_chen": {
+      "status": "ok",
+      "seconds": 0.0182,
+      "count": 40,
+      "set_matches_tf": true
+     },
+     "q_complex_subj_prec": {
+      "status": "ok",
+      "seconds": 0.0634,
+      "count": 2303,
+      "set_matches_tf": true
+     },
+     "q_rank_lex_numeric": {
+      "status": "ok",
+      "seconds": 0.0441,
+      "count": 28095,
+      "set_matches_tf": true
+     },
+     "q_lex_only_ezra_neh": {
+      "status": "ok",
+      "seconds": 0.1036,
+      "count": 382,
+      "set_matches_tf": true
+     },
+     "q_order_lo_then_impf": {
+      "status": "ok",
+      "seconds": 0.0157,
       "count": 692,
       "set_matches_tf": true
      }
@@ -4047,95 +3158,95 @@
    },
    "tf": {
     "engine_version": "13.0.19",
-    "load_s": 3.851,
+    "load_s": 4.187,
     "mode": "in-process",
     "total": 34,
     "count_and_sample_ok": 34,
     "result_set_equal_to_tf": 34,
-    "wall_s_completed": 12.687,
+    "wall_s_completed": 12.891,
     "not_ok": [],
     "per_query": {
      "q_with_or_subj": {
       "status": "ok",
-      "seconds": 0.3874,
+      "seconds": 0.3759,
       "count": 28228,
       "set_matches_tf": true
      },
      "q_where_have": {
       "status": "ok",
-      "seconds": 0.563,
+      "seconds": 0.6208,
       "count": 31431,
       "set_matches_tf": true
      },
      "q_where_have_parent": {
       "status": "ok",
-      "seconds": 0.5058,
+      "seconds": 0.5119,
       "count": 241249,
       "set_matches_tf": true
      },
      "q_phrase_without_verb": {
       "status": "ok",
-      "seconds": 0.3077,
+      "seconds": 0.3096,
       "count": 62771,
       "set_matches_tf": true
      },
      "q_mother_basic": {
       "status": "ok",
-      "seconds": 0.0396,
+      "seconds": 0.0384,
       "count": 13917,
       "set_matches_tf": true
      },
      "q_mother_named_distinct_verse": {
       "status": "ok",
-      "seconds": 0.0763,
+      "seconds": 0.073,
       "count": 710,
       "set_matches_tf": true
      },
      "q_mother_reverse": {
       "status": "ok",
-      "seconds": 0.0376,
+      "seconds": 0.0374,
       "count": 13917,
       "set_matches_tf": true
      },
      "q_agree_nu_eq": {
       "status": "ok",
-      "seconds": 0.4403,
+      "seconds": 0.46,
       "count": 3759,
       "set_matches_tf": true
      },
      "q_agree_nu_neq": {
       "status": "ok",
-      "seconds": 0.5063,
+      "seconds": 0.522,
       "count": 525,
       "set_matches_tf": true
      },
      "q_samelex_adjacent": {
       "status": "ok",
-      "seconds": 0.3927,
+      "seconds": 0.393,
       "count": 475,
       "set_matches_tf": true
      },
      "q_knear_before": {
       "status": "ok",
-      "seconds": 0.0966,
+      "seconds": 0.0963,
       "count": 1,
       "set_matches_tf": true
      },
      "q_knear_after": {
       "status": "ok",
-      "seconds": 0.2017,
+      "seconds": 0.1977,
       "count": 50,
       "set_matches_tf": true
      },
      "q_regex_gcons": {
       "status": "ok",
-      "seconds": 0.1359,
+      "seconds": 0.1312,
       "count": 816,
       "set_matches_tf": true
      },
      "q_regex_typ": {
       "status": "ok",
-      "seconds": 0.1542,
+      "seconds": 0.1544,
       "count": 3098,
       "set_matches_tf": true
      },
@@ -4153,109 +3264,109 @@
      },
      "q_feat_empty_qere": {
       "status": "ok",
-      "seconds": 0.1481,
+      "seconds": 0.1424,
       "count": 424698,
       "set_matches_tf": true
      },
      "q_multivalue_neg": {
       "status": "ok",
-      "seconds": 0.2306,
+      "seconds": 0.2286,
       "count": 271,
       "set_matches_tf": true
      },
      "q_multivalue_pos_agree": {
       "status": "ok",
-      "seconds": 0.54,
+      "seconds": 0.5346,
       "count": 10638,
       "set_matches_tf": true
      },
      "q_slot_equal": {
       "status": "ok",
-      "seconds": 0.6417,
+      "seconds": 0.689,
       "count": 3583,
       "set_matches_tf": true
      },
      "q_slot_diff_start": {
       "status": "ok",
-      "seconds": 0.067,
+      "seconds": 0.0678,
       "count": 702,
       "set_matches_tf": true
      },
      "q_slot_disjoint": {
       "status": "ok",
-      "seconds": 0.4067,
+      "seconds": 0.4164,
       "count": 168504,
       "set_matches_tf": true
      },
      "q_slot_overlap_parent": {
       "status": "ok",
-      "seconds": 0.4283,
+      "seconds": 0.4364,
       "count": 887,
       "set_matches_tf": true
      },
      "q_adj_before": {
       "status": "ok",
-      "seconds": 0.4166,
+      "seconds": 0.4214,
       "count": 162653,
       "set_matches_tf": true
      },
      "q_adj_after": {
       "status": "ok",
-      "seconds": 0.4157,
+      "seconds": 0.4253,
       "count": 162653,
       "set_matches_tf": true
      },
      "q_section_adjacency": {
       "status": "ok",
-      "seconds": 0.2519,
+      "seconds": 0.2576,
       "count": 1,
       "set_matches_tf": true
      },
      "q_start_end_agree_mismatch": {
       "status": "ok",
-      "seconds": 0.406,
+      "seconds": 0.4033,
       "count": 262,
       "set_matches_tf": true
      },
      "q_phrase_gap": {
       "status": "ok",
-      "seconds": 0.6032,
+      "seconds": 0.6071,
       "count": 716,
       "set_matches_tf": true
      },
      "q_slot_containment": {
       "status": "ok",
-      "seconds": 1.7613,
+      "seconds": 1.7586,
       "count": 2739,
       "set_matches_tf": true
      },
      "q_idiom_chen": {
       "status": "ok",
-      "seconds": 0.5956,
+      "seconds": 0.6126,
       "count": 40,
       "set_matches_tf": true
      },
      "q_complex_subj_prec": {
       "status": "ok",
-      "seconds": 0.8526,
+      "seconds": 0.8873,
       "count": 2303,
       "set_matches_tf": true
      },
      "q_rank_lex_numeric": {
       "status": "ok",
-      "seconds": 0.1806,
+      "seconds": 0.1821,
       "count": 28095,
       "set_matches_tf": true
      },
      "q_lex_only_ezra_neh": {
       "status": "ok",
-      "seconds": 0.4284,
+      "seconds": 0.4339,
       "count": 382,
       "set_matches_tf": true
      },
      "q_order_lo_then_impf": {
       "status": "ok",
-      "seconds": 0.3953,
+      "seconds": 0.3923,
       "count": 692,
       "set_matches_tf": true
      }
@@ -4366,8 +3477,8 @@
     },
     "cf_rust": {
      "total": 2370,
-     "passed": 2368,
-     "failed": 2,
+     "passed": 2369,
+     "failed": 1,
      "by_area": {
       "E": {
        "passed": 117,
@@ -4386,7 +3497,7 @@
        "total": 2
       },
       "T": {
-       "passed": 592,
+       "passed": 593,
        "total": 593
       },
       "meta": {
@@ -4406,15 +3517,6 @@
        "total": 1,
        "categories": {
         "tf_error": 1
-       }
-      },
-      {
-       "area": "T",
-       "check": "T.text[line-term]",
-       "failed": 1,
-       "total": 117,
-       "categories": {
-        "value": 1
        }
       }
      ]
@@ -4577,8 +3679,8 @@
     },
     "cf_rust": {
      "total": 355975,
-     "passed": 355973,
-     "failed": 2,
+     "passed": 355974,
+     "failed": 1,
      "by_area": {
       "E": {
        "passed": 39221,
@@ -4601,7 +3703,7 @@
        "total": 32306
       },
       "meta": {
-       "passed": 5,
+       "passed": 6,
        "total": 6
       },
       "order": {
@@ -4610,15 +3712,6 @@
       }
      },
      "failing_groups": [
-      {
-       "area": "meta",
-       "check": "C.levels",
-       "failed": 1,
-       "total": 1,
-       "categories": {
-        "value": 1
-       }
-      },
       {
        "area": "F",
        "check": "F.freqList[otype]",
@@ -4761,8 +3854,8 @@
     },
     "cf_rust": {
      "total": 147308,
-     "passed": 147306,
-     "failed": 2,
+     "passed": 147307,
+     "failed": 1,
      "by_area": {
       "E": {
        "passed": 18353,
@@ -4785,7 +3878,7 @@
        "total": 15110
       },
       "meta": {
-       "passed": 5,
+       "passed": 6,
        "total": 6
       },
       "order": {
@@ -4794,15 +3887,6 @@
       }
      },
      "failing_groups": [
-      {
-       "area": "meta",
-       "check": "C.levels",
-       "failed": 1,
-       "total": 1,
-       "categories": {
-        "value": 1
-       }
-      },
       {
        "area": "F",
        "check": "F.freqList[otype]",
@@ -4857,46 +3941,46 @@
   "bhsa": {
    "tf": {
     "engine_version": "13.0.19",
-    "cold_load_s": 38.201,
-    "cold_peak_rss_mb": 6159.3,
-    "cold_cache_cleared": false,
-    "warm_load_s_median": 4.6751,
+    "cold_load_s": 35.275,
+    "cold_peak_rss_mb": 6157.2,
+    "cold_cache_cleared": true,
+    "warm_load_s_median": 4.0021,
     "warm_load_s_runs": [
-     4.6751,
-     4.6801,
-     4.507
+     3.9472,
+     4.0021,
+     4.0343
     ],
     "warm_after_load_memory": {
-     "peak_rss_mb": 6169.7,
-     "rss_mb": 6169.7,
-     "uss_mb": 6172.9
+     "peak_rss_mb": 6169.2,
+     "rss_mb": 6169.2,
+     "uss_mb": 6172.5
     },
-    "full_load_s": 4.6809,
+    "full_load_s": 3.8621,
     "memory": {
      "before_load": {
-      "peak_rss_mb": 20.3,
-      "rss_mb": 22.3,
-      "uss_mb": 12.9
+      "peak_rss_mb": 20.7,
+      "rss_mb": 22.7,
+      "uss_mb": 13.3
      },
      "after_load": {
-      "peak_rss_mb": 6169.4,
-      "rss_mb": 6169.4,
-      "uss_mb": 6172.6
+      "peak_rss_mb": 6169.5,
+      "rss_mb": 6169.5,
+      "uss_mb": 6172.8
      },
      "after_gate_probes": {
-      "peak_rss_mb": 6170.0,
-      "rss_mb": 6170.0,
-      "uss_mb": 6173.2
+      "peak_rss_mb": 6170.1,
+      "rss_mb": 6170.1,
+      "uss_mb": 6173.3
      },
      "after_steady_probes": {
-      "peak_rss_mb": 6170.2,
-      "rss_mb": 6170.2,
-      "uss_mb": 6173.4
+      "peak_rss_mb": 6170.3,
+      "rss_mb": 6170.3,
+      "uss_mb": 6173.5
      },
      "final": {
-      "peak_rss_mb": 6308.8,
-      "rss_mb": 6153.2,
-      "uss_mb": 6129.6
+      "peak_rss_mb": 6308.9,
+      "rss_mb": 6169.4,
+      "uss_mb": 6146.0
      }
     },
     "gate": {
@@ -4912,296 +3996,158 @@
       ]
      },
      "F.sp.v": {
-      "total_s": 0.0044,
-      "per_call_us": 0.44,
+      "total_s": 0.0033,
+      "per_call_us": 0.33,
       "n": 10000
      },
      "F.g_word.v": {
-      "total_s": 0.0036,
-      "per_call_us": 0.36,
+      "total_s": 0.0032,
+      "per_call_us": 0.32,
       "n": 10000
      },
      "L.u": {
       "total_s": 0.0,
-      "per_call_us": 0.77,
+      "per_call_us": 0.64,
       "n": 30
      },
      "L.d": {
       "total_s": 0.0001,
-      "per_call_us": 3.27,
+      "per_call_us": 3.34,
       "n": 30
      },
      "E.mother.f": {
       "total_s": 0.0001,
-      "per_call_us": 0.18,
+      "per_call_us": 0.17,
       "n": 500
      },
      "T.sectionFromNode": {
-      "total_s": 0.0014,
-      "per_call_us": 7.21,
+      "total_s": 0.0013,
+      "per_call_us": 6.69,
       "n": 200
      },
      "T.text.verse": {
-      "total_s": 0.0013,
-      "per_call_us": 12.68,
+      "total_s": 0.0012,
+      "per_call_us": 12.06,
       "n": 100
      },
      "T.nodeFromSection": {
       "total_s": 0.0001,
-      "per_call_us": 0.85,
+      "per_call_us": 0.93,
       "n": 100
      },
-     "F.sp.freqList_s": 0.0323,
-     "F.sp.v_full_sweep_s": 0.018
+     "F.sp.freqList_s": 0.0304,
+     "F.sp.v_full_sweep_s": 0.017
     },
     "steady_us": {
-     "F.sp.v": 0.127,
-     "F.g_word.v": 0.134,
-     "L.u": 0.17,
-     "L.d": 0.725,
-     "L.n": 0.336,
-     "L.p": 0.313,
-     "L.i": 0.037,
-     "E.mother.f": 0.037,
-     "E.mother.t": 0.045,
-     "E.mother.b": 0.069,
-     "T.sectionFromNode": 5.892,
-     "T.text.verse": 9.82,
-     "T.nodeFromSection": 0.227,
-     "N.walk_full_s": 0.0201,
+     "F.sp.v": 0.056,
+     "F.g_word.v": 0.069,
+     "L.u": 0.111,
+     "L.d": 0.569,
+     "L.n": 0.237,
+     "L.p": 0.222,
+     "L.i": 0.039,
+     "E.mother.f": 0.035,
+     "E.mother.t": 0.043,
+     "E.mother.b": 0.067,
+     "T.sectionFromNode": 5.335,
+     "T.text.verse": 8.818,
+     "T.nodeFromSection": 0.223,
+     "N.walk_full_s": 0.0199,
      "N.walk_nodes": 1446831
     },
     "queries": {
      "q_phrase_without_verb": {
-      "s": 0.3082,
+      "s": 0.3063,
       "count": 62771
      },
      "q_regex_gcons": {
-      "s": 0.1211,
+      "s": 0.122,
       "count": 816
      },
      "q_regex_typ": {
-      "s": 0.1487,
+      "s": 0.1536,
       "count": 3098
      },
      "q_regex_gloss_space": {
-      "s": 0.0041,
+      "s": 0.0042,
       "count": 406
      },
      "q_feat_exists_qere": {
-      "s": 0.0678,
+      "s": 0.0664,
       "count": 1892
      },
      "q_feat_empty_qere": {
-      "s": 0.0925,
+      "s": 0.0894,
       "count": 424698
      },
      "q_multivalue_neg": {
-      "s": 0.2361,
+      "s": 0.2393,
       "count": 271
      },
      "q_slot_equal": {
-      "s": 0.8255,
+      "s": 0.5257,
       "count": 3583
+     },
+     "q_mother_basic": {
+      "s": 0.0362,
+      "count": 13917
+     },
+     "q_mother_reverse": {
+      "s": 0.0348,
+      "count": 13917
+     },
+     "q_mother_named_distinct_verse": {
+      "s": 0.0746,
+      "count": 710
+     },
+     "q_slot_overlap_parent": {
+      "s": 0.4437,
+      "count": 887
      }
     }
    },
    "cf_python": {
     "engine_version": "0.5.8",
-    "cold_load_s": 72.3474,
-    "cold_peak_rss_mb": 8652.5,
-    "cold_cache_cleared": false,
-    "warm_load_s_median": 0.7587,
+    "cold_load_s": 67.0807,
+    "cold_peak_rss_mb": 8649.1,
+    "cold_cache_cleared": true,
+    "warm_load_s_median": 0.4271,
     "warm_load_s_runs": [
-     0.9994,
-     0.6626,
-     0.7587
+     0.4271,
+     0.4804,
+     0.42
     ],
     "warm_after_load_memory": {
-     "peak_rss_mb": 429.9,
-     "rss_mb": 290.4,
-     "uss_mb": 961.2
+     "peak_rss_mb": 430.6,
+     "rss_mb": 291.0,
+     "uss_mb": 961.8
     },
-    "full_load_s": 0.42,
+    "full_load_s": 0.3346,
     "memory": {
      "before_load": {
-      "peak_rss_mb": 37.1,
-      "rss_mb": 38.0,
-      "uss_mb": 26.3
+      "peak_rss_mb": 36.9,
+      "rss_mb": 37.8,
+      "uss_mb": 26.2
      },
      "after_load": {
-      "peak_rss_mb": 430.1,
-      "rss_mb": 290.1,
-      "uss_mb": 960.9
+      "peak_rss_mb": 430.2,
+      "rss_mb": 289.7,
+      "uss_mb": 960.5
      },
      "after_gate_probes": {
-      "peak_rss_mb": 430.1,
-      "rss_mb": 310.1,
-      "uss_mb": 966.0
+      "peak_rss_mb": 430.2,
+      "rss_mb": 309.6,
+      "uss_mb": 965.5
      },
      "after_steady_probes": {
-      "peak_rss_mb": 430.1,
-      "rss_mb": 336.8,
-      "uss_mb": 966.3
+      "peak_rss_mb": 430.2,
+      "rss_mb": 336.2,
+      "uss_mb": 965.8
      },
      "final": {
-      "peak_rss_mb": 559.1,
-      "rss_mb": 407.8,
-      "uss_mb": 989.9
-     }
-    },
-    "gate": {
-     "_intervals": {
-      "max_slot": 426590,
-      "phrase": [
-       651573,
-       904775
-      ],
-      "verse": [
-       1414389,
-       1437601
-      ]
-     },
-     "F.sp.v": {
-      "total_s": 0.0027,
-      "per_call_us": 0.27,
-      "n": 10000
-     },
-     "F.g_word.v": {
-      "total_s": 0.0035,
-      "per_call_us": 0.35,
-      "n": 10000
-     },
-     "L.u": {
-      "total_s": 0.0,
-      "per_call_us": 1.53,
-      "n": 30
-     },
-     "L.d": {
-      "total_s": 0.0003,
-      "per_call_us": 8.43,
-      "n": 30
-     },
-     "E.mother.f": {
-      "total_s": 0.0003,
-      "per_call_us": 0.59,
-      "n": 500
-     },
-     "T.sectionFromNode": {
-      "total_s": 0.003,
-      "per_call_us": 14.84,
-      "n": 200
-     },
-     "T.text.verse": {
-      "total_s": 0.0035,
-      "per_call_us": 34.91,
-      "n": 100
-     },
-     "T.nodeFromSection": {
-      "total_s": 0.0001,
-      "per_call_us": 0.87,
-      "n": 100
-     },
-     "F.sp.freqList_s": 0.0023,
-     "F.sp.v_full_sweep_s": 0.082
-    },
-    "steady_us": {
-     "F.sp.v": 0.189,
-     "F.g_word.v": 0.222,
-     "L.u": 0.879,
-     "L.d": 3.455,
-     "L.n": 1.704,
-     "L.p": 1.689,
-     "L.i": 0.045,
-     "E.mother.f": 0.382,
-     "E.mother.t": 0.413,
-     "E.mother.b": null,
-     "T.sectionFromNode": 14.324,
-     "T.text.verse": 32.511,
-     "T.nodeFromSection": 0.272,
-     "N.walk_full_s": 0.1587,
-     "N.walk_nodes": 1446831,
-     "_errors": {
-      "E.mother.b": "AttributeError: 'tuple' object has no attribute 'tolist'"
-     }
-    },
-    "queries": {
-     "q_phrase_without_verb": {
-      "s": 0.4642,
-      "count": 62771
-     },
-     "q_regex_gcons": {
-      "s": 0.2062,
-      "count": 816
-     },
-     "q_regex_typ": {
-      "s": 0.1498,
-      "count": 3098
-     },
-     "q_regex_gloss_space": {
-      "s": 0.0053,
-      "count": 406
-     },
-     "q_feat_exists_qere": {
-      "s": 0.0701,
-      "count": 1892
-     },
-     "q_feat_empty_qere": {
-      "s": 0.1103,
-      "count": 424698
-     },
-     "q_multivalue_neg": {
-      "s": 0.1169,
-      "count": 271
-     },
-     "q_slot_equal": {
-      "s": 0.3322,
-      "count": 3583
-     }
-    }
-   },
-   "cf_rust": {
-    "engine_version": "0.6.0rc1",
-    "cold_load_s": 34.4554,
-    "cold_peak_rss_mb": 3013.6,
-    "cold_cache_cleared": false,
-    "warm_load_s_median": 0.0106,
-    "warm_load_s_runs": [
-     0.0106,
-     0.0106,
-     0.0106
-    ],
-    "warm_after_load_memory": {
-     "peak_rss_mb": 37.6,
-     "rss_mb": 37.6,
-     "uss_mb": 20.8
-    },
-    "full_load_s": 0.0107,
-    "memory": {
-     "before_load": {
-      "peak_rss_mb": 23.5,
-      "rss_mb": 25.3,
-      "uss_mb": 15.3
-     },
-     "after_load": {
-      "peak_rss_mb": 37.9,
-      "rss_mb": 37.9,
-      "uss_mb": 21.1
-     },
-     "after_gate_probes": {
-      "peak_rss_mb": 115.5,
-      "rss_mb": 115.5,
-      "uss_mb": 35.5
-     },
-     "after_steady_probes": {
-      "peak_rss_mb": 235.9,
-      "rss_mb": 192.9,
-      "uss_mb": 81.4
-     },
-     "final": {
-      "peak_rss_mb": 289.4,
-      "rss_mb": 261.2,
-      "uss_mb": 124.5
+      "peak_rss_mb": 558.9,
+      "rss_mb": 421.0,
+      "uss_mb": 1002.1
      }
     },
     "gate": {
@@ -5222,123 +4168,156 @@
       "n": 10000
      },
      "F.g_word.v": {
-      "total_s": 0.0041,
-      "per_call_us": 0.41,
+      "total_s": 0.0033,
+      "per_call_us": 0.33,
       "n": 10000
      },
      "L.u": {
-      "total_s": 0.0001,
-      "per_call_us": 3.27,
+      "total_s": 0.0,
+      "per_call_us": 1.5,
       "n": 30
      },
      "L.d": {
-      "total_s": 0.0001,
-      "per_call_us": 3.8,
+      "total_s": 0.0002,
+      "per_call_us": 7.92,
       "n": 30
      },
      "E.mother.f": {
-      "total_s": 0.0005,
-      "per_call_us": 0.98,
+      "total_s": 0.0003,
+      "per_call_us": 0.54,
       "n": 500
      },
      "T.sectionFromNode": {
-      "total_s": 0.001,
-      "per_call_us": 5.23,
+      "total_s": 0.0028,
+      "per_call_us": 14.22,
       "n": 200
      },
      "T.text.verse": {
-      "total_s": 0.0014,
-      "per_call_us": 14.34,
+      "total_s": 0.0035,
+      "per_call_us": 35.12,
       "n": 100
      },
      "T.nodeFromSection": {
-      "total_s": 0.013,
-      "per_call_us": 130.37,
+      "total_s": 0.0001,
+      "per_call_us": 0.79,
       "n": 100
      },
-     "F.sp.freqList_s": 0.0005,
-     "F.sp.v_full_sweep_s": 0.05
+     "F.sp.freqList_s": 0.0018,
+     "F.sp.v_full_sweep_s": 0.082
     },
     "steady_us": {
-     "F.sp.v": 0.179,
-     "F.g_word.v": 0.206,
-     "L.u": 0.252,
-     "L.d": 0.346,
-     "L.n": 21647.943,
-     "L.p": 10670.029,
-     "L.i": 10538.325,
-     "E.mother.f": 0.081,
-     "E.mother.t": 519.228,
-     "E.mother.b": 523.214,
-     "T.sectionFromNode": 2.388,
-     "T.text.verse": 5.301,
-     "T.nodeFromSection": 0.349,
-     "N.walk_full_s": 0.0469,
-     "N.walk_nodes": 1446831
+     "F.sp.v": 0.183,
+     "F.g_word.v": 0.208,
+     "L.u": 0.82,
+     "L.d": 3.269,
+     "L.n": 1.576,
+     "L.p": 1.593,
+     "L.i": 0.037,
+     "E.mother.f": 0.349,
+     "E.mother.t": 0.389,
+     "E.mother.b": null,
+     "T.sectionFromNode": 13.752,
+     "T.text.verse": 31.315,
+     "T.nodeFromSection": 0.263,
+     "N.walk_full_s": 0.1563,
+     "N.walk_nodes": 1446831,
+     "_errors": {
+      "E.mother.b": "AttributeError: 'tuple' object has no attribute 'tolist'"
+     }
     },
     "queries": {
      "q_phrase_without_verb": {
-      "s": 0.0869,
+      "s": 0.2905,
       "count": 62771
      },
      "q_regex_gcons": {
-      "s": 0.0333,
+      "s": 0.1971,
       "count": 816
      },
      "q_regex_typ": {
-      "s": 0.0285,
+      "s": 0.1465,
       "count": 3098
      },
      "q_regex_gloss_space": {
-      "s": 0.0038,
+      "s": 0.0049,
       "count": 406
      },
      "q_feat_exists_qere": {
-      "s": 0.0003,
+      "s": 0.0691,
       "count": 1892
      },
      "q_feat_empty_qere": {
-      "s": 0.0252,
+      "s": 0.1077,
       "count": 424698
      },
      "q_multivalue_neg": {
-      "s": 0.0213,
+      "s": 0.1113,
       "count": 271
      },
      "q_slot_equal": {
-      "s": 0.0284,
+      "s": 0.3023,
       "count": 3583
+     },
+     "q_mother_basic": {
+      "s": 0.1387,
+      "count": 13917
+     },
+     "q_mother_reverse": {
+      "s": 0.1229,
+      "count": 13917
+     },
+     "q_mother_named_distinct_verse": {
+      "s": 0.2728,
+      "count": 710
+     },
+     "q_slot_overlap_parent": {
+      "s": 1.3087,
+      "count": 887
      }
     }
    },
-   "cf_rust_mapped": {
+   "cf_rust": {
     "engine_version": "0.6.0rc1",
-    "full_load_s": 0.0053,
+    "cold_load_s": 28.7265,
+    "cold_peak_rss_mb": 3079.9,
+    "cold_cache_cleared": true,
+    "warm_load_s_median": 0.0026,
+    "warm_load_s_runs": [
+     0.0026,
+     0.0026,
+     0.0027
+    ],
+    "warm_after_load_memory": {
+     "peak_rss_mb": 32.6,
+     "rss_mb": 32.6,
+     "uss_mb": 16.0
+    },
+    "full_load_s": 0.0027,
     "memory": {
      "before_load": {
-      "peak_rss_mb": 23.5,
-      "rss_mb": 25.3,
-      "uss_mb": 15.3
+      "peak_rss_mb": 23.7,
+      "rss_mb": 25.5,
+      "uss_mb": 15.4
      },
      "after_load": {
-      "peak_rss_mb": 37.8,
-      "rss_mb": 37.8,
-      "uss_mb": 21.1
+      "peak_rss_mb": 32.6,
+      "rss_mb": 32.6,
+      "uss_mb": 15.9
      },
      "after_gate_probes": {
-      "peak_rss_mb": 115.5,
-      "rss_mb": 115.5,
-      "uss_mb": 35.5
+      "peak_rss_mb": 109.6,
+      "rss_mb": 109.6,
+      "uss_mb": 26.8
      },
      "after_steady_probes": {
-      "peak_rss_mb": 234.3,
-      "rss_mb": 191.3,
-      "uss_mb": 81.2
+      "peak_rss_mb": 206.0,
+      "rss_mb": 163.0,
+      "uss_mb": 40.3
      },
      "final": {
-      "peak_rss_mb": 287.4,
-      "rss_mb": 259.5,
-      "uss_mb": 122.8
+      "peak_rss_mb": 269.5,
+      "rss_mb": 249.6,
+      "uss_mb": 96.2
      }
     },
     "gate": {
@@ -5354,97 +4333,266 @@
       ]
      },
      "F.sp.v": {
-      "total_s": 0.0022,
-      "per_call_us": 0.22,
+      "total_s": 0.0011,
+      "per_call_us": 0.11,
       "n": 10000
      },
      "F.g_word.v": {
-      "total_s": 0.0036,
-      "per_call_us": 0.36,
+      "total_s": 0.0018,
+      "per_call_us": 0.18,
       "n": 10000
      },
      "L.u": {
       "total_s": 0.0001,
-      "per_call_us": 2.56,
+      "per_call_us": 2.37,
       "n": 30
      },
      "L.d": {
       "total_s": 0.0001,
-      "per_call_us": 3.57,
+      "per_call_us": 2.6,
       "n": 30
      },
      "E.mother.f": {
-      "total_s": 0.0004,
-      "per_call_us": 0.89,
+      "total_s": 0.0007,
+      "per_call_us": 1.31,
       "n": 500
      },
      "T.sectionFromNode": {
-      "total_s": 0.001,
-      "per_call_us": 4.77,
+      "total_s": 0.0004,
+      "per_call_us": 2.05,
       "n": 200
      },
      "T.text.verse": {
-      "total_s": 0.0013,
-      "per_call_us": 12.63,
+      "total_s": 0.0008,
+      "per_call_us": 8.0,
       "n": 100
      },
      "T.nodeFromSection": {
-      "total_s": 0.0127,
-      "per_call_us": 126.56,
+      "total_s": 0.0061,
+      "per_call_us": 60.82,
       "n": 100
      },
-     "F.sp.freqList_s": 0.0006,
-     "F.sp.v_full_sweep_s": 0.049
+     "F.sp.freqList_s": 0.0005,
+     "F.sp.v_full_sweep_s": 0.013
     },
     "steady_us": {
-     "F.sp.v": 0.175,
-     "F.g_word.v": 0.194,
-     "L.u": 0.237,
-     "L.d": 0.318,
-     "L.n": 20492.294,
-     "L.p": 10271.766,
-     "L.i": 10381.562,
-     "E.mother.f": 0.082,
-     "E.mother.t": 517.747,
-     "E.mother.b": 517.986,
-     "T.sectionFromNode": 2.413,
-     "T.text.verse": 4.789,
-     "T.nodeFromSection": 0.334,
-     "N.walk_full_s": 0.0444,
+     "F.sp.v": 0.029,
+     "F.g_word.v": 0.038,
+     "L.u": 0.131,
+     "L.d": 0.136,
+     "L.n": 0.109,
+     "L.p": 0.094,
+     "L.i": 0.021,
+     "E.mother.f": 0.032,
+     "E.mother.t": 0.03,
+     "E.mother.b": 0.04,
+     "T.sectionFromNode": 0.45,
+     "T.text.verse": 1.558,
+     "T.nodeFromSection": 0.202,
+     "N.walk_full_s": 0.0298,
      "N.walk_nodes": 1446831
     },
     "queries": {
      "q_phrase_without_verb": {
-      "s": 0.0849,
+      "s": 0.0358,
       "count": 62771
      },
      "q_regex_gcons": {
-      "s": 0.0319,
+      "s": 0.0069,
       "count": 816
      },
      "q_regex_typ": {
-      "s": 0.0283,
+      "s": 0.0068,
       "count": 3098
      },
      "q_regex_gloss_space": {
-      "s": 0.0037,
+      "s": 0.0032,
       "count": 406
      },
      "q_feat_exists_qere": {
-      "s": 0.0003,
+      "s": 0.0002,
       "count": 1892
      },
      "q_feat_empty_qere": {
-      "s": 0.0241,
+      "s": 0.019,
       "count": 424698
      },
      "q_multivalue_neg": {
-      "s": 0.0208,
+      "s": 0.0093,
       "count": 271
      },
      "q_slot_equal": {
-      "s": 0.0279,
+      "s": 0.0116,
       "count": 3583
+     },
+     "q_mother_basic": {
+      "s": 0.0117,
+      "count": 13917
+     },
+     "q_mother_reverse": {
+      "s": 0.0113,
+      "count": 13917
+     },
+     "q_mother_named_distinct_verse": {
+      "s": 0.0261,
+      "count": 710
+     },
+     "q_slot_overlap_parent": {
+      "s": 0.0332,
+      "count": 887
+     }
+    }
+   },
+   "cf_rust_mapped": {
+    "engine_version": "0.6.0rc1",
+    "full_load_s": 0.0012,
+    "memory": {
+     "before_load": {
+      "peak_rss_mb": 23.8,
+      "rss_mb": 25.6,
+      "uss_mb": 15.5
+     },
+     "after_load": {
+      "peak_rss_mb": 32.4,
+      "rss_mb": 32.4,
+      "uss_mb": 15.9
+     },
+     "after_gate_probes": {
+      "peak_rss_mb": 109.5,
+      "rss_mb": 109.5,
+      "uss_mb": 26.8
+     },
+     "after_steady_probes": {
+      "peak_rss_mb": 206.0,
+      "rss_mb": 163.0,
+      "uss_mb": 40.3
+     },
+     "final": {
+      "peak_rss_mb": 271.9,
+      "rss_mb": 251.0,
+      "uss_mb": 97.6
+     }
+    },
+    "gate": {
+     "_intervals": {
+      "max_slot": 426590,
+      "phrase": [
+       651573,
+       904775
+      ],
+      "verse": [
+       1414389,
+       1437601
+      ]
+     },
+     "F.sp.v": {
+      "total_s": 0.0013,
+      "per_call_us": 0.13,
+      "n": 10000
+     },
+     "F.g_word.v": {
+      "total_s": 0.0026,
+      "per_call_us": 0.26,
+      "n": 10000
+     },
+     "L.u": {
+      "total_s": 0.0001,
+      "per_call_us": 2.34,
+      "n": 30
+     },
+     "L.d": {
+      "total_s": 0.0001,
+      "per_call_us": 2.7,
+      "n": 30
+     },
+     "E.mother.f": {
+      "total_s": 0.0007,
+      "per_call_us": 1.34,
+      "n": 500
+     },
+     "T.sectionFromNode": {
+      "total_s": 0.0004,
+      "per_call_us": 2.21,
+      "n": 200
+     },
+     "T.text.verse": {
+      "total_s": 0.0009,
+      "per_call_us": 8.79,
+      "n": 100
+     },
+     "T.nodeFromSection": {
+      "total_s": 0.0061,
+      "per_call_us": 61.18,
+      "n": 100
+     },
+     "F.sp.freqList_s": 0.0005,
+     "F.sp.v_full_sweep_s": 0.013
+    },
+    "steady_us": {
+     "F.sp.v": 0.028,
+     "F.g_word.v": 0.037,
+     "L.u": 0.129,
+     "L.d": 0.134,
+     "L.n": 0.102,
+     "L.p": 0.093,
+     "L.i": 0.021,
+     "E.mother.f": 0.032,
+     "E.mother.t": 0.03,
+     "E.mother.b": 0.04,
+     "T.sectionFromNode": 0.445,
+     "T.text.verse": 1.524,
+     "T.nodeFromSection": 0.201,
+     "N.walk_full_s": 0.0285,
+     "N.walk_nodes": 1446831
+    },
+    "queries": {
+     "q_phrase_without_verb": {
+      "s": 0.0356,
+      "count": 62771
+     },
+     "q_regex_gcons": {
+      "s": 0.0063,
+      "count": 816
+     },
+     "q_regex_typ": {
+      "s": 0.0068,
+      "count": 3098
+     },
+     "q_regex_gloss_space": {
+      "s": 0.0032,
+      "count": 406
+     },
+     "q_feat_exists_qere": {
+      "s": 0.0001,
+      "count": 1892
+     },
+     "q_feat_empty_qere": {
+      "s": 0.0182,
+      "count": 424698
+     },
+     "q_multivalue_neg": {
+      "s": 0.0092,
+      "count": 271
+     },
+     "q_slot_equal": {
+      "s": 0.0119,
+      "count": 3583
+     },
+     "q_mother_basic": {
+      "s": 0.0121,
+      "count": 13917
+     },
+     "q_mother_reverse": {
+      "s": 0.0111,
+      "count": 13917
+     },
+     "q_mother_named_distinct_verse": {
+      "s": 0.026,
+      "count": 710
+     },
+     "q_slot_overlap_parent": {
+      "s": 0.0333,
+      "count": 887
      }
     }
    }
@@ -5452,21 +4600,21 @@
   "n1904": {
    "tf": {
     "engine_version": "13.0.19",
-    "cold_load_s": 12.1383,
-    "cold_peak_rss_mb": 1478.3,
-    "cold_cache_cleared": false,
-    "warm_load_s_median": 1.4321,
+    "cold_load_s": 11.5274,
+    "cold_peak_rss_mb": 1500.6,
+    "cold_cache_cleared": true,
+    "warm_load_s_median": 1.3001,
     "warm_load_s_runs": [
-     1.4515,
-     1.3288,
-     1.4321
+     1.3504,
+     1.3001,
+     1.2389
     ],
     "warm_after_load_memory": {
      "peak_rss_mb": 1424.6,
      "rss_mb": 1424.6,
      "uss_mb": 1417.9
     },
-    "full_load_s": 1.3479,
+    "full_load_s": 1.2791,
     "memory": {
      "before_load": {
       "peak_rss_mb": 20.6,
@@ -5474,24 +4622,159 @@
       "uss_mb": 13.2
      },
      "after_load": {
-      "peak_rss_mb": 1422.7,
-      "rss_mb": 1422.7,
-      "uss_mb": 1415.9
+      "peak_rss_mb": 1422.5,
+      "rss_mb": 1422.5,
+      "uss_mb": 1415.8
      },
      "after_gate_probes": {
-      "peak_rss_mb": 1423.2,
-      "rss_mb": 1423.2,
-      "uss_mb": 1416.5
+      "peak_rss_mb": 1423.1,
+      "rss_mb": 1423.1,
+      "uss_mb": 1416.4
      },
      "after_steady_probes": {
-      "peak_rss_mb": 1423.4,
-      "rss_mb": 1423.4,
-      "uss_mb": 1416.7
+      "peak_rss_mb": 1423.3,
+      "rss_mb": 1423.3,
+      "uss_mb": 1416.6
      },
      "final": {
-      "peak_rss_mb": 1452.2,
-      "rss_mb": 1448.7,
-      "uss_mb": 1441.9
+      "peak_rss_mb": 1452.1,
+      "rss_mb": 1448.6,
+      "uss_mb": 1441.8
+     }
+    },
+    "gate": {
+     "_intervals": {
+      "max_slot": 137779,
+      "phrase": [
+       189518,
+       258524
+      ],
+      "verse": [
+       382714,
+       390657
+      ]
+     },
+     "F.sp.v": {
+      "total_s": 0.0021,
+      "per_call_us": 0.21,
+      "n": 10000
+     },
+     "F.unicode.v": {
+      "total_s": 0.0023,
+      "per_call_us": 0.23,
+      "n": 10000
+     },
+     "L.u": {
+      "total_s": 0.0,
+      "per_call_us": 0.56,
+      "n": 30
+     },
+     "L.d": {
+      "total_s": 0.0001,
+      "per_call_us": 2.23,
+      "n": 30
+     },
+     "E.parent.f": {
+      "total_s": 0.0003,
+      "per_call_us": 0.64,
+      "n": 500
+     },
+     "T.sectionFromNode": {
+      "total_s": 0.0013,
+      "per_call_us": 6.6,
+      "n": 200
+     },
+     "T.text.verse": {
+      "total_s": 0.001,
+      "per_call_us": 10.44,
+      "n": 100
+     },
+     "T.nodeFromSection": {
+      "total_s": 0.0001,
+      "per_call_us": 0.54,
+      "n": 100
+     },
+     "F.sp.freqList_s": 0.0185,
+     "F.sp.v_full_sweep_s": 0.005
+    },
+    "steady_us": {
+     "F.sp.v": 0.058,
+     "F.unicode.v": 0.051,
+     "L.u": 0.104,
+     "L.d": 0.628,
+     "L.n": 0.205,
+     "L.p": 0.194,
+     "L.i": 0.037,
+     "E.parent.f": 0.215,
+     "E.parent.t": 0.106,
+     "E.parent.b": 0.384,
+     "T.sectionFromNode": 5.701,
+     "T.text.verse": 7.931,
+     "T.nodeFromSection": 0.219,
+     "N.walk_full_s": 0.0069,
+     "N.walk_nodes": 497525
+    },
+    "queries": {
+     "n_word_verb": {
+      "s": 0.0366,
+      "count": 28357
+     },
+     "n_clause_phrase_word": {
+      "s": 0.1004,
+      "count": 78879
+     },
+     "n_regex_lemma": {
+      "s": 0.0368,
+      "count": 4
+     },
+     "n_sentence_without_verb": {
+      "s": 0.0501,
+      "count": 187
+     }
+    }
+   },
+   "cf_python": {
+    "engine_version": "0.5.8",
+    "cold_load_s": 20.9331,
+    "cold_peak_rss_mb": 2521.4,
+    "cold_cache_cleared": true,
+    "warm_load_s_median": 0.554,
+    "warm_load_s_runs": [
+     0.5309,
+     0.554,
+     0.6138
+    ],
+    "warm_after_load_memory": {
+     "peak_rss_mb": 303.0,
+     "rss_mb": 302.2,
+     "uss_mb": 412.5
+    },
+    "full_load_s": 0.7415,
+    "memory": {
+     "before_load": {
+      "peak_rss_mb": 37.0,
+      "rss_mb": 37.8,
+      "uss_mb": 26.2
+     },
+     "after_load": {
+      "peak_rss_mb": 303.4,
+      "rss_mb": 302.4,
+      "uss_mb": 412.6
+     },
+     "after_gate_probes": {
+      "peak_rss_mb": 309.3,
+      "rss_mb": 309.3,
+      "uss_mb": 413.2
+     },
+     "after_steady_probes": {
+      "peak_rss_mb": 317.1,
+      "rss_mb": 317.1,
+      "uss_mb": 413.3
+     },
+     "final": {
+      "peak_rss_mb": 348.4,
+      "rss_mb": 343.2,
+      "uss_mb": 438.4
      }
     },
     "gate": {
@@ -5518,187 +4801,52 @@
      },
      "L.u": {
       "total_s": 0.0,
-      "per_call_us": 0.6,
-      "n": 30
-     },
-     "L.d": {
-      "total_s": 0.0001,
-      "per_call_us": 2.3,
-      "n": 30
-     },
-     "E.parent.f": {
-      "total_s": 0.0004,
-      "per_call_us": 0.73,
-      "n": 500
-     },
-     "T.sectionFromNode": {
-      "total_s": 0.0013,
-      "per_call_us": 6.62,
-      "n": 200
-     },
-     "T.text.verse": {
-      "total_s": 0.0011,
-      "per_call_us": 10.98,
-      "n": 100
-     },
-     "T.nodeFromSection": {
-      "total_s": 0.0001,
-      "per_call_us": 0.58,
-      "n": 100
-     },
-     "F.sp.freqList_s": 0.0201,
-     "F.sp.v_full_sweep_s": 0.006
-    },
-    "steady_us": {
-     "F.sp.v": 0.053,
-     "F.unicode.v": 0.066,
-     "L.u": 0.103,
-     "L.d": 0.651,
-     "L.n": 0.222,
-     "L.p": 0.262,
-     "L.i": 0.038,
-     "E.parent.f": 0.218,
-     "E.parent.t": 0.111,
-     "E.parent.b": 0.379,
-     "T.sectionFromNode": 5.843,
-     "T.text.verse": 8.57,
-     "T.nodeFromSection": 0.225,
-     "N.walk_full_s": 0.0071,
-     "N.walk_nodes": 497525
-    },
-    "queries": {
-     "n_word_verb": {
-      "s": 0.0388,
-      "count": 28357
-     },
-     "n_clause_phrase_word": {
-      "s": 0.1074,
-      "count": 78879
-     },
-     "n_regex_lemma": {
-      "s": 0.0389,
-      "count": 4
-     },
-     "n_sentence_without_verb": {
-      "s": 0.0593,
-      "count": 187
-     }
-    }
-   },
-   "cf_python": {
-    "engine_version": "0.5.8",
-    "cold_load_s": 22.3065,
-    "cold_peak_rss_mb": 2527.1,
-    "cold_cache_cleared": false,
-    "warm_load_s_median": 0.597,
-    "warm_load_s_runs": [
-     0.6099,
-     0.5255,
-     0.597
-    ],
-    "warm_after_load_memory": {
-     "peak_rss_mb": 302.8,
-     "rss_mb": 302.1,
-     "uss_mb": 412.4
-    },
-    "full_load_s": 0.5602,
-    "memory": {
-     "before_load": {
-      "peak_rss_mb": 36.8,
-      "rss_mb": 37.6,
-      "uss_mb": 26.0
-     },
-     "after_load": {
-      "peak_rss_mb": 302.3,
-      "rss_mb": 301.3,
-      "uss_mb": 411.6
-     },
-     "after_gate_probes": {
-      "peak_rss_mb": 310.1,
-      "rss_mb": 310.1,
-      "uss_mb": 413.9
-     },
-     "after_steady_probes": {
-      "peak_rss_mb": 317.8,
-      "rss_mb": 317.8,
-      "uss_mb": 414.1
-     },
-     "final": {
-      "peak_rss_mb": 348.5,
-      "rss_mb": 343.1,
-      "uss_mb": 438.2
-     }
-    },
-    "gate": {
-     "_intervals": {
-      "max_slot": 137779,
-      "phrase": [
-       189518,
-       258524
-      ],
-      "verse": [
-       382714,
-       390657
-      ]
-     },
-     "F.sp.v": {
-      "total_s": 0.0023,
-      "per_call_us": 0.23,
-      "n": 10000
-     },
-     "F.unicode.v": {
-      "total_s": 0.0027,
-      "per_call_us": 0.27,
-      "n": 10000
-     },
-     "L.u": {
-      "total_s": 0.0,
-      "per_call_us": 1.47,
+      "per_call_us": 1.54,
       "n": 30
      },
      "L.d": {
       "total_s": 0.0003,
-      "per_call_us": 8.62,
+      "per_call_us": 9.26,
       "n": 30
      },
      "E.parent.f": {
-      "total_s": 0.0012,
-      "per_call_us": 2.44,
+      "total_s": 0.0014,
+      "per_call_us": 2.71,
       "n": 500
      },
      "T.sectionFromNode": {
-      "total_s": 0.0033,
-      "per_call_us": 16.52,
+      "total_s": 0.0038,
+      "per_call_us": 18.97,
       "n": 200
      },
      "T.text.verse": {
-      "total_s": 0.0027,
-      "per_call_us": 27.03,
+      "total_s": 0.0029,
+      "per_call_us": 28.85,
       "n": 100
      },
      "T.nodeFromSection": {
       "total_s": 0.0001,
-      "per_call_us": 0.64,
+      "per_call_us": 0.66,
       "n": 100
      },
      "F.sp.freqList_s": 0.0013,
-     "F.sp.v_full_sweep_s": 0.025
+     "F.sp.v_full_sweep_s": 0.027
     },
     "steady_us": {
      "F.sp.v": 0.178,
-     "F.unicode.v": 0.193,
-     "L.u": 0.843,
-     "L.d": 3.496,
-     "L.n": 1.61,
-     "L.p": 1.577,
-     "L.i": 0.038,
-     "E.parent.f": 2.085,
-     "E.parent.t": 1.025,
+     "F.unicode.v": 0.192,
+     "L.u": 0.85,
+     "L.d": 3.456,
+     "L.n": 1.553,
+     "L.p": 1.541,
+     "L.i": 0.04,
+     "E.parent.f": 2.089,
+     "E.parent.t": 1.017,
      "E.parent.b": null,
-     "T.sectionFromNode": 15.649,
-     "T.text.verse": 23.867,
-     "T.nodeFromSection": 0.25,
-     "N.walk_full_s": 0.0526,
+     "T.sectionFromNode": 16.069,
+     "T.text.verse": 23.47,
+     "T.nodeFromSection": 0.255,
+     "N.walk_full_s": 0.0517,
      "N.walk_nodes": 497525,
      "_errors": {
       "E.parent.b": "AttributeError: 'tuple' object has no attribute 'tolist'"
@@ -5706,65 +4854,65 @@
     },
     "queries": {
      "n_word_verb": {
-      "s": 0.0271,
+      "s": 0.0259,
       "count": 28357
      },
      "n_clause_phrase_word": {
-      "s": 0.1759,
+      "s": 0.1755,
       "count": 78879
      },
      "n_regex_lemma": {
-      "s": 0.0625,
+      "s": 0.0609,
       "count": 4
      },
      "n_sentence_without_verb": {
-      "s": 0.0817,
+      "s": 0.0812,
       "count": 187
      }
     }
    },
    "cf_rust": {
     "engine_version": "0.6.0rc1",
-    "cold_load_s": 8.5663,
-    "cold_peak_rss_mb": 1132.3,
-    "cold_cache_cleared": false,
-    "warm_load_s_median": 0.0037,
+    "cold_load_s": 7.723,
+    "cold_peak_rss_mb": 1158.2,
+    "cold_cache_cleared": true,
+    "warm_load_s_median": 0.0012,
     "warm_load_s_runs": [
-     0.0037,
-     0.0037,
-     0.0038
+     0.0012,
+     0.0012,
+     0.0012
     ],
     "warm_after_load_memory": {
-     "peak_rss_mb": 29.8,
-     "rss_mb": 29.8,
-     "uss_mb": 17.4
+     "peak_rss_mb": 28.6,
+     "rss_mb": 28.6,
+     "uss_mb": 15.8
     },
-    "full_load_s": 0.0036,
+    "full_load_s": 0.0011,
     "memory": {
      "before_load": {
-      "peak_rss_mb": 23.5,
-      "rss_mb": 25.3,
+      "peak_rss_mb": 23.6,
+      "rss_mb": 25.4,
       "uss_mb": 15.3
      },
      "after_load": {
-      "peak_rss_mb": 29.9,
-      "rss_mb": 29.9,
-      "uss_mb": 17.5
+      "peak_rss_mb": 28.6,
+      "rss_mb": 28.6,
+      "uss_mb": 15.8
      },
      "after_gate_probes": {
-      "peak_rss_mb": 88.8,
-      "rss_mb": 88.8,
-      "uss_mb": 33.0
+      "peak_rss_mb": 82.1,
+      "rss_mb": 82.1,
+      "uss_mb": 19.7
      },
      "after_steady_probes": {
-      "peak_rss_mb": 128.1,
-      "rss_mb": 114.1,
-      "uss_mb": 48.9
+      "peak_rss_mb": 114.8,
+      "rss_mb": 100.8,
+      "uss_mb": 25.5
      },
      "final": {
-      "peak_rss_mb": 143.3,
-      "rss_mb": 133.1,
-      "uss_mb": 65.2
+      "peak_rss_mb": 137.8,
+      "rss_mb": 128.9,
+      "uss_mb": 50.8
      }
     },
     "gate": {
@@ -5780,112 +4928,112 @@
       ]
      },
      "F.sp.v": {
-      "total_s": 0.0015,
-      "per_call_us": 0.15,
+      "total_s": 0.0006,
+      "per_call_us": 0.06,
       "n": 10000
      },
      "F.unicode.v": {
-      "total_s": 0.0024,
-      "per_call_us": 0.24,
+      "total_s": 0.0011,
+      "per_call_us": 0.11,
       "n": 10000
      },
      "L.u": {
       "total_s": 0.0001,
-      "per_call_us": 1.93,
+      "per_call_us": 1.67,
       "n": 30
      },
      "L.d": {
       "total_s": 0.0001,
-      "per_call_us": 2.97,
+      "per_call_us": 2.23,
       "n": 30
      },
      "E.parent.f": {
-      "total_s": 0.0009,
-      "per_call_us": 1.88,
+      "total_s": 0.0012,
+      "per_call_us": 2.46,
       "n": 500
      },
      "T.sectionFromNode": {
-      "total_s": 0.0027,
-      "per_call_us": 13.26,
+      "total_s": 0.0033,
+      "per_call_us": 16.72,
       "n": 200
      },
      "T.text.verse": {
-      "total_s": 0.0007,
-      "per_call_us": 6.52,
+      "total_s": 0.0004,
+      "per_call_us": 4.07,
       "n": 100
      },
      "T.nodeFromSection": {
-      "total_s": 0.004,
-      "per_call_us": 40.2,
+      "total_s": 0.0021,
+      "per_call_us": 20.88,
       "n": 100
      },
      "F.sp.freqList_s": 0.0004,
-     "F.sp.v_full_sweep_s": 0.013
+     "F.sp.v_full_sweep_s": 0.004
     },
     "steady_us": {
-     "F.sp.v": 0.135,
-     "F.unicode.v": 0.163,
-     "L.u": 0.229,
-     "L.d": 0.29,
-     "L.n": 6565.173,
-     "L.p": 3273.735,
-     "L.i": 3271.832,
-     "E.parent.f": 0.152,
-     "E.parent.t": 1200.564,
-     "E.parent.b": 1199.233,
-     "T.sectionFromNode": 1.981,
-     "T.text.verse": 3.893,
-     "T.nodeFromSection": 0.303,
-     "N.walk_full_s": 0.0155,
+     "F.sp.v": 0.028,
+     "F.unicode.v": 0.032,
+     "L.u": 0.169,
+     "L.d": 0.148,
+     "L.n": 0.108,
+     "L.p": 0.091,
+     "L.i": 0.022,
+     "E.parent.f": 0.055,
+     "E.parent.t": 0.043,
+     "E.parent.b": 0.081,
+     "T.sectionFromNode": 0.498,
+     "T.text.verse": 1.861,
+     "T.nodeFromSection": 0.184,
+     "N.walk_full_s": 0.0091,
      "N.walk_nodes": 497525
     },
     "queries": {
      "n_word_verb": {
-      "s": 0.0063,
+      "s": 0.0026,
       "count": 28357
      },
      "n_clause_phrase_word": {
-      "s": 0.0525,
+      "s": 0.0367,
       "count": 78879
      },
      "n_regex_lemma": {
-      "s": 0.0023,
+      "s": 0.0022,
       "count": 4
      },
      "n_sentence_without_verb": {
-      "s": 0.0122,
+      "s": 0.005,
       "count": 187
      }
     }
    },
    "cf_rust_mapped": {
     "engine_version": "0.6.0rc1",
-    "full_load_s": 0.0019,
+    "full_load_s": 0.0005,
     "memory": {
      "before_load": {
-      "peak_rss_mb": 23.5,
-      "rss_mb": 25.2,
-      "uss_mb": 15.2
+      "peak_rss_mb": 23.7,
+      "rss_mb": 25.5,
+      "uss_mb": 15.4
      },
      "after_load": {
-      "peak_rss_mb": 29.8,
-      "rss_mb": 29.8,
-      "uss_mb": 17.5
+      "peak_rss_mb": 28.4,
+      "rss_mb": 28.4,
+      "uss_mb": 15.8
      },
      "after_gate_probes": {
-      "peak_rss_mb": 88.5,
-      "rss_mb": 88.5,
-      "uss_mb": 32.8
+      "peak_rss_mb": 82.2,
+      "rss_mb": 82.2,
+      "uss_mb": 19.9
      },
      "after_steady_probes": {
-      "peak_rss_mb": 127.4,
-      "rss_mb": 113.4,
-      "uss_mb": 48.2
+      "peak_rss_mb": 114.9,
+      "rss_mb": 100.9,
+      "uss_mb": 25.7
      },
      "final": {
-      "peak_rss_mb": 142.7,
-      "rss_mb": 135.1,
-      "uss_mb": 67.2
+      "peak_rss_mb": 137.9,
+      "rss_mb": 129.0,
+      "uss_mb": 50.9
      }
     },
     "gate": {
@@ -5901,80 +5049,80 @@
       ]
      },
      "F.sp.v": {
-      "total_s": 0.0015,
-      "per_call_us": 0.15,
+      "total_s": 0.0005,
+      "per_call_us": 0.05,
       "n": 10000
      },
      "F.unicode.v": {
-      "total_s": 0.0025,
-      "per_call_us": 0.25,
+      "total_s": 0.0011,
+      "per_call_us": 0.11,
       "n": 10000
      },
      "L.u": {
       "total_s": 0.0001,
-      "per_call_us": 2.3,
+      "per_call_us": 1.73,
       "n": 30
      },
      "L.d": {
       "total_s": 0.0001,
-      "per_call_us": 3.17,
+      "per_call_us": 2.1,
       "n": 30
      },
      "E.parent.f": {
-      "total_s": 0.0009,
-      "per_call_us": 1.86,
+      "total_s": 0.0012,
+      "per_call_us": 2.33,
       "n": 500
      },
      "T.sectionFromNode": {
-      "total_s": 0.0025,
-      "per_call_us": 12.31,
+      "total_s": 0.0033,
+      "per_call_us": 16.29,
       "n": 200
      },
      "T.text.verse": {
-      "total_s": 0.0006,
-      "per_call_us": 6.5,
+      "total_s": 0.0004,
+      "per_call_us": 4.24,
       "n": 100
      },
      "T.nodeFromSection": {
-      "total_s": 0.0042,
-      "per_call_us": 41.95,
+      "total_s": 0.0021,
+      "per_call_us": 20.98,
       "n": 100
      },
      "F.sp.freqList_s": 0.0004,
-     "F.sp.v_full_sweep_s": 0.014
+     "F.sp.v_full_sweep_s": 0.004
     },
     "steady_us": {
-     "F.sp.v": 0.145,
-     "F.unicode.v": 0.172,
-     "L.u": 0.229,
-     "L.d": 0.301,
-     "L.n": 6631.104,
-     "L.p": 3313.494,
-     "L.i": 3294.774,
-     "E.parent.f": 0.146,
-     "E.parent.t": 1191.241,
-     "E.parent.b": 1190.078,
-     "T.sectionFromNode": 1.892,
-     "T.text.verse": 4.19,
-     "T.nodeFromSection": 0.344,
-     "N.walk_full_s": 0.0173,
+     "F.sp.v": 0.027,
+     "F.unicode.v": 0.032,
+     "L.u": 0.157,
+     "L.d": 0.146,
+     "L.n": 0.104,
+     "L.p": 0.091,
+     "L.i": 0.022,
+     "E.parent.f": 0.055,
+     "E.parent.t": 0.042,
+     "E.parent.b": 0.079,
+     "T.sectionFromNode": 0.453,
+     "T.text.verse": 1.797,
+     "T.nodeFromSection": 0.185,
+     "N.walk_full_s": 0.0096,
      "N.walk_nodes": 497525
     },
     "queries": {
      "n_word_verb": {
-      "s": 0.0066,
+      "s": 0.0027,
       "count": 28357
      },
      "n_clause_phrase_word": {
-      "s": 0.0563,
+      "s": 0.037,
       "count": 78879
      },
      "n_regex_lemma": {
-      "s": 0.0024,
+      "s": 0.0022,
       "count": 4
      },
      "n_sentence_without_verb": {
-      "s": 0.0133,
+      "s": 0.0051,
       "count": 187
      }
     }
@@ -5984,26 +5132,43 @@
  "perf_gate": {
   "tf": {
    "engine": "tf",
-   "load_s": 4.282,
-   "rss_after_load_mb": 6180.3,
+   "rss_before_load_mb": 33.4,
+   "load_s": 3.962,
+   "rss_after_load_mb": 6178.2,
+   "rss_load_delta_mb": 6144.8,
    "F.sp.v": {
-    "total_s": 0.0038,
-    "per_call_us": 0.38,
+    "total_s": 0.0029,
+    "per_call_us": 0.29,
     "n": 10000
    },
    "F.g_word.v": {
-    "total_s": 0.0032,
-    "per_call_us": 0.32,
+    "total_s": 0.0028,
+    "per_call_us": 0.28,
     "n": 10000
    },
    "L.u": {
     "total_s": 0.0,
-    "per_call_us": 0.67,
+    "per_call_us": 0.63,
     "n": 30
    },
    "L.d": {
     "total_s": 0.0001,
-    "per_call_us": 3.08,
+    "per_call_us": 2.07,
+    "n": 30
+   },
+   "L.n": {
+    "total_s": 0.0,
+    "per_call_us": 0.74,
+    "n": 30
+   },
+   "L.p": {
+    "total_s": 0.0,
+    "per_call_us": 0.63,
+    "n": 30
+   },
+   "L.i": {
+    "total_s": 0.0002,
+    "per_call_us": 6.79,
     "n": 30
    },
    "E.mother.f": {
@@ -6011,152 +5176,261 @@
     "per_call_us": 0.18,
     "n": 500
    },
-   "T.sectionFromNode": {
-    "total_s": 0.0013,
-    "per_call_us": 6.3,
-    "n": 200
-   },
-   "T.text.verse": {
-    "total_s": 0.0012,
-    "per_call_us": 11.99,
-    "n": 100
-   },
-   "F.sp.freqList_s": 0.03,
-   "F.sp.v_full_sweep_s": 0.017,
-   "queries": {
-    "q_phrase_without_verb": {
-     "s": 0.255,
-     "count": 62771
-    },
-    "q_regex_gcons": {
-     "s": 0.117,
-     "count": 816
-    },
-    "q_regex_typ": {
-     "s": 0.1498,
-     "count": 3098
-    },
-    "q_regex_gloss_space": {
-     "s": 0.004,
-     "count": 406
-    },
-    "q_feat_exists_qere": {
-     "s": 0.0648,
-     "count": 1892
-    },
-    "q_feat_empty_qere": {
-     "s": 0.0908,
-     "count": 424698
-    },
-    "q_multivalue_neg": {
-     "s": 0.2313,
-     "count": 271
-    },
-    "q_slot_equal": {
-     "s": 0.7265,
-     "count": 3583
-    }
-   },
-   "rss_final_mb": 6319.7
-  },
-  "cf": {
-   "engine": "cf",
-   "load_s": 0.008,
-   "rss_after_load_mb": 47.3,
-   "F.sp.v": {
-    "total_s": 0.0023,
-    "per_call_us": 0.23,
-    "n": 10000
-   },
-   "F.g_word.v": {
-    "total_s": 0.003,
-    "per_call_us": 0.3,
-    "n": 10000
-   },
-   "L.u": {
-    "total_s": 0.0043,
-    "per_call_us": 144.16,
-    "n": 30
-   },
-   "L.d": {
+   "E.mother.t": {
     "total_s": 0.0001,
-    "per_call_us": 3.7,
-    "n": 30
+    "per_call_us": 0.24,
+    "n": 500
    },
-   "E.mother.f": {
-    "total_s": 0.0004,
-    "per_call_us": 0.87,
+   "E.mother.b": {
+    "total_s": 0.0,
+    "per_call_us": 0.07,
     "n": 500
    },
    "T.sectionFromNode": {
-    "total_s": 0.0009,
-    "per_call_us": 4.5,
+    "total_s": 0.0012,
+    "per_call_us": 6.22,
     "n": 200
    },
    "T.text.verse": {
     "total_s": 0.0011,
-    "per_call_us": 11.49,
+    "per_call_us": 10.8,
     "n": 100
    },
-   "F.sp.freqList_s": 0.0006,
-   "F.sp.v_full_sweep_s": 0.051,
+   "T.nodeFromSection": {
+    "total_s": 0.0001,
+    "per_call_us": 0.68,
+    "n": 100
+   },
+   "F.sp.freqList_s": 0.0304,
+   "F.sp.v_full_sweep_s": 0.017,
+   "steady_state_us": {
+    "F.sp.v": 0.052,
+    "F.g_word.v": 0.055,
+    "L.u": 0.102,
+    "L.d": 0.561,
+    "L.n": 0.199,
+    "L.p": 0.189,
+    "L.i": 4.558,
+    "E.mother.f": 0.033,
+    "E.mother.t": 0.043,
+    "E.mother.b": 0.068,
+    "T.sectionFromNode": 5.261,
+    "T.text.verse": 8.69,
+    "T.nodeFromSection": 0.223
+   },
+   "N.walk_full_s": 0.0112,
    "queries": {
     "q_phrase_without_verb": {
-     "s": 0.0845,
+     "s": 0.3055,
      "count": 62771
     },
     "q_regex_gcons": {
-     "s": 0.0317,
+     "s": 0.1182,
      "count": 816
     },
     "q_regex_typ": {
-     "s": 0.0292,
+     "s": 0.1514,
      "count": 3098
     },
     "q_regex_gloss_space": {
-     "s": 0.0037,
+     "s": 0.0041,
      "count": 406
     },
     "q_feat_exists_qere": {
-     "s": 0.0003,
+     "s": 0.0642,
      "count": 1892
     },
     "q_feat_empty_qere": {
-     "s": 0.0237,
+     "s": 0.0906,
      "count": 424698
     },
     "q_multivalue_neg": {
-     "s": 0.0208,
+     "s": 0.2369,
      "count": 271
     },
     "q_slot_equal": {
-     "s": 0.028,
+     "s": 0.5355,
      "count": 3583
+    },
+    "q_mother_basic": {
+     "s": 0.0355,
+     "count": 13917
+    },
+    "q_mother_reverse": {
+     "s": 0.0348,
+     "count": 13917
+    },
+    "q_mother_named_distinct_verse": {
+     "s": 0.0736,
+     "count": 710
+    },
+    "q_slot_overlap_parent": {
+     "s": 0.438,
+     "count": 887
     }
    },
-   "rss_final_mb": 229.7
+   "rss_final_mb": 6317.6
+  },
+  "cf": {
+   "engine": "cf",
+   "rss_before_load_mb": 33.4,
+   "load_s": 0.003,
+   "rss_after_load_mb": 41.5,
+   "rss_load_delta_mb": 8.1,
+   "F.sp.v": {
+    "total_s": 0.001,
+    "per_call_us": 0.1,
+    "n": 10000
+   },
+   "F.g_word.v": {
+    "total_s": 0.002,
+    "per_call_us": 0.2,
+    "n": 10000
+   },
+   "L.u": {
+    "total_s": 0.0001,
+    "per_call_us": 2.8,
+    "n": 30
+   },
+   "L.d": {
+    "total_s": 0.0001,
+    "per_call_us": 3.81,
+    "n": 30
+   },
+   "L.n": {
+    "total_s": 0.0,
+    "per_call_us": 1.5,
+    "n": 30
+   },
+   "L.p": {
+    "total_s": 0.0,
+    "per_call_us": 1.14,
+    "n": 30
+   },
+   "L.i": {
+    "total_s": 0.0001,
+    "per_call_us": 4.3,
+    "n": 30
+   },
+   "E.mother.f": {
+    "total_s": 0.0006,
+    "per_call_us": 1.27,
+    "n": 500
+   },
+   "E.mother.t": {
+    "total_s": 0.0004,
+    "per_call_us": 0.77,
+    "n": 500
+   },
+   "E.mother.b": {
+    "total_s": 0.0,
+    "per_call_us": 0.04,
+    "n": 500
+   },
+   "T.sectionFromNode": {
+    "total_s": 0.0006,
+    "per_call_us": 3.23,
+    "n": 200
+   },
+   "T.text.verse": {
+    "total_s": 0.0008,
+    "per_call_us": 8.16,
+    "n": 100
+   },
+   "T.nodeFromSection": {
+    "total_s": 0.0062,
+    "per_call_us": 61.57,
+    "n": 100
+   },
+   "F.sp.freqList_s": 0.0005,
+   "F.sp.v_full_sweep_s": 0.013,
+   "steady_state_us": {
+    "F.sp.v": 0.028,
+    "F.g_word.v": 0.038,
+    "L.u": 0.128,
+    "L.d": 0.136,
+    "L.n": 0.105,
+    "L.p": 0.092,
+    "L.i": 0.692,
+    "E.mother.f": 0.031,
+    "E.mother.t": 0.029,
+    "E.mother.b": 0.04,
+    "T.sectionFromNode": 0.407,
+    "T.text.verse": 1.511,
+    "T.nodeFromSection": 0.204
+   },
+   "N.walk_full_s": 0.0158,
+   "queries": {
+    "q_phrase_without_verb": {
+     "s": 0.0351,
+     "count": 62771
+    },
+    "q_regex_gcons": {
+     "s": 0.0068,
+     "count": 816
+    },
+    "q_regex_typ": {
+     "s": 0.0081,
+     "count": 3098
+    },
+    "q_regex_gloss_space": {
+     "s": 0.0033,
+     "count": 406
+    },
+    "q_feat_exists_qere": {
+     "s": 0.0002,
+     "count": 1892
+    },
+    "q_feat_empty_qere": {
+     "s": 0.0184,
+     "count": 424698
+    },
+    "q_multivalue_neg": {
+     "s": 0.0087,
+     "count": 271
+    },
+    "q_slot_equal": {
+     "s": 0.0118,
+     "count": 3583
+    },
+    "q_mother_basic": {
+     "s": 0.0118,
+     "count": 13917
+    },
+    "q_mother_reverse": {
+     "s": 0.011,
+     "count": 13917
+    },
+    "q_mother_named_distinct_verse": {
+     "s": 0.0256,
+     "count": 710
+    },
+    "q_slot_overlap_parent": {
+     "s": 0.0329,
+     "count": 887
+    }
+   },
+   "rss_final_mb": 254.7
   },
   "cf_assert": [
-   "PERF GATE: 2 target violation(s):",
-   "FAIL L.u: 144.16µs/call > target 10µs/call",
-   "FAIL rss_final_mb: 229.7MB > target 80MB"
+   "PERF GATE: all targets met"
   ]
  },
- "legacy_scripts": {
+ "microbench": {
   "bench_batch_apis": {
    "fail_lines": [],
    "tail": [
-    "loaded /tmp/cf_bhsa_w4.cfr in 0.01s  maxSlot=426590 maxNode=1446831",
+    "loaded /private/tmp/cf_rc1/cf_bhsa.cfr in 0.01s  maxSlot=426590 maxNode=1446831",
     "",
     "api                            N   batch ms  cf loop ms  tf loop ms    vs cf    vs tf",
     "-------------------------------------------------------------------------------------",
-    "F.sp.vs (str)             100000       3.96       39.98      38.00    10.1x     9.6x",
-    "F.number.vs (int)         100000      16.74       44.80           -     2.7x        -",
-    "F.number.vs_array         100000      15.25       45.83           -     3.0x        -",
-    "L.u_many                  100000      31.65       40.51      79.00     1.3x     2.5x",
-    "L.d_many (clauses)        100000      64.70       76.35     436.00     1.2x     6.7x",
-    "T.text_many (words)       100000     163.06       68.17           -     0.4x        -",
-    "T.text_many (verses)       20000     202.64      100.56     420.40     0.5x     2.1x",
+    "F.sp.vs (str)             100000       1.98        5.05      33.00     2.6x    16.7x",
+    "F.number.vs (int)         100000       3.52        7.95           -     2.3x        -",
+    "F.number.vs_array         100000       2.23        7.81           -     3.5x        -",
+    "L.u_many                  100000      31.18       28.87      67.00     0.9x     2.1x",
+    "L.d_many (clauses)        100000      56.63       61.50     223.00     1.1x     3.9x",
+    "T.text_many (words)       100000      29.84       31.58           -     1.1x        -",
+    "T.text_many (verses)       20000      35.15       39.20     223.60     1.1x     6.4x",
     "",
     "vs cf = CF per-call loop / CF batch  (target >= 10x)",
     "vs tf = TF per-call loop / CF batch  (tf loop extrapolated from baselines/bhsa_tf.json unless --live-tf)"
@@ -6167,9 +5441,9 @@
    "tail": [
     "pyo3 _noop floor: 0.023 µs/call",
     "",
-    "RSS after warm+fill:     132.5 MB",
-    "RSS after 36M timed calls: 137.3 MB",
-    "RSS delta (intern during timing): 4.8 MB  (must be < 50)",
+    "RSS after warm+fill:     118.7 MB",
+    "RSS after 36M timed calls: 120.1 MB",
+    "RSS delta (intern during timing): 1.4 MB  (must be < 50)",
     "",
     "intern identity: F.sp.v reuse for equal value 'prep' -> same object (interned)",
     "",
@@ -6181,102 +5455,6 @@
     "",
     "ALL TARGETS BEAT TF"
    ]
-  },
-  "cf_rust_validate_bhsa_mapped_curated": {
-   "queries_ok": 104,
-   "queries_total_ms": 1826.3,
-   "fail_lines": [],
-   "tail": [
-    "ok query=complex_006 results=5 elapsed_ms=37.827",
-    "ok query=complex_007 results=5 elapsed_ms=28.218",
-    "ok query=complex_008 results=5 elapsed_ms=13.391",
-    "ok query=complex_009 results=5 elapsed_ms=37.964",
-    "ok query=complex_010 results=5 elapsed_ms=30.487",
-    "ok query=complex_011 results=5 elapsed_ms=43.416",
-    "ok query=complex_012 results=5 elapsed_ms=37.865",
-    "ok query=complex_013 results=5 elapsed_ms=19.436",
-    "ok query=complex_014 results=5 elapsed_ms=29.576",
-    "ok query=complex_015 results=5 elapsed_ms=35.058",
-    "ok query=complex_016 results=5 elapsed_ms=32.731",
-    "ok query=complex_017 results=5 elapsed_ms=21.087",
-    "ok query=complex_018 results=5 elapsed_ms=27.647",
-    "ok query=complex_019 results=5 elapsed_ms=33.964",
-    "ok query=complex_020 results=5 elapsed_ms=36.931"
-   ]
-  },
-  "compare_bhsa_mapped_wheel_overhead": {
-   "load_overhead": 2.911,
-   "query_geomean_overhead": 1.125,
-   "loaded mapped_features=13": 0.16,
-   "queries_ok": 104,
-   "queries_total_ms": 1837.6,
-   "fail_lines": [],
-   "tail": [
-    "ok query=complex_010 results=5 elapsed_ms=30.638",
-    "ok query=complex_011 results=5 elapsed_ms=43.816",
-    "ok query=complex_012 results=5 elapsed_ms=38.871",
-    "ok query=complex_013 results=5 elapsed_ms=19.498",
-    "ok query=complex_014 results=5 elapsed_ms=30.378",
-    "ok query=complex_015 results=5 elapsed_ms=35.262",
-    "ok query=complex_016 results=5 elapsed_ms=33.259",
-    "ok query=complex_017 results=5 elapsed_ms=20.865",
-    "ok query=complex_018 results=5 elapsed_ms=28.448",
-    "ok query=complex_019 results=5 elapsed_ms=33.899",
-    "ok query=complex_020 results=5 elapsed_ms=36.963",
-    "",
-    "overhead",
-    "load_overhead=2.911x wheel_ms=0.160 rust_ms=0.055",
-    "query_geomean_overhead=1.125x queries=104"
-   ]
-  },
-  "compare_bhsa_tf_mapped_subset": {
-   "query_geomean_speedup": 9.95,
-   "load_speedup": 23313.09,
-   "loaded text_fabric_features=13": 1515.351,
-   "wins": 104.0,
-   "queries_ok": 208,
-   "queries_total_ms": 16539.4,
-   "fail_lines": [],
-   "tail": [
-    "ok query=complex_010 results=5 elapsed_ms=29.886",
-    "ok query=complex_011 results=5 elapsed_ms=43.160",
-    "ok query=complex_012 results=5 elapsed_ms=38.181",
-    "ok query=complex_013 results=5 elapsed_ms=19.210",
-    "ok query=complex_014 results=5 elapsed_ms=29.094",
-    "ok query=complex_015 results=5 elapsed_ms=35.147",
-    "ok query=complex_016 results=5 elapsed_ms=32.679",
-    "ok query=complex_017 results=5 elapsed_ms=20.650",
-    "ok query=complex_018 results=5 elapsed_ms=27.691",
-    "ok query=complex_019 results=5 elapsed_ms=33.818",
-    "ok query=complex_020 results=5 elapsed_ms=37.161",
-    "",
-    "speedups",
-    "load_speedup=23313.09x text_fabric_ms=1515.351 rust_ms=0.065",
-    "query_geomean_speedup=9.95x wins=104/104"
-   ]
-  },
-  "python_bhsa_mapped_subset_cf_python": {
-   "loaded python_features=13": 307.607,
-   "queries_ok": 104,
-   "queries_total_ms": 12226.2,
-   "fail_lines": [],
-   "tail": [
-    "ok query=complex_006 results=5 elapsed_ms=204.042",
-    "ok query=complex_007 results=5 elapsed_ms=249.259",
-    "ok query=complex_008 results=5 elapsed_ms=146.222",
-    "ok query=complex_009 results=5 elapsed_ms=286.299",
-    "ok query=complex_010 results=5 elapsed_ms=139.540",
-    "ok query=complex_011 results=5 elapsed_ms=297.205",
-    "ok query=complex_012 results=5 elapsed_ms=270.559",
-    "ok query=complex_013 results=5 elapsed_ms=155.263",
-    "ok query=complex_014 results=5 elapsed_ms=254.913",
-    "ok query=complex_015 results=5 elapsed_ms=212.487",
-    "ok query=complex_016 results=5 elapsed_ms=246.112",
-    "ok query=complex_017 results=5 elapsed_ms=45.005",
-    "ok query=complex_018 results=5 elapsed_ms=150.268",
-    "ok query=complex_019 results=5 elapsed_ms=192.610",
-    "ok query=complex_020 results=5 elapsed_ms=384.757"
-   ]
   }
  },
  "bench_cli": {
@@ -6285,51 +5463,51 @@
     "CF/fork": {
      "runs": 3,
      "load_time_s": 0.0,
-     "rss_after_mb": 524.161,
-     "total_rss_mb": 524.161,
-     "per_worker_rss_mb": 131.04
+     "rss_after_mb": 524.021,
+     "total_rss_mb": 524.021,
+     "per_worker_rss_mb": 131.005
     },
     "CF/single": {
      "runs": 3,
-     "load_time_s": 0.379,
-     "rss_after_mb": 387.964,
+     "load_time_s": 0.584,
+     "rss_after_mb": 388.104,
      "total_rss_mb": null,
      "per_worker_rss_mb": null
     },
     "CF/spawn": {
      "runs": 3,
-     "load_time_s": 1.134,
-     "rss_after_mb": 1558.177,
-     "total_rss_mb": 1558.177,
-     "per_worker_rss_mb": 389.544
+     "load_time_s": 1.349,
+     "rss_after_mb": 1559.781,
+     "total_rss_mb": 1559.781,
+     "per_worker_rss_mb": 389.945
     },
     "TF/fork": {
      "runs": 3,
      "load_time_s": 0.0,
-     "rss_after_mb": 6423.516,
-     "total_rss_mb": 6423.516,
-     "per_worker_rss_mb": 1605.879
+     "rss_after_mb": 6424.083,
+     "total_rss_mb": 6424.083,
+     "per_worker_rss_mb": 1606.021
     },
     "TF/single": {
      "runs": 3,
-     "load_time_s": 4.523,
-     "rss_after_mb": 6275.198,
+     "load_time_s": 4.712,
+     "rss_after_mb": 6275.51,
      "total_rss_mb": null,
      "per_worker_rss_mb": null
     },
     "TF/spawn": {
      "runs": 3,
-     "load_time_s": 6.753,
-     "rss_after_mb": 25119.177,
-     "total_rss_mb": 25119.177,
-     "per_worker_rss_mb": 6279.794
+     "load_time_s": 6.819,
+     "rss_after_mb": 25122.646,
+     "total_rss_mb": 25122.646,
+     "per_worker_rss_mb": 6280.661
     }
    },
    "latency": {
     "queries": 100,
-    "tf_total_ms": 15512.4,
-    "cf_total_ms": 14654.3,
-    "geomean_speedup_tf_over_cf": 1.14,
+    "tf_total_ms": 15695.1,
+    "cf_total_ms": 14836.3,
+    "geomean_speedup_tf_over_cf": 1.15,
     "cf_slower_queries": [
      "complex_003",
      "complex_004",
@@ -6348,7 +5526,7 @@
      "quant_017",
      "quant_018",
      "quant_020",
-     "struct_017",
+     "struct_014",
      "struct_020",
      "struct_021",
      "struct_023",
@@ -6371,51 +5549,51 @@
     "CF/fork": {
      "runs": 3,
      "load_time_s": 0.0,
-     "rss_after_mb": 310.479,
-     "total_rss_mb": 310.479,
-     "per_worker_rss_mb": 77.62
+     "rss_after_mb": 260.047,
+     "total_rss_mb": 260.047,
+     "per_worker_rss_mb": 65.012
     },
     "CF/single": {
      "runs": 3,
-     "load_time_s": 0.015,
-     "rss_after_mb": 148.495,
+     "load_time_s": 0.003,
+     "rss_after_mb": 143.224,
      "total_rss_mb": null,
      "per_worker_rss_mb": null
     },
     "CF/spawn": {
      "runs": 3,
-     "load_time_s": 0.762,
-     "rss_after_mb": 701.984,
-     "total_rss_mb": 701.984,
-     "per_worker_rss_mb": 175.496
+     "load_time_s": 0.708,
+     "rss_after_mb": 642.135,
+     "total_rss_mb": 642.135,
+     "per_worker_rss_mb": 160.534
     },
     "TF/fork": {
      "runs": 3,
      "load_time_s": 0.0,
-     "rss_after_mb": 6423.104,
-     "total_rss_mb": 6423.104,
-     "per_worker_rss_mb": 1605.776
+     "rss_after_mb": 6423.531,
+     "total_rss_mb": 6423.531,
+     "per_worker_rss_mb": 1605.883
     },
     "TF/single": {
      "runs": 3,
-     "load_time_s": 4.651,
-     "rss_after_mb": 6275.042,
+     "load_time_s": 4.907,
+     "rss_after_mb": 6275.182,
      "total_rss_mb": null,
      "per_worker_rss_mb": null
     },
     "TF/spawn": {
      "runs": 3,
-     "load_time_s": 6.456,
-     "rss_after_mb": 25120.927,
-     "total_rss_mb": 25120.927,
-     "per_worker_rss_mb": 6280.232
+     "load_time_s": 6.863,
+     "rss_after_mb": 25125.708,
+     "total_rss_mb": 25125.708,
+     "per_worker_rss_mb": 6281.427
     }
    },
    "latency": {
     "queries": 100,
-    "tf_total_ms": 16202.1,
-    "cf_total_ms": 3016.7,
-    "geomean_speedup_tf_over_cf": 7.14,
+    "tf_total_ms": 16580.9,
+    "cf_total_ms": 1351.0,
+    "geomean_speedup_tf_over_cf": 15.4,
     "cf_slower_queries": [],
     "error_count": {
      "TF": 0,
@@ -6427,453 +5605,673 @@
  "june_record": {
   "cf": {
    "engine": "cf",
-   "load_s": 0.018,
-   "rss_after_load_mb": 30.3,
+   "rss_before_load_mb": 33.5,
+   "load_s": 0.003,
+   "rss_after_load_mb": 41.4,
+   "rss_load_delta_mb": 7.9,
    "F.sp.v": {
-    "total_s": 0.0035,
-    "per_call_us": 0.35,
+    "total_s": 0.0011,
+    "per_call_us": 0.11,
     "n": 10000
    },
    "F.g_word.v": {
-    "total_s": 0.0047,
-    "per_call_us": 0.47,
+    "total_s": 0.0022,
+    "per_call_us": 0.22,
     "n": 10000
    },
    "L.u": {
-    "total_s": 0.0068,
-    "per_call_us": 227.6,
+    "total_s": 0.0001,
+    "per_call_us": 2.46,
     "n": 30
    },
    "L.d": {
-    "total_s": 0.0002,
-    "per_call_us": 6.87,
+    "total_s": 0.0001,
+    "per_call_us": 3.6,
+    "n": 30
+   },
+   "L.n": {
+    "total_s": 0.0,
+    "per_call_us": 1.26,
+    "n": 30
+   },
+   "L.p": {
+    "total_s": 0.0,
+    "per_call_us": 1.06,
+    "n": 30
+   },
+   "L.i": {
+    "total_s": 0.0001,
+    "per_call_us": 3.86,
     "n": 30
    },
    "E.mother.f": {
-    "total_s": 0.0011,
-    "per_call_us": 2.2,
+    "total_s": 0.0007,
+    "per_call_us": 1.37,
+    "n": 500
+   },
+   "E.mother.t": {
+    "total_s": 0.0004,
+    "per_call_us": 0.85,
+    "n": 500
+   },
+   "E.mother.b": {
+    "total_s": 0.0,
+    "per_call_us": 0.04,
     "n": 500
    },
    "T.sectionFromNode": {
-    "total_s": 0.0019,
-    "per_call_us": 9.51,
+    "total_s": 0.0006,
+    "per_call_us": 3.12,
     "n": 200
    },
    "T.text.verse": {
-    "total_s": 0.0019,
-    "per_call_us": 18.66,
+    "total_s": 0.0009,
+    "per_call_us": 9.3,
     "n": 100
    },
-   "F.sp.freqList_s": 0.2169,
-   "F.sp.v_full_sweep_s": 0.079,
+   "T.nodeFromSection": {
+    "total_s": 0.0065,
+    "per_call_us": 64.7,
+    "n": 100
+   },
+   "F.sp.freqList_s": 0.0006,
+   "F.sp.v_full_sweep_s": 0.014,
+   "steady_state_us": {
+    "F.sp.v": 0.028,
+    "F.g_word.v": 0.037,
+    "L.u": 0.144,
+    "L.d": 0.153,
+    "L.n": 0.113,
+    "L.p": 0.099,
+    "L.i": 0.75,
+    "E.mother.f": 0.031,
+    "E.mother.t": 0.029,
+    "E.mother.b": 0.04,
+    "T.sectionFromNode": 0.512,
+    "T.text.verse": 1.637,
+    "T.nodeFromSection": 0.202
+   },
+   "N.walk_full_s": 0.017,
    "queries": {
     "q_phrase_without_verb": {
-     "s": 0.2575,
+     "s": 0.0392,
      "count": 62771
     },
     "q_regex_gcons": {
-     "s": 0.1042,
+     "s": 0.0069,
      "count": 816
     },
     "q_regex_typ": {
-     "s": 0.0656,
+     "s": 0.0088,
      "count": 3098
     },
     "q_regex_gloss_space": {
-     "s": 0.0175,
+     "s": 0.0034,
      "count": 406
     },
     "q_feat_exists_qere": {
-     "s": 0.0005,
+     "s": 0.0002,
      "count": 1892
     },
     "q_feat_empty_qere": {
-     "s": 0.0637,
+     "s": 0.0196,
      "count": 424698
     },
     "q_multivalue_neg": {
-     "s": 0.0396,
+     "s": 0.0093,
      "count": 271
     },
     "q_slot_equal": {
-     "s": 0.1348,
+     "s": 0.0127,
      "count": 3583
+    },
+    "q_mother_basic": {
+     "s": 0.0135,
+     "count": 13917
+    },
+    "q_mother_reverse": {
+     "s": 0.0131,
+     "count": 13917
+    },
+    "q_mother_named_distinct_verse": {
+     "s": 0.0288,
+     "count": 710
+    },
+    "q_slot_overlap_parent": {
+     "s": 0.0359,
+     "count": 887
     }
    },
-   "rss_final_mb": 236.1,
-   "steady_state_us": {
-    "L.u": 0.62,
-    "L.d": 0.75,
-    "E.mother.f": 0.14,
-    "T.sectionFromNode": 3.17,
-    "T.text.verse": 7.12,
-    "F.g_word.v": 0.33
-   },
-   "note": "steady_state_us measured with warmup, 50k calls, idle machine, 2026-06-10; per-call gate numbers include one-time index builds over tiny n"
+   "rss_final_mb": 261.9,
+   "note": "context-fabric 0.6.0rc1 (Rust core, .cfr v4), python -m cfabric_benchmarks.perf_gate --engine cf on a compiled BHSA cache, same machine and session as bhsa_tf.json, 2026-10-14. Median per timing over 3 runs interleaved with TF runs (memory: worst of 3). per_call_us probes are first calls over small node sets and include one-time index builds; steady_state_us is warm (best of 5 passes)."
   },
   "tf": {
    "engine": "tf",
-   "load_s": 8.583,
-   "rss_after_load_mb": 6227.6,
+   "rss_before_load_mb": 33.7,
+   "load_s": 4.316,
+   "rss_after_load_mb": 6182.2,
+   "rss_load_delta_mb": 6148.6,
    "F.sp.v": {
-    "total_s": 0.0038,
-    "per_call_us": 0.38,
+    "total_s": 0.0033,
+    "per_call_us": 0.33,
     "n": 10000
    },
    "F.g_word.v": {
-    "total_s": 0.0043,
-    "per_call_us": 0.43,
+    "total_s": 0.0033,
+    "per_call_us": 0.33,
     "n": 10000
    },
    "L.u": {
     "total_s": 0.0,
-    "per_call_us": 0.79,
+    "per_call_us": 0.67,
     "n": 30
    },
    "L.d": {
     "total_s": 0.0001,
-    "per_call_us": 4.36,
+    "per_call_us": 2.23,
+    "n": 30
+   },
+   "L.n": {
+    "total_s": 0.0,
+    "per_call_us": 0.73,
+    "n": 30
+   },
+   "L.p": {
+    "total_s": 0.0,
+    "per_call_us": 0.76,
+    "n": 30
+   },
+   "L.i": {
+    "total_s": 0.0002,
+    "per_call_us": 6.93,
     "n": 30
    },
    "E.mother.f": {
     "total_s": 0.0001,
-    "per_call_us": 0.23,
+    "per_call_us": 0.17,
+    "n": 500
+   },
+   "E.mother.t": {
+    "total_s": 0.0001,
+    "per_call_us": 0.24,
+    "n": 500
+   },
+   "E.mother.b": {
+    "total_s": 0.0,
+    "per_call_us": 0.08,
     "n": 500
    },
    "T.sectionFromNode": {
-    "total_s": 0.0019,
-    "per_call_us": 9.55,
+    "total_s": 0.0013,
+    "per_call_us": 6.48,
     "n": 200
    },
    "T.text.verse": {
-    "total_s": 0.0021,
-    "per_call_us": 21.02,
+    "total_s": 0.0011,
+    "per_call_us": 11.18,
     "n": 100
    },
-   "F.sp.freqList_s": 0.0573,
-   "F.sp.v_full_sweep_s": 0.043,
+   "T.nodeFromSection": {
+    "total_s": 0.0001,
+    "per_call_us": 0.76,
+    "n": 100
+   },
+   "F.sp.freqList_s": 0.0296,
+   "F.sp.v_full_sweep_s": 0.019,
+   "steady_state_us": {
+    "F.sp.v": 0.064,
+    "F.g_word.v": 0.075,
+    "L.u": 0.115,
+    "L.d": 0.608,
+    "L.n": 0.25,
+    "L.p": 0.212,
+    "L.i": 5.254,
+    "E.mother.f": 0.033,
+    "E.mother.t": 0.044,
+    "E.mother.b": 0.068,
+    "T.sectionFromNode": 5.677,
+    "T.text.verse": 9.348,
+    "T.nodeFromSection": 0.223
+   },
+   "N.walk_full_s": 0.0111,
    "queries": {
     "q_phrase_without_verb": {
-     "s": 0.4724,
+     "s": 0.2689,
      "count": 62771
     },
     "q_regex_gcons": {
-     "s": 0.2225,
+     "s": 0.124,
      "count": 816
     },
     "q_regex_typ": {
-     "s": 0.2738,
+     "s": 0.1559,
      "count": 3098
     },
     "q_regex_gloss_space": {
-     "s": 0.0073,
+     "s": 0.0049,
      "count": 406
     },
     "q_feat_exists_qere": {
-     "s": 0.1245,
+     "s": 0.0719,
      "count": 1892
     },
     "q_feat_empty_qere": {
-     "s": 0.1691,
+     "s": 0.0961,
      "count": 424698
     },
     "q_multivalue_neg": {
-     "s": 0.4117,
+     "s": 0.2453,
      "count": 271
     },
     "q_slot_equal": {
-     "s": 0.1369,
+     "s": 0.7812,
      "count": 3583
+    },
+    "q_mother_basic": {
+     "s": 0.0384,
+     "count": 13917
+    },
+    "q_mother_reverse": {
+     "s": 0.0372,
+     "count": 13917
+    },
+    "q_mother_named_distinct_verse": {
+     "s": 0.0808,
+     "count": 710
+    },
+    "q_slot_overlap_parent": {
+     "s": 0.454,
+     "count": 887
     }
    },
-   "rss_final_mb": 6369.2
+   "rss_final_mb": 6321.7,
+   "note": "Text-Fabric 13.0.19, python -m cfabric_benchmarks.perf_gate --engine tf, Apple M5 Max (shared machine, load average 6-11), 2026-10-14. Median per timing over 4 runs interleaved with CF runs (memory: worst of 4)."
   }
  },
  "regressions_vs_june": [
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "gate F.sp.v per_call",
-   "june": 0.35,
-   "now": 0.22,
+   "june": 0.11,
+   "now": 0.13,
    "unit": "us",
-   "ratio": 0.63,
+   "ratio": 1.18,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "gate F.g_word.v per_call",
-   "june": 0.47,
-   "now": 0.36,
+   "june": 0.22,
+   "now": 0.26,
    "unit": "us",
-   "ratio": 0.77,
+   "ratio": 1.18,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "gate L.u per_call",
-   "june": 227.6,
-   "now": 2.56,
+   "june": 2.46,
+   "now": 2.34,
    "unit": "us",
-   "ratio": 0.01,
+   "ratio": 0.95,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "gate L.d per_call",
-   "june": 6.87,
-   "now": 3.57,
+   "june": 3.6,
+   "now": 2.7,
    "unit": "us",
-   "ratio": 0.52,
+   "ratio": 0.75,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "gate E.mother.f per_call",
-   "june": 2.2,
-   "now": 0.89,
+   "june": 1.37,
+   "now": 1.34,
    "unit": "us",
-   "ratio": 0.4,
+   "ratio": 0.98,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "gate T.sectionFromNode per_call",
-   "june": 9.51,
-   "now": 4.77,
+   "june": 3.12,
+   "now": 2.21,
    "unit": "us",
-   "ratio": 0.5,
+   "ratio": 0.71,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "gate T.text.verse per_call",
-   "june": 18.66,
-   "now": 12.63,
+   "june": 9.3,
+   "now": 8.79,
    "unit": "us",
-   "ratio": 0.68,
+   "ratio": 0.95,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "gate T.nodeFromSection per_call",
+   "june": 64.7,
+   "now": 61.18,
+   "unit": "us",
+   "ratio": 0.95,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "F.sp.freqList",
-   "june": 0.2169,
-   "now": 0.0006,
+   "june": 0.0006,
+   "now": 0.0005,
    "unit": "s",
-   "ratio": 0.0,
+   "ratio": 0.83,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "F.sp.v full sweep",
-   "june": 0.079,
-   "now": 0.049,
+   "june": 0.014,
+   "now": 0.013,
    "unit": "s",
-   "ratio": 0.62,
+   "ratio": 0.93,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "load",
-   "june": 0.018,
-   "now": 0.0053,
+   "june": 0.003,
+   "now": 0.0012,
    "unit": "s",
-   "ratio": 0.29,
+   "ratio": 0.4,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "peak RSS after load",
-   "june": 30.3,
-   "now": 37.8,
+   "june": 41.4,
+   "now": 32.4,
    "unit": "mb",
-   "ratio": 1.25,
+   "ratio": 0.78,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "peak RSS final",
-   "june": 236.1,
-   "now": 287.4,
+   "june": 261.9,
+   "now": 271.9,
    "unit": "mb",
-   "ratio": 1.22,
+   "ratio": 1.04,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "query q_phrase_without_verb",
-   "june": 0.2575,
-   "now": 0.0849,
+   "june": 0.0392,
+   "now": 0.0356,
    "unit": "s",
-   "ratio": 0.33,
+   "ratio": 0.91,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "query q_regex_gcons",
-   "june": 0.1042,
-   "now": 0.0319,
+   "june": 0.0069,
+   "now": 0.0063,
    "unit": "s",
-   "ratio": 0.31,
+   "ratio": 0.91,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "query q_regex_typ",
-   "june": 0.0656,
-   "now": 0.0283,
+   "june": 0.0088,
+   "now": 0.0068,
    "unit": "s",
-   "ratio": 0.43,
+   "ratio": 0.77,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "query q_regex_gloss_space",
-   "june": 0.0175,
-   "now": 0.0037,
+   "june": 0.0034,
+   "now": 0.0032,
    "unit": "s",
-   "ratio": 0.21,
+   "ratio": 0.94,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "query q_feat_exists_qere",
-   "june": 0.0005,
-   "now": 0.0003,
+   "june": 0.0002,
+   "now": 0.0001,
    "unit": "s",
-   "ratio": 0.6,
+   "ratio": 0.5,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "query q_feat_empty_qere",
-   "june": 0.0637,
-   "now": 0.0241,
+   "june": 0.0196,
+   "now": 0.0182,
    "unit": "s",
-   "ratio": 0.38,
+   "ratio": 0.93,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "query q_multivalue_neg",
-   "june": 0.0396,
-   "now": 0.0208,
+   "june": 0.0093,
+   "now": 0.0092,
    "unit": "s",
-   "ratio": 0.53,
+   "ratio": 0.99,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "query q_slot_equal",
-   "june": 0.1348,
-   "now": 0.0279,
+   "june": 0.0127,
+   "now": 0.0119,
    "unit": "s",
-   "ratio": 0.21,
+   "ratio": 0.94,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "query q_mother_basic",
+   "june": 0.0135,
+   "now": 0.0121,
+   "unit": "s",
+   "ratio": 0.9,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "query q_mother_reverse",
+   "june": 0.0131,
+   "now": 0.0111,
+   "unit": "s",
+   "ratio": 0.85,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "query q_mother_named_distinct_verse",
+   "june": 0.0288,
+   "now": 0.026,
+   "unit": "s",
+   "ratio": 0.9,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "query q_slot_overlap_parent",
+   "june": 0.0359,
+   "now": 0.0333,
+   "unit": "s",
+   "ratio": 0.93,
    "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "gate F.sp.v per_call",
-   "june": 0.35,
-   "now": 0.23,
+   "june": 0.11,
+   "now": 0.1,
    "unit": "us",
-   "ratio": 0.66,
+   "ratio": 0.91,
    "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "gate F.g_word.v per_call",
-   "june": 0.47,
-   "now": 0.3,
+   "june": 0.22,
+   "now": 0.2,
    "unit": "us",
-   "ratio": 0.64,
+   "ratio": 0.91,
    "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "gate L.u per_call",
-   "june": 227.6,
-   "now": 144.16,
+   "june": 2.46,
+   "now": 2.8,
    "unit": "us",
-   "ratio": 0.63,
+   "ratio": 1.14,
    "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "gate L.d per_call",
-   "june": 6.87,
-   "now": 3.7,
+   "june": 3.6,
+   "now": 3.81,
    "unit": "us",
-   "ratio": 0.54,
+   "ratio": 1.06,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate L.n per_call",
+   "june": 1.26,
+   "now": 1.5,
+   "unit": "us",
+   "ratio": 1.19,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate L.p per_call",
+   "june": 1.06,
+   "now": 1.14,
+   "unit": "us",
+   "ratio": 1.08,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate L.i per_call",
+   "june": 3.86,
+   "now": 4.3,
+   "unit": "us",
+   "ratio": 1.11,
    "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "gate E.mother.f per_call",
-   "june": 2.2,
-   "now": 0.87,
+   "june": 1.37,
+   "now": 1.27,
    "unit": "us",
-   "ratio": 0.4,
+   "ratio": 0.93,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate E.mother.t per_call",
+   "june": 0.85,
+   "now": 0.77,
+   "unit": "us",
+   "ratio": 0.91,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate E.mother.b per_call",
+   "june": 0.04,
+   "now": 0.04,
+   "unit": "us",
+   "ratio": 1.0,
    "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "gate T.sectionFromNode per_call",
-   "june": 9.51,
-   "now": 4.5,
+   "june": 3.12,
+   "now": 3.23,
    "unit": "us",
-   "ratio": 0.47,
+   "ratio": 1.04,
    "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "gate T.text.verse per_call",
-   "june": 18.66,
-   "now": 11.49,
+   "june": 9.3,
+   "now": 8.16,
    "unit": "us",
-   "ratio": 0.62,
+   "ratio": 0.88,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate T.nodeFromSection per_call",
+   "june": 64.7,
+   "now": 61.57,
+   "unit": "us",
+   "ratio": 0.95,
    "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "F.sp.freqList",
-   "june": 0.2169,
-   "now": 0.0006,
+   "june": 0.0006,
+   "now": 0.0005,
    "unit": "s",
-   "ratio": 0.0,
+   "ratio": 0.83,
    "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "F.sp.v full sweep",
-   "june": 0.079,
-   "now": 0.051,
+   "june": 0.014,
+   "now": 0.013,
    "unit": "s",
-   "ratio": 0.65,
+   "ratio": 0.93,
    "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "load",
-   "june": 0.018,
-   "now": 0.008,
+   "june": 0.003,
+   "now": 0.003,
    "unit": "s",
-   "ratio": 0.44,
+   "ratio": 1.0,
    "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "peak RSS after load",
-   "june": 30.3,
-   "now": 47.3,
+   "june": 41.4,
+   "now": 41.5,
    "unit": "mb",
-   "ratio": 1.56,
-   "regression": true
+   "ratio": 1.0,
+   "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "peak RSS final",
-   "june": 236.1,
-   "now": 229.7,
+   "june": 261.9,
+   "now": 254.7,
    "unit": "mb",
    "ratio": 0.97,
    "regression": false
@@ -6881,127 +6279,226 @@
   {
    "source": "perf_gate cf",
    "metric": "query q_phrase_without_verb",
-   "june": 0.2575,
-   "now": 0.0845,
+   "june": 0.0392,
+   "now": 0.0351,
    "unit": "s",
-   "ratio": 0.33,
+   "ratio": 0.9,
    "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "query q_regex_gcons",
-   "june": 0.1042,
-   "now": 0.0317,
+   "june": 0.0069,
+   "now": 0.0068,
    "unit": "s",
-   "ratio": 0.3,
+   "ratio": 0.99,
    "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "query q_regex_typ",
-   "june": 0.0656,
-   "now": 0.0292,
+   "june": 0.0088,
+   "now": 0.0081,
    "unit": "s",
-   "ratio": 0.45,
+   "ratio": 0.92,
    "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "query q_regex_gloss_space",
-   "june": 0.0175,
-   "now": 0.0037,
+   "june": 0.0034,
+   "now": 0.0033,
    "unit": "s",
-   "ratio": 0.21,
+   "ratio": 0.97,
    "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "query q_feat_exists_qere",
-   "june": 0.0005,
-   "now": 0.0003,
+   "june": 0.0002,
+   "now": 0.0002,
    "unit": "s",
-   "ratio": 0.6,
+   "ratio": 1.0,
    "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "query q_feat_empty_qere",
-   "june": 0.0637,
-   "now": 0.0237,
+   "june": 0.0196,
+   "now": 0.0184,
    "unit": "s",
-   "ratio": 0.37,
+   "ratio": 0.94,
    "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "query q_multivalue_neg",
-   "june": 0.0396,
-   "now": 0.0208,
+   "june": 0.0093,
+   "now": 0.0087,
    "unit": "s",
-   "ratio": 0.53,
+   "ratio": 0.94,
    "regression": false
   },
   {
    "source": "perf_gate cf",
    "metric": "query q_slot_equal",
-   "june": 0.1348,
-   "now": 0.028,
+   "june": 0.0127,
+   "now": 0.0118,
    "unit": "s",
-   "ratio": 0.21,
+   "ratio": 0.93,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "query q_mother_basic",
+   "june": 0.0135,
+   "now": 0.0118,
+   "unit": "s",
+   "ratio": 0.87,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "query q_mother_reverse",
+   "june": 0.0131,
+   "now": 0.011,
+   "unit": "s",
+   "ratio": 0.84,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "query q_mother_named_distinct_verse",
+   "june": 0.0288,
+   "now": 0.0256,
+   "unit": "s",
+   "ratio": 0.89,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "query q_slot_overlap_parent",
+   "june": 0.0359,
+   "now": 0.0329,
+   "unit": "s",
+   "ratio": 0.92,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
-   "metric": "steady L.u",
-   "june": 0.62,
-   "now": 0.237,
+   "metric": "steady F.sp.v",
+   "june": 0.028,
+   "now": 0.028,
    "unit": "us",
-   "ratio": 0.38,
-   "regression": false
-  },
-  {
-   "source": "perf_probe cf_rust_mapped",
-   "metric": "steady L.d",
-   "june": 0.75,
-   "now": 0.318,
-   "unit": "us",
-   "ratio": 0.42,
-   "regression": false
-  },
-  {
-   "source": "perf_probe cf_rust_mapped",
-   "metric": "steady E.mother.f",
-   "june": 0.14,
-   "now": 0.082,
-   "unit": "us",
-   "ratio": 0.59,
-   "regression": false
-  },
-  {
-   "source": "perf_probe cf_rust_mapped",
-   "metric": "steady T.sectionFromNode",
-   "june": 3.17,
-   "now": 2.413,
-   "unit": "us",
-   "ratio": 0.76,
-   "regression": false
-  },
-  {
-   "source": "perf_probe cf_rust_mapped",
-   "metric": "steady T.text.verse",
-   "june": 7.12,
-   "now": 4.789,
-   "unit": "us",
-   "ratio": 0.67,
+   "ratio": 1.0,
    "regression": false
   },
   {
    "source": "perf_probe cf_rust_mapped",
    "metric": "steady F.g_word.v",
-   "june": 0.33,
-   "now": 0.194,
+   "june": 0.037,
+   "now": 0.037,
    "unit": "us",
-   "ratio": 0.59,
+   "ratio": 1.0,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady L.u",
+   "june": 0.144,
+   "now": 0.129,
+   "unit": "us",
+   "ratio": 0.9,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady L.d",
+   "june": 0.153,
+   "now": 0.134,
+   "unit": "us",
+   "ratio": 0.88,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady L.n",
+   "june": 0.113,
+   "now": 0.102,
+   "unit": "us",
+   "ratio": 0.9,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady L.p",
+   "june": 0.099,
+   "now": 0.093,
+   "unit": "us",
+   "ratio": 0.94,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady L.i",
+   "june": 0.75,
+   "now": 0.021,
+   "unit": "us",
+   "ratio": 0.03,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady E.mother.f",
+   "june": 0.031,
+   "now": 0.032,
+   "unit": "us",
+   "ratio": 1.03,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady E.mother.t",
+   "june": 0.029,
+   "now": 0.03,
+   "unit": "us",
+   "ratio": 1.03,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady E.mother.b",
+   "june": 0.04,
+   "now": 0.04,
+   "unit": "us",
+   "ratio": 1.0,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady T.sectionFromNode",
+   "june": 0.512,
+   "now": 0.445,
+   "unit": "us",
+   "ratio": 0.87,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady T.text.verse",
+   "june": 1.637,
+   "now": 1.524,
+   "unit": "us",
+   "ratio": 0.93,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady T.nodeFromSection",
+   "june": 0.202,
+   "now": 0.201,
+   "unit": "us",
+   "ratio": 1.0,
    "regression": false
   }
  ]
