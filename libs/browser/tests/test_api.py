@@ -143,7 +143,15 @@ class TestPassages:
     def test_top_level_sections(self, client):
         data = client.get("/api/corpora/alpha/sections").json()
         assert data["children"] == [
-            {"node": 13, "type": "book", "label": "Alpha Book", "ref": "Alpha Book"}
+            {
+                "node": 13,
+                "type": "book",
+                "label": "Alpha Book",
+                "ref": "Alpha Book",
+                # the section feature's own value, for search templates
+                "feature": "book",
+                "value": "Alpha Book",
+            }
         ]
 
     def test_chapters_and_verses(self, client):

@@ -785,6 +785,116 @@ def build_router(
             "trees": [t.to_dict() for t in trees],
         }
 
+    @router.get("/searches/{search_id}/parallel")
+    def search_parallel(
+        search_id: str,
+        opts: Annotated[RenderOptions, Depends(render_options)],
+        offset: int = Query(0, ge=0),
+        limit: int = Query(25, ge=1, le=MAX_PAGE),
+        texts: str = "",
+        mode: Literal["pretty", "plain"] = "plain",
+    ) -> dict[str, Any]:
+        """A page of results as rows of the parallel interface.
+
+        Per result: the verse (the lowest section) its first node lies in, in
+        the searched corpus with the result's innermost nodes highlighted, and
+        the same verse in each of `texts`, as in `/parallel` (for the DSS, the
+        text of each scroll that has it). Cells are left out where a text has
+        no such verse.
+        """
+        job = search_job(search_id)
+        corpus = job.corpus
+        api = corpus_api(corpus)
+        config = service.config(corpus)
+        names = [n for n in (_items(texts) or []) if n != corpus]
+        for name in names:
+            corpus_api(name)
+        sectionTypes = list(api.T.sectionTypes or ())
+        unitType = sectionTypes[-1] if sectionTypes else None
+        oslots = api.E.oslots.s
+        maxSlot = api.F.otype.maxSlot
+        rank = api.N.otypeRank
+
+        def slots(n: int) -> set[int]:
+            return {n} if n <= maxSlot else {int(s) for s in oslots(n)}
+
+        rows = []
+        for i, tup in enumerate(job.page(offset, limit)):
+            nodes = [int(n) for n in tup]
+            if unitType is None:
+                continue
+            # the first node that lies within a verse: not a book or chapter
+            # that the template starts with
+            first = next(
+                (n for n in nodes if rank[api.F.otype.v(n)] <= rank[unitType]),
+                nodes[0],
+            )
+            if api.F.otype.v(first) == unitType:
+                unit = first
+            else:
+                ups = api.L.u(min(slots(first)), otype=unitType)
+                if not ups:
+                    continue
+                unit = int(ups[0])
+            # highlight the innermost nodes: those that contain no other node of the result
+            sets = {n: slots(n) for n in nodes}
+            inner = [
+                n
+                for n in nodes
+                if n != unit and not any(m != n and sets[m] < sets[n] for m in nodes)
+            ]
+            own = replace(opts, highlights={n: "" for n in inner})
+            tree = render_node(api, config, unit, mode, own).to_dict()
+            dress_signs(api, tree["fragments"])
+            ref = section_ref_for(api, config, unit, lang=opts.lang)
+            cells: dict[str, Any] = {corpus: {"trees": [tree]}}
+            for name in names:
+                cell = verse_cell(corpus, ref, name, opts, mode)
+                if cell is not None:
+                    cells[name] = cell
+            rows.append(
+                {"index": offset + i, "nodes": nodes, "ref": ref, "cells": cells}
+            )
+        return {
+            "search": job.snapshot(),
+            "offset": offset,
+            "columns": [corpus, *names],
+            "rows": rows,
+        }
+
+    def verse_cell(
+        source: str, ref: str, target: str, opts: RenderOptions, mode: str
+    ) -> dict[str, Any] | None:
+        """The verse `ref` of `source` in `target`, as a cell of the parallel
+        interface, or None when `target` does not have it."""
+        api = service.api(target)
+        config = service.config(target)
+        own = (
+            opts
+            if opts.fmt in (None, *config.text_formats)
+            else replace(opts, fmt=None)
+        )
+        own = replace(own, highlights=None)
+        index = service.book_index(target)
+        if index is not None:
+            aligned = service.align(source, ref, target, opts.lang, "books")
+            parsed = parse_ref(aligned["ref"]) if aligned and aligned["exact"] else None
+            if parsed is None or parsed[2] is None or not index.has(*parsed):
+                return None
+            (book, chapter, verse) = parsed
+            return {
+                "witnesses": [
+                    witness_row(api, config, index, w, mode, own)
+                    for w in index.books[book][chapter][verse]
+                ]
+            }
+        aligned = service.align(source, ref, target, opts.lang)
+        if aligned is None or not aligned["exact"]:
+            return None
+        tree = render_node(api, config, aligned["node"], mode, own).to_dict()
+        dress_signs(api, tree["fragments"])
+        return {"trees": [tree]}
+
     # statistics over the results of a search
 
     def position_nodes(job: SearchJob, position: int) -> list[int]:
@@ -1109,13 +1219,26 @@ def tsv_response(content: str, filename: str, excel: bool) -> Response:
 
 def section_item(api, config, node: int, lang: str) -> dict[str, Any]:
     """A section node as shown in navigation: its label and full reference."""
-    section = api.T.sectionFromNode(node, lang=lang)
-    return {
+    T = api.T
+    section = T.sectionFromNode(node, lang=lang)
+    nType = api.F.otype.v(node)
+    item = {
         "node": node,
-        "type": api.F.otype.v(node),
+        "type": nType,
         "label": str(section[-1]) if section else str(node),
         "ref": section_ref_for(api, config, node, lang=lang),
     }
+    # the feature that names it, with its own value, for search templates: the
+    # BHSA's book feature says Jesaia where the label (book@en) says Isaiah
+    types = list(T.sectionTypes or ())
+    feats = list(T.sectionFeats or ())
+    if nType in types and types.index(nType) < len(feats):
+        feature = feats[types.index(nType)]
+        value = api.Fs(feature).v(node) if api.Fs(feature) is not None else None
+        if value is not None:
+            item["feature"] = feature
+            item["value"] = str(value)
+    return item
 
 
 def section_path(api, config, node: int, lang: str) -> list[dict[str, Any]]:

@@ -116,6 +116,15 @@ export const api = {
   parallel: (lead: string, ref: string, texts: string[], params: RenderParams) =>
     request<ParallelChapter>(`/api/parallel${query({ lead, ref, texts: texts.join(","), ...params })}`),
 
+  /** A page of search results as parallel rows: each result's verse in its corpus and in `texts`. */
+  searchParallel: (id: string, offset: number, limit: number, texts: string[], params: RenderParams) =>
+    request<{
+      search: SearchStatus;
+      offset: number;
+      columns: string[];
+      rows: { index: number; nodes: number[]; ref: string; cells: ParallelChapter["rows"][number]["cells"] }[];
+    }>(`/api/searches/${id}/parallel${query({ offset, limit, texts: texts.join(","), ...params })}`),
+
   /** Words that differ between a passage of `a` and the corresponding passage of `b`. */
   compare: (a: string, aref: string, b: string, bref: string, bview: ReadBy = "sections") =>
     request<{

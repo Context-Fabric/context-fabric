@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { DisplayProvider, displayRef, Plain } from "../display/Display";
 import type { PaneDiff } from "../differences";
 import { HoverCard, useHover } from "../HoverCard";
@@ -22,10 +22,21 @@ function VerseNumber({ verse }: { verse: number }) {
   );
 }
 
-type Cell = ParallelChapter["rows"][number]["cells"][string];
+type Row = ParallelChapter["rows"][number];
+type Cell = Row["cells"][string];
 
 /** One corpus' text of one verse: the verse itself, or for the DSS the text of each scroll. */
-function CellView({ cell, verse, diff }: { cell: Cell | undefined; verse: number; diff: PaneDiff | null }) {
+function CellView({
+  cell,
+  verse,
+  diff,
+  numbers,
+}: {
+  cell: Cell | undefined;
+  verse: number;
+  diff: PaneDiff | null;
+  numbers: boolean;
+}) {
   if (!cell) return null;
   if (cell.witnesses) {
     const places = diff?.places;
@@ -39,7 +50,7 @@ function CellView({ cell, verse, diff }: { cell: Cell | undefined; verse: number
         {cell.witnesses.map((w, k) => (
           <li key={w.scroll} dir={w.tree.direction}>
             <span dir="ltr" className="me-1.5 inline-flex items-baseline gap-1 text-[11px] leading-none">
-              {k === 0 ? <VerseNumber verse={verse} /> : null}
+              {k === 0 && numbers ? <VerseNumber verse={verse} /> : null}
               <span className="font-semibold text-woad" title={`${w.scroll} ${w.place}`}>
                 {w.scroll}
               </span>
@@ -59,7 +70,7 @@ function CellView({ cell, verse, diff }: { cell: Cell | undefined; verse: number
     <>
       {(cell.trees ?? []).map((tree) => (
         <p key={tree.node} dir={tree.direction}>
-          <VerseNumber verse={verse} />
+          {numbers ? <VerseNumber verse={verse} /> : null}
           <Plain tree={tree} />
         </p>
       ))}
@@ -75,6 +86,8 @@ export function Table({
   diffs,
   onRemove,
   onInspect,
+  rowHeader,
+  verseNumbers = true,
 }: {
   data: ParallelChapter;
   cards: Record<string, CorpusCard>;
@@ -83,8 +96,12 @@ export function Table({
   verse: number | null;
   /** Per corpus, its differences with the others, when they are shown. */
   diffs: Record<string, PaneDiff | null>;
-  onRemove: (name: string) => void;
+  onRemove?: (name: string) => void;
   onInspect: (corpus: string, node: number) => void;
+  /** A first column with a label per row (search results: the passage). */
+  rowHeader?: (row: Row) => ReactNode;
+  /** Verse numbers at the start of cells (not for search results). */
+  verseNumbers?: boolean;
 }) {
   const columns = data.columns.filter((c) => cards[c.name] !== undefined);
   // one hover card for the whole table; the corpus is the one last hovered over
@@ -114,9 +131,9 @@ export function Table({
         className="mx-auto grid px-3 pb-6"
         style={{
           // a corpus without this chapter keeps a narrow column, for its header
-          gridTemplateColumns: columns
-            .map((c) => (c.ref === null ? "minmax(9rem, 0.3fr)" : "minmax(0, 1fr)"))
-            .join(" "),
+          gridTemplateColumns:
+            (rowHeader ? "7.5rem " : "") +
+            columns.map((c) => (c.ref === null ? "minmax(9rem, 0.3fr)" : "minmax(0, 1fr)")).join(" "),
           maxWidth: `${Math.min(
             columns.reduce((w, c) => w + (c.ref === null ? 10 : 26), 0),
             110,
@@ -124,6 +141,9 @@ export function Table({
         }}
       >
         <div role="row" className="contents">
+          {rowHeader ? (
+            <div role="columnheader" className="sticky top-0 z-10 border-b border-rule-strong bg-vellum" />
+          ) : null}
           {columns.map((column) => {
             const card = cards[column.name];
             return (
@@ -149,21 +169,28 @@ export function Table({
                     <span className="block text-[11px] text-stone">{diffs[column.name]!.message}</span>
                   ) : null}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => onRemove(column.name)}
-                  className="rounded px-1.5 text-stone hover:bg-woad-soft hover:text-ink"
-                  aria-label={`Remove ${card.name}`}
-                  title="Remove this text"
-                >
-                  –
-                </button>
+                {onRemove ? (
+                  <button
+                    type="button"
+                    onClick={() => onRemove!(column.name)}
+                    className="rounded px-1.5 text-stone hover:bg-woad-soft hover:text-ink"
+                    aria-label={`Remove ${card.name}`}
+                    title="Remove this text"
+                  >
+                    –
+                  </button>
+                ) : null}
               </div>
             );
           })}
         </div>
         {data.rows.map((row) => (
           <div key={row.verse} role="row" className="contents" aria-label={displayRef(row.ref)}>
+            {rowHeader ? (
+              <div role="rowheader" className="border-b border-rule px-2 py-1.5 text-[13px]">
+                {rowHeader(row)}
+              </div>
+            ) : null}
             {columns.map((column) => {
               const card = cards[column.name];
               return (
@@ -186,7 +213,12 @@ export function Table({
                       onHover(node, target);
                     }}
                   >
-                    <CellView cell={row.cells[column.name]} verse={row.verse} diff={diffs[column.name] ?? null} />
+                    <CellView
+                      cell={row.cells[column.name]}
+                      verse={row.verse}
+                      diff={diffs[column.name] ?? null}
+                      numbers={verseNumbers}
+                    />
                   </DisplayProvider>
                 </div>
               );
