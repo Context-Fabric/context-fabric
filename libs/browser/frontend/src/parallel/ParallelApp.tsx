@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { DisplayProvider, displayRef } from "../display/Display";
@@ -12,281 +12,21 @@ import { DisplayOptions } from "../DisplayOptions";
 import { Workspaces } from "../Workspaces";
 import { DiffNote } from "../read/BookView";
 import { emptyPane, useSettings, useTheme } from "../state";
-import { switchToClassic } from "../switch";
+import { parallelToCommon } from "../common";
 import type { CorpusCard } from "../types";
-import { alignRef, chapterOf, navigate, REFERENCE_IDS } from "../ui";
-import { UiSwitch } from "../UiSwitch";
+import { alignRef, chapterOf, navigate } from "../ui";
+import { InterfaceMenu } from "../InterfaceMenu";
 import { ParallelSearch } from "./Search";
 import { useParallel } from "./state";
-import { termFrom, type Term } from "./terms";
+import { firstChapter, useCards, useReference } from "../shared/corpora";
+import { Mark } from "../shared/Mark";
+import { Navigate } from "../shared/Navigate";
+import { Texts } from "../shared/Texts";
+import { termFrom, type Term } from "../shared/terms";
 import { settingsFor, Table } from "./Table";
 
 // The parallel interface, after Parabible's layout: a slim top bar with the
 // chapter, a drawer with the books, and a column per corpus.
-
-function Mark() {
-  return <img src="/favicon.svg" alt="" className="h-5 w-5" />;
-}
-
-/** The open corpora and their cards. */
-function useCards() {
-  const corpora = useQuery({ queryKey: ["corpora"], queryFn: api.corpora });
-  const names = corpora.data?.corpora.map((c) => c.name) ?? [];
-  const cards = useQuery({
-    queryKey: ["cards", ...names],
-    queryFn: async () => {
-      const entries = await Promise.allSettled(names.map((n) => api.corpus(n)));
-      const result: Record<string, CorpusCard> = {};
-      entries.forEach((e, i) => {
-        if (e.status === "fulfilled") result[names[i]] = e.value;
-      });
-      return result;
-    },
-    enabled: names.length > 0,
-    placeholderData: (previous) => previous,
-  });
-  return {
-    corpora,
-    names,
-    cards: cards.data ?? {},
-    ready: corpora.data !== undefined && (!names.length || !!cards.data),
-  };
-}
-
-/** The corpus whose verse numbering the rows follow: the BHSA, opened in the
- * background when it is on this computer but not open. Otherwise null. */
-function useReference(cards: Record<string, CorpusCard>, ready: boolean): { name: string | null; settled: boolean } {
-  const client = useQueryClient();
-  const open = Object.values(cards).find((c) => REFERENCE_IDS.includes(c.id?.toLowerCase() ?? ""));
-  const library = useQuery({ queryKey: ["library"], queryFn: api.library, enabled: ready && !open });
-  const tried = useRef(false);
-  const [failed, setFailed] = useState(false);
-  const entry = library.data?.corpora.find((c) => REFERENCE_IDS.includes(c.id.toLowerCase()));
-
-  useEffect(() => {
-    if (!ready || open || !entry || tried.current) return;
-    tried.current = true;
-    api
-      .openCorpus(entry.id)
-      .then(() => client.invalidateQueries({ queryKey: ["corpora"] }))
-      .catch(() => setFailed(true));
-  }, [ready, open, entry, client]);
-
-  if (open) return { name: open.name, settled: true };
-  const settled =
-    ready && (library.isError || (library.data !== undefined && (!entry || !library.data.enabled)) || failed);
-  return { name: null, settled };
-}
-
-/** Books, and the chapters of the book opened in the list. */
-function Navigate({
-  corpus,
-  current,
-  onOpen,
-  onClose,
-}: {
-  corpus: string;
-  current: string | null;
-  onOpen: (ref: string) => void;
-  onClose: () => void;
-}) {
-  const panel = useRef<HTMLElement>(null);
-  const currentBook = current ? current.split(" ")[0] : null;
-  const [expanded, setExpanded] = useState<string | null>(currentBook);
-  const books = useQuery({ queryKey: ["sections", corpus, null], queryFn: () => api.sections(corpus) });
-  const chapters = useQuery({
-    queryKey: ["sections", corpus, expanded],
-    queryFn: () => api.sections(corpus, expanded!),
-    enabled: expanded !== null,
-  });
-
-  useEffect(() => {
-    panel.current?.querySelector<HTMLElement>("[aria-current]")?.scrollIntoView({ block: "center" });
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, books.data]);
-
-  return (
-    <>
-      <div className="fixed inset-0 z-20 bg-[rgba(21,23,29,0.25)]" onClick={onClose} aria-hidden />
-      <nav
-        ref={panel}
-        aria-label="Books"
-        className="fixed inset-y-0 start-0 z-30 flex w-[17rem] max-w-[85vw] flex-col border-e border-rule bg-raised shadow-lg"
-      >
-        <header className="flex items-center border-b border-rule px-4 py-2.5">
-          <h2 className="text-[15px] font-semibold">Navigate</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="ms-auto rounded px-2 py-0.5 text-[13px] text-stone hover:bg-woad-soft hover:text-ink"
-          >
-            Close
-          </button>
-        </header>
-        <ol className="min-h-0 flex-1 overflow-y-auto py-1">
-          {(books.data?.children ?? []).map((b) => {
-            const isOpen = expanded === b.ref;
-            return (
-              <li key={b.node}>
-                <button
-                  type="button"
-                  aria-expanded={isOpen}
-                  aria-current={b.ref === currentBook ? "true" : undefined}
-                  onClick={() => setExpanded(isOpen ? null : b.ref)}
-                  className="w-full px-4 py-1.5 text-left text-[14px] hover:bg-woad-soft aria-[current=true]:border-s-2 aria-[current=true]:border-woad aria-[current=true]:font-semibold"
-                >
-                  {displayRef(b.label)}
-                </button>
-                {isOpen ? (
-                  <ol className="grid grid-cols-[repeat(auto-fill,minmax(2.4rem,1fr))] gap-1 px-4 pb-2 pt-1">
-                    {(chapters.data?.children ?? []).map((c) => (
-                      <li key={c.node}>
-                        <button
-                          type="button"
-                          onClick={() => onOpen(c.ref)}
-                          aria-current={c.ref === current ? "page" : undefined}
-                          className="w-full rounded py-1 text-center text-[13px] tabular-nums hover:bg-woad-soft aria-[current=page]:bg-woad aria-[current=page]:text-vellum"
-                        >
-                          {c.label}
-                        </button>
-                      </li>
-                    ))}
-                    {chapters.isLoading ? <li className="col-span-full text-[13px] text-stone">…</li> : null}
-                  </ol>
-                ) : null}
-              </li>
-            );
-          })}
-        </ol>
-      </nav>
-    </>
-  );
-}
-
-/** The columns shown: on or off per open corpus, in an order of choice, and more from the library. */
-function Texts({
-  names,
-  cards,
-  texts,
-  onChange,
-  onAdd,
-}: {
-  names: string[];
-  cards: Record<string, CorpusCard>;
-  texts: string[];
-  onChange: (texts: string[]) => void;
-  onAdd: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const panel = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (panel.current && !panel.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  // the shown texts in their order, then the others
-  const listed = [...texts.filter((t) => names.includes(t)), ...names.filter((n) => !texts.includes(n))];
-  const move = (name: string, by: number) => {
-    const i = texts.indexOf(name);
-    const j = i + by;
-    if (i < 0 || j < 0 || j >= texts.length) return;
-    const next = [...texts];
-    [next[i], next[j]] = [next[j], next[i]];
-    onChange(next);
-  };
-
-  return (
-    <div className="relative" ref={panel}>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        className="rounded px-2.5 py-1 text-[14px] hover:bg-woad-soft aria-expanded:bg-woad-soft"
-      >
-        Texts
-      </button>
-      {open ? (
-        <div className="absolute end-0 top-full z-30 mt-1 w-[19rem] rounded border border-rule-strong bg-raised py-1.5 shadow-lg">
-          <ul>
-            {listed.map((name) => {
-              const shown = texts.includes(name);
-              const i = texts.indexOf(name);
-              return (
-                <li key={name} className="flex items-center gap-2 px-3 py-1 text-[14px]">
-                  <label className="flex min-w-0 flex-1 items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={shown}
-                      onChange={(e) => onChange(e.target.checked ? [...texts, name] : texts.filter((t) => t !== name))}
-                      className="accent-[var(--woad)]"
-                    />
-                    <span className="truncate" title={cards[name]?.title}>
-                      {name} <span className="text-[12px] text-stone">{cards[name]?.version}</span>
-                    </span>
-                  </label>
-                  {shown ? (
-                    <span className="flex text-[12px] text-stone">
-                      <button
-                        type="button"
-                        disabled={i === 0}
-                        onClick={() => move(name, -1)}
-                        className="rounded px-1 hover:bg-woad-soft disabled:opacity-30"
-                        aria-label={`Move ${name} to the left`}
-                      >
-                        ←
-                      </button>
-                      <button
-                        type="button"
-                        disabled={i === texts.length - 1}
-                        onClick={() => move(name, 1)}
-                        className="rounded px-1 hover:bg-woad-soft disabled:opacity-30"
-                        aria-label={`Move ${name} to the right`}
-                      >
-                        →
-                      </button>
-                    </span>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-          <div className="mt-1 border-t border-rule px-3 pt-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                onAdd();
-              }}
-              className="text-[14px] text-woad hover:underline"
-            >
-              Add a text…
-            </button>
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-/** The first chapter of the first book, to start with. */
-async function firstChapter(corpus: string): Promise<string | null> {
-  const books = await api.sections(corpus);
-  const first = books.children[0];
-  if (!first) return null;
-  const chapters = await api.sections(corpus, first.ref);
-  return chapters.children[0]?.ref ?? first.ref;
-}
 
 export function ParallelApp() {
   const [state, actions] = useParallel();
@@ -494,16 +234,7 @@ export function ParallelApp() {
           >
             {theme === "dark" ? "Light" : "Dark"}
           </button>
-          <UiSwitch
-            current="parallel"
-            onSwitch={() =>
-              switchToClassic(
-                state,
-                reference.name,
-                texts.filter((t) => cards[t]?.bookView),
-              )
-            }
-          />
+          <InterfaceMenu current="parallel" describe={() => parallelToCommon(state)} />
         </div>
       </header>
 

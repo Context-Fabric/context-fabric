@@ -75,10 +75,11 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: libs/browser/frontend/package-lock.json
-      - name: Type-check and build the interface
+      - name: Type-check, test and build the interface
         working-directory: libs/browser/frontend
         run: |
           npm ci
+          npm test
           npm run build
       - name: Install core package
         run: pip install -e ../core

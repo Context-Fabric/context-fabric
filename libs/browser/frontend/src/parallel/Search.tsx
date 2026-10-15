@@ -17,7 +17,7 @@ import { Stats } from "../search/Stats";
 import type { CorpusCard, ParallelChapter, Problem, SearchStatus, ViewSettings } from "../types";
 import type { SearchState } from "./state";
 import { Table } from "./Table";
-import { buildTemplate, hasBooks, rangesOf, type Term } from "./terms";
+import { buildTemplate, hasBooks, rangesOf, type Term } from "../shared/terms";
 
 // Searching in the parallel interface: search terms made from words, or a
 // template, in one of the shown corpora; the results are rows with the same

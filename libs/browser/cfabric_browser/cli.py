@@ -75,11 +75,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--ui",
-        choices=["classic", "parallel"],
+        choices=[
+            "panes",
+            "classic",
+            "parallel",
+            "reader",
+            "interlinear",
+            "concordance",
+        ],
         default=None,
-        help="the interface to start in until the user switches: classic (panes)"
-        " or parallel (a column per corpus, a row per verse); see also ui: in"
-        " ~/.cfabric/browser.yaml",
+        help="the interface to start in until the user chooses one: panes, parallel,"
+        " reader, interlinear or concordance; see also ui: in ~/.cfabric/browser.yaml",
     )
     parser.add_argument("--version", action="version", version=__version__)
     return parser.parse_args(argv)
@@ -100,6 +106,7 @@ def main(argv: list[str] | None = None) -> int:
 
     from cfabric_browser.app import create_app
     from cfabric_browser.corpora import CorpusService, load_settings, resolve_corpus
+    from cfabric_browser.interfaces import read_ui_settings, ui_id
     from cfabric_browser.workers import SearchPool
 
     try:
@@ -136,11 +143,15 @@ def main(argv: list[str] | None = None) -> int:
         max_results=args.max_results,
         timeout=args.timeout,
     )
-    ui = args.ui or settings.get("ui") or "classic"
-    if ui not in ("classic", "parallel"):
-        print(f"cfabric-browser: unknown ui {ui!r} in browser.yaml", file=sys.stderr)
+    try:
+        (default, hidden) = read_ui_settings(settings.get("ui"))
+        ui = ui_id(args.ui) if args.ui else (default or "classic")
+    except ValueError as e:
+        print(f"cfabric-browser: {e} (ui: in browser.yaml)", file=sys.stderr)
         return 2
-    app = create_app(service, pool, library=not args.no_library, ui=ui)
+    app = create_app(
+        service, pool, library=not args.no_library, ui=ui, hidden_uis=hidden
+    )
 
     host = args.host
     port = args.port

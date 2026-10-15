@@ -28,7 +28,15 @@ Options:
 - `--max-results`: results kept per search (default 500,000).
 - `--no-open`: don't open a web browser.
 - `--window` (`--no-window`): show the browser in a window of its own instead of a web browser (needs pywebview: `pip install cfabric-browser[desktop]`). Closing the window stops the server. Without `--port` it uses the first free port from 8107, so several windows can run at once. The window keeps its settings, search history and saved workspaces in `~/.cfabric/window`.
-- `--ui classic|parallel`: the interface to start in until the user switches (default `classic`; permanently `ui:` in `~/.cfabric/browser.yaml`). See *Two interfaces*.
+- `--ui NAME`: the interface to start in until the user chooses one: `panes` (the default), `parallel`, `reader`, `interlinear` or `concordance`. Permanently, and to leave interfaces out of the menu, in `~/.cfabric/browser.yaml`:
+
+  ```yaml
+  ui:
+    default: parallel
+    hide: [concordance]
+  ```
+
+  (`ui: parallel` alone also works.) See *Interfaces*.
 - `--no-library`: don't let users open other corpora found on this computer. Then at least one corpus must be given.
 - `--only ORG/REPO`: limit the *Open a corpus* list to these corpora (repeatable), e.g. for a test with a few corpora; others can't be opened from the browser either. Permanently: `library: only:` in `~/.cfabric/browser.yaml`.
 - `--hide ORG/REPO`: leave a corpus out of the *Open a corpus* list (repeatable). To do this permanently, list them in `~/.cfabric/browser.yaml`:
@@ -43,9 +51,11 @@ Options:
 
 The server listens on `127.0.0.1` only. Pass `--host` to change that, and only when you know what you're doing.
 
-## Two interfaces
+## Interfaces
 
-The browser has two interfaces, with a switch (*Panes* / *Parallel*) in the top bar of each that keeps the passage, the corpora and the settings. The interface used last is remembered by the web browser (or the window); `--ui` only sets the one for a first start.
+The browser has several interfaces, chosen in the menu at the right of the top bar (it shows the name of the one in use). Switching keeps the passage, the corpora, the search, the lexicon and the settings; what an interface cannot show is kept for the next one. The interface used last is remembered by the web browser (or the window); `--ui` only sets the one for a first start. *Choose which to offer…* in the menu leaves interfaces out of it, though never the one in use, nor both *Panes* and *Parallel*.
+
+Two are built; *Reader*, *Interlinear* and *Concordance* are planned (their addresses, `/read/…`, `/interlinear/…` and `/concordance/…`, show a page saying so).
 
 - *Panes* (`/?c0=bhsa&ref0=Genesis+1&...`): up to four panes side by side, each with its own corpus, passage and view.
 - *Parallel* (`/Genesis/1?texts=bhsa,sp,dss`), laid out after [Parabible](https://parabible.com): a slim top bar with the chapter (`‹ ›` and ←/→ for the neighbours, the chapter name for a drawer with the books and their chapters), and a column per corpus. *Texts* turns open corpora on and off, orders the columns, and adds more from the corpora on this computer; `–` on a column removes it. The chapters follow the BHSA's numbering, also when the BHSA is not shown (it is opened in the background when it is on this computer); without it, the first column's. Each row is a verse: verses are matched by book (through the book concordance), chapter and verse number, there is a row for every verse number in any of the texts, and a text that lacks a verse has an empty cell. A corpus read by biblical book (DSS) shows in each cell the text of every scroll that has the verse, labelled with the scroll. A corpus without the chapter keeps a narrow column marked *not in this corpus*.

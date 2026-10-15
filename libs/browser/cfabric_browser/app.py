@@ -36,6 +36,7 @@ def create_app(
     manage_pool: bool = True,
     library: bool = True,
     ui: str = "classic",
+    hidden_uis: list[str] | None = None,
 ) -> FastAPI:
     """Build the application.
 
@@ -54,7 +55,10 @@ def create_app(
         when the browser is reachable by others.
     ui: str
         The interface to start in when the user has not chosen one yet:
-        `classic` (panes) or `parallel` (a column per corpus, a row per verse).
+        `classic` (panes), `parallel`, `reader`, `interlinear` or
+        `concordance` (see `cfabric_browser.interfaces`).
+    hidden_uis: list[str] | None
+        Interfaces to leave out of the menu until the user chooses otherwise.
     """
 
     @asynccontextmanager
@@ -87,6 +91,7 @@ def create_app(
             "version": __version__,
             "coreVersion": coreVersion,
             "ui": ui,
+            "hiddenUis": list(hidden_uis or []),
         }
 
     index = static_dir / "index.html"
