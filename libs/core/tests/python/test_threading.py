@@ -11,6 +11,7 @@ import multiprocessing
 import sys
 import threading
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -39,7 +40,7 @@ def api(corpus_dir):
     return Fabric(locations=str(corpus_dir), silent="deep").loadAll(silent="deep")
 
 
-def _ticks_while(work) -> tuple[int, float]:
+def _ticks_while(work: Callable[[], object]) -> tuple[int, float]:
     """Count how often a pure-Python thread runs while ``work()`` executes."""
     ticks = 0
     done = threading.Event()
@@ -62,35 +63,87 @@ def _ticks_while(work) -> tuple[int, float]:
     return ticks, elapsed
 
 
-def _assert_other_threads_ran(ticks: int, elapsed: float) -> None:
-    # With the GIL held for the whole call the counter thread gets roughly one
-    # tick; released, it ticks about once per millisecond.
-    assert elapsed > 0.05, f"call too short ({elapsed:.3f}s) to observe the GIL"
-    assert ticks >= elapsed * 1000 * 0.25, f"{ticks} ticks in {elapsed:.3f}s"
+CALIBRATION_SECONDS = 0.2
+"""How long the main thread sleeps (without the GIL) to measure the counter's
+free-running tick rate."""
+RELEASED_FRACTION = 0.05
+"""Share of the free-running rate the counter must keep during the call. A
+1 ms sleep oversleeps on loaded or timer-coalescing machines (macOS CI runners,
+x86_64 under Rosetta, tick a few hundred times a second), and the engine's
+work competes for the CPU, so the bar is relative to the rate measured on the
+same machine, and low."""
+MIN_EXPECTED_TICKS = 100
+"""Ticks a free-running counter must be expected to make during the call, so
+that the bar (at least 5 ticks) stays above the one or two ticks a call that
+holds the GIL leaves the counter."""
+
+
+def _assert_releases_the_gil(work: Callable[[], object]) -> None:
+    """Assert that a pure-Python thread keeps running while ``work()`` runs."""
+    idle_ticks, idle_elapsed = _ticks_while(lambda: time.sleep(CALIBRATION_SECONDS))
+    free_rate = idle_ticks / idle_elapsed
+    ticks, elapsed = _ticks_while(work)
+    expected = free_rate * elapsed
+    assert expected >= MIN_EXPECTED_TICKS, (
+        f"call too short ({elapsed:.3f}s at {free_rate:.0f} ticks/s) to observe the GIL"
+    )
+    assert ticks >= expected * RELEASED_FRACTION, (
+        f"{ticks} ticks in {elapsed:.3f}s; free-running rate {free_rate:.0f} ticks/s"
+    )
 
 
 def test_compiling_load_releases_the_gil(tmp_path):
     corpus = _write_synthetic_corpus(tmp_path / "fresh")
-    ticks, elapsed = _ticks_while(
+    _assert_releases_the_gil(
         lambda: Fabric(locations=str(corpus), silent="deep").loadAll(silent="deep")
     )
-    _assert_other_threads_ran(ticks, elapsed)
 
 
 def test_compile_releases_the_gil(corpus_dir, tmp_path):
     fabric = Fabric(locations=str(corpus_dir), silent="deep")
-    ticks, elapsed = _ticks_while(lambda: fabric.compile(str(tmp_path / "c.cfr")))
-    _assert_other_threads_ran(ticks, elapsed)
+    _assert_releases_the_gil(lambda: fabric.compile(str(tmp_path / "c.cfr")))
 
 
-def test_search_releases_the_gil(api):
-    def search_repeatedly() -> None:
-        deadline = time.perf_counter() + 0.3
-        while time.perf_counter() < deadline:
-            tuple(api.S.search(TEMPLATE))
+NO_RESULTS = "a:word\nb:word\na .letter=letter. b\na .letter#letter. b"
+"""Two contradictory conditions: no results after comparing every pair of
+words, so the first step of the result iterator is one long engine call."""
 
-    ticks, elapsed = _ticks_while(search_repeatedly)
-    _assert_other_threads_ran(ticks, elapsed)
+
+@pytest.fixture(scope="module")
+def pairs_api(tmp_path_factory):
+    """A corpus small enough that comparing all its word pairs takes about a
+    second."""
+    corpus = write_synthetic_corpus(tmp_path_factory.mktemp("pairs") / "corpus", 4_000)
+    return Fabric(locations=str(corpus), silent="deep").loadAll(silent="deep")
+
+
+def test_search_releases_the_gil(pairs_api):
+    _assert_releases_the_gil(lambda: tuple(pairs_api.S.search(NO_RESULTS)))
+
+
+def test_count_releases_the_gil(pairs_api):
+    def count() -> None:
+        pairs_api.S.study(NO_RESULTS)
+        pairs_api.S.count()
+
+    _assert_releases_the_gil(count)
+
+
+def _hold_the_gil(seconds: float) -> None:
+    """Hold the GIL for about ``seconds`` in one C call: ``sum`` over a
+    ``range`` never lets other threads in, so it stands in for an engine call
+    that forgets to release the GIL."""
+    sample = 1_000_000
+    started = time.perf_counter()
+    sum(range(sample))
+    per_item = (time.perf_counter() - started) / sample
+    sum(range(int(seconds / per_item)))
+
+
+def test_holding_the_gil_fails_the_check():
+    """The check tells a call that holds the GIL from one that releases it."""
+    with pytest.raises(AssertionError, match="ticks in"):
+        _assert_releases_the_gil(lambda: _hold_the_gil(1.0))
 
 
 def test_concurrent_searches_match_serial_results(api):
