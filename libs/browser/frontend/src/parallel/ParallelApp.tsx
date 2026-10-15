@@ -6,12 +6,15 @@ import { HoverCard, useHover } from "../HoverCard";
 import { Library } from "../Library";
 import { Inspector } from "../Inspector";
 import { LexiconView } from "../lexicon/LexiconView";
+import { Cite, citePassage } from "../Cite";
 import { useDifferences, type PaneDiff } from "../differences";
+import { DisplayOptions } from "../DisplayOptions";
+import { Workspaces } from "../Workspaces";
 import { DiffNote } from "../read/BookView";
 import { emptyPane, useSettings, useTheme } from "../state";
 import { switchToClassic } from "../switch";
 import type { CorpusCard } from "../types";
-import { alignRef, chapterOf, REFERENCE_IDS } from "../ui";
+import { alignRef, chapterOf, navigate, REFERENCE_IDS } from "../ui";
 import { UiSwitch } from "../UiSwitch";
 import { ParallelSearch } from "./Search";
 import { useParallel } from "./state";
@@ -287,7 +290,7 @@ async function firstChapter(corpus: string): Promise<string | null> {
 
 export function ParallelApp() {
   const [state, actions] = useParallel();
-  const [settings] = useSettings();
+  const [settings, setSettings] = useSettings();
   const [theme, toggleTheme] = useTheme();
   const [navOpen, setNavOpen] = useState(false);
   const closeNav = useCallback(() => setNavOpen(false), []);
@@ -394,11 +397,12 @@ export function ParallelApp() {
   }
 
   const shown = texts.map((t) => cards[t]).filter((c): c is CorpusCard => c !== undefined);
+  const leadCard = lead ? cards[lead] : undefined;
   const arrow = "rounded px-2 py-1 text-[16px] leading-none hover:bg-woad-soft disabled:opacity-30";
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-1 border-b border-rule bg-raised px-2 py-1.5 sm:gap-2 sm:px-3">
+      <header className="flex flex-wrap items-center gap-x-1 gap-y-1 border-b border-rule bg-raised px-2 py-1.5 sm:gap-x-2 sm:px-3">
         <span className="me-1 flex items-center gap-2" title="Context-Fabric">
           <Mark />
         </span>
@@ -431,7 +435,18 @@ export function ParallelApp() {
         >
           ›
         </button>
-        <div className="ms-auto flex items-center gap-1 sm:gap-2">
+        {chapter.data && !state.searching && !state.lexicon ? (
+          <Cite
+            align="start"
+            text={(software, date) =>
+              (chapter.data?.columns ?? [])
+                .filter((c) => c.ref && cards[c.name])
+                .map((c) => citePassage(cards[c.name], c.ref!, software, date))
+                .join("\n")
+            }
+          />
+        ) : null}
+        <div className="ms-auto flex flex-wrap items-center justify-end gap-1 sm:gap-2">
           <button
             type="button"
             aria-pressed={state.searching}
@@ -464,6 +479,13 @@ export function ParallelApp() {
             </button>
           ) : null}
           <Texts names={names} cards={cards} texts={texts} onChange={actions.setTexts} onAdd={() => setLibrary(true)} />
+          <DisplayOptions
+            settings={settings}
+            formats={leadCard?.display.textFormats ?? []}
+            defaultFormat={leadCard?.display.defaultFormat ?? null}
+            onChange={setSettings}
+          />
+          <Workspaces corpora={names} current="parallel" onLoad={navigate} />
           <button
             type="button"
             onClick={toggleTheme}

@@ -61,6 +61,8 @@ Hovering over a word shows the same card as in *Panes*; clicking it opens the wo
 
 Results are rows: the passage, then the verse the result lies in, in the searched text with the result's innermost nodes highlighted, and the same verse in the other texts (the DSS: per scroll); 25 per page. *Statistics*, *Download…* and *Cite* are as in *Panes*; clicking a passage opens its chapter at that verse. A shared link to a search the server no longer has runs it again.
 
+The top bar also has *Display* (text format and what is shown, shared with *Panes*), *Workspaces* (a saved workspace remembers its interface: loading a parallel one from *Panes* switches over, and the other way round), *Cite* next to the chapter (a citation per shown text), and light or dark colours. On a phone the texts of a verse are shown below each other, each with its name.
+
 ## Queries
 
 Queries use Text-Fabric's search template language, run by Context-Fabric's search engine. Queries written for the TF browser work unchanged and give the same results.

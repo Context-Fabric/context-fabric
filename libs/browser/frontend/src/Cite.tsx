@@ -42,9 +42,11 @@ interface Props {
   /** Builds the citation from the software description and today's date. */
   text: (software: string, date: string) => string;
   label?: string;
+  /** Which edge of the button the panel lines up with: the end (default), or the start near the left of a bar. */
+  align?: "start" | "end";
 }
 
-export function Cite({ text, label = "Cite" }: Props) {
+export function Cite({ text, label = "Cite", align = "end" }: Props) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
@@ -91,7 +93,7 @@ export function Cite({ text, label = "Cite" }: Props) {
         {label}
       </button>
       {open ? (
-        <div className="absolute end-0 z-20 mt-1 flex w-[min(26rem,calc(100vw-2rem))] flex-col gap-2 rounded border border-rule-strong bg-raised p-3 text-[13px] shadow-[0_8px_24px_-12px_rgba(31,43,77,0.35)]">
+        <div className={`absolute ${align === "end" ? "end-0" : "start-0"} z-20 mt-1 flex w-[min(26rem,calc(100vw-2rem))] flex-col gap-2 rounded border border-rule-strong bg-raised p-3 text-[13px] shadow-[0_8px_24px_-12px_rgba(31,43,77,0.35)]`}>
           <textarea
             readOnly
             value={citation}

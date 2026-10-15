@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { DisplayProvider, displayRef, Plain } from "../display/Display";
 import type { PaneDiff } from "../differences";
 import { HoverCard, useHover } from "../HoverCard";
@@ -11,6 +11,20 @@ import type { CorpusCard, ParallelChapter, ViewSettings } from "../types";
 /** A corpus' settings: a text format it does not have falls back to its default. */
 export function settingsFor(card: CorpusCard, settings: ViewSettings): ViewSettings {
   return settings.fmt && !card.display.textFormats.includes(settings.fmt) ? { ...settings, fmt: null } : settings;
+}
+
+const NARROW = "(max-width: 639px)";
+
+/** Whether the screen is too narrow for columns side by side (a phone). */
+function useNarrow(): boolean {
+  const [narrow, setNarrow] = useState(() => window.matchMedia(NARROW).matches);
+  useEffect(() => {
+    const media = window.matchMedia(NARROW);
+    const onChange = () => setNarrow(media.matches);
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
+  return narrow;
 }
 
 /** The verse number at the start of a cell. */
@@ -108,6 +122,8 @@ export function Table({
   const [hovered, onHover] = useHover();
   const hoveredCorpus = useRef<string | null>(null);
   const table = useRef<HTMLDivElement>(null);
+  // on a phone, the texts of a verse are below each other, each with its name
+  const narrow = useNarrow();
 
   useEffect(() => {
     onHover(null);
@@ -131,9 +147,10 @@ export function Table({
         className="mx-auto grid px-3 pb-6"
         style={{
           // a corpus without this chapter keeps a narrow column, for its header
-          gridTemplateColumns:
-            (rowHeader ? "7.5rem " : "") +
-            columns.map((c) => (c.ref === null ? "minmax(9rem, 0.3fr)" : "minmax(0, 1fr)")).join(" "),
+          gridTemplateColumns: narrow
+            ? "minmax(0, 1fr)"
+            : (rowHeader ? "7.5rem " : "") +
+              columns.map((c) => (c.ref === null ? "minmax(9rem, 0.3fr)" : "minmax(0, 1fr)")).join(" "),
           maxWidth: `${Math.min(
             columns.reduce((w, c) => w + (c.ref === null ? 10 : 26), 0),
             110,
@@ -142,7 +159,10 @@ export function Table({
       >
         <div role="row" className="contents">
           {rowHeader ? (
-            <div role="columnheader" className="sticky top-0 z-10 border-b border-rule-strong bg-vellum" />
+            <div
+              role="columnheader"
+              className={narrow ? "hidden" : "sticky top-0 z-10 border-b border-rule-strong bg-vellum"}
+            />
           ) : null}
           {columns.map((column) => {
             const card = cards[column.name];
@@ -150,7 +170,7 @@ export function Table({
               <div
                 key={column.name}
                 role="columnheader"
-                className="sticky top-0 z-10 flex items-center border-b border-rule-strong bg-vellum px-2 py-1 text-[13px]"
+                className={`${narrow ? "" : "sticky top-0 z-10"} flex items-center border-b border-rule-strong bg-vellum px-2 py-1 text-[13px]`}
               >
                 <span className="min-w-0 flex-1 text-center" title={card.title}>
                   <span className="font-semibold">{card.name}</span>
@@ -191,16 +211,18 @@ export function Table({
                 {rowHeader(row)}
               </div>
             ) : null}
-            {columns.map((column) => {
+            {columns.map((column, k) => {
               const card = cards[column.name];
+              // stacked on a phone: a stronger line after the last text of a verse
+              const end = narrow && k === columns.length - 1;
               return (
                 <div
                   key={column.name}
                   role="cell"
                   data-verse={row.verse}
-                  className={`min-w-0 scroll-mt-10 border-b border-rule px-2 py-1.5 ${
-                    row.verse === verse ? "bg-gold-leaf/50" : ""
-                  }`}
+                  className={`min-w-0 scroll-mt-10 border-b px-2 py-1.5 ${
+                    end ? "border-rule-strong pb-3" : "border-rule"
+                  } ${row.verse === verse ? "bg-gold-leaf/50" : ""}`}
                 >
                   <DisplayProvider
                     config={card.display}
@@ -213,6 +235,9 @@ export function Table({
                       onHover(node, target);
                     }}
                   >
+                    {narrow && row.cells[column.name] ? (
+                      <span className="block text-[11px] text-stone">{card.name}</span>
+                    ) : null}
                     <CellView
                       cell={row.cells[column.name]}
                       verse={row.verse}
