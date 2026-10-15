@@ -5,6 +5,12 @@ All notable changes to cfabric-mcp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- A bad search template returns Text-Fabric's messages from context-fabric's template check, including templates whose atoms are not connected by relations or that have no atoms, which Text-Fabric reports outside `S.exe.badSyntax` / `badSemantics`
+- Searches without a positive limit stop at Text-Fabric's fail limit of `4 * maxNode` results, so a runaway template no longer exhausts memory
+
 ## [0.1.8] - 2026-10-14
 
 ### Added

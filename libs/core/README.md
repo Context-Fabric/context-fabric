@@ -51,7 +51,7 @@ for word in F.otype.s("word")[:5]:
 for (phrase, word) in S.search("""
 phrase function=Pred
   word sp=verb
-""")[:5]:
+""", limit=5):
     print(T.text(phrase))
 ```
 
@@ -86,10 +86,20 @@ reference ETCBC queries return Text-Fabric's result sets.
 - **Result order**: search results come in a deterministic order that can
   differ from Text-Fabric's (which depends on its search strategy); results
   match as sets. Within a result tuple, nodes follow the template's atoms.
-- **`S.search`** returns a tuple (a set with `shallow`) rather than a
-  generator, a malformed template may raise instead of returning no results,
-  and a feature repeated within one atom applies every condition (Text-Fabric
-  keeps the last). `S.count()` returns the count.
+- **Bad search templates** raise `cfabric.SearchTemplateError` (a
+  `ValueError`) carrying Text-Fabric's messages, where Text-Fabric prints them
+  and returns no results; `S.study` records them on `S.exe` as Text-Fabric
+  does. Quantifier sub-templates are checked with the template rather than
+  when the quantifier runs. Regular expressions follow Rust's `regex` syntax
+  (no look-around or backreferences).
+- **`S.search` / `S.fetch`** without a limit return a lazy
+  `SearchResultIterator` where Text-Fabric returns a generator; results stop
+  at Text-Fabric's fail limit (`4 * maxNode`) with its cut-off message as a
+  `UserWarning`, and Ctrl-C interrupts a running search. A feature repeated
+  within one atom applies every condition (Text-Fabric keeps the last).
+  `S.count()` returns the count.
+- **Node lists**: `N.sortNodes`, `N.walk(nodes=...)` and search `sets=` raise
+  `IndexError` for a number that is not a node (`1` to `maxNode`).
 - **`silent` and progress options** are accepted; only the `TF.info` /
   `warning` / `error` messages honor `silent`.
 - **`C.levUp` / `C.levDown`** are lazy sequences indexed like Text-Fabric's
