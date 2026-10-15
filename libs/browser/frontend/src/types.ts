@@ -405,6 +405,8 @@ export interface CorpusDownload {
   unpacked: number;
   /** where its terms of use are */
   terms: string;
+  /** the licence of the data, where it is known (CC BY-NC 4.0) */
+  licence: string | null;
   present: boolean;
   job: {
     state: "running" | "done" | "failed" | "cancelled";

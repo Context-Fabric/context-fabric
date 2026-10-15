@@ -81,6 +81,8 @@ class Download:
     layout: str  # "complete" (folders from <org>/ down) or "flat" (tf/<version> only)
     terms: str  # where its terms of use are
     extras: tuple[Extra, ...] = field(default_factory=tuple)
+    # the licence of the data, where it is known (confirmed by the user)
+    licence: str | None = None
 
     @property
     def org(self) -> str:
@@ -128,6 +130,7 @@ DOWNLOADS: dict[str, Download] = {
             sha256="8d3f2be7ca035d87c1d22a5164a63b43c114b0da437b1f30a99183e9cbf299b8",
             layout="complete",
             terms="https://github.com/DT-UCPH/sp",
+            licence="CC BY-NC 4.0",
         ),
         Download(
             id="ETCBC/dss",
@@ -142,6 +145,7 @@ DOWNLOADS: dict[str, Download] = {
             sha256="26a390ed4f089f4a683c0df475a32cdd6932a83ab383d9379ff6799752f90cba",
             layout="flat",
             terms="https://github.com/ETCBC/dss",
+            licence="CC BY-NC 4.0",
             extras=(
                 Extra(
                     "app/config.yaml",
