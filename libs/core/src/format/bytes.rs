@@ -16,8 +16,8 @@ pub(crate) fn map_file(path: &Path) -> Result<Mmap> {
     })?;
     // SAFETY: `Mmap::map` is unsafe because the mapped bytes can change if the
     // file is modified while mapped. Context-Fabric never modifies a `.cfr` in
-    // place: `write_compiled` stages a new file and atomically renames it over
-    // the destination, so live mappings keep the old inode's bytes unchanged.
+    // place: every writer stages a new file and atomically renames it into
+    // place, so live mappings keep the old inode's bytes unchanged.
     // An external tool rewriting the file in place would break the `&[u8]`
     // immutability contract; that is outside our control (as for every mmap
     // user). Every read goes through bounds-checked accessors that copy into

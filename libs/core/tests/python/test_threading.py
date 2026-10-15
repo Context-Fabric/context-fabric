@@ -134,7 +134,9 @@ print(len(tuple(api.S.search(sys.argv[2]))))
 
 
 def test_processes_compiling_the_same_cache_concurrently_all_succeed(tmp_path):
-    """Each process publishes a complete cache atomically; none sees a partial one."""
+    """The first process to publish its cache wins and the others map it: none
+    sees a partial cache, none replaces a cache another has mapped (which
+    Windows refuses), and no staged file is left behind."""
     import subprocess
 
     corpus = _write_synthetic_corpus(tmp_path / "shared")
@@ -155,3 +157,4 @@ def test_processes_compiling_the_same_cache_concurrently_all_succeed(tmp_path):
     assert len(counts) == 1 and int(counts.pop()) > 0
     leftovers = [path.name for path in (corpus / ".cfr").rglob("*.partial")]
     assert leftovers == []
+    assert len(list((corpus / ".cfr").rglob("*.cfr"))) == 1

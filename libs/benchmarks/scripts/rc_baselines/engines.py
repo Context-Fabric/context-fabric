@@ -8,7 +8,7 @@ they run unchanged under any of the three interpreters:
 * ``tf``             Text-Fabric (``tf.fabric.Fabric``), the reference.
 * ``cf_python``      Context-Fabric 0.5.8, the previous pure-Python core.
 * ``cf_rust``        Context-Fabric 0.6.0rc1 (Rust/PyO3 core) via ``loadAll``,
-                     which compiles/reuses ``<tf>/.cfr/<v>/corpus.cfr``.
+                     which compiles/reuses ``<tf>/.cfr/<v>/corpus.<fingerprint>.cfr``.
 * ``cf_rust_mapped`` Context-Fabric 0.6.0rc1 via ``openMapped(<cache>)`` on an
                      explicit compiled cache (the path ``perf_gate`` measures).
 

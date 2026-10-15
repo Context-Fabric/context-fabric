@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use crate::cache::{CacheLocations, ensure_compiled};
+use crate::cache::CorpusCache;
 use crate::compile::{Corpus, compile_features, compile_loaded_corpus};
 use crate::config::{BANNER, VERSION};
 use crate::error::Result;
@@ -123,23 +123,29 @@ impl Fabric {
             .collect())
     }
 
-    /// Preferred location of the compiled cache `load` builds (inside the
-    /// last module directory). See [`crate::cache`] for the fallback used
-    /// when that directory is read-only.
-    pub fn cfr_cache_path(&self) -> PathBuf {
-        CacheLocations::for_module_paths(&self.cache_module_paths()).in_corpus
+    /// Path inside the last module directory of the compiled cache `load`
+    /// uses or builds for the current sources. See [`crate::cache`] for the
+    /// fallback used when that directory is read-only.
+    pub fn cfr_cache_path(&self) -> Result<PathBuf> {
+        self.cache().in_corpus_path()
+    }
+
+    /// Deletes every compiled cache of this corpus, forcing a recompile on
+    /// the next load.
+    pub fn clear_cache(&self) -> Result<()> {
+        self.cache().clear()
     }
 
     pub fn load_mapped(&self, features: impl FeatureSpec) -> Result<MappedCompiledCorpus> {
         let _ = features.feature_names();
         let module_paths = self.cache_module_paths();
-        let cache_path = ensure_compiled(&module_paths, |output| {
-            if module_paths.len() > 1 {
-                let corpus = Corpus::load_paths(module_paths.clone())?.with_rank_arrays();
-                compile_loaded_corpus(&corpus, output)
+        let cache_path = self.cache().ensure_compiled(|| {
+            let corpus = if module_paths.len() > 1 {
+                Corpus::load_paths(module_paths.clone())?
             } else {
-                compile_features(&module_paths[0], output, &[])
-            }
+                Corpus::load(&module_paths[0])?
+            };
+            Ok(corpus.with_rank_arrays())
         })?;
         MappedCompiledCorpus::open(cache_path)
     }
@@ -176,6 +182,10 @@ impl Fabric {
 
     pub fn open_mapped(&self, cache_path: impl AsRef<Path>) -> Result<MappedCompiledCorpus> {
         MappedCompiledCorpus::open(cache_path)
+    }
+
+    fn cache(&self) -> CorpusCache {
+        CorpusCache::new(self.cache_module_paths())
     }
 
     /// Existing module directories, falling back to the base path so a missing

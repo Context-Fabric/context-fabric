@@ -615,15 +615,11 @@ impl PyFabric {
         Ok(Some(shown.into_any().unbind()))
     }
 
-    /// Delete the compiled `.cfr` cache, forcing a recompile on the next load.
+    /// Delete every compiled `.cfr` cache of this corpus, forcing a recompile on
+    /// the next load.
     #[allow(non_snake_case)]
     fn clearCache(&self) -> PyResult<()> {
-        let path = self.inner.cfr_cache_path();
-        match std::fs::remove_file(&path) {
-            Ok(()) => Ok(()),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(error) => Err(error.into()),
-        }
+        Ok(self.inner.clear_cache()?)
     }
 
     /// Show (or return) information about loaded features; see `Corpus.isLoaded`.

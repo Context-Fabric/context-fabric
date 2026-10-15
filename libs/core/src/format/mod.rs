@@ -37,4 +37,4 @@ pub(crate) use bytes::*;
 pub use metadata::*;
 pub use reader::inspect_compiled;
 pub(crate) use reader::{Reader, inspect_compiled_bytes};
-pub(crate) use writer::{write_compiled, write_u32_vec};
+pub(crate) use writer::{write_compiled, write_compiled_to, write_u32_vec};

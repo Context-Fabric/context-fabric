@@ -23,16 +23,16 @@ use crate::value::FeatureValue;
 ///
 /// Never rewriting the destination in place matters because readers memory-map
 /// it: truncating a mapped file makes those readers see foreign bytes (or fault
-/// with SIGBUS past the new end). With a rename, open mappings keep the old
-/// inode, concurrent compilers each publish a complete file (last one wins),
-/// and a failed or interrupted compile leaves the previous cache untouched.
+/// with SIGBUS past the new end). A failed or interrupted compile leaves the
+/// previous file untouched.
 pub(crate) fn write_compiled(corpus: &Corpus, output_path: &Path) -> Result<()> {
     write_atomically(output_path, |file| {
-        write_compiled_contents(corpus, file, output_path)
+        write_compiled_to(corpus, file, output_path)
     })
 }
 
-fn write_compiled_contents(corpus: &Corpus, file: &File, output_path: &Path) -> Result<()> {
+/// Writes the compiled cache into `file`; `output_path` names it in errors.
+pub(crate) fn write_compiled_to(corpus: &Corpus, file: &File, output_path: &Path) -> Result<()> {
     let mut writer = BufWriter::new(file);
     writer.write_all(MAGIC).map_err(|source| CfError::Io {
         path: output_path.to_path_buf(),

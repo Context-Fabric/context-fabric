@@ -58,10 +58,15 @@ fn fabric_load_all_creates_reuses_and_refreshes_mapped_cache() {
     let temp_dir = tempfile::tempdir().unwrap();
     let corpus_dir = copy_mini_corpus(&temp_dir.path().join("mini"));
     let fabric = Fabric::new(&corpus_dir);
-    let cache_path = fabric.cfr_cache_path();
+    let cache_path = fabric.cfr_cache_path().unwrap();
     assert_eq!(
-        cache_path,
-        corpus_dir.join(".cfr").join(CFR_VERSION).join("corpus.cfr")
+        cache_path.parent().unwrap(),
+        corpus_dir.join(".cfr").join(CFR_VERSION)
+    );
+    let name = cache_path.file_name().unwrap().to_string_lossy();
+    assert!(
+        name.starts_with("corpus.") && name.ends_with(".cfr"),
+        "{name}"
     );
     assert!(!cache_path.exists());
 
@@ -80,10 +85,16 @@ fn fabric_load_all_creates_reuses_and_refreshes_mapped_cache() {
     let word_path = corpus_dir.join("word.tf");
     let word_contents = fs::read_to_string(&word_path).unwrap();
     fs::write(&word_path, word_contents).unwrap();
+    let refreshed_path = fabric.cfr_cache_path().unwrap();
+    assert_ne!(refreshed_path, cache_path);
     let third = fabric.load_all().unwrap();
     assert_eq!(third.max_node(), 8);
-    let third_mtime = fs::metadata(&cache_path).unwrap().modified().unwrap();
-    assert!(third_mtime > second_mtime);
+    assert!(refreshed_path.exists());
+    // The stale cache is pruned where the platform allows deleting a mapped
+    // file; the corpora mapped from it keep working either way.
+    #[cfg(unix)]
+    assert!(!cache_path.exists());
+    assert_eq!(first.max_node(), 8);
 }
 
 #[test]

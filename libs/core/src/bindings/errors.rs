@@ -1,6 +1,8 @@
 //! Maps [`CfError`] to Python exceptions.
 
-use pyo3::exceptions::{PyFileNotFoundError, PyKeyboardInterrupt, PyRuntimeError, PyValueError};
+use pyo3::exceptions::{
+    PyFileNotFoundError, PyKeyboardInterrupt, PyPermissionError, PyRuntimeError, PyValueError,
+};
 use pyo3::prelude::*;
 
 use crate::error::CfError;
@@ -22,6 +24,7 @@ impl From<CfError> for PyErr {
             }
             CfError::Template(_) => SearchTemplateError::new_err(error.to_string()),
             CfError::Interrupted => PyKeyboardInterrupt::new_err(error.to_string()),
+            CfError::UnreplaceableCache { .. } => PyPermissionError::new_err(error.to_string()),
             CfError::Parse { .. }
             | CfError::IncompatibleCache { .. }
             | CfError::MissingFeature(_) => PyValueError::new_err(error.to_string()),

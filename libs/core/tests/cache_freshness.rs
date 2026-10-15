@@ -89,7 +89,10 @@ fn a_composed_corpus_cache_never_stands_in_for_one_of_its_locations() {
     // `extra` would silently hand back the base corpus.
     let alone = Fabric::new(&extra);
     assert!(alone.load_all().is_err());
-    assert_ne!(composed.cfr_cache_path(), alone.cfr_cache_path());
+    assert_ne!(
+        composed.cfr_cache_path().unwrap(),
+        alone.cfr_cache_path().unwrap()
+    );
 }
 
 #[test]
@@ -98,28 +101,51 @@ fn an_unchanged_corpus_reuses_its_cache() {
     let corpus = copy_mini_corpus(dir.path());
     let fabric = Fabric::new(&corpus);
     fabric.load_all().unwrap();
-    let cache = fabric.cfr_cache_path();
+    let cache = fabric.cfr_cache_path().unwrap();
     let first = fs::metadata(&cache).unwrap().modified().unwrap();
     std::thread::sleep(Duration::from_millis(20));
     fabric.load_all().unwrap();
     assert_eq!(fs::metadata(&cache).unwrap().modified().unwrap(), first);
 }
 
+#[test]
+fn a_corpus_mapped_from_a_stale_cache_keeps_working_after_the_rebuild() {
+    let dir = tempfile::tempdir().unwrap();
+    let corpus = copy_mini_corpus(dir.path());
+    let fabric = Fabric::new(&corpus);
+    let stale = fabric.load_all().unwrap();
+    let word = |corpus: &MappedCompiledCorpus| {
+        corpus
+            .string_pool_node_feature("word")
+            .unwrap()
+            .unwrap()
+            .str_value(1)
+            .unwrap()
+            .map(str::to_string)
+    };
+
+    let word_path = corpus.join("word.tf");
+    let replaced = fs::read_to_string(&word_path)
+        .unwrap()
+        .replace("hello", "shalom");
+    fs::write(&word_path, replaced).unwrap();
+    let fresh = fabric.load_all().unwrap();
+
+    assert_eq!(word(&fresh).as_deref(), Some("shalom"));
+    assert_eq!(word(&stale).as_deref(), Some("hello"));
+}
+
 #[cfg(unix)]
 #[test]
-fn cache_and_manifest_are_readable_by_other_users() {
+fn the_cache_is_readable_by_other_users() {
     use std::os::unix::fs::PermissionsExt;
     let dir = tempfile::tempdir().unwrap();
     let corpus = copy_mini_corpus(dir.path());
     let fabric = Fabric::new(&corpus);
     fabric.load_all().unwrap();
-    let cache = fabric.cfr_cache_path();
-    let mut manifest = cache.clone().into_os_string();
-    manifest.push(".sources.json");
-    for path in [cache, PathBuf::from(manifest)] {
-        let mode = fs::metadata(&path).unwrap().permissions().mode();
-        assert_eq!(mode & 0o044, 0o044, "{} mode {mode:o}", path.display());
-    }
+    let cache = fabric.cfr_cache_path().unwrap();
+    let mode = fs::metadata(&cache).unwrap().permissions().mode();
+    assert_eq!(mode & 0o044, 0o044, "{} mode {mode:o}", cache.display());
 }
 
 /// A default cache in another `.cfr` format version is stale: `loadAll`
@@ -129,7 +155,7 @@ fn default_caches_of_another_format_version_are_rebuilt() {
     let temp_dir = tempfile::tempdir().unwrap();
     let corpus_dir = copy_mini_corpus(temp_dir.path());
     let fabric = Fabric::new(&corpus_dir);
-    let cache_path = fabric.cfr_cache_path();
+    let cache_path = fabric.cfr_cache_path().unwrap();
     drop(fabric.load_all().unwrap());
 
     let mut bytes = fs::read(&cache_path).unwrap();

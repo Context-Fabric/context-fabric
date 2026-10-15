@@ -31,6 +31,19 @@ pub enum CfError {
         expected: &'static str,
     },
 
+    /// The name a compiled cache is published under is held by a file that is
+    /// not a valid cache and cannot be replaced (on Windows, a file another
+    /// process has open or memory-mapped cannot be replaced).
+    #[error(
+        "{path} is not a valid compiled cache and cannot be replaced ({source}); another \
+         process may have it open. Delete it once it is closed, then load again."
+    )]
+    UnreplaceableCache {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
     #[error("missing required feature: {0}")]
     MissingFeature(String),
 
