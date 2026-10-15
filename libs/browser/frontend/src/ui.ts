@@ -10,7 +10,7 @@ export type Ui = "classic" | "parallel";
 const KEY = "cfabric-browser/ui";
 
 /** The interface a URL belongs to, or null for the bare start page. */
-export function uiOfUrl(location: Location = window.location): Ui | null {
+export function uiOfUrl(location: { pathname: string; search: string } = window.location): Ui | null {
   if (location.pathname !== "/" && location.pathname !== "/index.html") return "parallel";
   const p = new URLSearchParams(location.search);
   if (p.get("ui") === "parallel" || p.has("texts")) return "parallel";

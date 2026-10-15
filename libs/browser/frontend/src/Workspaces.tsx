@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
+import { navigate, rememberUi, uiOfUrl, type Ui } from "./ui";
 
 // Saved workspaces: named snapshots of the workspace URL (panes, corpora,
-// passages, templates, sync), kept in this browser and exportable as files.
+// passages, templates, sync; or the parallel interface's chapter, texts and
+// search), kept in this browser and exportable as files.
 // Text-Fabric browser job files can be imported too: their query opens in a
 // search pane, their first passage in a reading pane.
 
@@ -12,7 +14,7 @@ const FORMAT = "cfabric-browser-workspace";
 interface Saved {
   name: string;
   saved: string; // ISO date
-  url: string; // query string, e.g. "?c0=bhsa&v0=read..."
+  url: string; // "?c0=bhsa&v0=read..." (panes) or "/Genesis/1?texts=bhsa,sp" (parallel)
 }
 
 function loadSaved(): Saved[] {
@@ -94,10 +96,26 @@ export function workspaceFromFile(
 
 interface Props {
   corpora: string[];
+  /** Load a workspace of this interface (for the panes: its query string). */
   onLoad: (url: string) => void;
+  /** The interface this menu is in; a workspace of the other one switches to it. */
+  current?: Ui;
 }
 
-export function Workspaces({ corpora, onLoad }: Props) {
+/** The URL to save: the panes' query string, or the parallel interface's path and query. */
+function currentUrl(current: Ui): string {
+  return current === "classic" ? window.location.search : window.location.pathname + window.location.search;
+}
+
+export function Workspaces({ corpora, onLoad, current = "classic" }: Props) {
+  const openUrl = (url: string) => {
+    const target = new URL(url, window.location.origin);
+    const ui = uiOfUrl(target) ?? "classic";
+    if (ui !== current) {
+      rememberUi(ui);
+      navigate(target.pathname + target.search);
+    } else onLoad(ui === "classic" ? target.search : target.pathname + target.search);
+  };
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState<Saved[]>(loadSaved);
   const [name, setName] = useState("");
@@ -123,7 +141,7 @@ export function Workspaces({ corpora, onLoad }: Props) {
   const save = () => {
     const title = name.trim();
     if (!title) return;
-    const entry: Saved = { name: title, saved: new Date().toISOString(), url: window.location.search };
+    const entry: Saved = { name: title, saved: new Date().toISOString(), url: currentUrl(current) };
     const list = [entry, ...saved.filter((w) => w.name !== title)];
     if (storeSaved(list)) {
       setSaved(list);
@@ -142,7 +160,14 @@ export function Workspaces({ corpora, onLoad }: Props) {
 
   const exportCurrent = () => {
     const title = name.trim() || "workspace";
-    download(title, JSON.stringify({ format: FORMAT, version: 1, name: title, saved: new Date().toISOString(), url: window.location.search }, null, 2));
+    download(
+      title,
+      JSON.stringify(
+        { format: FORMAT, version: 1, name: title, saved: new Date().toISOString(), url: currentUrl(current) },
+        null,
+        2,
+      ),
+    );
   };
 
   const importFile = async (file: File) => {
@@ -161,7 +186,7 @@ export function Workspaces({ corpora, onLoad }: Props) {
           // an invalid template stays in the editor, where its problems show on searching
         }
       }
-      onLoad(url);
+      openUrl(url);
       setMessage(null);
       setOpen(false);
     } catch {
@@ -198,7 +223,11 @@ export function Workspaces({ corpora, onLoad }: Props) {
               aria-label="Name of the workspace"
               className="min-w-0 flex-1 rounded border border-rule-strong bg-vellum px-2 py-1 placeholder:text-stone"
             />
-            <button type="submit" disabled={!name.trim()} className="rounded bg-woad px-3 py-1 font-semibold text-vellum disabled:opacity-50">
+            <button
+              type="submit"
+              disabled={!name.trim()}
+              className="rounded bg-woad px-3 py-1 font-semibold text-vellum disabled:opacity-50"
+            >
               Save
             </button>
           </form>
@@ -214,7 +243,7 @@ export function Workspaces({ corpora, onLoad }: Props) {
                   <button
                     type="button"
                     onClick={() => {
-                      onLoad(w.url);
+                      openUrl(w.url);
                       setOpen(false);
                     }}
                     className="min-w-0 flex-1 truncate text-left hover:text-woad"
