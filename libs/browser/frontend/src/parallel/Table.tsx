@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { DisplayProvider, displayRef, Plain } from "../display/Display";
+import type { PaneDiff } from "../differences";
 import { HoverCard, useHover } from "../HoverCard";
+import { PlaceSummary } from "../read/BookView";
 import type { CorpusCard, ParallelChapter, ViewSettings } from "../types";
 
 // The chapter as a table, as in Parabible: a column per corpus and a row per
@@ -23,11 +25,17 @@ function VerseNumber({ verse }: { verse: number }) {
 type Cell = ParallelChapter["rows"][number]["cells"][string];
 
 /** One corpus' text of one verse: the verse itself, or for the DSS the text of each scroll. */
-function CellView({ cell, verse }: { cell: Cell | undefined; verse: number }) {
+function CellView({ cell, verse, diff }: { cell: Cell | undefined; verse: number; diff: PaneDiff | null }) {
   if (!cell) return null;
   if (cell.witnesses) {
+    const places = diff?.places;
     return (
       <ol className="flex flex-col gap-1">
+        {places?.verses.get(verse)?.map((place, k) => (
+          <li key={`place-${k}`}>
+            <PlaceSummary place={place} a={places.a} b={places.b} />
+          </li>
+        ))}
         {cell.witnesses.map((w, k) => (
           <li key={w.scroll} dir={w.tree.direction}>
             <span dir="ltr" className="me-1.5 inline-flex items-baseline gap-1 text-[11px] leading-none">
@@ -64,6 +72,7 @@ export function Table({
   cards,
   settings,
   verse,
+  diffs,
   onRemove,
   onInspect,
 }: {
@@ -72,6 +81,8 @@ export function Table({
   settings: ViewSettings;
   /** The verse to scroll to and mark. */
   verse: number | null;
+  /** Per corpus, its differences with the others, when they are shown. */
+  diffs: Record<string, PaneDiff | null>;
   onRemove: (name: string) => void;
   onInspect: (corpus: string, node: number) => void;
 }) {
@@ -93,7 +104,9 @@ export function Table({
   const hoveredCard = hoveredCorpus.current ? cards[hoveredCorpus.current] : undefined;
   return (
     <>
-      {hovered && hoveredCard ? <HoverCard corpus={hoveredCard} hovered={hovered} /> : null}
+      {hovered && hoveredCard ? (
+        <HoverCard corpus={hoveredCard} hovered={hovered} note={diffs[hoveredCard.name]?.titles?.get(hovered.node)} />
+      ) : null}
       <div
         ref={table}
         role="table"
@@ -132,6 +145,9 @@ export function Table({
                       · scrolls
                     </span>
                   ) : null}
+                  {diffs[column.name]?.message ? (
+                    <span className="block text-[11px] text-stone">{diffs[column.name]!.message}</span>
+                  ) : null}
                 </span>
                 <button
                   type="button"
@@ -163,12 +179,14 @@ export function Table({
                     config={card.display}
                     settings={settingsFor(card, settings)}
                     onInspect={(node) => onInspect(card.name, node)}
+                    marks={diffs[column.name]?.marks}
+                    markTitles={diffs[column.name]?.titles}
                     onHover={(node, target) => {
                       hoveredCorpus.current = card.name;
                       onHover(node, target);
                     }}
                   >
-                    <CellView cell={row.cells[column.name]} verse={row.verse} />
+                    <CellView cell={row.cells[column.name]} verse={row.verse} diff={diffs[column.name] ?? null} />
                   </DisplayProvider>
                 </div>
               );

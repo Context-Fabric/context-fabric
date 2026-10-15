@@ -6,6 +6,8 @@ import { HoverCard, useHover } from "../HoverCard";
 import { Library } from "../Library";
 import { Inspector } from "../Inspector";
 import { LexiconView } from "../lexicon/LexiconView";
+import { useDifferences, type PaneDiff } from "../differences";
+import { DiffNote } from "../read/BookView";
 import { emptyPane, serialize, useSettings, useTheme } from "../state";
 import { switchToClassic } from "../switch";
 import type { CorpusCard } from "../types";
@@ -333,6 +335,16 @@ export function ParallelApp() {
     enabled: lead !== null && state.ref !== null && ready,
     placeholderData: (previous) => previous,
   });
+  // differences: the columns as reading panes, the first one compared with the others
+  const comparable = (chapter.data?.columns ?? []).filter((c) => c.ref !== null && cards[c.name]);
+  const diffList = useDifferences(
+    comparable.map((c) => ({ ...emptyPane(c.name), ref: c.ref, by: c.kind === "witnesses" ? "books" : "sections" })),
+    state.diff,
+  );
+  const diffs: Record<string, PaneDiff | null> = {};
+  comparable.forEach((c, i) => (diffs[c.name] = diffList[i]));
+  const baseDiff = comparable.length ? diffs[comparable[0].name] : null;
+
   const prev = chapter.data?.prev ?? null;
   const next = chapter.data?.next ?? null;
 
@@ -416,6 +428,16 @@ export function ParallelApp() {
           ›
         </button>
         <div className="ms-auto flex items-center gap-1 sm:gap-2">
+          <button
+            type="button"
+            aria-pressed={state.diff}
+            disabled={texts.length < 2}
+            onClick={() => actions.setDiff(!state.diff)}
+            className="rounded px-2.5 py-1 text-[14px] hover:bg-woad-soft disabled:opacity-40 aria-pressed:bg-ink aria-pressed:text-vellum"
+            title="Mark the words where the texts differ from the first column, compared on their consonants"
+          >
+            Differences
+          </button>
           {lexiconCorpus ? (
             <button
               type="button"
@@ -511,11 +533,17 @@ export function ParallelApp() {
             <p className="p-10 text-madder">{String((chapter.error as Error).message)}</p>
           ) : chapter.data ? (
             <div className={chapter.isFetching ? "opacity-70" : ""}>
+              {state.diff && baseDiff ? (
+                <div className="mx-auto max-w-[60rem] px-5 pt-2">
+                  <DiffNote message={`Compared with the first column, ${comparable[0].name}, on consonants`} />
+                </div>
+              ) : null}
               <Table
                 data={chapter.data}
                 cards={cards}
                 settings={settings}
                 verse={state.verse}
+                diffs={state.diff ? diffs : {}}
                 onRemove={(name) => actions.setTexts(texts.filter((t) => t !== name))}
                 onInspect={(corpus, node) => setInspected({ corpus, node })}
               />

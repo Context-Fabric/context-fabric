@@ -52,7 +52,9 @@ The browser has two interfaces, with a switch (*Panes* / *Parallel*) in the top 
 
 Hovering over a word shows the same card as in *Panes*; clicking it opens the word panel on the left, with the same contents as the inspector and, for a BHSA word, *Lexicon entry*. *Lexicon* in the top bar (when a corpus with a lexicon is open) shows the lexicon instead of the chapter; a verse in it opens its chapter with that verse marked (`&v=26`; the lexicon is `&lexicon=bhsa&lx=…`). Its *Search* goes to the search in *Panes* for now.
 
-The parallel interface is being built: differences and search follow.
+*Differences* in the top bar (`&diff=1`) marks the words where the texts differ from the first column, with the same rules and colours as *Show differences* in *Panes*; each column header says how many words differ, and hovering over a marked word says from what. With MT, SP and the DSS shown, a DSS cell lists, for each place in that verse where MT and SP differ and a scroll preserves the text, which scrolls side with which.
+
+The parallel interface is being built: search follows.
 
 ## Queries
 
