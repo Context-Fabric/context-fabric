@@ -44,7 +44,7 @@ impl<'a> MappedSearch<'a> {
                     return Ok(yarn);
                 };
                 let antecedent_template = combine_quantifier_subtemplate(clean_atom, antecedent);
-                let antecedent_rows = self.run_template(&antecedent_template, sets, None)?;
+                let antecedent_rows = self.run_template(&antecedent_template, sets)?;
                 if antecedent_rows.is_empty() {
                     return Ok(yarn);
                 }
@@ -54,7 +54,7 @@ impl<'a> MappedSearch<'a> {
                     combined = combine_quantifier_templates(&combined, consequent);
                 }
                 let combined_template = combine_quantifier_subtemplate(clean_atom, &combined);
-                let combined_rows = self.run_template(&combined_template, sets, None)?;
+                let combined_rows = self.run_template(&combined_template, sets)?;
                 let satisfied: HashSet<Vec<u32>> = combined_rows
                     .into_iter()
                     .map(|row| row.into_iter().take(size_a).collect())
@@ -75,14 +75,14 @@ impl<'a> MappedSearch<'a> {
         }
     }
 
+    /// Every match of a quantifier sub-template (checked with the outer
+    /// template).
     pub(super) fn run_template(
         &self,
         template: &str,
         sets: Option<&SearchSets<'_>>,
-        limit: Option<usize>,
     ) -> Result<Vec<Vec<u32>>> {
-        let plan = parse_mapped_plan(template)?;
-        self.search_plan(&plan, sets, limit)
+        self.join_rows(parse_mapped_plan(template)?, sets)
     }
 
     pub(super) fn quantifier_subsearch_roots(
@@ -91,7 +91,7 @@ impl<'a> MappedSearch<'a> {
         sets: Option<&SearchSets<'_>>,
     ) -> Result<HashSet<u32>> {
         Ok(self
-            .run_template(template, sets, None)?
+            .run_template(template, sets)?
             .into_iter()
             .filter_map(|row| row.first().copied())
             .collect())

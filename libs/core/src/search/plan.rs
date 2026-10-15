@@ -24,17 +24,12 @@ pub(super) struct MappedRelationPlan {
     pub(super) relations: Vec<MappedRelation>,
 }
 
+/// A relation between two atoms, by atom index.
 #[derive(Clone)]
 pub(super) struct MappedRelation {
-    pub(super) left: MappedRelationEndpoint,
+    pub(super) left: usize,
     pub(super) operator: MappedRelationOperator,
-    pub(super) right: MappedRelationEndpoint,
-}
-
-#[derive(Clone)]
-pub(super) enum MappedRelationEndpoint {
-    Atom(usize),
-    Parent,
+    pub(super) right: usize,
 }
 
 pub(super) struct PendingMappedRelation {
@@ -227,9 +222,9 @@ pub(super) fn parse_mapped_plan(template: &str) -> Result<MappedRelationPlan> {
                 {
                     let other = sibling_or_parent(indent, &atom_stack)?;
                     direct_relations.push(MappedRelation {
-                        left: MappedRelationEndpoint::Atom(other),
+                        left: other,
                         operator,
-                        right: MappedRelationEndpoint::Atom(target),
+                        right: target,
                     });
                     break 'line;
                 }
@@ -343,9 +338,9 @@ pub(super) fn register_atom(
             ));
         };
         direct_relations.push(MappedRelation {
-            left: MappedRelationEndpoint::Atom(other),
+            left: other,
             operator,
-            right: MappedRelationEndpoint::Atom(q),
+            right: q,
         });
     }
     let deeper: Vec<usize> = atom_stack
@@ -386,9 +381,9 @@ pub(super) fn handle_lonely_operator(
     // Connect previous sibling to the enclosing parent, if any.
     if let Some((_, &parent)) = atom_stack.range(..indent).next_back() {
         direct_relations.push(MappedRelation {
-            left: MappedRelationEndpoint::Atom(sibling),
+            left: sibling,
             operator,
-            right: MappedRelationEndpoint::Atom(parent),
+            right: parent,
         });
     }
     Ok(())
@@ -397,14 +392,10 @@ pub(super) fn handle_lonely_operator(
 pub(super) fn mapped_relation_endpoint(
     names: &HashMap<String, usize>,
     endpoint: &str,
-) -> Result<MappedRelationEndpoint> {
-    if endpoint == ".." {
-        return Ok(MappedRelationEndpoint::Parent);
-    }
+) -> Result<usize> {
     names
         .get(endpoint)
         .copied()
-        .map(MappedRelationEndpoint::Atom)
         .ok_or_else(|| CfError::InvalidQuery(format!("unknown mapped relation atom {endpoint:?}")))
 }
 

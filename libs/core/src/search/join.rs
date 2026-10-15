@@ -1,80 +1,115 @@
 //! The backtracking join: binds atoms one at a time, each driven by an
-//! already-bound neighbour through relations, embedding, or edges.
+//! already-bound neighbour through relations, embedding, or edges. The join
+//! is resumable, so matches can be produced in batches of any size.
 
 use std::collections::{HashMap, HashSet};
+use std::ops::ControlFlow;
 
 use crate::error::{CfError, Result};
 use crate::mapped::{EdgeFeatureView, MappedCompiledCorpus};
 use crate::search::candidates::CandidateSet;
-use crate::search::plan::{
-    MappedRelationEndpoint, MappedRelationOperator, MappedRelationPlan, nearest_bound_parent_index,
-};
+use crate::search::interrupt::InterruptPoll;
+use crate::search::plan::{MappedRelationOperator, MappedRelationPlan, nearest_bound_parent_index};
 use crate::search::{MappedSearch, SearchSets};
 
-/// Where the backtracking join emits complete assignments: materialized rows
-/// for `search`/`fetch`, a bare counter for `count`. Counting skips the
-/// per-result `Vec` allocation entirely (424k rows on `q_feat_empty_qere`).
-pub(super) enum JoinSink {
-    Rows(Vec<Vec<u32>>),
-    Count(usize),
+/// A join in progress: everything it needs between batches of matches, owned
+/// so that it can be resumed. Made by `MappedSearch::start_join` and advanced
+/// with a search over the same corpus.
+pub(super) enum JoinState {
+    /// A template of one atom without relations: its candidates are the
+    /// matches.
+    Single { nodes: Vec<u32>, next: usize },
+    /// The backtracking join over several atoms.
+    Multi(Box<MultiJoin>),
 }
 
-impl JoinSink {
-    pub(super) fn emit(&mut self, bound: &[Option<u32>]) {
+/// The backtracking join's state: atoms are bound in join order, each from the
+/// candidates its bound neighbours drive; `frames[d]` holds the remaining
+/// candidates of the atom at position `d`.
+pub(super) struct MultiJoin {
+    plan: MappedRelationPlan,
+    candidates: Vec<CandidateSet>,
+    /// The embedding parent of each atom (its nearest enclosing atom).
+    embeds: Vec<Option<usize>>,
+    /// Atom indices in binding order.
+    order: Vec<usize>,
+    bound: Vec<Option<u32>>,
+    frames: Vec<Frame>,
+    started: bool,
+    /// Slots of container nodes, read once per container.
+    slots_cache: HashMap<u32, Vec<u32>>,
+}
+
+/// The candidates of one join position and the next one to try.
+struct Frame {
+    candidates: Vec<u32>,
+    next: usize,
+}
+
+impl JoinState {
+    /// The atoms in binding order, each with its number of candidates.
+    pub(super) fn binding_order(&self) -> Vec<(usize, usize)> {
         match self {
-            Self::Rows(rows) => {
-                rows.push(bound.iter().map(|node| node.expect("bound")).collect());
-            }
-            Self::Count(count) => *count += 1,
+            Self::Single { nodes, .. } => vec![(0, nodes.len())],
+            Self::Multi(join) => join
+                .order
+                .iter()
+                .map(|&atom| (atom, join.candidates[atom].len()))
+                .collect(),
         }
     }
 
-    pub(super) fn emitted(&self) -> usize {
+    /// Visit matches in order, each as its bound nodes in atom order, until
+    /// `visit` breaks or the join is exhausted. Returns whether it is
+    /// exhausted.
+    pub(super) fn advance(
+        &mut self,
+        search: &MappedSearch<'_>,
+        visit: &mut dyn FnMut(&[u32]) -> ControlFlow<()>,
+    ) -> Result<bool> {
         match self {
-            Self::Rows(rows) => rows.len(),
-            Self::Count(count) => *count,
+            Self::Single { nodes, next } => {
+                let mut poll = search.interrupt_poll();
+                while let Some(&node) = nodes.get(*next) {
+                    poll.step()?;
+                    *next += 1;
+                    if visit(&[node]).is_break() {
+                        return Ok(*next >= nodes.len());
+                    }
+                }
+                Ok(true)
+            }
+            Self::Multi(join) => {
+                let mut cursor = JoinCursor {
+                    search,
+                    edge_views: search.edge_views(&join.plan)?,
+                    join,
+                    poll: search.interrupt_poll(),
+                    row: Vec::new(),
+                };
+                while cursor.next_match()? {
+                    cursor.row.clear();
+                    cursor
+                        .row
+                        .extend(cursor.join.bound.iter().map(|node| node.expect("bound")));
+                    if visit(&cursor.row).is_break() {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            }
         }
     }
 }
 
 impl<'a> MappedSearch<'a> {
-    pub(super) fn search_plan(
+    /// Prepare the join of `plan`: each atom's candidates (filtered by its
+    /// node type, features and quantifiers) and the binding order.
+    pub(super) fn start_join(
         &self,
-        plan: &MappedRelationPlan,
+        plan: MappedRelationPlan,
         sets: Option<&SearchSets<'_>>,
-        limit: Option<usize>,
-    ) -> Result<Vec<Vec<u32>>> {
-        match self.search_plan_with_root(plan, sets, limit, None, false)? {
-            JoinSink::Rows(rows) => Ok(rows),
-            JoinSink::Count(_) => unreachable!("rows mode requested"),
-        }
-    }
-
-    /// Run the plan in count-only mode: the join executes identically but emits
-    /// a counter instead of materializing result rows. With `limit`, counting
-    /// stops early — `count(limit)` is `min(total, limit)` either way.
-    pub(super) fn count_plan(
-        &self,
-        plan: &MappedRelationPlan,
-        sets: Option<&SearchSets<'_>>,
-        limit: Option<usize>,
-    ) -> Result<usize> {
-        match self.search_plan_with_root(plan, sets, limit, None, true)? {
-            JoinSink::Count(count) => Ok(count),
-            JoinSink::Rows(rows) => Ok(rows.len()),
-        }
-    }
-
-    pub(super) fn search_plan_with_root(
-        &self,
-        plan: &MappedRelationPlan,
-        sets: Option<&SearchSets<'_>>,
-        limit: Option<usize>,
-        // Bound node for the `..` parent reference (`MappedRelationEndpoint::Parent`)
-        // when this plan is a sub-search; `None` for top-level plans.
-        root: Option<u32>,
-        count_only: bool,
-    ) -> Result<JoinSink> {
+    ) -> Result<JoinState> {
         let n = plan.atoms.len();
 
         // 1. Base candidate node set per atom (feature/type filtered), then reduced
@@ -108,20 +143,10 @@ impl<'a> MappedSearch<'a> {
             candidate_nodes.push(nodes);
         }
 
-        // Single-atom fast path.
+        // Single-atom fast path: the candidates are the matches.
         if plan.relations.is_empty() && n == 1 {
             let nodes = candidate_nodes.pop().unwrap_or_default();
-            let capped = limit.unwrap_or(nodes.len()).min(nodes.len());
-            if count_only {
-                return Ok(JoinSink::Count(capped));
-            }
-            return Ok(JoinSink::Rows(
-                nodes
-                    .into_iter()
-                    .take(capped)
-                    .map(|node| vec![node])
-                    .collect(),
-            ));
+            return Ok(JoinState::Single { nodes, next: 0 });
         }
 
         // 2. Candidate sets with slot intervals (always; driving needs them).
@@ -135,33 +160,34 @@ impl<'a> MappedSearch<'a> {
             .map(|i| nearest_bound_parent_index(&plan.atoms, i))
             .collect();
 
-        // 4. Edge feature views for any edge relations: drivers read forward rows
-        //    and the reverse index straight from the map.
-        let edge_views = self.edge_views(plan)?;
-
-        // 5. Connectivity-greedy evaluation order so every non-seed atom is driven
+        // 4. Connectivity-greedy evaluation order so every non-seed atom is driven
         //    from an already-bound neighbour rather than enumerated wholesale.
-        let order = compute_join_order(plan, &candidates, &embeds, root);
+        let order = compute_join_order(&plan, &candidates, &embeds);
 
-        // 6. Backtracking join driven by relations/embeddings.
-        Join {
-            search: self,
+        Ok(JoinState::Multi(Box::new(MultiJoin {
             plan,
             candidates,
             embeds,
-            edge_views,
             order,
-            limit,
-            root,
             bound: vec![None; n],
-            results: if count_only {
-                JoinSink::Count(0)
-            } else {
-                JoinSink::Rows(Vec::new())
-            },
+            frames: Vec::with_capacity(n),
+            started: false,
             slots_cache: HashMap::new(),
-        }
-        .run()
+        })))
+    }
+
+    /// Every match of `plan`, materialized (quantifier sub-searches).
+    pub(super) fn join_rows(
+        &self,
+        plan: MappedRelationPlan,
+        sets: Option<&SearchSets<'_>>,
+    ) -> Result<Vec<Vec<u32>>> {
+        let mut rows = Vec::new();
+        self.start_join(plan, sets)?.advance(self, &mut |row| {
+            rows.push(row.to_vec());
+            ControlFlow::Continue(())
+        })?;
+        Ok(rows)
     }
 
     /// Slot-containment check (`parent` embeds `child`), mirroring
@@ -238,61 +264,59 @@ impl<'a> MappedSearch<'a> {
     }
 }
 
-/// One backtracking join: binds the plan's atoms in join order, each from the
-/// candidates its bound neighbours drive, and emits every complete binding.
-struct Join<'s, 'a> {
+/// A [`MultiJoin`] being advanced, with the borrowed views it reads.
+struct JoinCursor<'j, 's, 'a> {
     search: &'s MappedSearch<'a>,
-    plan: &'s MappedRelationPlan,
-    candidates: Vec<CandidateSet>,
-    /// The embedding parent of each atom (its nearest enclosing atom).
-    embeds: Vec<Option<usize>>,
     edge_views: EdgeViews<'a>,
-    /// Atom indices in binding order.
-    order: Vec<usize>,
-    limit: Option<usize>,
-    /// The bound node of the `..` parent reference in a sub-search.
-    root: Option<u32>,
-    bound: Vec<Option<u32>>,
-    results: JoinSink,
-    /// Slots of container nodes, read once per container.
-    slots_cache: HashMap<u32, Vec<u32>>,
+    join: &'j mut MultiJoin,
+    poll: InterruptPoll<'s>,
+    /// The current match in atom order.
+    row: Vec<u32>,
 }
 
-impl Join<'_, '_> {
-    fn run(mut self) -> Result<JoinSink> {
-        self.extend(0)?;
-        Ok(self.results)
-    }
-
-    fn limit_reached(&self) -> bool {
-        self.limit
-            .is_some_and(|limit| self.results.emitted() >= limit)
-    }
-
-    /// Binds the atom at `position` in the join order to each of its driven
-    /// candidates that satisfies the constraints it completes, and recurses.
-    fn extend(&mut self, position: usize) -> Result<()> {
-        if self.limit_reached() {
-            return Ok(());
+impl JoinCursor<'_, '_, '_> {
+    /// Bind the next complete assignment; `false` once the join is exhausted.
+    ///
+    /// Depth-first over the join order: the deepest frame tries its next
+    /// candidate; a candidate that satisfies every constraint it completes
+    /// either completes a match (last position) or opens the next frame.
+    fn next_match(&mut self) -> Result<bool> {
+        if !self.join.started {
+            self.join.started = true;
+            let first = self.drive_candidates(self.join.order[0])?;
+            self.join.frames.push(Frame {
+                candidates: first,
+                next: 0,
+            });
         }
-        if position == self.order.len() {
-            // Every constraint was verified as its last endpoint bound, so a
-            // fully-bound assignment is a match. Emit in atom order.
-            self.results.emit(&self.bound);
-            return Ok(());
-        }
-        let atom = self.order[position];
-        for node in self.drive_candidates(atom)? {
-            self.bound[atom] = Some(node);
-            if self.constraints_hold(atom)? {
-                self.extend(position + 1)?;
+        while let Some(depth) = self.join.frames.len().checked_sub(1) {
+            // Poll before taking a candidate, so that an interrupted join
+            // resumes exactly where it stopped.
+            self.poll.step()?;
+            let atom = self.join.order[depth];
+            self.join.bound[atom] = None;
+            let frame = &mut self.join.frames[depth];
+            let Some(&node) = frame.candidates.get(frame.next) else {
+                self.join.frames.pop();
+                continue;
+            };
+            frame.next += 1;
+            self.join.bound[atom] = Some(node);
+            if !self.constraints_hold(atom)? {
+                continue;
             }
-            self.bound[atom] = None;
-            if self.limit_reached() {
-                break;
+            if depth + 1 == self.join.order.len() {
+                // Every constraint was verified as its last endpoint bound, so
+                // a fully-bound assignment is a match.
+                return Ok(true);
             }
+            let candidates = self.drive_candidates(self.join.order[depth + 1])?;
+            self.join.frames.push(Frame {
+                candidates,
+                next: 0,
+            });
         }
-        Ok(())
+        Ok(false)
     }
 
     /// Check every constraint that becomes fully bound by binding `atom`: relations
@@ -300,17 +324,14 @@ impl Join<'_, '_> {
     /// and from any bound child. Each constraint is thus verified exactly once, when
     /// its last endpoint binds.
     fn constraints_hold(&mut self, atom: usize) -> Result<bool> {
-        let node = self.bound[atom].expect("atom just bound");
-        for relation in &self.plan.relations {
-            let involves = matches!(relation.left, MappedRelationEndpoint::Atom(a) if a == atom)
-                || matches!(relation.right, MappedRelationEndpoint::Atom(a) if a == atom);
-            if !involves {
+        let join = &mut *self.join;
+        let node = join.bound[atom].expect("atom just bound");
+        for relation in &join.plan.relations {
+            if relation.left != atom && relation.right != atom {
                 continue;
             }
-            let (Some(left), Some(right)) = (
-                endpoint_node(&relation.left, &self.bound, self.root),
-                endpoint_node(&relation.right, &self.bound, self.root),
-            ) else {
+            let (Some(left), Some(right)) = (join.bound[relation.left], join.bound[relation.right])
+            else {
                 continue;
             };
             // Slot-containment verifications collect the (potentially huge) container
@@ -319,11 +340,11 @@ impl Join<'_, '_> {
             let ok = match relation.operator {
                 MappedRelationOperator::Embeds => {
                     self.search
-                        .contains_cached(&mut self.slots_cache, left, right)?
+                        .contains_cached(&mut join.slots_cache, left, right)?
                 }
                 MappedRelationOperator::EmbeddedIn => {
                     self.search
-                        .contains_cached(&mut self.slots_cache, right, left)?
+                        .contains_cached(&mut join.slots_cache, right, left)?
                 }
                 _ => self.search.relation_holds(relation, left, right),
             };
@@ -331,20 +352,20 @@ impl Join<'_, '_> {
                 return Ok(false);
             }
         }
-        if let Some(parent) = self.embeds[atom]
-            && let Some(parent_node) = self.bound[parent]
+        if let Some(parent) = join.embeds[atom]
+            && let Some(parent_node) = join.bound[parent]
             && !self
                 .search
-                .contains_cached(&mut self.slots_cache, parent_node, node)?
+                .contains_cached(&mut join.slots_cache, parent_node, node)?
         {
             return Ok(false);
         }
-        for (child, child_parent) in self.embeds.iter().enumerate() {
+        for (child, child_parent) in join.embeds.iter().enumerate() {
             if *child_parent == Some(atom)
-                && let Some(child_node) = self.bound[child]
+                && let Some(child_node) = join.bound[child]
                 && !self
                     .search
-                    .contains_cached(&mut self.slots_cache, node, child_node)?
+                    .contains_cached(&mut join.slots_cache, node, child_node)?
             {
                 return Ok(false);
             }
@@ -357,12 +378,13 @@ impl Join<'_, '_> {
     /// slot-window relations). With no driver the full candidate set is returned
     /// (only the seed atom hits this).
     fn drive_candidates(&self, atom: usize) -> Result<Vec<u32>> {
-        let cset = &self.candidates[atom];
+        let join = &*self.join;
+        let cset = &join.candidates[atom];
         let mut drivers: Vec<Vec<u32>> = Vec::new();
 
         // Forward embedding: `atom` is contained in its bound parent.
-        if let Some(parent) = self.embeds[atom]
-            && let Some(parent_node) = self.bound[parent]
+        if let Some(parent) = join.embeds[atom]
+            && let Some(parent_node) = join.bound[parent]
         {
             let Some((pf, pl)) = self.search.fast_interval(parent_node)? else {
                 return Ok(Vec::new());
@@ -370,9 +392,9 @@ impl Join<'_, '_> {
             drivers.push(cset.nodes_within_slot_interval(pf, pl));
         }
         // Reverse embedding: `atom` contains a bound child.
-        for (child, child_parent) in self.embeds.iter().enumerate() {
+        for (child, child_parent) in join.embeds.iter().enumerate() {
             if *child_parent == Some(atom)
-                && let Some(child_node) = self.bound[child]
+                && let Some(child_node) = join.bound[child]
             {
                 let Some((cf, cl)) = self.search.fast_interval(child_node)? else {
                     return Ok(Vec::new());
@@ -381,16 +403,15 @@ impl Join<'_, '_> {
             }
         }
         // Relations with a bound other endpoint.
-        for relation in &self.plan.relations {
-            let (is_left, other_ep) = if matches!(relation.left, MappedRelationEndpoint::Atom(a) if a == atom)
-            {
-                (true, &relation.right)
-            } else if matches!(relation.right, MappedRelationEndpoint::Atom(a) if a == atom) {
-                (false, &relation.left)
+        for relation in &join.plan.relations {
+            let (is_left, other) = if relation.left == atom {
+                (true, relation.right)
+            } else if relation.right == atom {
+                (false, relation.left)
             } else {
                 continue;
             };
-            let Some(other) = endpoint_node(other_ep, &self.bound, self.root) else {
+            let Some(other) = join.bound[other] else {
                 continue;
             };
             if let Some(driver) = self.relation_driver(&relation.operator, is_left, other, cset)? {
@@ -570,17 +591,6 @@ impl Join<'_, '_> {
 /// candidate cross product.
 pub(super) type EdgeViews<'a> = HashMap<String, EdgeFeatureView<'a>>;
 
-pub(super) fn endpoint_node(
-    endpoint: &MappedRelationEndpoint,
-    bound: &[Option<u32>],
-    root: Option<u32>,
-) -> Option<u32> {
-    match endpoint {
-        MappedRelationEndpoint::Atom(index) => bound[*index],
-        MappedRelationEndpoint::Parent => root,
-    }
-}
-
 /// Driving selectivity of a relation operator: 0 = cannot drive (verify only),
 /// 1 = open-ended slot window (`<<`, `>>`, `&&` — yields a large half-corpus set),
 /// 2 = tightly bounded driver (edges, adjacency, same/near boundary, embedding).
@@ -653,15 +663,14 @@ pub(super) fn clamp_hi(target: i64, k: u32) -> u32 {
     (target + i64::from(k)).clamp(0, i64::from(u32::MAX)) as u32
 }
 
-/// Best driving strength for placing `i` given the already-placed atoms (and the
-/// bound parent reference). 0 means `i` is not yet reachable by any driver.
+/// Best driving strength for placing `i` given the already-placed atoms. 0
+/// means `i` is not yet reachable by any driver.
 /// Embedding (both directions) is a tight driver (strength 2).
 pub(super) fn connection_strength(
     i: usize,
     placed: &[bool],
     plan: &MappedRelationPlan,
     embeds: &[Option<usize>],
-    root: Option<u32>,
 ) -> u32 {
     let mut best = 0;
     if let Some(parent) = embeds[i]
@@ -679,18 +688,14 @@ pub(super) fn connection_strength(
         if strength == 0 || strength <= best {
             continue;
         }
-        let other = if matches!(relation.left, MappedRelationEndpoint::Atom(a) if a == i) {
-            &relation.right
-        } else if matches!(relation.right, MappedRelationEndpoint::Atom(a) if a == i) {
-            &relation.left
+        let other = if relation.left == i {
+            relation.right
+        } else if relation.right == i {
+            relation.left
         } else {
             continue;
         };
-        let reachable = match other {
-            MappedRelationEndpoint::Atom(o) => placed[*o],
-            MappedRelationEndpoint::Parent => root.is_some(),
-        };
-        if reachable {
+        if placed[other] {
             best = best.max(strength);
         }
     }
@@ -704,7 +709,6 @@ pub(super) fn compute_join_order(
     plan: &MappedRelationPlan,
     candidates: &[CandidateSet],
     embeds: &[Option<usize>],
-    root: Option<u32>,
 ) -> Vec<usize> {
     let n = plan.atoms.len();
     let sizes: Vec<usize> = candidates.iter().map(CandidateSet::len).collect();
@@ -716,7 +720,7 @@ pub(super) fn compute_join_order(
             if placed[i] {
                 continue;
             }
-            let strength = connection_strength(i, &placed, plan, embeds, root);
+            let strength = connection_strength(i, &placed, plan, embeds);
             if strength == 0 {
                 continue;
             }

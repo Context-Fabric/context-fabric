@@ -475,34 +475,56 @@ fn supports_studied_search_fetch_and_count_workflow() {
     let mapped = mapped_mini_corpus(&dir);
     let search = MappedSearch::new(&mapped).unwrap();
 
-    let study = search.study("word").unwrap();
-    assert_eq!(
-        study.show_plan(false),
-        "template: word\natoms: 1\nrelations: 0\nresults: 5\nquantifiers: false"
-    );
-    assert!(study.show_plan(true).contains("  1: [1]"));
     assert_eq!(
         search.show_plan("word", false).unwrap(),
-        "template: word\natoms: 1\nrelations: 0\nresults: 5\nquantifiers: false"
+        "template: word\natoms: 1\nrelations: 0\nquantifiers: false"
+    );
+    assert!(
+        search
+            .show_plan("word", true)
+            .unwrap()
+            .contains("  1: atom 1 word (5 candidates)")
+    );
+    assert_eq!(
+        search.show_plan("word", false).unwrap(),
+        "template: word\natoms: 1\nrelations: 0\nquantifiers: false"
     );
     assert_eq!(search.count("word", None).unwrap(), 5);
     assert_eq!(search.count("word", Some(2)).unwrap(), 2);
-    assert_eq!(study.fetch_first_nodes(None), vec![1, 2, 3, 4, 5]);
-    assert_eq!(study.fetch_first_nodes(Some(0)), Vec::<u32>::new());
-    assert_eq!(study.fetch_first_nodes(Some(2)), vec![1, 2]);
-    assert_eq!(study.count_first_nodes(Some(3)), 3);
+    assert_eq!(
+        search.search_first_nodes("word", None).unwrap(),
+        vec![1, 2, 3, 4, 5]
+    );
+    assert_eq!(
+        search.search_first_nodes("word", Some(0)).unwrap(),
+        Vec::<u32>::new()
+    );
+    assert_eq!(
+        search.search_first_nodes("word", Some(2)).unwrap(),
+        vec![1, 2]
+    );
+    assert_eq!(search.search_first_nodes("word", Some(3)).unwrap().len(), 3);
     assert_eq!(
         search.search_first_nodes("word", Some(2)).unwrap(),
         vec![1, 2]
     );
 
-    let empty = search.study("word word=missing").unwrap();
-    assert_eq!(empty.count_first_nodes(None), 0);
+    assert_eq!(
+        search
+            .search_first_nodes("word word=missing", None)
+            .unwrap()
+            .len(),
+        0
+    );
 
     let mut sets = HashMap::new();
     sets.insert("mywords", vec![2, 1]);
-    let custom = search.study_with_sets("mywords", &sets).unwrap();
-    assert_eq!(custom.fetch_first_nodes(None), vec![1, 2]);
+    assert_eq!(
+        search
+            .search_first_nodes_with_sets("mywords", &sets, None)
+            .unwrap(),
+        vec![1, 2]
+    );
     assert_eq!(search.count_with_sets("mywords", &sets, None).unwrap(), 2);
     assert_eq!(
         search.count_with_sets("mywords", &sets, Some(1)).unwrap(),
@@ -522,25 +544,48 @@ fn supports_studied_search_fetch_and_count_workflow() {
     );
     assert_eq!(
         search.show_plan_with_sets("mywords", &sets, false).unwrap(),
-        "template: mywords\natoms: 1\nrelations: 0\nresults: 2\nquantifiers: false"
+        "template: mywords\natoms: 1\nrelations: 0\nquantifiers: false"
     );
 
-    let related = search
-        .study(
-            "
+    assert_eq!(
+        search
+            .search_first_nodes(
+                "
 w:word
 p:phrase
 w ]] p
 ",
-        )
-        .unwrap();
-    assert_eq!(related.fetch_first_nodes(None), vec![1, 2, 3, 4, 5]);
+                None
+            )
+            .unwrap(),
+        vec![1, 2, 3, 4, 5]
+    );
     assert_eq!(
-        related.fetch_prefixes(1, None),
+        search
+            .search_prefixes(
+                "
+w:word
+p:phrase
+w ]] p
+",
+                1,
+                None
+            )
+            .unwrap(),
         vec![vec![1], vec![2], vec![3], vec![4], vec![5]]
     );
     assert_eq!(
-        related.fetch_prefixes(2, Some(2)),
+        search
+            .search_prefixes(
+                "
+w:word
+p:phrase
+w ]] p
+",
+                2,
+                Some(2)
+            )
+            .unwrap(),
         vec![vec![1, 6], vec![2, 6]]
     );
     assert_eq!(
@@ -557,33 +602,92 @@ w ]] p
             .unwrap(),
         vec![vec![1, 6], vec![2, 6]]
     );
-    assert_eq!(related.fetch_prefixes(0, None), Vec::<Vec<u32>>::new());
-    assert_eq!(related.fetch_prefixes(1, Some(0)), Vec::<Vec<u32>>::new());
-    assert_eq!(related.count_prefixes(2, None), 5);
+    assert_eq!(
+        search
+            .search_prefixes(
+                "
+w:word
+p:phrase
+w ]] p
+",
+                0,
+                None
+            )
+            .unwrap(),
+        Vec::<Vec<u32>>::new()
+    );
+    assert_eq!(
+        search
+            .search_prefixes(
+                "
+w:word
+p:phrase
+w ]] p
+",
+                1,
+                Some(0)
+            )
+            .unwrap(),
+        Vec::<Vec<u32>>::new()
+    );
+    assert_eq!(
+        search
+            .search_prefixes(
+                "
+w:word
+p:phrase
+w ]] p
+",
+                2,
+                None
+            )
+            .unwrap()
+            .len(),
+        5
+    );
 
-    let phrase_children = search
-        .study(
-            "
+    assert_eq!(
+        search
+            .search_first_nodes(
+                "
 p:phrase
 w:word
 w ]] p
 ",
-        )
-        .unwrap();
-    assert_eq!(phrase_children.fetch_first_nodes(None), vec![6, 7]);
-    assert_eq!(phrase_children.fetch_prefixes(1, Some(1)), vec![vec![6]]);
+                None
+            )
+            .unwrap(),
+        vec![6, 7]
+    );
+    assert_eq!(
+        search
+            .search_prefixes(
+                "
+p:phrase
+w:word
+w ]] p
+",
+                1,
+                Some(1)
+            )
+            .unwrap(),
+        vec![vec![6]]
+    );
 
-    let quantified = search
-        .study(
-            "
+    assert_eq!(
+        search
+            .search_first_nodes(
+                "
 phrase
 /with/
   word pos=noun
 /-/
 ",
-        )
-        .unwrap();
-    assert_eq!(quantified.fetch_first_nodes(None), vec![6, 7]);
+                None
+            )
+            .unwrap(),
+        vec![6, 7]
+    );
 }
 
 #[test]
@@ -1688,22 +1792,35 @@ w .number#phrase_id. p
             .unwrap(),
         vec![vec![1, 7]]
     );
-    let study = search.study("word").unwrap();
-    assert_eq!(
-        study.show_plan(false),
-        "template: word\natoms: 1\nrelations: 0\nresults: 5\nquantifiers: false"
-    );
-    assert!(study.show_plan(true).contains("  1: [1]"));
     assert_eq!(
         search.show_plan("word", false).unwrap(),
-        "template: word\natoms: 1\nrelations: 0\nresults: 5\nquantifiers: false"
+        "template: word\natoms: 1\nrelations: 0\nquantifiers: false"
+    );
+    assert!(
+        search
+            .show_plan("word", true)
+            .unwrap()
+            .contains("  1: atom 1 word (5 candidates)")
+    );
+    assert_eq!(
+        search.show_plan("word", false).unwrap(),
+        "template: word\natoms: 1\nrelations: 0\nquantifiers: false"
     );
     assert_eq!(search.count("word", None).unwrap(), 5);
     assert_eq!(search.count("word", Some(2)).unwrap(), 2);
-    assert_eq!(study.fetch_first_nodes(None), vec![1, 2, 3, 4, 5]);
-    assert_eq!(study.fetch_first_nodes(Some(0)), Vec::<u32>::new());
-    assert_eq!(study.fetch_first_nodes(Some(2)), vec![1, 2]);
-    assert_eq!(study.count_first_nodes(Some(3)), 3);
+    assert_eq!(
+        search.search_first_nodes("word", None).unwrap(),
+        vec![1, 2, 3, 4, 5]
+    );
+    assert_eq!(
+        search.search_first_nodes("word", Some(0)).unwrap(),
+        Vec::<u32>::new()
+    );
+    assert_eq!(
+        search.search_first_nodes("word", Some(2)).unwrap(),
+        vec![1, 2]
+    );
+    assert_eq!(search.search_first_nodes("word", Some(3)).unwrap().len(), 3);
     assert_eq!(
         search.search_first_nodes("word", Some(2)).unwrap(),
         vec![1, 2]
@@ -1720,8 +1837,12 @@ w .number#phrase_id. p
         search.search_with_sets("w pos=noun", &sets, None).unwrap(),
         vec![vec![3], vec![5]]
     );
-    let custom_study = search.study_with_sets("w pos=noun", &sets).unwrap();
-    assert_eq!(custom_study.fetch_first_nodes(None), vec![3, 5]);
+    assert_eq!(
+        search
+            .search_first_nodes_with_sets("w pos=noun", &sets, None)
+            .unwrap(),
+        vec![3, 5]
+    );
     assert_eq!(
         search.count_with_sets("w pos=noun", &sets, None).unwrap(),
         2
@@ -1748,24 +1869,47 @@ w .number#phrase_id. p
         search
             .show_plan_with_sets("w pos=noun", &sets, false)
             .unwrap(),
-        "template: w pos=noun\natoms: 1\nrelations: 0\nresults: 2\nquantifiers: false"
+        "template: w pos=noun\natoms: 1\nrelations: 0\nquantifiers: false"
     );
-    let mapped_related = search
-        .study(
-            "
+    assert_eq!(
+        search
+            .search_first_nodes(
+                "
 w:word
 p:phrase
 w ]] p
 ",
-        )
-        .unwrap();
-    assert_eq!(mapped_related.fetch_first_nodes(None), vec![1, 2, 3, 4, 5]);
+                None
+            )
+            .unwrap(),
+        vec![1, 2, 3, 4, 5]
+    );
     assert_eq!(
-        mapped_related.fetch_prefixes(1, None),
+        search
+            .search_prefixes(
+                "
+w:word
+p:phrase
+w ]] p
+",
+                1,
+                None
+            )
+            .unwrap(),
         vec![vec![1], vec![2], vec![3], vec![4], vec![5]]
     );
     assert_eq!(
-        mapped_related.fetch_prefixes(2, Some(2)),
+        search
+            .search_prefixes(
+                "
+w:word
+p:phrase
+w ]] p
+",
+                2,
+                Some(2)
+            )
+            .unwrap(),
         vec![vec![1, 6], vec![2, 6]]
     );
     assert_eq!(
@@ -1783,26 +1927,73 @@ w ]] p
         vec![vec![1, 6], vec![2, 6]]
     );
     assert_eq!(
-        mapped_related.fetch_prefixes(0, None),
+        search
+            .search_prefixes(
+                "
+w:word
+p:phrase
+w ]] p
+",
+                0,
+                None
+            )
+            .unwrap(),
         Vec::<Vec<u32>>::new()
     );
     assert_eq!(
-        mapped_related.fetch_prefixes(1, Some(0)),
+        search
+            .search_prefixes(
+                "
+w:word
+p:phrase
+w ]] p
+",
+                1,
+                Some(0)
+            )
+            .unwrap(),
         Vec::<Vec<u32>>::new()
     );
-    assert_eq!(mapped_related.count_prefixes(2, None), 5);
-    let mapped_phrase_children = search
-        .study(
-            "
+    assert_eq!(
+        search
+            .search_prefixes(
+                "
+w:word
+p:phrase
+w ]] p
+",
+                2,
+                None
+            )
+            .unwrap()
+            .len(),
+        5
+    );
+    assert_eq!(
+        search
+            .search_first_nodes(
+                "
 p:phrase
 w:word
 w ]] p
 ",
-        )
-        .unwrap();
-    assert_eq!(mapped_phrase_children.fetch_first_nodes(None), vec![6, 7]);
+                None
+            )
+            .unwrap(),
+        vec![6, 7]
+    );
     assert_eq!(
-        mapped_phrase_children.fetch_prefixes(1, Some(1)),
+        search
+            .search_prefixes(
+                "
+p:phrase
+w:word
+w ]] p
+",
+                1,
+                Some(1)
+            )
+            .unwrap(),
         vec![vec![6]]
     );
     let mut sets = HashMap::new();
@@ -2723,17 +2914,17 @@ sentence
             .unwrap(),
         vec![vec![8]]
     );
-    // The quantifier attaches to the last base atom (`p`, the phrase), per TF.
+    // The quantifier attaches to the atom it follows (`p`, the phrase).
     // Phrase 6 contains a word=hello, so all words embedded in phrase 6 match.
     let mut multi_atom_quant = search
         .search(
             "
 w:word
 p:phrase
-w ]] p
 /with/
   word word=hello
 /-/
+w ]] p
 ",
             None,
         )

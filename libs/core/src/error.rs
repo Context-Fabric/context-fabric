@@ -35,6 +35,10 @@ pub enum CfError {
     #[error("invalid query: {0}")]
     InvalidQuery(String),
 
+    /// A running search was stopped by its [`Interrupt`](crate::search::Interrupt).
+    #[error("search interrupted")]
+    Interrupted,
+
     #[error("regex error: {0}")]
     Regex(#[from] regex::Error),
 

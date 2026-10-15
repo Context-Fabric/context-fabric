@@ -32,6 +32,7 @@ __all__ = [
     "Nodes",
     "Search",
     "SearchExe",
+    "SearchResultIterator",
     "Text",
     "Timestamp",
     "VERSION",
@@ -564,6 +565,19 @@ class Text:
     def down(self, n: int) -> tuple[int, ...] | None: ...
     def structurePretty(self, node: int | None = None, fullHeading: bool = False) -> str | None: ...
 
+_SearchResults: TypeAlias = (
+    SearchResultIterator | tuple[tuple[int, ...], ...] | set[int] | set[tuple[int, ...]]
+)
+"""Without `shallow`: a lazy iterator (`limit=None`) or a tuple of result
+tuples; with `shallow`: a set of first nodes or of result-tuple prefixes."""
+
+@final
+class SearchResultIterator(Iterator[tuple[int, ...]]):
+    """Lazy results of `S.search` / `S.fetch` without a limit."""
+
+    def __iter__(self) -> Self: ...
+    def __next__(self) -> tuple[int, ...]: ...
+
 @final
 class Search:
     """Search API (`S`)."""
@@ -593,10 +607,8 @@ class Search:
         shallow: bool | int = False,
         silent: _Silent = "auto",
         here: bool = True,
-    ) -> tuple[tuple[int, ...], ...] | set[int] | set[tuple[int, ...]]: ...
-    def fetch(
-        self, limit: int | None = None
-    ) -> tuple[tuple[int, ...], ...] | set[int] | set[tuple[int, ...]]: ...
+    ) -> _SearchResults: ...
+    def fetch(self, limit: int | None = None) -> _SearchResults: ...
     def count(self, progress: int | None = None, limit: int | None = None) -> int: ...
     def showPlan(self, details: bool = False) -> None: ...
     def glean(self, tup: Iterable[int]) -> str: ...

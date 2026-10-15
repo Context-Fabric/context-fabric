@@ -55,7 +55,7 @@ pub use mapped::{
     MappedSections, MixedNodeFeatureView, SectionOptions, SectionsContext,
     StringPoolNodeFeatureView, TextOptions, TextRenderer, WalkEvent,
 };
-pub use search::{MappedSearch, SearchSets, SearchStudy};
+pub use search::{Interrupt, MappedSearch, PreparedSearch, SearchSets};
 pub use tf::{
     EdgeFeature, FeatureInventory, NodeFeature, Otext, TfFeature, TfFeatureKind, TfFeatureMetadata,
     explore_feature_paths, parse_tf_file, parse_tf_file_metadata, tf_from_value, value_from_tf,

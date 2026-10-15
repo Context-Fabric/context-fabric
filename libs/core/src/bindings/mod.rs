@@ -13,6 +13,8 @@ mod locality;
 mod node_features;
 mod nodes;
 mod search;
+mod search_results;
+mod signals;
 mod text;
 mod timestamp;
 mod visibility;
@@ -54,5 +56,6 @@ pub fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<text::PyText>()?;
     module.add_class::<search::PySearch>()?;
     module.add_class::<search::PySearchExe>()?;
+    module.add_class::<search_results::PySearchResultIterator>()?;
     Ok(())
 }

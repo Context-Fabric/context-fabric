@@ -9,42 +9,18 @@ use pyo3::types::{PyBool, PyDict, PySet, PyTuple};
 
 use crate::bindings::api_ref::ApiRef;
 use crate::bindings::convert::{NodeRange, node_list};
+use crate::bindings::search_results::{PySearchResultIterator, warn_cut_off};
+use crate::bindings::signals::interruptible;
 use crate::bindings::timestamp::{Silent, write_console};
+use crate::error::CfError;
 use crate::mapped::{
     MappedCompiledCorpus, SectionOptions, SectionsContext, TextOptions, TextRenderer,
 };
-use crate::search::{MappedSearch, SEARCH_FAIL_FACTOR, SearchSets};
+use crate::search::{Interrupt, MappedSearch, PreparedSearch, SEARCH_FAIL_FACTOR, SearchSets};
 use crate::value::FeatureValue;
 
 /// Custom search sets owned on the Rust side: `(name, nodes)` pairs.
 type OwnedSearchSets = Vec<(String, Vec<u32>)>;
-
-/// Convert the Python `sets=` argument (a dict mapping a set name to an
-/// iterable of node ids) into owned `(name, nodes)` pairs. Every node must be
-/// a node of the corpus, `1..=max_node` (`IndexError` otherwise). The engine's
-/// `SearchSets` borrows the names, so the owned storage must outlive the call.
-fn search_sets_from_py(
-    sets: Option<&Bound<'_, PyAny>>,
-    max_node: u32,
-) -> PyResult<Option<OwnedSearchSets>> {
-    let Some(sets) = sets else {
-        return Ok(None);
-    };
-    if sets.is_none() {
-        return Ok(None);
-    }
-    let dict = sets.downcast::<PyDict>().map_err(|_| {
-        PyTypeError::new_err("sets must be a dict mapping set names to iterables of node ids")
-    })?;
-    let mut owned = Vec::with_capacity(dict.len());
-    for (key, value) in dict.iter() {
-        let name = key
-            .extract::<String>()
-            .map_err(|_| PyTypeError::new_err("sets keys must be strings (custom set names)"))?;
-        owned.push((name, node_list(&value, NodeRange::Strict { max_node })?));
-    }
-    Ok(Some(owned))
-}
 
 /// Borrow owned set storage as the engine's `SearchSets` view.
 fn borrow_search_sets(owned: &Option<OwnedSearchSets>) -> Option<SearchSets<'_>> {
@@ -86,6 +62,48 @@ impl<'py> FromPyObject<'py> for Shallow {
     }
 }
 
+/// How many results a search delivers (TF `tf/search/searchexe.py::fetch` /
+/// `count`): a positive `limit` caps them quietly; `None`, 0 or a negative
+/// limit fall back to the fail limit, `SEARCH_FAIL_FACTOR * maxNode`, with a
+/// cut-off warning when there are more.
+#[derive(Clone, Copy)]
+struct ResultCap {
+    max: usize,
+    warns: bool,
+}
+
+impl ResultCap {
+    fn new(limit: Option<i64>, fail_limit: usize) -> Self {
+        match limit.and_then(|limit| usize::try_from(limit).ok()) {
+            Some(limit) if limit > 0 => Self {
+                max: limit,
+                warns: false,
+            },
+            _ => Self {
+                max: fail_limit,
+                warns: true,
+            },
+        }
+    }
+
+    /// How many matches to produce: one past a warning cap, to tell whether
+    /// there are more.
+    fn wanted(self) -> usize {
+        self.max.saturating_add(usize::from(self.warns))
+    }
+
+    /// Cut `found` matches to the cap, warning when the cap cut some off.
+    fn apply(self, py: Python<'_>, found: usize) -> PyResult<usize> {
+        if found <= self.max {
+            return Ok(found);
+        }
+        if self.warns {
+            warn_cut_off(py, self.max)?;
+        }
+        Ok(self.max)
+    }
+}
+
 /// Search API (TF `S`): template search.
 #[pyclass(name = "Search", module = "cfabric._core")]
 pub(crate) struct PySearch {
@@ -119,83 +137,105 @@ impl PySearch {
         }
     }
 
-    /// Counts results of the studied `template` (GIL-free engine work).
-    fn count_studied(&self, template: &str, limit: Option<usize>) -> crate::error::Result<usize> {
-        let engine = MappedSearch::new(&self.corpus)?;
-        // Full-tuple counting runs the join in count-only mode (no row
-        // materialization); shallow counting needs the rows for dedup.
-        if self.shallow == 0 {
-            return match borrow_search_sets(&self.sets) {
-                Some(sets) => engine.count_with_sets(template, &sets, limit),
-                None => engine.count(template, limit),
-            };
-        }
-        let study = match borrow_search_sets(&self.sets) {
-            Some(sets) => engine.study_with_sets(template, &sets)?,
-            None => engine.study(template)?,
+    /// TF's fail limit: `SEARCH_FAIL_FACTOR * F.otype.maxNode` results.
+    fn fail_limit(&self) -> usize {
+        SEARCH_FAIL_FACTOR as usize * self.corpus.max_node() as usize
+    }
+
+    /// The search engine, stopping on `interrupt`.
+    fn engine<'s>(
+        &'s self,
+        interrupt: &'s dyn Interrupt,
+    ) -> crate::error::Result<MappedSearch<'s>> {
+        Ok(MappedSearch::new(&self.corpus)?.with_interrupt(interrupt))
+    }
+
+    /// Convert the Python `sets=` argument (a dict mapping a set name to an
+    /// iterable of nodes) into owned `(name, nodes)` pairs. Every node must
+    /// be a node of the corpus (`IndexError` otherwise).
+    fn search_sets(&self, sets: Option<&Bound<'_, PyAny>>) -> PyResult<Option<OwnedSearchSets>> {
+        let Some(sets) = sets.filter(|sets| !sets.is_none()) else {
+            return Ok(None);
         };
-        Ok(match self.shallow {
-            1 => study.count_first_nodes(limit),
-            width => study.count_prefixes(width, limit),
+        let dict = sets.downcast::<PyDict>().map_err(|_| {
+            PyTypeError::new_err("sets must be a dict mapping set names to iterables of node ids")
+        })?;
+        let range = NodeRange::Strict {
+            max_node: self.corpus.max_node(),
+        };
+        let mut owned = Vec::with_capacity(dict.len());
+        for (key, value) in dict.iter() {
+            let name = key.extract::<String>().map_err(|_| {
+                PyTypeError::new_err("sets keys must be strings (custom set names)")
+            })?;
+            owned.push((name, node_list(&value, range)?));
+        }
+        Ok(Some(owned))
+    }
+
+    /// The template of the last `study`.
+    fn studied(&self) -> PyResult<&str> {
+        self.template.as_deref().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err("no search template has been studied")
         })
     }
 
-    /// TF's result limit (`tf/search/searchexe.py::fetch`/`count`): a negative
-    /// limit counts as 0, and 0 means "no limit" up to the fail limit of
-    /// `SEARCH_FAIL_FACTOR * maxNode` results.
-    fn tf_limit(&self, limit: Option<i64>) -> Option<usize> {
-        limit.map(|limit| match usize::try_from(limit) {
-            Ok(limit) if limit > 0 => limit,
-            _ => SEARCH_FAIL_FACTOR as usize * self.corpus.max_node() as usize,
-        })
-    }
-
-    /// Run a search and shape the result per TF `shallow` semantics
-    /// (`tf/search/stitch.py:872-879`): width 0 -> tuple of full tuples,
-    /// width 1 -> set of first components, width k>1 -> set of k-prefix tuples.
-    fn run_search(
+    /// Check and plan `template`.
+    fn prepare(
         &self,
         py: Python<'_>,
         template: &str,
-        limit: Option<usize>,
-        owned_sets: &Option<OwnedSearchSets>,
+        sets: &Option<OwnedSearchSets>,
+    ) -> PyResult<PreparedSearch> {
+        interruptible(py, |interrupt| {
+            self.engine(interrupt)?
+                .prepare(template, borrow_search_sets(sets).as_ref())
+        })
+    }
+
+    /// The results of `template`, shaped per TF `fetch`: with `shallow`, the
+    /// set of first nodes or `shallow`-prefixes (whatever the limit); else
+    /// without a limit a lazy iterator, with one a tuple.
+    fn results(
+        &self,
+        py: Python<'_>,
+        template: &str,
+        sets: &Option<OwnedSearchSets>,
         shallow: usize,
+        limit: Option<i64>,
     ) -> PyResult<PyObject> {
-        let engine = MappedSearch::new(&self.corpus)?;
-        let sets = borrow_search_sets(owned_sets);
-        // The engine work runs without the GIL; only building the Python
-        // result objects needs it.
-        match shallow {
-            0 => {
-                let rows = py.allow_threads(|| match sets.as_ref() {
-                    Some(sets) => engine.search_with_sets(template, sets, limit),
-                    None => engine.search(template, limit),
-                })?;
-                let tuples = rows
-                    .into_iter()
-                    .map(|row| PyTuple::new(py, row).map(Into::into))
-                    .collect::<PyResult<Vec<PyObject>>>()?;
-                Ok(PyTuple::new(py, tuples)?.into())
-            }
-            1 => {
-                let nodes = py.allow_threads(|| match sets.as_ref() {
-                    Some(sets) => engine.search_first_nodes_with_sets(template, sets, limit),
-                    None => engine.search_first_nodes(template, limit),
-                })?;
-                Ok(PySet::new(py, &nodes)?.into())
-            }
-            width => {
-                let rows = py.allow_threads(|| match sets.as_ref() {
-                    Some(sets) => engine.search_prefixes_with_sets(template, sets, width, limit),
-                    None => engine.search_prefixes(template, width, limit),
-                })?;
-                let tuples = rows
-                    .into_iter()
-                    .map(|row| PyTuple::new(py, row).map(Into::into))
-                    .collect::<PyResult<Vec<PyObject>>>()?;
-                Ok(PySet::new(py, &tuples)?.into())
-            }
+        let mut prepared = self.prepare(py, template, sets)?;
+        if shallow == 1 {
+            let nodes = interruptible(py, |interrupt| {
+                prepared.first_nodes(&self.engine(interrupt)?, None)
+            })?;
+            return Ok(PySet::new(py, &nodes)?.into());
         }
+        if shallow > 1 {
+            let prefixes = interruptible(py, |interrupt| {
+                prepared.prefixes(&self.engine(interrupt)?, shallow, None)
+            })?;
+            let tuples = prefixes
+                .into_iter()
+                .map(|prefix| PyTuple::new(py, prefix).map(Into::into))
+                .collect::<PyResult<Vec<PyObject>>>()?;
+            return Ok(PySet::new(py, &tuples)?.into());
+        }
+        if limit.is_none() {
+            let iterator =
+                PySearchResultIterator::new(Arc::clone(&self.corpus), prepared, self.fail_limit());
+            return Ok(Py::new(py, iterator)?.into_any());
+        }
+        let cap = ResultCap::new(limit, self.fail_limit());
+        let mut rows = interruptible(py, |interrupt| {
+            prepared.next_rows(&self.engine(interrupt)?, cap.wanted())
+        })?;
+        rows.truncate(cap.apply(py, rows.len())?);
+        let tuples = rows
+            .into_iter()
+            .map(|row| PyTuple::new(py, row).map(Into::into))
+            .collect::<PyResult<Vec<PyObject>>>()?;
+        Ok(PyTuple::new(py, tuples)?.into())
     }
 }
 
@@ -221,6 +261,8 @@ impl PySearch {
 
     /// Check a search template and prepare it for `fetch` / `count` / `showPlan`.
     ///
+    /// A bad template does not raise: its problem is recorded on `S.exe`.
+    ///
     /// Args:
     ///     searchTemplate: The search template.
     ///     strategy: Accepted for TF compatibility; the planner chooses the strategy.
@@ -229,6 +271,10 @@ impl PySearch {
     ///         `k > 1`: the set of `k`-prefixes of the result tuples.
     ///     here: Accepted for TF compatibility (no display side channel).
     ///     silent: Verbosity for this call.
+    ///
+    /// Raises:
+    ///     IndexError: For a node in `sets` that is not a node of the corpus.
+    ///     KeyboardInterrupt: On Ctrl-C while quantifiers are evaluated.
     #[allow(non_snake_case, clippy::too_many_arguments)] // Text-Fabric's signature
     #[pyo3(
         signature = (searchTemplate, strategy=None, sets=None, shallow=Shallow::FULL, here=true, silent=Silent::DEFAULT),
@@ -246,18 +292,23 @@ impl PySearch {
     ) -> PyResult<()> {
         let _ = (strategy, here);
         let _ = silent;
-        let owned_sets = search_sets_from_py(sets, self.corpus.max_node())?;
-        let engine = MappedSearch::new(&self.corpus)?;
-        let result = py.allow_threads(|| match borrow_search_sets(&owned_sets) {
-            Some(sets) => engine.search_with_sets(searchTemplate, &sets, Some(1)),
-            None => engine.search(searchTemplate, Some(1)),
-        });
+        let owned_sets = self.search_sets(sets)?;
+        let outcome = interruptible(py, |interrupt| {
+            match self
+                .engine(interrupt)?
+                .prepare(searchTemplate, borrow_search_sets(&owned_sets).as_ref())
+            {
+                Ok(_) => Ok(None),
+                Err(CfError::Interrupted) => Err(CfError::Interrupted),
+                Err(error) => Ok(Some(error.to_string())),
+            }
+        })?;
         self.template = Some(searchTemplate.to_string());
         self.sets = owned_sets;
         self.shallow = shallow.0;
-        self.exe = Some(match result {
-            Ok(_) => PySearchExe::good(),
-            Err(error) => PySearchExe::bad(error.to_string()),
+        self.exe = Some(match outcome {
+            None => PySearchExe::good(),
+            Some(message) => PySearchExe::bad(message),
         });
         Ok(())
     }
@@ -266,15 +317,23 @@ impl PySearch {
     ///
     /// Args:
     ///     searchTemplate: The search template.
-    ///     limit: Return at most this many results.
+    ///     limit: Return at most this many results. A tuple is returned when
+    ///         `limit` is given, a lazy iterator when it is `None`. Without a
+    ///         positive limit, results stop at `4 * maxNode` with a
+    ///         `UserWarning` when there are more.
     ///     sets: Custom sets, `{name: iterable of nodes}`, usable as node types.
     ///     shallow: `False`: full result tuples; `True`: the set of first nodes;
-    ///         `k > 1`: the set of `k`-prefixes of the result tuples.
+    ///         `k > 1`: the set of `k`-prefixes of the result tuples. A set is
+    ///         complete, whatever `limit`.
     ///     silent: Verbosity for this call.
     ///     here: Accepted for TF compatibility (no display side channel).
     ///
     /// Returns:
-    ///     A tuple of result tuples, or a set when `shallow` is set.
+    ///     An iterator or tuple of result tuples, or a set when `shallow` is set.
+    ///
+    /// Raises:
+    ///     IndexError: For a node in `sets` that is not a node of the corpus.
+    ///     KeyboardInterrupt: On Ctrl-C while the search runs.
     #[allow(non_snake_case, clippy::too_many_arguments)] // Text-Fabric's signature
     #[pyo3(
         signature = (searchTemplate, limit=None, sets=None, shallow=Shallow::FULL, silent=Silent::DEFAULT, here=true),
@@ -292,34 +351,36 @@ impl PySearch {
     ) -> PyResult<PyObject> {
         let _ = here;
         let _ = silent;
-        let owned_sets = search_sets_from_py(sets, self.corpus.max_node())?;
-        let limit = self.tf_limit(limit);
-        self.run_search(py, searchTemplate, limit, &owned_sets, shallow.0)
+        let owned_sets = self.search_sets(sets)?;
+        self.results(py, searchTemplate, &owned_sets, shallow.0, limit)
     }
 
     /// Fetch the results of the template prepared by `study`.
     ///
     /// Args:
-    ///     limit: Return at most this many results.
+    ///     limit: Return at most this many results, as for `search`.
+    ///
+    /// Raises:
+    ///     KeyboardInterrupt: On Ctrl-C while the search runs.
     #[pyo3(signature = (limit=None))]
     fn fetch(&self, py: Python<'_>, limit: Option<i64>) -> PyResult<PyObject> {
-        let template = self.template.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err("no search template has been studied")
-        })?;
-        self.run_search(
-            py,
-            &template,
-            self.tf_limit(limit),
-            &self.sets,
-            self.shallow,
-        )
+        let template = self.studied()?;
+        self.results(py, template, &self.sets, self.shallow, limit)
     }
 
     /// Count the results of the template prepared by `study`.
     ///
     /// Args:
     ///     progress: Accepted for TF compatibility (no progress reporting).
-    ///     limit: Stop counting at this many results.
+    ///     limit: Stop counting at this many results. Without a positive
+    ///         limit, counting stops at `4 * maxNode` with a `UserWarning`
+    ///         when there are more.
+    ///
+    /// Returns:
+    ///     The number of results (Text-Fabric prints it and returns `None`).
+    ///
+    /// Raises:
+    ///     KeyboardInterrupt: On Ctrl-C while counting.
     #[pyo3(signature = (progress=None, limit=None))]
     fn count(
         &self,
@@ -328,22 +389,30 @@ impl PySearch {
         limit: Option<i64>,
     ) -> PyResult<usize> {
         let _ = progress;
-        let limit = self.tf_limit(limit);
-        let template = self.template.as_deref().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err("no search template has been studied")
+        let template = self.studied()?;
+        let mut prepared = self.prepare(py, template, &self.sets)?;
+        let cap = ResultCap::new(limit, self.fail_limit());
+        let found = interruptible(py, |interrupt| {
+            let engine = self.engine(interrupt)?;
+            let wanted = Some(cap.wanted());
+            Ok(match self.shallow {
+                0 => prepared.count(&engine, wanted)?,
+                1 => prepared.first_nodes(&engine, wanted)?.len(),
+                width => prepared.prefixes(&engine, width, wanted)?.len(),
+            })
         })?;
-        Ok(py.allow_threads(|| self.count_studied(template, limit))?)
+        cap.apply(py, found)
     }
 
     /// Print the search plan of the template prepared by `study`.
     ///
     /// Args:
-    ///     details: Include per-step details.
+    ///     details: Include the binding order with candidate counts.
     #[allow(non_snake_case)]
     #[pyo3(signature = (details=false))]
     fn showPlan(&self, py: Python<'_>, details: bool) -> PyResult<()> {
-        // Emit the engine's real study/plan summary rather than echoing the
-        // template (TF `S.showPlan`, tf/search/search.py).
+        // TF `S.showPlan` (tf/search/search.py) needs a previous study and
+        // shows nothing for a bad template (tf/search/graph.py::displayPlan).
         let Some(template) = self.template.as_deref() else {
             return write_console(
                 py,
@@ -352,11 +421,10 @@ impl PySearch {
                 "Cannot show plan if there is no previous \"study()\"",
             );
         };
-        let engine = MappedSearch::new(&self.corpus)?;
-        let plan = match borrow_search_sets(&self.sets) {
-            Some(sets) => engine.show_plan_with_sets(template, &sets, details)?,
-            None => engine.show_plan(template, details)?,
-        };
+        if self.exe.as_ref().is_some_and(|exe| !exe.good) {
+            return Ok(());
+        }
+        let plan = self.prepare(py, template, &self.sets)?.describe(details);
         write_console(py, false, true, &plan)
     }
 
