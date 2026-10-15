@@ -15,6 +15,7 @@ import asyncio
 import json
 import threading
 from collections import Counter
+from dataclasses import replace
 from typing import Annotated, Any, Literal
 
 from anyio import to_thread
@@ -312,6 +313,37 @@ def build_router(
         """The biblical books in this corpus, with chapters, verses and scrolls."""
         return {"books": book_index(corpus).summary()}
 
+    def witness_row(api, config, index, w, mode: str, opts: RenderOptions) -> dict:
+        """The text of one verse in one scroll, for the book view."""
+        # a witness links to its fragment in the scroll view, for context
+        types = list(api.T.sectionTypes or [])
+        placeType = types[1] if len(types) > 1 else (types[0] if types else None)
+        fragments: list[dict[str, Any]] = []
+        tree: dict[str, Any] = {"fmt": None, "direction": config.direction}
+        for word in w.words:
+            tree = render_node(api, config, word, mode, opts).to_dict()
+            fragments.extend(tree["fragments"])
+        dress_signs(api, fragments)
+        where = api.L.u(w.words[0], otype=placeType)[0] if placeType else None
+        return {
+            "scroll": w.scroll,
+            "place": place(api, w.words),
+            "ref": section_ref_for(api, config, int(where), lang=opts.lang)
+            if where
+            else None,
+            "words": w.words,
+            "alsoNonBiblical": w.also_non_biblical,
+            "tree": {
+                "node": w.words[0],
+                "type": index.word_type,
+                "mode": mode,
+                "fmt": tree["fmt"],
+                "direction": tree["direction"],
+                "heading": f"{w.scroll} {place(api, w.words)}",
+                "fragments": fragments,
+            },
+        }
+
     @router.get("/corpora/{corpus}/witnesses")
     def witnesses(
         corpus: str,
@@ -334,41 +366,12 @@ def build_router(
         (book, chapter, verse) = parsed
         api = corpus_api(corpus)
         config = service.config(corpus)
-        L, T = api.L, api.T
-        # a witness links to its fragment in the scroll view, for context
-        types = list(T.sectionTypes or [])
-        placeType = types[1] if len(types) > 1 else (types[0] if types else None)
         chapterVerses = index.books[book][chapter]
         verses = []
         for v in [verse] if verse is not None else list(chapterVerses):
-            rows = []
-            for w in chapterVerses[v]:
-                fragments: list[dict[str, Any]] = []
-                for word in w.words:
-                    tree = render_node(api, config, word, mode, opts).to_dict()
-                    fragments.extend(tree["fragments"])
-                dress_signs(api, fragments)
-                where = L.u(w.words[0], otype=placeType)[0] if placeType else None
-                rows.append(
-                    {
-                        "scroll": w.scroll,
-                        "place": place(api, w.words),
-                        "ref": section_ref_for(api, config, int(where), lang=opts.lang)
-                        if where
-                        else None,
-                        "words": w.words,
-                        "alsoNonBiblical": w.also_non_biblical,
-                        "tree": {
-                            "node": w.words[0],
-                            "type": index.word_type,
-                            "mode": mode,
-                            "fmt": tree["fmt"],
-                            "direction": tree["direction"],
-                            "heading": f"{w.scroll} {place(api, w.words)}",
-                            "fragments": fragments,
-                        },
-                    }
-                )
+            rows = [
+                witness_row(api, config, index, w, mode, opts) for w in chapterVerses[v]
+            ]
             verses.append(
                 {"verse": v, "ref": format_ref(book, chapter, v), "witnesses": rows}
             )
@@ -379,6 +382,122 @@ def build_router(
             "chapterRef": format_ref(book, chapter),
             "verses": verses,
             **index.neighbours(book, chapter),
+        }
+
+    # the parallel interface: a chapter in several corpora, verse by verse
+
+    @router.get("/parallel")
+    def parallel(
+        ref: str,
+        lead: str,
+        opts: Annotated[RenderOptions, Depends(render_options)],
+        texts: str = "",
+        mode: Literal["pretty", "plain"] = "plain",
+    ) -> dict[str, Any]:
+        """A chapter in several corpora, as rows of verses with a cell per corpus.
+
+        `ref` is a chapter of `lead` (`Genesis 1`), whose numbering the rows
+        follow; `texts` names the corpora of the columns (comma separated),
+        with or without `lead`. Books are matched through the book concordance,
+        chapters and verses by number. There is a row for every verse number
+        in any of the texts, in numeric order, and a cell only where a text has
+        that verse. A corpus read by biblical book (DSS) gets, per verse, the
+        text of each scroll that has it, as in `witnesses`. `fmt` applies to
+        the corpora that have that format; the others use their default.
+
+        Per column: its `kind` (`text` or `witnesses`) and the `ref` of its
+        chapter, or None when it has no counterpart of `ref`.
+        """
+        names = _items(texts) or []
+        lApi = corpus_api(lead)
+        for name in names:
+            corpus_api(name)
+        lConfig = service.config(lead)
+        try:
+            node = node_from_section_ref(
+                lApi, ref, lConfig.section_sep1, lConfig.section_sep2, opts.lang
+            )
+        except ValueError as e:
+            raise HTTPException(404, str(e)) from None
+        chapterRef = section_ref_for(lApi, lConfig, node, lang=opts.lang)
+
+        columns: list[dict[str, Any]] = []
+        cells: dict[int, dict[str, Any]] = {}
+        for name in names:
+            api = service.api(name)
+            config = service.config(name)
+            own = (
+                opts
+                if opts.fmt in (None, *config.text_formats)
+                else replace(opts, fmt=None)
+            )
+            index = service.book_index(name)
+            if index is not None:
+                aligned = service.align(lead, chapterRef, name, opts.lang, "books")
+                parsed = parse_ref(aligned["ref"]) if aligned else None
+                if parsed is None or not index.has(parsed[0], parsed[1]):
+                    columns.append({"name": name, "kind": "witnesses", "ref": None})
+                    continue
+                (book, chapter, _) = parsed
+                columns.append(
+                    {
+                        "name": name,
+                        "kind": "witnesses",
+                        "ref": format_ref(book, chapter),
+                    }
+                )
+                for v, witnesses in index.books[book][chapter].items():
+                    cells.setdefault(int(v), {})[name] = {
+                        "witnesses": [
+                            witness_row(api, config, index, w, mode, own)
+                            for w in witnesses
+                        ]
+                    }
+                continue
+
+            sectionTypes = list(api.T.sectionTypes or ())
+            if name == lead:
+                cNode: int | None = node
+            else:
+                aligned = service.align(lead, chapterRef, name, opts.lang)
+                exact = aligned is not None and aligned["exact"]
+                cNode = aligned["node"] if exact else None
+            if cNode is None or len(sectionTypes) < 3:
+                columns.append({"name": name, "kind": "text", "ref": None})
+                continue
+            columns.append(
+                {
+                    "name": name,
+                    "kind": "text",
+                    "ref": section_ref_for(api, config, cNode, lang=opts.lang),
+                }
+            )
+            for v in api.L.d(cNode, otype=sectionTypes[2]):
+                number = api.T.sectionFromNode(int(v), lang="en")[2]
+                try:
+                    key = int(number)
+                except (TypeError, ValueError):
+                    continue
+                tree = render_node(api, config, int(v), mode, own).to_dict()
+                dress_signs(api, tree["fragments"])
+                cells.setdefault(key, {}).setdefault(name, {"trees": []})[
+                    "trees"
+                ].append(tree)
+
+        rows = [
+            {
+                "verse": v,
+                "ref": f"{chapterRef}{lConfig.section_sep2}{v}",
+                "cells": cells[v],
+            }
+            for v in sorted(cells)
+        ]
+        return {
+            "ref": chapterRef,
+            "path": section_path(lApi, lConfig, node, opts.lang),
+            **section_neighbours(lApi, lConfig, node, opts.lang),
+            "columns": columns,
+            "rows": rows,
         }
 
     @router.get("/agreement")

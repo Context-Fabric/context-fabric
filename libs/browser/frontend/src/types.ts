@@ -248,6 +248,22 @@ export interface WitnessPassage {
   next: string | null;
 }
 
+/** A chapter in several corpora, verse by verse (the parallel interface). */
+export interface ParallelChapter {
+  ref: string;
+  path: SectionItem[];
+  prev: SectionItem | null;
+  next: SectionItem | null;
+  /** Per corpus: its chapter, or null when it has no counterpart. */
+  columns: { name: string; kind: "text" | "witnesses"; ref: string | null }[];
+  /** A row per verse number in any of the corpora; a cell only where a corpus has the verse. */
+  rows: {
+    verse: number;
+    ref: string;
+    cells: Record<string, { trees?: RenderTree[]; witnesses?: Witness[] }>;
+  }[];
+}
+
 /** A scroll at a place where two texts (MT, SP) differ: which one it agrees with. */
 export interface PlaceWitness {
   scroll: string;
