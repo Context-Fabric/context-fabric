@@ -33,12 +33,16 @@ The program isn't signed yet, so your computer warns about it the first time.
 
 ## Use
 
-- The program opens with *Open a corpus*: the three corpora, if they are on your computer. Choose one to start.
-- *Add a pane* shows another corpus, or another passage, side by side. *Sync passages* keeps the panes at the same passage, and *Show differences* marks where the texts differ. With the BHSA, the SP and the DSS each in a pane of its own (the DSS read by biblical book), *Show differences* also shows which scrolls side with the BHSA and which with the SP.
-- The first time you open a large corpus (such as the BHSA), it takes a little longer, because it is prepared once. After that it opens in about a second.
-- **Words:** hover over a word to see its gloss, lexeme, part of speech and morphology. Click it for all its features, on the right. Words in the Dead Sea Scrolls get their gloss from the BHSA, when the BHSA is open too.
-- **Lexicon** (BHSA): next to *Read* and *Search*. All lexemes of the Hebrew Bible, by language (Hebrew, Aramaic) and first letter, with their gloss, part of speech and frequency. *Find* looks in all letters at once: type Hebrew (ברא), a transliteration (BR>[) or a gloss (create). Choose a lexeme to see every verse it occurs in, with the word marked, and how often it occurs per book; choose a book to see only its verses. Click a verse to read it; with *Sync passages* on, the other panes go to the same verse. Its occurrences can be downloaded as a spreadsheet.
-- Settings and saved workspaces are kept between sessions.
+The program opens in **Parallel**, laid out after [Parabible](https://parabible.com): a column per corpus and a row per verse, so the BHSA, the SP and the scrolls line up verse by verse. *Panes / Parallel* at the top right switches to the other way of working, with panes side by side; the program remembers which one you used last.
+
+- **The first time:** the BHSA opens by itself, and *Open a corpus* offers the three corpora. Choose the SP there, and add the DSS with *Texts → Add a text…*. The program remembers your choice. Opening a large corpus (such as the BHSA) the first time takes a little longer, because it is prepared once; after that it opens in about a second.
+- **Reading:** click the chapter name at the top for the books and chapters; `‹` and `›` (or the arrow keys) go to the previous and next chapter. *Texts* turns corpora on and off and changes their order. The Dead Sea Scrolls show, per verse, the text of every scroll that has it; dimmed letters are reconstructed by the editors.
+- **Differences** marks the words where the texts differ from the first column. With the BHSA, the SP and the DSS shown, the DSS column also says which scrolls side with the BHSA and which with the SP.
+- **Words:** hover over a word to see its gloss, lexeme, part of speech and morphology. Click it for all its features, in a panel on the left. Words in the Dead Sea Scrolls get their gloss from the BHSA.
+- **Search:** click a word, then *Add as search term*, and tick the features that should count. Add more terms, choose whether they must be in one verse, clause or phrase, and choose books if you like. Or write a search template under *Template*. The results show each verse in all the texts, with statistics and a download as a spreadsheet.
+- **Lexicon** (BHSA): all lexemes of the Hebrew Bible, by language and first letter, with gloss, part of speech and frequency. Choose a lexeme to see every verse it occurs in; click a verse to read it in all the texts.
+- **Panes:** each pane has its own corpus, passage and view (*Read*, *Search*, *Lexicon*). *Sync passages* keeps them at the same passage.
+- *Display*, *Workspaces* (save and reopen what you are looking at) and *Cite* are in the top bar. Settings and saved workspaces are kept between sessions.
 - If the program doesn't start, look in `.cfabric/logs/cfabric-browser.log` in your home folder and send that file to [martijn.naaijer@uzh.ch](mailto:martijn.naaijer@uzh.ch).
 
 ## Known limitations

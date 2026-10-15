@@ -134,9 +134,12 @@ jobs:
           path: out
           merge-multiple: true
       - run: ls -l out
+      # desktop-v0.1.0-test.2 is released as "Context-Fabric 0.1.0-test.2"
+      - id: version
+        run: echo "version=${GITHUB_REF_NAME#desktop-v}" >> "$GITHUB_OUTPUT"
       - uses: softprops/action-gh-release@v2
         with:
-          name: Context-Fabric desktop ${{ github.ref_name }} (test version)
+          name: Context-Fabric ${{ steps.version.outputs.version }}
           body_path: libs/browser/packaging/RELEASE_NOTES.md
           prerelease: true
           files: out/*
