@@ -50,7 +50,7 @@ export const INTERFACES: UiInfo[] = [
     name: "Interlinear",
     about: "Word by word, with transliteration, gloss and morphology",
     prefix: "/interlinear",
-    ready: false,
+    ready: true,
   },
   {
     id: "concordance",

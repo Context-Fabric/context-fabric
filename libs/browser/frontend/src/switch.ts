@@ -1,13 +1,16 @@
 import { api } from "./api";
 import {
+  commonToInterlinear,
   commonToParallel,
   commonToReader,
   commonToWorkspace,
+  interlinearToCommon,
   mergeCommon,
   readerToCommon,
   workspaceToCommon,
   type Common,
 } from "./common";
+import { serializeInterlinear, type Interlinear } from "./interlinear/url";
 import { serializeParallel } from "./parallel/state";
 import { serializeReader, type Reader } from "./reader/url";
 import { serialize, type Workspace } from "./state";
@@ -67,6 +70,16 @@ export async function describeReader(r: Reader): Promise<Partial<Common>> {
   return readerToCommon(r, aligned ? aligned.split(":")[0] : null);
 }
 
+/** What the Interlinear shows, with its chapter in the reference corpus' numbering. */
+export async function describeInterlinear(s: Interlinear): Promise<Partial<Common>> {
+  let aligned: string | null = null;
+  if (s.corpus && s.ref) {
+    const { reference } = await openCards();
+    aligned = reference ? await alignRef(s.corpus, s.ref, reference) : s.ref;
+  }
+  return interlinearToCommon(s, aligned ? aligned.split(":")[0] : null);
+}
+
 /** Open interface `target` with what the current one shows (`current`). */
 export async function switchInterface(target: Ui, current: Partial<Common>): Promise<void> {
   const common = mergeCommon(kept(), current);
@@ -91,6 +104,13 @@ export async function switchInterface(target: Ui, current: Partial<Common>): Pro
     const lead = reference ?? corpus;
     const ref = common.ref && corpus && lead ? await alignRef(lead, common.ref, corpus) : null;
     navigate(serializeReader(commonToReader(common, corpus, ref ? ref.split(":")[0] : null)));
+  } else if (target === "interlinear") {
+    const { reference } = await openCards();
+    // the BHSA is shown when it is open; the passage is in its numbering
+    const corpus = reference ?? common.corpora[0] ?? null;
+    const lead = reference ?? corpus;
+    const ref = common.ref && corpus && lead ? await alignRef(lead, common.ref, corpus) : null;
+    navigate(serializeInterlinear(commonToInterlinear(common, corpus, ref ? ref.split(":")[0] : null)));
   } else if (target === "parallel") {
     navigate(serializeParallel(commonToParallel(common)));
   } else {

@@ -267,6 +267,43 @@ export interface ParallelChapter {
   }[];
 }
 
+/** A passage word by word, for the interlinear (`/interlinear`). */
+export interface InterlinearPassage {
+  ref: string;
+  path: SectionItem[];
+  prev: SectionItem | null;
+  next: SectionItem | null;
+  truncated: boolean;
+  verses: InterlinearVerse[];
+}
+
+export interface InterlinearVerse {
+  verse: number | string;
+  ref: string;
+  words: {
+    node: number;
+    text: string;
+    /** translit, lexeme, gloss, pos, morph, language: in words. */
+    lines: Record<string, string>;
+    features: Record<string, string>;
+    /** Indexes in `phrases` and `clauses` (-1: in none). */
+    phrase: number;
+    clause: number;
+  }[];
+  phrases: { node: number; label: string | null }[];
+  clauses: { node: number; label: string | null }[];
+  /** Another corpus' verse under this one, if asked for and it has the verse. */
+  under?: {
+    corpus: string;
+    ref: string;
+    words: { node: number; text: string }[];
+    /** Per word of this verse, the nodes of the words under it. */
+    under: number[][];
+    marks: Record<string, DiffKind>;
+    marksHere: Record<string, DiffKind>;
+  } | null;
+}
+
 /** A scroll at a place where two texts (MT, SP) differ: which one it agrees with. */
 export interface PlaceWitness {
   scroll: string;

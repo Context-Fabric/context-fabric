@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- *Interlinear*, the fourth interface, after STEPBible and BibleHub:
+  - word blocks with lines of choice and order (transliteration, lexeme, gloss, part of speech, morphology, any feature);
+  - another text word by word under them, with differences;
+  - phrases and clauses with their function and type;
+  - practice by hiding a line;
+  - colours by part of speech or stem.
+  - New endpoint `/api/corpora/{c}/interlinear` (`cfabric_browser/interlinear.py`), and `align_words` in `compare.py`, which pairs the words of two texts on their consonants.
 - *Reader*, the third interface, after Sefaria:
   - one text in a quiet column, line by line or as running text in paragraphs (petuhah, setumah), chapter after chapter as one scrolls;
   - a panel about the clicked verse: *Parallels* (with differences), *Words*, *Lexicon*, *Search* (in *Parallel*) and *Notes* (the user's own notes and bookmarks, kept locally and in exported workspaces);

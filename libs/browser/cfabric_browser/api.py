@@ -37,6 +37,7 @@ from cfabric_browser.compare import (
     compare_witnesses,
 )
 from cfabric_browser.corpora import CorpusService, discover, resolve_corpus
+from cfabric_browser.interlinear import interlinear_verse
 from cfabric_browser.lexicon import Lexicon, render_verse
 from cfabric_browser.queries import (
     LANGUAGES,
@@ -382,6 +383,57 @@ def build_router(
             "chapterRef": format_ref(book, chapter),
             "verses": verses,
             **index.neighbours(book, chapter),
+        }
+
+    # the interlinear: a passage word by word
+
+    @router.get("/corpora/{corpus}/interlinear")
+    def interlinear(
+        corpus: str,
+        ref: str,
+        opts: Annotated[RenderOptions, Depends(render_options)],
+        features: str | None = Query(
+            None, description="Comma separated features to add as lines"
+        ),
+        under: str | None = Query(
+            None, description="Another corpus to show word by word under this one"
+        ),
+    ) -> dict[str, Any]:
+        """A passage (a chapter or a verse) word by word, for the interlinear.
+
+        Per verse its words, each with its text and its lines in words
+        (`translit`, `lexeme`, `gloss`, `pos`, `morph`, read by role as on the
+        hover card), the values of `features`, and the indexes of its phrase
+        and clause in `phrases` and `clauses` (with the phrase function and
+        clause type). With `under`, also that corpus' verse, its words under
+        the words of this one, and the words that differ. See
+        `cfabric_browser.interlinear`.
+        """
+        api = corpus_api(corpus)
+        if under:
+            corpus_api(under)
+        config = service.config(corpus)
+        try:
+            node = node_from_section_ref(
+                api, ref, config.section_sep1, config.section_sep2, opts.lang
+            )
+        except ValueError as e:
+            raise HTTPException(404, str(e)) from None
+        verseType = (api.T.sectionTypes or [None])[-1]
+        if api.F.otype.v(node) == verseType:
+            verses = [node]
+        else:
+            verses = [int(v) for v in api.L.d(node, otype=verseType)]
+        names = _items(features) or []
+        return {
+            "ref": section_ref_for(api, config, node, lang=opts.lang),
+            "path": section_path(api, config, node, opts.lang),
+            **section_neighbours(api, config, node, opts.lang),
+            "truncated": len(verses) > MAX_PASSAGE,
+            "verses": [
+                interlinear_verse(service, corpus, v, opts, names, under)
+                for v in verses[:MAX_PASSAGE]
+            ],
         }
 
     # the parallel interface: a chapter in several corpora, verse by verse
