@@ -12,7 +12,7 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 default = []
-python = ["dep:pyo3", "dep:pyo3-stub-gen", "dep:numpy"]
+python = ["dep:pyo3", "dep:numpy"]
 extension-module = ["pyo3/extension-module"]
 
 [dependencies]
@@ -20,12 +20,8 @@ memmap2 = "0.9.10"
 mimalloc = { version = "0.1", default-features = false }
 numpy = { version = "0.25", optional = true }
 pyo3 = { version = "0.25", optional = true, features = ["abi3-py313"] }
-pyo3-stub-gen = { version = "0.13", optional = true }
 regex = "1.12"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serde_yaml = "0.9"
-thiserror = "2.0"
-
-[dev-dependencies]
 tempfile = "3.23"
+thiserror = "2.0"

@@ -1,84 +1,105 @@
 # Testing
 
-This document describes how to run tests for Context-Fabric.
+Context-Fabric is a monorepo of three packages, each with its own test suite:
 
-## Prerequisites
+| Package | Path | Suites |
+|---|---|---|
+| `context-fabric` (Rust core + Python overlay) | `libs/core` | Rust (`cargo test`), Python (`tests/python`), parity (`tests/parity`, with the golden files in `tests/golden`) |
+| `cfabric-mcp` | `libs/mcp` | `tests/` (unit + `integration/`) |
+| `cfabric-benchmarks` | `libs/benchmarks` | `tests/` (`unit/` + `integration/`) |
 
-1. Python 3.13+
-2. Virtual environment with dev dependencies:
+## Setup
+
+Python 3.13+ and a stable Rust toolchain. Each package uses its own virtual
+environment; the core extension is built into it with maturin:
 
 ```bash
+cd libs/core
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
+.venv/bin/pip install maturin
+.venv/bin/pip install -e ".[dev]"          # or: .venv/bin/maturin develop --release
 ```
 
-## Running Tests
+The MCP and benchmark packages install the core from source
+(`pip install -e ../core`) followed by `pip install -e ".[dev]"`.
 
-### All Tests
-
-Run the complete test suite (unit + integration):
+## Rust core (`libs/core`)
 
 ```bash
-PYTHONPATH=packages pytest tests/
+cargo fmt --check
+cargo clippy --all-targets --features python -- -D warnings
+PYO3_PYTHON="$PWD/.venv/bin/python" cargo test --features python
 ```
 
-### Unit Tests Only
+Unit tests sit next to the code they test (`src/**`); integration tests live in
+`libs/core/tests/*.rs`, one file per subject, with shared fixtures in
+`tests/common`:
+
+| File | Subject |
+|---|---|
+| `tf_parser.rs` | parsing `.tf` feature files |
+| `corpus_loading.rs` | loading sources into the in-memory corpus, exploring feature directories |
+| `cfr_format.rs` | the `.cfr` layout: stored indexes, version checks, corrupted / truncated / concurrently replaced caches |
+| `cache_freshness.rs`, `cache_readonly_fallback.rs` | cache invalidation and placement |
+| `fabric.rs` | the `Fabric` facade |
+| `mapped_features.rs`, `mapped_sections.rs`, `mapped_text.rs`, `mapped_search.rs` | the mapped engine: features, locality and sections, text, search |
+| `xcorpus_defects.rs` | regressions found on real corpora, on small fixtures |
+| `real_corpora.rs` | smoke tests on BHSA (skipped when absent) |
+
+## Python (`libs/core/tests/python`)
 
 ```bash
-PYTHONPATH=packages pytest tests/unit_tests/
+.venv/bin/python -m pytest tests/python
 ```
 
-### Integration Tests Only
+Most tests use the small fixture corpora in `libs/core/tests/fixtures`. Tests
+that need a real corpus (BHSA, N1904, ...) skip when it is unavailable; the
+shared fixtures in `libs/core/tests/conftest.py` locate them:
+
+- `CFABRIC_CORPORA`: directory holding `<name>/tf` corpora (default
+  `libs/benchmarks/.corpora`).
+- `CFABRIC_BHSA_CFR`: an explicit compiled BHSA cache to open. By default BHSA
+  is loaded with `loadAll`, which builds and reuses the cache that `Fabric`
+  keeps next to the sources.
+
+## Parity with Text-Fabric (`libs/core/tests/parity`)
+
+The parity suites compare Context-Fabric with Text-Fabric 13.0.19 on real
+corpora and are opt-in:
 
 ```bash
-PYTHONPATH=packages pytest tests/integration_tests/
+.venv/bin/pip install "git+https://github.com/annotation/text-fabric@v13.0.19"
+CONTEXT_FABRIC_RUN_PARITY=1 .venv/bin/python -m pytest tests/parity
 ```
 
-### With Verbose Output
+Text-Fabric holds BHSA in about 6.5 GB, and one pytest process keeps every
+corpus it loaded, so the full suite peaks at about 9 GB of memory (about 2.5
+minutes on an M-series Mac).
+
+`tests/parity/test_golden.py` compares Context-Fabric with the Text-Fabric
+answers recorded in `tests/golden/golden/*.json` and checks that Text-Fabric
+regenerates them unchanged; `tests/golden/run.sh` runs the comparison alone
+(see `tests/golden/README.md`).
+
+## MCP and benchmarks
 
 ```bash
-PYTHONPATH=packages pytest tests/ -v
+cd libs/mcp && pytest tests/
+cd libs/benchmarks && pytest tests/
 ```
 
-### With Coverage Report
+Tests never write into the source tree: fixtures that get compiled are copied
+to a temporary directory first, and `.cfr/` caches are git-ignored.
+
+## Distributions
+
+`.github/workflows/core-wheels.yml` builds an abi3 wheel per platform with
+cibuildwheel (configured under `[tool.cibuildwheel]` in
+`libs/core/pyproject.toml`) and runs `tests/python` against each installed
+wheel; it also builds the sdist, builds a wheel from it, and tests that. To
+reproduce the Linux build locally (requires Docker):
 
 ```bash
-PYTHONPATH=packages pytest tests/ --cov=packages/core --cov-report=term-missing
+pip install "cibuildwheel>=3,<4"
+cibuildwheel --platform linux libs/core --output-dir wheelhouse
 ```
-
-## Using tox
-
-Run tests in isolated environments:
-
-```bash
-# Run all test environments
-tox
-
-# Run specific environment
-tox -e py313    # Python tests
-tox -e lint     # Linting
-tox -e format   # Check formatting
-```
-
-## Test Structure
-
-```
-tests/
-├── fixtures/
-│   └── mini_corpus/       # Test data (TF files)
-├── unit_tests/            # 478 unit tests
-│   ├── conftest.py
-│   ├── test_*.py
-│   └── search/
-│       └── test_*.py
-└── integration_tests/     # 87 integration tests
-    ├── conftest.py
-    └── test_*.py
-```
-
-## Writing Tests
-
-- Unit tests use mocks and test individual functions/classes
-- Integration tests use real TF data from `tests/fixtures/mini_corpus/`
-- Use `loaded_api` fixture for integration tests that need a loaded API

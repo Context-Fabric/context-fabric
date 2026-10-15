@@ -1,15 +1,15 @@
-use std::collections::BTreeMap;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::time::SystemTime;
+//! [`Fabric`]: a corpus location (one or more module directories) and the
+//! entry points to explore, compile, and load it.
 
-use crate::compiled::{
-    MappedCompiledCorpus, compile_features, compile_loaded_corpus, inspect_compiled,
-};
-use crate::config::{BANNER, CFR_VERSION, VERSION};
-use crate::corpus::Corpus;
-use crate::error::{CfError, Result};
-use crate::explore::{FeatureInventory, explore_feature_paths};
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+
+use crate::cache::CorpusCache;
+use crate::compile::{Corpus, compile_features, compile_loaded_corpus};
+use crate::config::{BANNER, VERSION};
+use crate::error::Result;
+use crate::mapped::MappedCompiledCorpus;
+use crate::tf::{FeatureInventory, explore_feature_paths};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fabric {
@@ -77,10 +77,6 @@ impl Fabric {
         fabric
     }
 
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-
     pub fn locations(&self) -> &[PathBuf] {
         &self.locations
     }
@@ -109,39 +105,8 @@ impl Fabric {
             .join("\n")
     }
 
-    #[allow(non_snake_case)]
-    pub fn locationRep(&self) -> String {
-        self.location_rep()
-    }
-
-    pub fn features_requested(&self) -> &[String] {
-        &self.features_requested
-    }
-
-    #[allow(non_snake_case)]
-    pub fn featuresRequested(&self) -> &[String] {
-        self.features_requested()
-    }
-
-    pub fn features_ignored(&self) -> BTreeMap<String, Vec<PathBuf>> {
-        self.ignored_feature_paths().unwrap_or_default()
-    }
-
-    #[allow(non_snake_case)]
-    pub fn featuresIgnored(&self) -> BTreeMap<String, Vec<PathBuf>> {
-        self.features_ignored()
-    }
-
     pub fn explore(&self) -> Result<FeatureInventory> {
         explore_feature_paths(self.module_paths())
-    }
-
-    pub fn feature_inventory(&self) -> Result<FeatureInventory> {
-        self.explore()
-    }
-
-    pub fn feature_catalog(&self) -> Result<FeatureInventory> {
-        self.explore()
     }
 
     pub fn ignored_feature_paths(&self) -> Result<BTreeMap<String, Vec<PathBuf>>> {
@@ -158,35 +123,30 @@ impl Fabric {
             .collect())
     }
 
-    pub fn cfr_cache_path(&self) -> PathBuf {
-        cfr_cache_path(self.module_paths().last().unwrap_or(&self.path))
+    /// Path inside the last module directory of the compiled cache `load`
+    /// uses or builds for the current sources. See [`crate::cache`] for the
+    /// fallback used when that directory is read-only.
+    pub fn cfr_cache_path(&self) -> Result<PathBuf> {
+        self.cache().in_corpus_path()
+    }
+
+    /// Deletes every compiled cache of this corpus, forcing a recompile on
+    /// the next load.
+    pub fn clear_cache(&self) -> Result<()> {
+        self.cache().clear()
     }
 
     pub fn load_mapped(&self, features: impl FeatureSpec) -> Result<MappedCompiledCorpus> {
         let _ = features.feature_names();
-        let module_paths = self.module_paths();
-        let module_path = module_paths.last().unwrap_or(&self.path);
-        let cache_path = cfr_cache_path(module_path);
-        if !is_cache_fresh(&cache_path, &module_paths)? {
-            let cache_dir = cache_path.parent().unwrap_or(module_path);
-            fs::create_dir_all(cache_dir).map_err(|source| CfError::Io {
-                path: cache_dir.to_path_buf(),
-                source,
-            })?;
-            if module_paths.len() > 1 {
-                let corpus = Corpus::load_paths(module_paths.clone())?.with_rank_arrays();
-                compile_loaded_corpus(&corpus, &cache_path)
+        let module_paths = self.cache_module_paths();
+        let cache_path = self.cache().ensure_compiled(|| {
+            let corpus = if module_paths.len() > 1 {
+                Corpus::load_paths(module_paths.clone())?
             } else {
-                compile_features(module_path, &cache_path, &[])
-            }
-            .map_err(|error| match error {
-                CfError::Io { source, .. } => CfError::Io {
-                    path: cache_path.clone(),
-                    source,
-                },
-                other => other,
-            })?;
-        }
+                Corpus::load(&module_paths[0])?
+            };
+            Ok(corpus.with_rank_arrays())
+        })?;
         MappedCompiledCorpus::open(cache_path)
     }
 
@@ -194,49 +154,8 @@ impl Fabric {
         self.load_mapped(Vec::<String>::new())
     }
 
-    #[allow(non_snake_case)]
-    pub fn loadAll(&self) -> Result<MappedCompiledCorpus> {
-        self.load_all()
-    }
-
     pub fn load(&self, features: impl FeatureSpec) -> Result<MappedCompiledCorpus> {
         self.load_mapped(features)
-    }
-
-    pub fn load_add(&self, corpus: &mut Corpus, features: impl FeatureSpec) -> Result<bool> {
-        let features = features.feature_names();
-        let feature_refs = features.iter().map(String::as_str).collect::<Vec<_>>();
-        corpus.add_features_from_paths(self.module_paths(), &feature_refs)
-    }
-
-    #[allow(non_snake_case)]
-    pub fn loadAdd(&self, corpus: &mut Corpus, features: impl FeatureSpec) -> Result<bool> {
-        self.load_add(corpus, features)
-    }
-
-    pub fn ensure_loaded(&self, corpus: &mut Corpus, features: impl FeatureSpec) -> Result<bool> {
-        self.load_add(corpus, features)
-    }
-
-    #[allow(non_snake_case)]
-    pub fn ensureLoaded(&self, corpus: &mut Corpus, features: impl FeatureSpec) -> Result<bool> {
-        self.ensure_loaded(corpus, features)
-    }
-
-    pub fn save(
-        &self,
-        corpus: &Corpus,
-        location: Option<&Path>,
-        module: Option<&str>,
-    ) -> Result<bool> {
-        let base = location
-            .map(Path::to_path_buf)
-            .unwrap_or_else(|| self.path.clone());
-        let output = module
-            .filter(|module| !module.is_empty())
-            .map(|module| base.join(module))
-            .unwrap_or(base);
-        corpus.save(output)
     }
 
     pub fn compile(&self, output_path: impl AsRef<Path>, features: impl FeatureSpec) -> Result<()> {
@@ -265,9 +184,19 @@ impl Fabric {
         MappedCompiledCorpus::open(cache_path)
     }
 
-    #[allow(non_snake_case)]
-    pub fn openMapped(&self, cache_path: impl AsRef<Path>) -> Result<MappedCompiledCorpus> {
-        self.open_mapped(cache_path)
+    fn cache(&self) -> CorpusCache {
+        CorpusCache::new(self.cache_module_paths())
+    }
+
+    /// Existing module directories, falling back to the base path so a missing
+    /// corpus surfaces as a "not found" error for that path.
+    fn cache_module_paths(&self) -> Vec<PathBuf> {
+        let module_paths = self.module_paths();
+        if module_paths.is_empty() {
+            vec![self.path.clone()]
+        } else {
+            module_paths
+        }
     }
 
     fn module_paths(&self) -> Vec<PathBuf> {
@@ -285,80 +214,6 @@ impl Fabric {
             .filter(|path| path.exists())
             .collect()
     }
-}
-
-pub fn cfr_cache_path(tf_dir: impl AsRef<Path>) -> PathBuf {
-    tf_dir
-        .as_ref()
-        .join(".cfr")
-        .join(CFR_VERSION)
-        .join("corpus.cfr")
-}
-
-pub fn is_cache_fresh(cache_path: &Path, module_paths: &[PathBuf]) -> Result<bool> {
-    let cache_mtime = match fs::metadata(cache_path).and_then(|metadata| metadata.modified()) {
-        Ok(mtime) => mtime,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-        Err(source) => {
-            return Err(CfError::Io {
-                path: cache_path.to_path_buf(),
-                source,
-            });
-        }
-    };
-    let mut newest_source = SystemTime::UNIX_EPOCH;
-    for module_path in module_paths {
-        for entry in fs::read_dir(module_path).map_err(|source| CfError::Io {
-            path: module_path.clone(),
-            source,
-        })? {
-            let entry = entry.map_err(|source| CfError::Io {
-                path: module_path.clone(),
-                source,
-            })?;
-            let path = entry.path();
-            if path.extension().and_then(|extension| extension.to_str()) != Some("tf") {
-                continue;
-            }
-            let mtime = entry
-                .metadata()
-                .and_then(|metadata| metadata.modified())
-                .map_err(|source| CfError::Io {
-                    path: path.clone(),
-                    source,
-                })?;
-            newest_source = newest_source.max(mtime);
-        }
-    }
-    if cache_mtime < newest_source {
-        return Ok(false);
-    }
-    let metadata = match inspect_compiled(cache_path) {
-        Ok(metadata) => metadata,
-        Err(_) => return Ok(false),
-    };
-    if source_has_structure_config(module_paths)? && metadata.structure_start.is_none() {
-        return Ok(false);
-    }
-    Ok(true)
-}
-
-fn source_has_structure_config(module_paths: &[PathBuf]) -> Result<bool> {
-    for module_path in module_paths {
-        let otext_path = module_path.join("otext.tf");
-        let Ok(content) = fs::read_to_string(&otext_path) else {
-            continue;
-        };
-        for line in content.lines() {
-            let Some(value) = line.strip_prefix("@structureTypes=") else {
-                continue;
-            };
-            if !value.trim().is_empty() {
-                return Ok(true);
-            }
-        }
-    }
-    Ok(false)
 }
 
 pub trait FeatureSpec {

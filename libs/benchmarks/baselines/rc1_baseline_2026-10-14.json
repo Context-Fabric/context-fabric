@@ -1,0 +1,6505 @@
+{
+ "date": "2026-10-14",
+ "results_dir": "/tmp/cf_rc1/runs/final2_20261014T235119",
+ "environment": {
+  "timestamp_utc": "2026-10-14T23:51:20+00:00",
+  "git_branch": "cf-rust-rc1",
+  "git_commit": "d2fa4027cd2cf6c354fb99926e32384747d63532",
+  "git_dirty": false,
+  "machine": {
+   "cpu": "Apple M5 Max",
+   "cores": 18,
+   "memory_gb": 128,
+   "os": "Darwin 26.6.2 arm64"
+  },
+  "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+  "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+  "rust_venv": {
+   "path": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv",
+   "python/cfabric/tf": "3.13.12 0.6.0rc1 13.0.19"
+  },
+  "cf_python_venv": {
+   "path": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058",
+   "python/cfabric/tf": "3.13.12 0.5.8 13.0.19"
+  },
+  "scratch_corpora": "/private/tmp/cf_rc1/corpora",
+  "source_corpora": "/Users/cody/github/context-fabric/context-fabric/libs/benchmarks/.corpora",
+  "bhsa_checkout": "v1.8.1\ngb112c161cfd21eae403d51a2733740d8743460e7",
+  "load_avg_at_start": [
+   3.36474609375,
+   3.6025390625,
+   3.7451171875
+  ]
+ },
+ "steps": [
+  {
+   "step": "copy bhsa",
+   "command": [
+    "rsync",
+    "-a",
+    "--exclude",
+    ".tf",
+    "--exclude",
+    ".cfm",
+    "--exclude",
+    ".cfr",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.corpora/bhsa/tf/",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf/"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.0,
+   "load_avg_at_start": [
+    3.36,
+    3.6,
+    3.75
+   ],
+   "log": "setup/copy_bhsa.log"
+  },
+  {
+   "step": "copy n1904",
+   "command": [
+    "rsync",
+    "-a",
+    "--exclude",
+    ".tf",
+    "--exclude",
+    ".cfm",
+    "--exclude",
+    ".cfr",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.corpora/n1904/tf/",
+    "/private/tmp/cf_rc1/corpora/n1904/tf/"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.0,
+   "load_avg_at_start": [
+    3.36,
+    3.6,
+    3.75
+   ],
+   "log": "setup/copy_n1904.log"
+  },
+  {
+   "step": "copy banks",
+   "command": [
+    "rsync",
+    "-a",
+    "--exclude",
+    ".tf",
+    "--exclude",
+    ".cfm",
+    "--exclude",
+    ".cfr",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.corpora/banks/tf/",
+    "/private/tmp/cf_rc1/corpora/banks/tf/"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.0,
+   "load_avg_at_start": [
+    3.36,
+    3.6,
+    3.75
+   ],
+   "log": "setup/copy_banks.log"
+  },
+  {
+   "step": "perf bhsa tf cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "tf",
+    "--corpus",
+    "bhsa",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--cold",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/tf_cold.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 36.2,
+   "load_avg_at_start": [
+    3.36,
+    3.6,
+    3.75
+   ],
+   "log": "perf/bhsa/tf_cold.log"
+  },
+  {
+   "step": "perf bhsa tf warm1",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "tf",
+    "--corpus",
+    "bhsa",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/tf_warm1.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 6.1,
+   "load_avg_at_start": [
+    3.29,
+    3.55,
+    3.72
+   ],
+   "log": "perf/bhsa/tf_warm1.log"
+  },
+  {
+   "step": "perf bhsa tf warm2",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "tf",
+    "--corpus",
+    "bhsa",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/tf_warm2.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 6.1,
+   "load_avg_at_start": [
+    3.27,
+    3.54,
+    3.72
+   ],
+   "log": "perf/bhsa/tf_warm2.log"
+  },
+  {
+   "step": "perf bhsa tf warm3",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "tf",
+    "--corpus",
+    "bhsa",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/tf_warm3.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 6.2,
+   "load_avg_at_start": [
+    3.16,
+    3.52,
+    3.71
+   ],
+   "log": "perf/bhsa/tf_warm3.log"
+  },
+  {
+   "step": "perf bhsa tf full",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "tf",
+    "--corpus",
+    "bhsa",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/tf_full.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 12.1,
+   "load_avg_at_start": [
+    3.29,
+    3.53,
+    3.71
+   ],
+   "log": "perf/bhsa/tf_full.log"
+  },
+  {
+   "step": "perf bhsa cf_python cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_python",
+    "--corpus",
+    "bhsa",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--cold",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_python_cold.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 68.0,
+   "load_avg_at_start": [
+    3.25,
+    3.51,
+    3.7
+   ],
+   "log": "perf/bhsa/cf_python_cold.log"
+  },
+  {
+   "step": "perf bhsa cf_python warm1",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_python",
+    "--corpus",
+    "bhsa",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_python_warm1.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.5,
+   "load_avg_at_start": [
+    4.5,
+    3.85,
+    3.81
+   ],
+   "log": "perf/bhsa/cf_python_warm1.log"
+  },
+  {
+   "step": "perf bhsa cf_python warm2",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_python",
+    "--corpus",
+    "bhsa",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_python_warm2.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.6,
+   "load_avg_at_start": [
+    4.5,
+    3.85,
+    3.81
+   ],
+   "log": "perf/bhsa/cf_python_warm2.log"
+  },
+  {
+   "step": "perf bhsa cf_python warm3",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_python",
+    "--corpus",
+    "bhsa",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_python_warm3.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.5,
+   "load_avg_at_start": [
+    4.5,
+    3.85,
+    3.81
+   ],
+   "log": "perf/bhsa/cf_python_warm3.log"
+  },
+  {
+   "step": "perf bhsa cf_python full",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_python",
+    "--corpus",
+    "bhsa",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_python_full.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 14.6,
+   "load_avg_at_start": [
+    4.5,
+    3.85,
+    3.81
+   ],
+   "log": "perf/bhsa/cf_python_full.log"
+  },
+  {
+   "step": "perf bhsa cf_rust cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_rust",
+    "--corpus",
+    "bhsa",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--cold",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_rust_cold.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 28.8,
+   "load_avg_at_start": [
+    4.58,
+    3.9,
+    3.83
+   ],
+   "log": "perf/bhsa/cf_rust_cold.log"
+  },
+  {
+   "step": "perf bhsa cf_rust warm1",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_rust",
+    "--corpus",
+    "bhsa",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_rust_warm1.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.0,
+   "load_avg_at_start": [
+    4.27,
+    3.91,
+    3.83
+   ],
+   "log": "perf/bhsa/cf_rust_warm1.log"
+  },
+  {
+   "step": "perf bhsa cf_rust warm2",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_rust",
+    "--corpus",
+    "bhsa",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_rust_warm2.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.0,
+   "load_avg_at_start": [
+    4.27,
+    3.91,
+    3.83
+   ],
+   "log": "perf/bhsa/cf_rust_warm2.log"
+  },
+  {
+   "step": "perf bhsa cf_rust warm3",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_rust",
+    "--corpus",
+    "bhsa",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_rust_warm3.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.0,
+   "load_avg_at_start": [
+    4.27,
+    3.91,
+    3.83
+   ],
+   "log": "perf/bhsa/cf_rust_warm3.log"
+  },
+  {
+   "step": "perf bhsa cf_rust full",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_rust",
+    "--corpus",
+    "bhsa",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_rust_full.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 1.2,
+   "load_avg_at_start": [
+    4.27,
+    3.91,
+    3.83
+   ],
+   "log": "perf/bhsa/cf_rust_full.log"
+  },
+  {
+   "step": "compile bhsa cfr",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "-c",
+    "import sys; from cfabric import Fabric; Fabric(locations=sys.argv[1]).compile(sys.argv[2])",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "/private/tmp/cf_rc1/cf_bhsa.cfr"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 28.1,
+   "load_avg_at_start": [
+    4.27,
+    3.91,
+    3.83
+   ],
+   "log": "setup/compile_bhsa_cfr.log"
+  },
+  {
+   "step": "perf bhsa cf_rust_mapped full",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_rust_mapped",
+    "--corpus",
+    "bhsa",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--mapped-cache",
+    "/private/tmp/cf_rc1/cf_bhsa.cfr",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/bhsa/cf_rust_mapped_full.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 1.1,
+   "load_avg_at_start": [
+    3.76,
+    3.82,
+    3.8
+   ],
+   "log": "perf/bhsa/cf_rust_mapped_full.log"
+  },
+  {
+   "step": "perf n1904 tf cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "tf",
+    "--corpus",
+    "n1904",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--cold",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/tf_cold.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 11.8,
+   "load_avg_at_start": [
+    3.62,
+    3.79,
+    3.79
+   ],
+   "log": "perf/n1904/tf_cold.log"
+  },
+  {
+   "step": "perf n1904 tf warm1",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "tf",
+    "--corpus",
+    "n1904",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/tf_warm1.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 1.9,
+   "load_avg_at_start": [
+    3.45,
+    3.74,
+    3.78
+   ],
+   "log": "perf/n1904/tf_warm1.log"
+  },
+  {
+   "step": "perf n1904 tf warm2",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "tf",
+    "--corpus",
+    "n1904",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/tf_warm2.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 1.9,
+   "load_avg_at_start": [
+    3.45,
+    3.74,
+    3.78
+   ],
+   "log": "perf/n1904/tf_warm2.log"
+  },
+  {
+   "step": "perf n1904 tf warm3",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "tf",
+    "--corpus",
+    "n1904",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/tf_warm3.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 1.9,
+   "load_avg_at_start": [
+    3.33,
+    3.72,
+    3.77
+   ],
+   "log": "perf/n1904/tf_warm3.log"
+  },
+  {
+   "step": "perf n1904 tf full",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "tf",
+    "--corpus",
+    "n1904",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/tf_full.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 6.2,
+   "load_avg_at_start": [
+    3.33,
+    3.72,
+    3.77
+   ],
+   "log": "perf/n1904/tf_full.log"
+  },
+  {
+   "step": "perf n1904 cf_python cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_python",
+    "--corpus",
+    "n1904",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--cold",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_python_cold.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 21.2,
+   "load_avg_at_start": [
+    3.22,
+    3.69,
+    3.75
+   ],
+   "log": "perf/n1904/cf_python_cold.log"
+  },
+  {
+   "step": "perf n1904 cf_python warm1",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_python",
+    "--corpus",
+    "n1904",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_python_warm1.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.6,
+   "load_avg_at_start": [
+    3.7,
+    3.75,
+    3.77
+   ],
+   "log": "perf/n1904/cf_python_warm1.log"
+  },
+  {
+   "step": "perf n1904 cf_python warm2",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_python",
+    "--corpus",
+    "n1904",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_python_warm2.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.6,
+   "load_avg_at_start": [
+    3.7,
+    3.75,
+    3.77
+   ],
+   "log": "perf/n1904/cf_python_warm2.log"
+  },
+  {
+   "step": "perf n1904 cf_python warm3",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_python",
+    "--corpus",
+    "n1904",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_python_warm3.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.7,
+   "load_avg_at_start": [
+    3.7,
+    3.75,
+    3.77
+   ],
+   "log": "perf/n1904/cf_python_warm3.log"
+  },
+  {
+   "step": "perf n1904 cf_python full",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_python",
+    "--corpus",
+    "n1904",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_python_full.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 13.3,
+   "load_avg_at_start": [
+    3.7,
+    3.75,
+    3.77
+   ],
+   "log": "perf/n1904/cf_python_full.log"
+  },
+  {
+   "step": "perf n1904 cf_rust cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_rust",
+    "--corpus",
+    "n1904",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--cold",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_rust_cold.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 7.8,
+   "load_avg_at_start": [
+    3.78,
+    3.76,
+    3.78
+   ],
+   "log": "perf/n1904/cf_rust_cold.log"
+  },
+  {
+   "step": "perf n1904 cf_rust warm1",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_rust",
+    "--corpus",
+    "n1904",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_rust_warm1.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.0,
+   "load_avg_at_start": [
+    3.64,
+    3.73,
+    3.77
+   ],
+   "log": "perf/n1904/cf_rust_warm1.log"
+  },
+  {
+   "step": "perf n1904 cf_rust warm2",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_rust",
+    "--corpus",
+    "n1904",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_rust_warm2.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.0,
+   "load_avg_at_start": [
+    3.64,
+    3.73,
+    3.77
+   ],
+   "log": "perf/n1904/cf_rust_warm2.log"
+  },
+  {
+   "step": "perf n1904 cf_rust warm3",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_rust",
+    "--corpus",
+    "n1904",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--load-only",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_rust_warm3.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.0,
+   "load_avg_at_start": [
+    3.64,
+    3.73,
+    3.77
+   ],
+   "log": "perf/n1904/cf_rust_warm3.log"
+  },
+  {
+   "step": "perf n1904 cf_rust full",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_rust",
+    "--corpus",
+    "n1904",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_rust_full.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 1.0,
+   "load_avg_at_start": [
+    3.64,
+    3.73,
+    3.77
+   ],
+   "log": "perf/n1904/cf_rust_full.log"
+  },
+  {
+   "step": "compile n1904 cfr",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "-c",
+    "import sys; from cfabric import Fabric; Fabric(locations=sys.argv[1]).compile(sys.argv[2])",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "/private/tmp/cf_rc1/cf_n1904.cfr"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 7.8,
+   "load_avg_at_start": [
+    3.58,
+    3.72,
+    3.76
+   ],
+   "log": "setup/compile_n1904_cfr.log"
+  },
+  {
+   "step": "perf n1904 cf_rust_mapped full",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/perf_probe.py",
+    "--engine",
+    "cf_rust_mapped",
+    "--corpus",
+    "n1904",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--mapped-cache",
+    "/private/tmp/cf_rc1/cf_n1904.cfr",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf/n1904/cf_rust_mapped_full.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 1.0,
+   "load_avg_at_start": [
+    3.62,
+    3.72,
+    3.76
+   ],
+   "log": "perf/n1904/cf_rust_mapped_full.log"
+  },
+  {
+   "step": "perf_gate tf",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "-m",
+    "cfabric_benchmarks.perf_gate",
+    "--bhsa-tf",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--engine",
+    "tf",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf_gate/tf.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 13.4,
+   "load_avg_at_start": [
+    3.62,
+    3.72,
+    3.76
+   ],
+   "log": "perf_gate/tf.log"
+  },
+  {
+   "step": "perf_gate cf",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "-m",
+    "cfabric_benchmarks.perf_gate",
+    "--bhsa-tf",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--engine",
+    "cf",
+    "--cache",
+    "/private/tmp/cf_rc1/cf_bhsa.cfr",
+    "--assert",
+    "--baseline",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf_gate/tf.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/perf_gate/cf.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 1.3,
+   "load_avg_at_start": [
+    3.41,
+    3.67,
+    3.74
+   ],
+   "log": "perf_gate/cf.log"
+  },
+  {
+   "step": "query suite tf",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/query_suite.py",
+    "--engine",
+    "tf",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--mode",
+    "auto",
+    "--timeout",
+    "300",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/queries/tf.jsonl"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 19.4,
+   "load_avg_at_start": [
+    3.41,
+    3.67,
+    3.74
+   ],
+   "log": "queries/tf.log"
+  },
+  {
+   "step": "query suite cf_python_cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/query_suite.py",
+    "--engine",
+    "cf_python",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--mode",
+    "auto",
+    "--timeout",
+    "300",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/queries/cf_python_cold.jsonl",
+    "--clear-cache"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 80.2,
+   "load_avg_at_start": [
+    3.33,
+    3.64,
+    3.73
+   ],
+   "log": "queries/cf_python_cold.log"
+  },
+  {
+   "step": "query suite cf_python",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/query_suite.py",
+    "--engine",
+    "cf_python",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--mode",
+    "auto",
+    "--timeout",
+    "300",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/queries/cf_python.jsonl"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 28.4,
+   "load_avg_at_start": [
+    3.96,
+    3.81,
+    3.79
+   ],
+   "log": "queries/cf_python.log"
+  },
+  {
+   "step": "query suite cf_rust",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/query_suite.py",
+    "--engine",
+    "cf_rust",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--mode",
+    "isolated",
+    "--timeout",
+    "300",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/queries/cf_rust.jsonl"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 4.0,
+   "load_avg_at_start": [
+    3.4,
+    3.69,
+    3.74
+   ],
+   "log": "queries/cf_rust.log"
+  },
+  {
+   "step": "query suite cf_rust_inprocess",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/query_suite.py",
+    "--engine",
+    "cf_rust",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--mode",
+    "in-process",
+    "--timeout",
+    "300",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/queries/cf_rust_inprocess.jsonl"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 2.5,
+   "load_avg_at_start": [
+    3.37,
+    3.67,
+    3.74
+   ],
+   "log": "queries/cf_rust_inprocess.log"
+  },
+  {
+   "step": "oracle plan bhsa",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "plan",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/plan.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 5.8,
+   "load_avg_at_start": [
+    3.37,
+    3.67,
+    3.74
+   ],
+   "log": "oracle/bhsa/plan.log"
+  },
+  {
+   "step": "oracle eval bhsa tf",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "eval",
+    "--engine",
+    "tf",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/plan.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_tf.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 22.4,
+   "load_avg_at_start": [
+    3.42,
+    3.68,
+    3.74
+   ],
+   "log": "oracle/bhsa/eval_tf.log"
+  },
+  {
+   "step": "oracle eval bhsa cf_rust",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "eval",
+    "--engine",
+    "cf_rust",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/plan.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_cf_rust.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 10.6,
+   "load_avg_at_start": [
+    3.45,
+    3.66,
+    3.73
+   ],
+   "log": "oracle/bhsa/eval_cf_rust.log"
+  },
+  {
+   "step": "oracle eval bhsa cf_python_cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "eval",
+    "--engine",
+    "cf_python",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/plan.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_cf_python_cold.json",
+    "--clear-cache"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 85.0,
+   "load_avg_at_start": [
+    3.62,
+    3.69,
+    3.74
+   ],
+   "log": "oracle/bhsa/eval_cf_python_cold.log"
+  },
+  {
+   "step": "oracle eval bhsa cf_python",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "eval",
+    "--engine",
+    "cf_python",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/plan.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_cf_python.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 31.1,
+   "load_avg_at_start": [
+    4.18,
+    3.88,
+    3.81
+   ],
+   "log": "oracle/bhsa/eval_cf_python.log"
+  },
+  {
+   "step": "oracle compare bhsa tf",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "compare",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/plan.json",
+    "--expected",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_tf.json",
+    "--actual",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_tf.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/cmp_tf.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.1,
+   "load_avg_at_start": [
+    4.04,
+    3.88,
+    3.81
+   ],
+   "log": "oracle/bhsa/cmp_tf.log"
+  },
+  {
+   "step": "oracle compare bhsa cf_rust",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "compare",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/plan.json",
+    "--expected",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_tf.json",
+    "--actual",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_cf_rust.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/cmp_cf_rust.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.1,
+   "load_avg_at_start": [
+    4.04,
+    3.88,
+    3.81
+   ],
+   "log": "oracle/bhsa/cmp_cf_rust.log"
+  },
+  {
+   "step": "oracle compare bhsa cf_python_cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "compare",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/plan.json",
+    "--expected",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_tf.json",
+    "--actual",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_cf_python_cold.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/cmp_cf_python_cold.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.1,
+   "load_avg_at_start": [
+    4.04,
+    3.88,
+    3.81
+   ],
+   "log": "oracle/bhsa/cmp_cf_python_cold.log"
+  },
+  {
+   "step": "oracle compare bhsa cf_python",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "compare",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/plan.json",
+    "--expected",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_tf.json",
+    "--actual",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/values_cf_python.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/bhsa/cmp_cf_python.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.1,
+   "load_avg_at_start": [
+    4.04,
+    3.88,
+    3.81
+   ],
+   "log": "oracle/bhsa/cmp_cf_python.log"
+  },
+  {
+   "step": "oracle plan n1904",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "plan",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/plan.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 1.7,
+   "load_avg_at_start": [
+    4.04,
+    3.88,
+    3.81
+   ],
+   "log": "oracle/n1904/plan.log"
+  },
+  {
+   "step": "oracle eval n1904 tf",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "eval",
+    "--engine",
+    "tf",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/plan.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_tf.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 9.1,
+   "load_avg_at_start": [
+    4.04,
+    3.88,
+    3.81
+   ],
+   "log": "oracle/n1904/eval_tf.log"
+  },
+  {
+   "step": "oracle eval n1904 cf_rust",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "eval",
+    "--engine",
+    "cf_rust",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/plan.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_cf_rust.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 5.2,
+   "load_avg_at_start": [
+    4.04,
+    3.88,
+    3.81
+   ],
+   "log": "oracle/n1904/eval_cf_rust.log"
+  },
+  {
+   "step": "oracle eval n1904 cf_python_cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "eval",
+    "--engine",
+    "cf_python",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/plan.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_cf_python_cold.json",
+    "--clear-cache"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 29.0,
+   "load_avg_at_start": [
+    3.8,
+    3.83,
+    3.79
+   ],
+   "log": "oracle/n1904/eval_cf_python_cold.log"
+  },
+  {
+   "step": "oracle eval n1904 cf_python",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "eval",
+    "--engine",
+    "cf_python",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/n1904/tf",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/plan.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_cf_python.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 9.9,
+   "load_avg_at_start": [
+    3.68,
+    3.8,
+    3.78
+   ],
+   "log": "oracle/n1904/eval_cf_python.log"
+  },
+  {
+   "step": "oracle compare n1904 tf",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "compare",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/plan.json",
+    "--expected",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_tf.json",
+    "--actual",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_tf.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/cmp_tf.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.1,
+   "load_avg_at_start": [
+    3.42,
+    3.74,
+    3.76
+   ],
+   "log": "oracle/n1904/cmp_tf.log"
+  },
+  {
+   "step": "oracle compare n1904 cf_rust",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "compare",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/plan.json",
+    "--expected",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_tf.json",
+    "--actual",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_cf_rust.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/cmp_cf_rust.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.1,
+   "load_avg_at_start": [
+    3.42,
+    3.74,
+    3.76
+   ],
+   "log": "oracle/n1904/cmp_cf_rust.log"
+  },
+  {
+   "step": "oracle compare n1904 cf_python_cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "compare",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/plan.json",
+    "--expected",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_tf.json",
+    "--actual",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_cf_python_cold.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/cmp_cf_python_cold.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.1,
+   "load_avg_at_start": [
+    3.42,
+    3.74,
+    3.76
+   ],
+   "log": "oracle/n1904/cmp_cf_python_cold.log"
+  },
+  {
+   "step": "oracle compare n1904 cf_python",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "compare",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/plan.json",
+    "--expected",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_tf.json",
+    "--actual",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/values_cf_python.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/n1904/cmp_cf_python.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.1,
+   "load_avg_at_start": [
+    3.42,
+    3.74,
+    3.76
+   ],
+   "log": "oracle/n1904/cmp_cf_python.log"
+  },
+  {
+   "step": "oracle plan banks",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "plan",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/banks/tf",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/plan.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.1,
+   "load_avg_at_start": [
+    3.42,
+    3.74,
+    3.76
+   ],
+   "log": "oracle/banks/plan.log"
+  },
+  {
+   "step": "oracle eval banks tf",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "eval",
+    "--engine",
+    "tf",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/banks/tf",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/plan.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_tf.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.1,
+   "load_avg_at_start": [
+    3.42,
+    3.74,
+    3.76
+   ],
+   "log": "oracle/banks/eval_tf.log"
+  },
+  {
+   "step": "oracle eval banks cf_rust",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "eval",
+    "--engine",
+    "cf_rust",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/banks/tf",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/plan.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_cf_rust.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.1,
+   "load_avg_at_start": [
+    3.42,
+    3.74,
+    3.76
+   ],
+   "log": "oracle/banks/eval_cf_rust.log"
+  },
+  {
+   "step": "oracle eval banks cf_python_cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "eval",
+    "--engine",
+    "cf_python",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/banks/tf",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/plan.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_cf_python_cold.json",
+    "--clear-cache"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.1,
+   "load_avg_at_start": [
+    3.42,
+    3.74,
+    3.76
+   ],
+   "log": "oracle/banks/eval_cf_python_cold.log"
+  },
+  {
+   "step": "oracle eval banks cf_python",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "eval",
+    "--engine",
+    "cf_python",
+    "--tf-path",
+    "/private/tmp/cf_rc1/corpora/banks/tf",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/plan.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_cf_python.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.1,
+   "load_avg_at_start": [
+    3.42,
+    3.74,
+    3.76
+   ],
+   "log": "oracle/banks/eval_cf_python.log"
+  },
+  {
+   "step": "oracle compare banks tf",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "compare",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/plan.json",
+    "--expected",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_tf.json",
+    "--actual",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_tf.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/cmp_tf.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.0,
+   "load_avg_at_start": [
+    3.42,
+    3.74,
+    3.76
+   ],
+   "log": "oracle/banks/cmp_tf.log"
+  },
+  {
+   "step": "oracle compare banks cf_rust",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "compare",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/plan.json",
+    "--expected",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_tf.json",
+    "--actual",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_cf_rust.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/cmp_cf_rust.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.0,
+   "load_avg_at_start": [
+    3.42,
+    3.74,
+    3.76
+   ],
+   "log": "oracle/banks/cmp_cf_rust.log"
+  },
+  {
+   "step": "oracle compare banks cf_python_cold",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "compare",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/plan.json",
+    "--expected",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_tf.json",
+    "--actual",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_cf_python_cold.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/cmp_cf_python_cold.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.0,
+   "load_avg_at_start": [
+    3.42,
+    3.74,
+    3.76
+   ],
+   "log": "oracle/banks/cmp_cf_python_cold.log"
+  },
+  {
+   "step": "oracle compare banks cf_python",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/scripts/rc_baselines/oracle_parity.py",
+    "compare",
+    "--plan",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/plan.json",
+    "--expected",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_tf.json",
+    "--actual",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/values_cf_python.json",
+    "--out",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/oracle/banks/cmp_cf_python.json"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 0.0,
+   "load_avg_at_start": [
+    3.42,
+    3.74,
+    3.76
+   ],
+   "log": "oracle/banks/cmp_cf_python.log"
+  },
+  {
+   "step": "golden cf_rust",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/tests/golden/compare.py",
+    "bhsa",
+    "n1904",
+    "banks"
+   ],
+   "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1",
+   "exit": 0,
+   "seconds": 0.2,
+   "load_avg_at_start": [
+    3.42,
+    3.74,
+    3.76
+   ],
+   "log": "golden/cf_rust.log"
+  },
+  {
+   "step": "golden cf_python",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/tests/golden/compare.py",
+    "bhsa",
+    "n1904",
+    "banks"
+   ],
+   "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1",
+   "exit": 1,
+   "seconds": 1.8,
+   "load_avg_at_start": [
+    3.42,
+    3.74,
+    3.76
+   ],
+   "log": "golden/cf_python.log"
+  },
+  {
+   "step": "cargo fmt --check",
+   "command": [
+    "cargo",
+    "fmt",
+    "--check"
+   ],
+   "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core",
+   "exit": 0,
+   "seconds": 0.1,
+   "load_avg_at_start": [
+    3.71,
+    3.79,
+    3.78
+   ],
+   "log": "rust/cargo_fmt.log"
+  },
+  {
+   "step": "cargo test",
+   "command": [
+    "cargo",
+    "test",
+    "--features",
+    "python"
+   ],
+   "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core",
+   "exit": 0,
+   "seconds": 143.5,
+   "load_avg_at_start": [
+    3.71,
+    3.79,
+    3.78
+   ],
+   "log": "rust/cargo_test.log"
+  },
+  {
+   "step": "pytest core_python",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "-m",
+    "pytest",
+    "tests/python",
+    "-q",
+    "-rA",
+    "-p",
+    "no:cacheprovider",
+    "--junitxml=/private/tmp/cf_rc1/runs/final2_20261014T235119/pytest/core_python.xml"
+   ],
+   "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core",
+   "exit": 0,
+   "seconds": 61.1,
+   "load_avg_at_start": [
+    4.6,
+    4.28,
+    3.98
+   ],
+   "log": "pytest/core_python.log"
+  },
+  {
+   "step": "pytest core_parity",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "-m",
+    "pytest",
+    "tests/parity",
+    "-q",
+    "-rA",
+    "-p",
+    "no:cacheprovider",
+    "--junitxml=/private/tmp/cf_rc1/runs/final2_20261014T235119/pytest/core_parity.xml"
+   ],
+   "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core",
+   "exit": 0,
+   "seconds": 130.6,
+   "load_avg_at_start": [
+    4.17,
+    4.21,
+    3.98
+   ],
+   "log": "pytest/core_parity.log"
+  },
+  {
+   "step": "pytest benchmarks",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "-m",
+    "pytest",
+    "tests",
+    "-q",
+    "-rA",
+    "-p",
+    "no:cacheprovider",
+    "--junitxml=/private/tmp/cf_rc1/runs/final2_20261014T235119/pytest/benchmarks.xml"
+   ],
+   "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks",
+   "exit": 0,
+   "seconds": 1.3,
+   "load_avg_at_start": [
+    3.87,
+    3.97,
+    3.91
+   ],
+   "log": "pytest/benchmarks.log"
+  },
+  {
+   "step": "pytest mcp",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "-m",
+    "pytest",
+    "tests",
+    "-q",
+    "-rA",
+    "-p",
+    "no:cacheprovider",
+    "--junitxml=/private/tmp/cf_rc1/runs/final2_20261014T235119/pytest/mcp.xml"
+   ],
+   "cwd": "/Users/cody/github/context-fabric/cf-rust-rc1/libs/mcp",
+   "exit": 0,
+   "seconds": 21.8,
+   "load_avg_at_start": [
+    3.87,
+    3.97,
+    3.91
+   ],
+   "log": "pytest/mcp.log"
+  },
+  {
+   "step": "bench_scalar_latency",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/bench_scalar_latency.py",
+    "--tf",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--cache",
+    "/private/tmp/cf_rc1/cf_bhsa.cfr"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 7.0,
+   "load_avg_at_start": [
+    3.96,
+    3.98,
+    3.91
+   ],
+   "log": "microbench/bench_scalar_latency.log"
+  },
+  {
+   "step": "bench_batch_apis",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/python",
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/bench_batch_apis.py",
+    "--tf",
+    "/private/tmp/cf_rc1/corpora/bhsa/tf",
+    "--cache",
+    "/private/tmp/cf_rc1/cf_bhsa.cfr"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 2.0,
+   "load_avg_at_start": [
+    4.18,
+    4.02,
+    3.93
+   ],
+   "log": "microbench/bench_batch_apis.log"
+  },
+  {
+   "step": "cfabric-bench latency cf_rust",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/cfabric-bench",
+    "latency",
+    "--corpus",
+    "bhsa",
+    "--corpora-dir",
+    "/private/tmp/cf_rc1/corpora",
+    "--queries",
+    "104",
+    "--iterations",
+    "3",
+    "--runs",
+    "1",
+    "--output-dir",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/bench_cli/cf_rust/latency"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 127.6,
+   "load_avg_at_start": [
+    4.18,
+    4.02,
+    3.93
+   ],
+   "log": "bench_cli/cf_rust/latency.log"
+  },
+  {
+   "step": "cfabric-bench memory cf_rust",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/core/.venv/bin/cfabric-bench",
+    "memory",
+    "-c",
+    "bhsa",
+    "--corpora-dir",
+    "/private/tmp/cf_rc1/corpora",
+    "--runs",
+    "3",
+    "--warmup",
+    "1",
+    "--workers",
+    "4",
+    "--output-dir",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/bench_cli/cf_rust/memory"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 138.9,
+   "load_avg_at_start": [
+    4.25,
+    4.14,
+    3.98
+   ],
+   "log": "bench_cli/cf_rust/memory.log"
+  },
+  {
+   "step": "cfabric-bench latency cf_python",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/cfabric-bench",
+    "latency",
+    "--corpus",
+    "bhsa",
+    "--corpora-dir",
+    "/private/tmp/cf_rc1/corpora",
+    "--queries",
+    "104",
+    "--iterations",
+    "3",
+    "--runs",
+    "1",
+    "--output-dir",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/bench_cli/cf_python/latency"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 203.1,
+   "load_avg_at_start": [
+    4.63,
+    4.31,
+    4.07
+   ],
+   "log": "bench_cli/cf_python/latency.log"
+  },
+  {
+   "step": "cfabric-bench memory cf_python",
+   "command": [
+    "/Users/cody/github/context-fabric/cf-rust-rc1/libs/benchmarks/.venv-cfpy058/bin/cfabric-bench",
+    "memory",
+    "-c",
+    "bhsa",
+    "--corpora-dir",
+    "/private/tmp/cf_rc1/corpora",
+    "--runs",
+    "3",
+    "--warmup",
+    "1",
+    "--workers",
+    "4",
+    "--output-dir",
+    "/private/tmp/cf_rc1/runs/final2_20261014T235119/bench_cli/cf_python/memory"
+   ],
+   "cwd": "/tmp",
+   "exit": 0,
+   "seconds": 145.9,
+   "load_avg_at_start": [
+    4.31,
+    3.91,
+    3.92
+   ],
+   "log": "bench_cli/cf_python/memory.log"
+  }
+ ],
+ "parity": {
+  "cargo": {
+   "fmt_check": {
+    "ok": true,
+    "hunks": 0,
+    "files": []
+   },
+   "test": {
+    "passed": 101,
+    "failed": 0,
+    "ignored": 0,
+    "failed_tests": [],
+    "ignored_tests": []
+   }
+  },
+  "pytest": {
+   "benchmarks": {
+    "tests": 56,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 56,
+    "failing": [],
+    "skipped_detail": []
+   },
+   "core_parity": {
+    "tests": 52,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 52,
+    "failing": [],
+    "skipped_detail": []
+   },
+   "core_python": {
+    "tests": 261,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 8,
+    "passed": 253,
+    "failing": [],
+    "skipped_detail": [
+     {
+      "test": "tests.python.test_tf_api_surface::test_return_container_types_match_text_fabric[api.F.word.s('hello')]",
+      "reason": "tuple instead of a lazy iterable (same members)"
+     },
+     {
+      "test": "tests.python.test_tf_api_surface::test_return_container_types_match_text_fabric[api.F.otype.s('phrase')]",
+      "reason": "tuple instead of range (same members)"
+     },
+     {
+      "test": "tests.python.test_tf_api_surface::test_return_container_types_match_text_fabric[api.E.oslots.s(8)]",
+      "reason": "tuple instead of array.array (same members)"
+     },
+     {
+      "test": "tests.python.test_tf_api_surface::test_return_container_types_match_text_fabric[api.E.distance.freqList()]",
+      "reason": "Text-Fabric raises TypeError sorting None edge values"
+     },
+     {
+      "test": "tests.python.test_tf_api_surface::test_return_container_types_match_text_fabric[api.E.parent.f(1)]",
+      "reason": "tuple; Text-Fabric returns a frozenset or tuple per feature"
+     },
+     {
+      "test": "tests.python.test_tf_api_surface::test_return_container_types_match_text_fabric[api.S.glean((1, 2))]",
+      "reason": "Text-Fabric raises IndexError on datasets with fewer than 3 section levels"
+     },
+     {
+      "test": "tests.python.test_xcorpus_sections::test_quran_top_section_uses_number_not_name",
+      "reason": "quran corpus not available at /private/tmp/cf_rc1/corpora/quran/tf"
+     },
+     {
+      "test": "tests.python.test_xcorpus_sections::test_quran_node_from_section_round_trips_and_fast_miss",
+      "reason": "quran corpus not available at /private/tmp/cf_rc1/corpora/quran/tf"
+     }
+    ]
+   },
+   "mcp": {
+    "tests": 166,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 166,
+    "failing": [],
+    "skipped_detail": []
+   }
+  },
+  "golden": {
+   "cf_python": {
+    "counts": {
+     "bhsa": {
+      "pass": 13,
+      "fail": 0
+     },
+     "n1904": {
+      "pass": 10,
+      "fail": 0
+     },
+     "banks": {
+      "pass": 5,
+      "fail": 6
+     }
+    },
+    "failures": [
+     {
+      "corpus": "banks",
+      "probe": "banks_top",
+      "detail": [
+       "expected: [100]",
+       "actual:   null"
+      ]
+     },
+     {
+      "corpus": "banks",
+      "probe": "banks_structure_forest",
+      "detail": [
+       "expected: [[100, [[101, [[115, [[103, []], [104, []], [105, []], [106, []]]], [116, [[107, []], [108, []], [109, []]]]]], [102, [[117, [[110, []], [111, []], [112, []], [113, []], [114, []]]]]]]]]",
+       "actual:   null"
+      ]
+     },
+     {
+      "corpus": "banks",
+      "probe": "banks_sentence_heading",
+      "detail": [
+       "expected: [[\"book\", \"Consider Phlebas\"], [\"chapter\", 1], [\"sentence\", 1]]",
+       "actual:   null"
+      ]
+     },
+     {
+      "corpus": "banks",
+      "probe": "banks_sentence_from_heading",
+      "detail": [
+       "expected: 115",
+       "actual:   null"
+      ]
+     },
+     {
+      "corpus": "banks",
+      "probe": "banks_sentence_structure_pretty",
+      "detail": [
+       "expected: \"  sentence:1\\n      line:1\\n      line:2\\n      line:3\\n      line:4\"",
+       "actual:   null"
+      ]
+     },
+     {
+      "corpus": "banks",
+      "probe": "banks_sentence_structure_pretty_full",
+      "detail": [
+       "expected: \"  book:Consider Phlebas-chapter:1-sentence:1\\n      book:Consider Phlebas-chapter:1-sentence:1-line:1\\n      book:Consider Phlebas-chapter:1-sentence:1-line:2\\n      book:Consider Phlebas-chapter:1-sentence:1-line:3\\n      book:Consider Phlebas-chapter:1-sentence:1-line:4\"",
+       "actual:   null"
+      ]
+     }
+    ],
+    "skips": []
+   },
+   "cf_rust": {
+    "counts": {
+     "bhsa": {
+      "pass": 13,
+      "fail": 0
+     },
+     "n1904": {
+      "pass": 10,
+      "fail": 0
+     },
+     "banks": {
+      "pass": 11,
+      "fail": 0
+     }
+    },
+    "failures": [],
+    "skips": []
+   }
+  },
+  "query_suite": {
+   "cf_python": {
+    "engine_version": "0.5.8",
+    "load_s": 0.347,
+    "mode": "in-process",
+    "total": 34,
+    "count_and_sample_ok": 33,
+    "result_set_equal_to_tf": 33,
+    "wall_s_completed": 27.614,
+    "not_ok": [
+     {
+      "id": "q_knear_after",
+      "status": "wrong",
+      "count": 46,
+      "tf_count": 50,
+      "error": null
+     }
+    ],
+    "per_query": {
+     "q_with_or_subj": {
+      "status": "ok",
+      "seconds": 1.4542,
+      "count": 28228,
+      "set_matches_tf": true
+     },
+     "q_where_have": {
+      "status": "ok",
+      "seconds": 0.8573,
+      "count": 31431,
+      "set_matches_tf": true
+     },
+     "q_where_have_parent": {
+      "status": "ok",
+      "seconds": 0.6892,
+      "count": 241249,
+      "set_matches_tf": true
+     },
+     "q_phrase_without_verb": {
+      "status": "ok",
+      "seconds": 0.4338,
+      "count": 62771,
+      "set_matches_tf": true
+     },
+     "q_mother_basic": {
+      "status": "ok",
+      "seconds": 0.1408,
+      "count": 13917,
+      "set_matches_tf": true
+     },
+     "q_mother_named_distinct_verse": {
+      "status": "ok",
+      "seconds": 0.2711,
+      "count": 710,
+      "set_matches_tf": true
+     },
+     "q_mother_reverse": {
+      "status": "ok",
+      "seconds": 0.1267,
+      "count": 13917,
+      "set_matches_tf": true
+     },
+     "q_agree_nu_eq": {
+      "status": "ok",
+      "seconds": 0.7115,
+      "count": 3759,
+      "set_matches_tf": true
+     },
+     "q_agree_nu_neq": {
+      "status": "ok",
+      "seconds": 0.6755,
+      "count": 525,
+      "set_matches_tf": true
+     },
+     "q_samelex_adjacent": {
+      "status": "ok",
+      "seconds": 1.321,
+      "count": 475,
+      "set_matches_tf": true
+     },
+     "q_knear_before": {
+      "status": "ok",
+      "seconds": 0.243,
+      "count": 1,
+      "set_matches_tf": true
+     },
+     "q_knear_after": {
+      "status": "wrong",
+      "seconds": 0.1372,
+      "count": 46,
+      "set_matches_tf": false
+     },
+     "q_regex_gcons": {
+      "status": "ok",
+      "seconds": 0.2096,
+      "count": 816,
+      "set_matches_tf": true
+     },
+     "q_regex_typ": {
+      "status": "ok",
+      "seconds": 0.1462,
+      "count": 3098,
+      "set_matches_tf": true
+     },
+     "q_regex_gloss_space": {
+      "status": "ok",
+      "seconds": 0.0049,
+      "count": 406,
+      "set_matches_tf": true
+     },
+     "q_feat_exists_qere": {
+      "status": "ok",
+      "seconds": 0.0702,
+      "count": 1892,
+      "set_matches_tf": true
+     },
+     "q_feat_empty_qere": {
+      "status": "ok",
+      "seconds": 0.15,
+      "count": 424698,
+      "set_matches_tf": true
+     },
+     "q_multivalue_neg": {
+      "status": "ok",
+      "seconds": 0.1095,
+      "count": 271,
+      "set_matches_tf": true
+     },
+     "q_multivalue_pos_agree": {
+      "status": "ok",
+      "seconds": 1.0361,
+      "count": 10638,
+      "set_matches_tf": true
+     },
+     "q_slot_equal": {
+      "status": "ok",
+      "seconds": 0.3105,
+      "count": 3583,
+      "set_matches_tf": true
+     },
+     "q_slot_diff_start": {
+      "status": "ok",
+      "seconds": 0.5221,
+      "count": 702,
+      "set_matches_tf": true
+     },
+     "q_slot_disjoint": {
+      "status": "ok",
+      "seconds": 1.3975,
+      "count": 168504,
+      "set_matches_tf": true
+     },
+     "q_slot_overlap_parent": {
+      "status": "ok",
+      "seconds": 1.2366,
+      "count": 887,
+      "set_matches_tf": true
+     },
+     "q_adj_before": {
+      "status": "ok",
+      "seconds": 1.6836,
+      "count": 162653,
+      "set_matches_tf": true
+     },
+     "q_adj_after": {
+      "status": "ok",
+      "seconds": 1.6684,
+      "count": 162653,
+      "set_matches_tf": true
+     },
+     "q_section_adjacency": {
+      "status": "ok",
+      "seconds": 0.2565,
+      "count": 1,
+      "set_matches_tf": true
+     },
+     "q_start_end_agree_mismatch": {
+      "status": "ok",
+      "seconds": 0.4049,
+      "count": 262,
+      "set_matches_tf": true
+     },
+     "q_phrase_gap": {
+      "status": "ok",
+      "seconds": 2.5732,
+      "count": 716,
+      "set_matches_tf": true
+     },
+     "q_slot_containment": {
+      "status": "ok",
+      "seconds": 5.3222,
+      "count": 2739,
+      "set_matches_tf": true
+     },
+     "q_idiom_chen": {
+      "status": "ok",
+      "seconds": 0.4624,
+      "count": 40,
+      "set_matches_tf": true
+     },
+     "q_complex_subj_prec": {
+      "status": "ok",
+      "seconds": 1.0976,
+      "count": 2303,
+      "set_matches_tf": true
+     },
+     "q_rank_lex_numeric": {
+      "status": "ok",
+      "seconds": 0.4184,
+      "count": 28095,
+      "set_matches_tf": true
+     },
+     "q_lex_only_ezra_neh": {
+      "status": "ok",
+      "seconds": 1.2582,
+      "count": 382,
+      "set_matches_tf": true
+     },
+     "q_order_lo_then_impf": {
+      "status": "ok",
+      "seconds": 0.2144,
+      "count": 692,
+      "set_matches_tf": true
+     }
+    }
+   },
+   "cf_python_cold": {
+    "engine_version": "0.5.8",
+    "load_s": 67.336,
+    "mode": "in-process",
+    "total": 34,
+    "count_and_sample_ok": 34,
+    "result_set_equal_to_tf": 34,
+    "wall_s_completed": 11.469,
+    "not_ok": [],
+    "per_query": {
+     "q_with_or_subj": {
+      "status": "ok",
+      "seconds": 0.3756,
+      "count": 28228,
+      "set_matches_tf": true
+     },
+     "q_where_have": {
+      "status": "ok",
+      "seconds": 0.5105,
+      "count": 31431,
+      "set_matches_tf": true
+     },
+     "q_where_have_parent": {
+      "status": "ok",
+      "seconds": 0.4521,
+      "count": 241249,
+      "set_matches_tf": true
+     },
+     "q_phrase_without_verb": {
+      "status": "ok",
+      "seconds": 0.2128,
+      "count": 62771,
+      "set_matches_tf": true
+     },
+     "q_mother_basic": {
+      "status": "ok",
+      "seconds": 0.0449,
+      "count": 13917,
+      "set_matches_tf": true
+     },
+     "q_mother_named_distinct_verse": {
+      "status": "ok",
+      "seconds": 0.0918,
+      "count": 710,
+      "set_matches_tf": true
+     },
+     "q_mother_reverse": {
+      "status": "ok",
+      "seconds": 0.0444,
+      "count": 13917,
+      "set_matches_tf": true
+     },
+     "q_agree_nu_eq": {
+      "status": "ok",
+      "seconds": 0.4117,
+      "count": 3759,
+      "set_matches_tf": true
+     },
+     "q_agree_nu_neq": {
+      "status": "ok",
+      "seconds": 0.4517,
+      "count": 525,
+      "set_matches_tf": true
+     },
+     "q_samelex_adjacent": {
+      "status": "ok",
+      "seconds": 0.3599,
+      "count": 475,
+      "set_matches_tf": true
+     },
+     "q_knear_before": {
+      "status": "ok",
+      "seconds": 0.0949,
+      "count": 1,
+      "set_matches_tf": true
+     },
+     "q_knear_after": {
+      "status": "ok",
+      "seconds": 0.162,
+      "count": 50,
+      "set_matches_tf": true
+     },
+     "q_regex_gcons": {
+      "status": "ok",
+      "seconds": 0.1107,
+      "count": 816,
+      "set_matches_tf": true
+     },
+     "q_regex_typ": {
+      "status": "ok",
+      "seconds": 0.13,
+      "count": 3098,
+      "set_matches_tf": true
+     },
+     "q_regex_gloss_space": {
+      "status": "ok",
+      "seconds": 0.0036,
+      "count": 406,
+      "set_matches_tf": true
+     },
+     "q_feat_exists_qere": {
+      "status": "ok",
+      "seconds": 0.052,
+      "count": 1892,
+      "set_matches_tf": true
+     },
+     "q_feat_empty_qere": {
+      "status": "ok",
+      "seconds": 0.1256,
+      "count": 424698,
+      "set_matches_tf": true
+     },
+     "q_multivalue_neg": {
+      "status": "ok",
+      "seconds": 0.1798,
+      "count": 271,
+      "set_matches_tf": true
+     },
+     "q_multivalue_pos_agree": {
+      "status": "ok",
+      "seconds": 0.525,
+      "count": 10638,
+      "set_matches_tf": true
+     },
+     "q_slot_equal": {
+      "status": "ok",
+      "seconds": 0.0861,
+      "count": 3583,
+      "set_matches_tf": true
+     },
+     "q_slot_diff_start": {
+      "status": "ok",
+      "seconds": 0.07,
+      "count": 702,
+      "set_matches_tf": true
+     },
+     "q_slot_disjoint": {
+      "status": "ok",
+      "seconds": 0.4543,
+      "count": 168504,
+      "set_matches_tf": true
+     },
+     "q_slot_overlap_parent": {
+      "status": "ok",
+      "seconds": 0.4504,
+      "count": 887,
+      "set_matches_tf": true
+     },
+     "q_adj_before": {
+      "status": "ok",
+      "seconds": 0.435,
+      "count": 162653,
+      "set_matches_tf": true
+     },
+     "q_adj_after": {
+      "status": "ok",
+      "seconds": 0.4365,
+      "count": 162653,
+      "set_matches_tf": true
+     },
+     "q_section_adjacency": {
+      "status": "ok",
+      "seconds": 0.2161,
+      "count": 1,
+      "set_matches_tf": true
+     },
+     "q_start_end_agree_mismatch": {
+      "status": "ok",
+      "seconds": 0.3525,
+      "count": 262,
+      "set_matches_tf": true
+     },
+     "q_phrase_gap": {
+      "status": "ok",
+      "seconds": 0.6171,
+      "count": 716,
+      "set_matches_tf": true
+     },
+     "q_slot_containment": {
+      "status": "ok",
+      "seconds": 1.8183,
+      "count": 2739,
+      "set_matches_tf": true
+     },
+     "q_idiom_chen": {
+      "status": "ok",
+      "seconds": 0.5174,
+      "count": 40,
+      "set_matches_tf": true
+     },
+     "q_complex_subj_prec": {
+      "status": "ok",
+      "seconds": 0.782,
+      "count": 2303,
+      "set_matches_tf": true
+     },
+     "q_rank_lex_numeric": {
+      "status": "ok",
+      "seconds": 0.1494,
+      "count": 28095,
+      "set_matches_tf": true
+     },
+     "q_lex_only_ezra_neh": {
+      "status": "ok",
+      "seconds": 0.4423,
+      "count": 382,
+      "set_matches_tf": true
+     },
+     "q_order_lo_then_impf": {
+      "status": "ok",
+      "seconds": 0.3022,
+      "count": 692,
+      "set_matches_tf": true
+     }
+    }
+   },
+   "cf_rust": {
+    "engine_version": "0.6.0rc1",
+    "load_s": null,
+    "mode": "isolated",
+    "total": 34,
+    "count_and_sample_ok": 34,
+    "result_set_equal_to_tf": 34,
+    "wall_s_completed": 2.366,
+    "not_ok": [],
+    "per_query": {
+     "q_with_or_subj": {
+      "status": "ok",
+      "seconds": 0.0835,
+      "count": 28228,
+      "set_matches_tf": true
+     },
+     "q_where_have": {
+      "status": "ok",
+      "seconds": 0.0872,
+      "count": 31431,
+      "set_matches_tf": true
+     },
+     "q_where_have_parent": {
+      "status": "ok",
+      "seconds": 0.1153,
+      "count": 241249,
+      "set_matches_tf": true
+     },
+     "q_phrase_without_verb": {
+      "status": "ok",
+      "seconds": 0.0456,
+      "count": 62771,
+      "set_matches_tf": true
+     },
+     "q_mother_basic": {
+      "status": "ok",
+      "seconds": 0.0201,
+      "count": 13917,
+      "set_matches_tf": true
+     },
+     "q_mother_named_distinct_verse": {
+      "status": "ok",
+      "seconds": 0.0319,
+      "count": 710,
+      "set_matches_tf": true
+     },
+     "q_mother_reverse": {
+      "status": "ok",
+      "seconds": 0.0194,
+      "count": 13917,
+      "set_matches_tf": true
+     },
+     "q_agree_nu_eq": {
+      "status": "ok",
+      "seconds": 0.0481,
+      "count": 3759,
+      "set_matches_tf": true
+     },
+     "q_agree_nu_neq": {
+      "status": "ok",
+      "seconds": 0.0465,
+      "count": 525,
+      "set_matches_tf": true
+     },
+     "q_samelex_adjacent": {
+      "status": "ok",
+      "seconds": 0.1144,
+      "count": 475,
+      "set_matches_tf": true
+     },
+     "q_knear_before": {
+      "status": "ok",
+      "seconds": 0.0153,
+      "count": 1,
+      "set_matches_tf": true
+     },
+     "q_knear_after": {
+      "status": "ok",
+      "seconds": 0.0017,
+      "count": 50,
+      "set_matches_tf": true
+     },
+     "q_regex_gcons": {
+      "status": "ok",
+      "seconds": 0.0103,
+      "count": 816,
+      "set_matches_tf": true
+     },
+     "q_regex_typ": {
+      "status": "ok",
+      "seconds": 0.0089,
+      "count": 3098,
+      "set_matches_tf": true
+     },
+     "q_regex_gloss_space": {
+      "status": "ok",
+      "seconds": 0.0037,
+      "count": 406,
+      "set_matches_tf": true
+     },
+     "q_feat_exists_qere": {
+      "status": "ok",
+      "seconds": 0.0007,
+      "count": 1892,
+      "set_matches_tf": true
+     },
+     "q_feat_empty_qere": {
+      "status": "ok",
+      "seconds": 0.0807,
+      "count": 424698,
+      "set_matches_tf": true
+     },
+     "q_multivalue_neg": {
+      "status": "ok",
+      "seconds": 0.0045,
+      "count": 271,
+      "set_matches_tf": true
+     },
+     "q_multivalue_pos_agree": {
+      "status": "ok",
+      "seconds": 0.0568,
+      "count": 10638,
+      "set_matches_tf": true
+     },
+     "q_slot_equal": {
+      "status": "ok",
+      "seconds": 0.0175,
+      "count": 3583,
+      "set_matches_tf": true
+     },
+     "q_slot_diff_start": {
+      "status": "ok",
+      "seconds": 0.0235,
+      "count": 702,
+      "set_matches_tf": true
+     },
+     "q_slot_disjoint": {
+      "status": "ok",
+      "seconds": 0.13,
+      "count": 168504,
+      "set_matches_tf": true
+     },
+     "q_slot_overlap_parent": {
+      "status": "ok",
+      "seconds": 0.0388,
+      "count": 887,
+      "set_matches_tf": true
+     },
+     "q_adj_before": {
+      "status": "ok",
+      "seconds": 0.175,
+      "count": 162653,
+      "set_matches_tf": true
+     },
+     "q_adj_after": {
+      "status": "ok",
+      "seconds": 0.1771,
+      "count": 162653,
+      "set_matches_tf": true
+     },
+     "q_section_adjacency": {
+      "status": "ok",
+      "seconds": 0.0168,
+      "count": 1,
+      "set_matches_tf": true
+     },
+     "q_start_end_agree_mismatch": {
+      "status": "ok",
+      "seconds": 0.053,
+      "count": 262,
+      "set_matches_tf": true
+     },
+     "q_phrase_gap": {
+      "status": "ok",
+      "seconds": 0.2873,
+      "count": 716,
+      "set_matches_tf": true
+     },
+     "q_slot_containment": {
+      "status": "ok",
+      "seconds": 0.3773,
+      "count": 2739,
+      "set_matches_tf": true
+     },
+     "q_idiom_chen": {
+      "status": "ok",
+      "seconds": 0.0228,
+      "count": 40,
+      "set_matches_tf": true
+     },
+     "q_complex_subj_prec": {
+      "status": "ok",
+      "seconds": 0.0707,
+      "count": 2303,
+      "set_matches_tf": true
+     },
+     "q_rank_lex_numeric": {
+      "status": "ok",
+      "seconds": 0.0501,
+      "count": 28095,
+      "set_matches_tf": true
+     },
+     "q_lex_only_ezra_neh": {
+      "status": "ok",
+      "seconds": 0.1108,
+      "count": 382,
+      "set_matches_tf": true
+     },
+     "q_order_lo_then_impf": {
+      "status": "ok",
+      "seconds": 0.021,
+      "count": 692,
+      "set_matches_tf": true
+     }
+    }
+   },
+   "cf_rust_inprocess": {
+    "engine_version": "0.6.0rc1",
+    "load_s": 0.003,
+    "mode": "in-process",
+    "total": 34,
+    "count_and_sample_ok": 34,
+    "result_set_equal_to_tf": 34,
+    "wall_s_completed": 2.197,
+    "not_ok": [],
+    "per_query": {
+     "q_with_or_subj": {
+      "status": "ok",
+      "seconds": 0.084,
+      "count": 28228,
+      "set_matches_tf": true
+     },
+     "q_where_have": {
+      "status": "ok",
+      "seconds": 0.0794,
+      "count": 31431,
+      "set_matches_tf": true
+     },
+     "q_where_have_parent": {
+      "status": "ok",
+      "seconds": 0.1104,
+      "count": 241249,
+      "set_matches_tf": true
+     },
+     "q_phrase_without_verb": {
+      "status": "ok",
+      "seconds": 0.0392,
+      "count": 62771,
+      "set_matches_tf": true
+     },
+     "q_mother_basic": {
+      "status": "ok",
+      "seconds": 0.0142,
+      "count": 13917,
+      "set_matches_tf": true
+     },
+     "q_mother_named_distinct_verse": {
+      "status": "ok",
+      "seconds": 0.0257,
+      "count": 710,
+      "set_matches_tf": true
+     },
+     "q_mother_reverse": {
+      "status": "ok",
+      "seconds": 0.0137,
+      "count": 13917,
+      "set_matches_tf": true
+     },
+     "q_agree_nu_eq": {
+      "status": "ok",
+      "seconds": 0.0407,
+      "count": 3759,
+      "set_matches_tf": true
+     },
+     "q_agree_nu_neq": {
+      "status": "ok",
+      "seconds": 0.0404,
+      "count": 525,
+      "set_matches_tf": true
+     },
+     "q_samelex_adjacent": {
+      "status": "ok",
+      "seconds": 0.1083,
+      "count": 475,
+      "set_matches_tf": true
+     },
+     "q_knear_before": {
+      "status": "ok",
+      "seconds": 0.0097,
+      "count": 1,
+      "set_matches_tf": true
+     },
+     "q_knear_after": {
+      "status": "ok",
+      "seconds": 0.0013,
+      "count": 50,
+      "set_matches_tf": true
+     },
+     "q_regex_gcons": {
+      "status": "ok",
+      "seconds": 0.0057,
+      "count": 816,
+      "set_matches_tf": true
+     },
+     "q_regex_typ": {
+      "status": "ok",
+      "seconds": 0.0071,
+      "count": 3098,
+      "set_matches_tf": true
+     },
+     "q_regex_gloss_space": {
+      "status": "ok",
+      "seconds": 0.0032,
+      "count": 406,
+      "set_matches_tf": true
+     },
+     "q_feat_exists_qere": {
+      "status": "ok",
+      "seconds": 0.0004,
+      "count": 1892,
+      "set_matches_tf": true
+     },
+     "q_feat_empty_qere": {
+      "status": "ok",
+      "seconds": 0.0764,
+      "count": 424698,
+      "set_matches_tf": true
+     },
+     "q_multivalue_neg": {
+      "status": "ok",
+      "seconds": 0.0041,
+      "count": 271,
+      "set_matches_tf": true
+     },
+     "q_multivalue_pos_agree": {
+      "status": "ok",
+      "seconds": 0.0486,
+      "count": 10638,
+      "set_matches_tf": true
+     },
+     "q_slot_equal": {
+      "status": "ok",
+      "seconds": 0.0122,
+      "count": 3583,
+      "set_matches_tf": true
+     },
+     "q_slot_diff_start": {
+      "status": "ok",
+      "seconds": 0.0191,
+      "count": 702,
+      "set_matches_tf": true
+     },
+     "q_slot_disjoint": {
+      "status": "ok",
+      "seconds": 0.1235,
+      "count": 168504,
+      "set_matches_tf": true
+     },
+     "q_slot_overlap_parent": {
+      "status": "ok",
+      "seconds": 0.034,
+      "count": 887,
+      "set_matches_tf": true
+     },
+     "q_adj_before": {
+      "status": "ok",
+      "seconds": 0.1677,
+      "count": 162653,
+      "set_matches_tf": true
+     },
+     "q_adj_after": {
+      "status": "ok",
+      "seconds": 0.1687,
+      "count": 162653,
+      "set_matches_tf": true
+     },
+     "q_section_adjacency": {
+      "status": "ok",
+      "seconds": 0.0122,
+      "count": 1,
+      "set_matches_tf": true
+     },
+     "q_start_end_agree_mismatch": {
+      "status": "ok",
+      "seconds": 0.0482,
+      "count": 262,
+      "set_matches_tf": true
+     },
+     "q_phrase_gap": {
+      "status": "ok",
+      "seconds": 0.2832,
+      "count": 716,
+      "set_matches_tf": true
+     },
+     "q_slot_containment": {
+      "status": "ok",
+      "seconds": 0.3703,
+      "count": 2739,
+      "set_matches_tf": true
+     },
+     "q_idiom_chen": {
+      "status": "ok",
+      "seconds": 0.0182,
+      "count": 40,
+      "set_matches_tf": true
+     },
+     "q_complex_subj_prec": {
+      "status": "ok",
+      "seconds": 0.0634,
+      "count": 2303,
+      "set_matches_tf": true
+     },
+     "q_rank_lex_numeric": {
+      "status": "ok",
+      "seconds": 0.0441,
+      "count": 28095,
+      "set_matches_tf": true
+     },
+     "q_lex_only_ezra_neh": {
+      "status": "ok",
+      "seconds": 0.1036,
+      "count": 382,
+      "set_matches_tf": true
+     },
+     "q_order_lo_then_impf": {
+      "status": "ok",
+      "seconds": 0.0157,
+      "count": 692,
+      "set_matches_tf": true
+     }
+    }
+   },
+   "tf": {
+    "engine_version": "13.0.19",
+    "load_s": 4.187,
+    "mode": "in-process",
+    "total": 34,
+    "count_and_sample_ok": 34,
+    "result_set_equal_to_tf": 34,
+    "wall_s_completed": 12.891,
+    "not_ok": [],
+    "per_query": {
+     "q_with_or_subj": {
+      "status": "ok",
+      "seconds": 0.3759,
+      "count": 28228,
+      "set_matches_tf": true
+     },
+     "q_where_have": {
+      "status": "ok",
+      "seconds": 0.6208,
+      "count": 31431,
+      "set_matches_tf": true
+     },
+     "q_where_have_parent": {
+      "status": "ok",
+      "seconds": 0.5119,
+      "count": 241249,
+      "set_matches_tf": true
+     },
+     "q_phrase_without_verb": {
+      "status": "ok",
+      "seconds": 0.3096,
+      "count": 62771,
+      "set_matches_tf": true
+     },
+     "q_mother_basic": {
+      "status": "ok",
+      "seconds": 0.0384,
+      "count": 13917,
+      "set_matches_tf": true
+     },
+     "q_mother_named_distinct_verse": {
+      "status": "ok",
+      "seconds": 0.073,
+      "count": 710,
+      "set_matches_tf": true
+     },
+     "q_mother_reverse": {
+      "status": "ok",
+      "seconds": 0.0374,
+      "count": 13917,
+      "set_matches_tf": true
+     },
+     "q_agree_nu_eq": {
+      "status": "ok",
+      "seconds": 0.46,
+      "count": 3759,
+      "set_matches_tf": true
+     },
+     "q_agree_nu_neq": {
+      "status": "ok",
+      "seconds": 0.522,
+      "count": 525,
+      "set_matches_tf": true
+     },
+     "q_samelex_adjacent": {
+      "status": "ok",
+      "seconds": 0.393,
+      "count": 475,
+      "set_matches_tf": true
+     },
+     "q_knear_before": {
+      "status": "ok",
+      "seconds": 0.0963,
+      "count": 1,
+      "set_matches_tf": true
+     },
+     "q_knear_after": {
+      "status": "ok",
+      "seconds": 0.1977,
+      "count": 50,
+      "set_matches_tf": true
+     },
+     "q_regex_gcons": {
+      "status": "ok",
+      "seconds": 0.1312,
+      "count": 816,
+      "set_matches_tf": true
+     },
+     "q_regex_typ": {
+      "status": "ok",
+      "seconds": 0.1544,
+      "count": 3098,
+      "set_matches_tf": true
+     },
+     "q_regex_gloss_space": {
+      "status": "ok",
+      "seconds": 0.0041,
+      "count": 406,
+      "set_matches_tf": true
+     },
+     "q_feat_exists_qere": {
+      "status": "ok",
+      "seconds": 0.0685,
+      "count": 1892,
+      "set_matches_tf": true
+     },
+     "q_feat_empty_qere": {
+      "status": "ok",
+      "seconds": 0.1424,
+      "count": 424698,
+      "set_matches_tf": true
+     },
+     "q_multivalue_neg": {
+      "status": "ok",
+      "seconds": 0.2286,
+      "count": 271,
+      "set_matches_tf": true
+     },
+     "q_multivalue_pos_agree": {
+      "status": "ok",
+      "seconds": 0.5346,
+      "count": 10638,
+      "set_matches_tf": true
+     },
+     "q_slot_equal": {
+      "status": "ok",
+      "seconds": 0.689,
+      "count": 3583,
+      "set_matches_tf": true
+     },
+     "q_slot_diff_start": {
+      "status": "ok",
+      "seconds": 0.0678,
+      "count": 702,
+      "set_matches_tf": true
+     },
+     "q_slot_disjoint": {
+      "status": "ok",
+      "seconds": 0.4164,
+      "count": 168504,
+      "set_matches_tf": true
+     },
+     "q_slot_overlap_parent": {
+      "status": "ok",
+      "seconds": 0.4364,
+      "count": 887,
+      "set_matches_tf": true
+     },
+     "q_adj_before": {
+      "status": "ok",
+      "seconds": 0.4214,
+      "count": 162653,
+      "set_matches_tf": true
+     },
+     "q_adj_after": {
+      "status": "ok",
+      "seconds": 0.4253,
+      "count": 162653,
+      "set_matches_tf": true
+     },
+     "q_section_adjacency": {
+      "status": "ok",
+      "seconds": 0.2576,
+      "count": 1,
+      "set_matches_tf": true
+     },
+     "q_start_end_agree_mismatch": {
+      "status": "ok",
+      "seconds": 0.4033,
+      "count": 262,
+      "set_matches_tf": true
+     },
+     "q_phrase_gap": {
+      "status": "ok",
+      "seconds": 0.6071,
+      "count": 716,
+      "set_matches_tf": true
+     },
+     "q_slot_containment": {
+      "status": "ok",
+      "seconds": 1.7586,
+      "count": 2739,
+      "set_matches_tf": true
+     },
+     "q_idiom_chen": {
+      "status": "ok",
+      "seconds": 0.6126,
+      "count": 40,
+      "set_matches_tf": true
+     },
+     "q_complex_subj_prec": {
+      "status": "ok",
+      "seconds": 0.8873,
+      "count": 2303,
+      "set_matches_tf": true
+     },
+     "q_rank_lex_numeric": {
+      "status": "ok",
+      "seconds": 0.1821,
+      "count": 28095,
+      "set_matches_tf": true
+     },
+     "q_lex_only_ezra_neh": {
+      "status": "ok",
+      "seconds": 0.4339,
+      "count": 382,
+      "set_matches_tf": true
+     },
+     "q_order_lo_then_impf": {
+      "status": "ok",
+      "seconds": 0.3923,
+      "count": 692,
+      "set_matches_tf": true
+     }
+    }
+   }
+  },
+  "oracle": {
+   "banks": {
+    "cf_python": {
+     "total": 2370,
+     "passed": 2350,
+     "failed": 20,
+     "by_area": {
+      "E": {
+       "passed": 117,
+       "total": 117
+      },
+      "F": {
+       "passed": 949,
+       "total": 949
+      },
+      "L": {
+       "passed": 585,
+       "total": 585
+      },
+      "N": {
+       "passed": 2,
+       "total": 2
+      },
+      "T": {
+       "passed": 573,
+       "total": 593
+      },
+      "meta": {
+       "passed": 6,
+       "total": 6
+      },
+      "order": {
+       "passed": 118,
+       "total": 118
+      }
+     },
+     "failing_groups": [
+      {
+       "area": "T",
+       "check": "T.headingFromNode",
+       "failed": 18,
+       "total": 117,
+       "categories": {
+        "value": 18
+       }
+      },
+      {
+       "area": "T",
+       "check": "T.top",
+       "failed": 1,
+       "total": 1,
+       "categories": {
+        "value": 1
+       }
+      },
+      {
+       "area": "T",
+       "check": "T.structure",
+       "failed": 1,
+       "total": 1,
+       "categories": {
+        "value": 1
+       }
+      }
+     ]
+    },
+    "cf_python_cold": {
+     "total": 2370,
+     "passed": 2370,
+     "failed": 0,
+     "by_area": {
+      "E": {
+       "passed": 117,
+       "total": 117
+      },
+      "F": {
+       "passed": 949,
+       "total": 949
+      },
+      "L": {
+       "passed": 585,
+       "total": 585
+      },
+      "N": {
+       "passed": 2,
+       "total": 2
+      },
+      "T": {
+       "passed": 593,
+       "total": 593
+      },
+      "meta": {
+       "passed": 6,
+       "total": 6
+      },
+      "order": {
+       "passed": 118,
+       "total": 118
+      }
+     },
+     "failing_groups": []
+    },
+    "cf_rust": {
+     "total": 2370,
+     "passed": 2369,
+     "failed": 1,
+     "by_area": {
+      "E": {
+       "passed": 117,
+       "total": 117
+      },
+      "F": {
+       "passed": 948,
+       "total": 949
+      },
+      "L": {
+       "passed": 585,
+       "total": 585
+      },
+      "N": {
+       "passed": 2,
+       "total": 2
+      },
+      "T": {
+       "passed": 593,
+       "total": 593
+      },
+      "meta": {
+       "passed": 6,
+       "total": 6
+      },
+      "order": {
+       "passed": 118,
+       "total": 118
+      }
+     },
+     "failing_groups": [
+      {
+       "area": "F",
+       "check": "F.freqList[otype]",
+       "failed": 1,
+       "total": 1,
+       "categories": {
+        "tf_error": 1
+       }
+      }
+     ]
+    },
+    "tf": {
+     "total": 2370,
+     "passed": 2370,
+     "failed": 0,
+     "by_area": {
+      "E": {
+       "passed": 117,
+       "total": 117
+      },
+      "F": {
+       "passed": 949,
+       "total": 949
+      },
+      "L": {
+       "passed": 585,
+       "total": 585
+      },
+      "N": {
+       "passed": 2,
+       "total": 2
+      },
+      "T": {
+       "passed": 593,
+       "total": 593
+      },
+      "meta": {
+       "passed": 6,
+       "total": 6
+      },
+      "order": {
+       "passed": 118,
+       "total": 118
+      }
+     },
+     "failing_groups": []
+    }
+   },
+   "bhsa": {
+    "cf_python": {
+     "total": 355975,
+     "passed": 353075,
+     "failed": 2900,
+     "by_area": {
+      "E": {
+       "passed": 36543,
+       "total": 39221
+      },
+      "F": {
+       "passed": 269511,
+       "total": 269733
+      },
+      "L": {
+       "passed": 12255,
+       "total": 12255
+      },
+      "N": {
+       "passed": 2,
+       "total": 2
+      },
+      "T": {
+       "passed": 32306,
+       "total": 32306
+      },
+      "meta": {
+       "passed": 6,
+       "total": 6
+      },
+      "order": {
+       "passed": 2452,
+       "total": 2452
+      }
+     },
+     "failing_groups": [
+      {
+       "area": "F",
+       "check": "F.v[dist]",
+       "failed": 221,
+       "total": 2451,
+       "categories": {
+        "value": 221
+       }
+      },
+      {
+       "area": "F",
+       "check": "F.freqList[dist]",
+       "failed": 1,
+       "total": 1,
+       "categories": {
+        "value": 1
+       }
+      },
+      {
+       "area": "E",
+       "check": "E.b[distributional_parent]",
+       "failed": 804,
+       "total": 2451,
+       "categories": {
+        "engine_error": 804
+       }
+      },
+      {
+       "area": "E",
+       "check": "E.b[functional_parent]",
+       "failed": 1407,
+       "total": 2451,
+       "categories": {
+        "engine_error": 1407
+       }
+      },
+      {
+       "area": "E",
+       "check": "E.b[mother]",
+       "failed": 467,
+       "total": 2451,
+       "categories": {
+        "engine_error": 467
+       }
+      }
+     ]
+    },
+    "cf_python_cold": {
+     "total": 355975,
+     "passed": 355975,
+     "failed": 0,
+     "by_area": {
+      "E": {
+       "passed": 39221,
+       "total": 39221
+      },
+      "F": {
+       "passed": 269733,
+       "total": 269733
+      },
+      "L": {
+       "passed": 12255,
+       "total": 12255
+      },
+      "N": {
+       "passed": 2,
+       "total": 2
+      },
+      "T": {
+       "passed": 32306,
+       "total": 32306
+      },
+      "meta": {
+       "passed": 6,
+       "total": 6
+      },
+      "order": {
+       "passed": 2452,
+       "total": 2452
+      }
+     },
+     "failing_groups": []
+    },
+    "cf_rust": {
+     "total": 355975,
+     "passed": 355974,
+     "failed": 1,
+     "by_area": {
+      "E": {
+       "passed": 39221,
+       "total": 39221
+      },
+      "F": {
+       "passed": 269732,
+       "total": 269733
+      },
+      "L": {
+       "passed": 12255,
+       "total": 12255
+      },
+      "N": {
+       "passed": 2,
+       "total": 2
+      },
+      "T": {
+       "passed": 32306,
+       "total": 32306
+      },
+      "meta": {
+       "passed": 6,
+       "total": 6
+      },
+      "order": {
+       "passed": 2452,
+       "total": 2452
+      }
+     },
+     "failing_groups": [
+      {
+       "area": "F",
+       "check": "F.freqList[otype]",
+       "failed": 1,
+       "total": 1,
+       "categories": {
+        "tf_error": 1
+       }
+      }
+     ]
+    },
+    "tf": {
+     "total": 355975,
+     "passed": 355975,
+     "failed": 0,
+     "by_area": {
+      "E": {
+       "passed": 39221,
+       "total": 39221
+      },
+      "F": {
+       "passed": 269733,
+       "total": 269733
+      },
+      "L": {
+       "passed": 12255,
+       "total": 12255
+      },
+      "N": {
+       "passed": 2,
+       "total": 2
+      },
+      "T": {
+       "passed": 32306,
+       "total": 32306
+      },
+      "meta": {
+       "passed": 6,
+       "total": 6
+      },
+      "order": {
+       "passed": 2452,
+       "total": 2452
+      }
+     },
+     "failing_groups": []
+    }
+   },
+   "n1904": {
+    "cf_python": {
+     "total": 147308,
+     "passed": 145986,
+     "failed": 1322,
+     "by_area": {
+      "E": {
+       "passed": 17031,
+       "total": 18353
+      },
+      "F": {
+       "passed": 102826,
+       "total": 102826
+      },
+      "L": {
+       "passed": 9175,
+       "total": 9175
+      },
+      "N": {
+       "passed": 2,
+       "total": 2
+      },
+      "T": {
+       "passed": 15110,
+       "total": 15110
+      },
+      "meta": {
+       "passed": 6,
+       "total": 6
+      },
+      "order": {
+       "passed": 1836,
+       "total": 1836
+      }
+     },
+     "failing_groups": [
+      {
+       "area": "E",
+       "check": "E.b[parent]",
+       "failed": 1277,
+       "total": 1835,
+       "categories": {
+        "engine_error": 1277
+       }
+      },
+      {
+       "area": "E",
+       "check": "E.b[subjref]",
+       "failed": 45,
+       "total": 1835,
+       "categories": {
+        "engine_error": 45
+       }
+      }
+     ]
+    },
+    "cf_python_cold": {
+     "total": 147308,
+     "passed": 147308,
+     "failed": 0,
+     "by_area": {
+      "E": {
+       "passed": 18353,
+       "total": 18353
+      },
+      "F": {
+       "passed": 102826,
+       "total": 102826
+      },
+      "L": {
+       "passed": 9175,
+       "total": 9175
+      },
+      "N": {
+       "passed": 2,
+       "total": 2
+      },
+      "T": {
+       "passed": 15110,
+       "total": 15110
+      },
+      "meta": {
+       "passed": 6,
+       "total": 6
+      },
+      "order": {
+       "passed": 1836,
+       "total": 1836
+      }
+     },
+     "failing_groups": []
+    },
+    "cf_rust": {
+     "total": 147308,
+     "passed": 147307,
+     "failed": 1,
+     "by_area": {
+      "E": {
+       "passed": 18353,
+       "total": 18353
+      },
+      "F": {
+       "passed": 102825,
+       "total": 102826
+      },
+      "L": {
+       "passed": 9175,
+       "total": 9175
+      },
+      "N": {
+       "passed": 2,
+       "total": 2
+      },
+      "T": {
+       "passed": 15110,
+       "total": 15110
+      },
+      "meta": {
+       "passed": 6,
+       "total": 6
+      },
+      "order": {
+       "passed": 1836,
+       "total": 1836
+      }
+     },
+     "failing_groups": [
+      {
+       "area": "F",
+       "check": "F.freqList[otype]",
+       "failed": 1,
+       "total": 1,
+       "categories": {
+        "tf_error": 1
+       }
+      }
+     ]
+    },
+    "tf": {
+     "total": 147308,
+     "passed": 147308,
+     "failed": 0,
+     "by_area": {
+      "E": {
+       "passed": 18353,
+       "total": 18353
+      },
+      "F": {
+       "passed": 102826,
+       "total": 102826
+      },
+      "L": {
+       "passed": 9175,
+       "total": 9175
+      },
+      "N": {
+       "passed": 2,
+       "total": 2
+      },
+      "T": {
+       "passed": 15110,
+       "total": 15110
+      },
+      "meta": {
+       "passed": 6,
+       "total": 6
+      },
+      "order": {
+       "passed": 1836,
+       "total": 1836
+      }
+     },
+     "failing_groups": []
+    }
+   }
+  }
+ },
+ "perf": {
+  "bhsa": {
+   "tf": {
+    "engine_version": "13.0.19",
+    "cold_load_s": 35.275,
+    "cold_peak_rss_mb": 6157.2,
+    "cold_cache_cleared": true,
+    "warm_load_s_median": 4.0021,
+    "warm_load_s_runs": [
+     3.9472,
+     4.0021,
+     4.0343
+    ],
+    "warm_after_load_memory": {
+     "peak_rss_mb": 6169.2,
+     "rss_mb": 6169.2,
+     "uss_mb": 6172.5
+    },
+    "full_load_s": 3.8621,
+    "memory": {
+     "before_load": {
+      "peak_rss_mb": 20.7,
+      "rss_mb": 22.7,
+      "uss_mb": 13.3
+     },
+     "after_load": {
+      "peak_rss_mb": 6169.5,
+      "rss_mb": 6169.5,
+      "uss_mb": 6172.8
+     },
+     "after_gate_probes": {
+      "peak_rss_mb": 6170.1,
+      "rss_mb": 6170.1,
+      "uss_mb": 6173.3
+     },
+     "after_steady_probes": {
+      "peak_rss_mb": 6170.3,
+      "rss_mb": 6170.3,
+      "uss_mb": 6173.5
+     },
+     "final": {
+      "peak_rss_mb": 6308.9,
+      "rss_mb": 6169.4,
+      "uss_mb": 6146.0
+     }
+    },
+    "gate": {
+     "_intervals": {
+      "max_slot": 426590,
+      "phrase": [
+       651573,
+       904775
+      ],
+      "verse": [
+       1414389,
+       1437601
+      ]
+     },
+     "F.sp.v": {
+      "total_s": 0.0033,
+      "per_call_us": 0.33,
+      "n": 10000
+     },
+     "F.g_word.v": {
+      "total_s": 0.0032,
+      "per_call_us": 0.32,
+      "n": 10000
+     },
+     "L.u": {
+      "total_s": 0.0,
+      "per_call_us": 0.64,
+      "n": 30
+     },
+     "L.d": {
+      "total_s": 0.0001,
+      "per_call_us": 3.34,
+      "n": 30
+     },
+     "E.mother.f": {
+      "total_s": 0.0001,
+      "per_call_us": 0.17,
+      "n": 500
+     },
+     "T.sectionFromNode": {
+      "total_s": 0.0013,
+      "per_call_us": 6.69,
+      "n": 200
+     },
+     "T.text.verse": {
+      "total_s": 0.0012,
+      "per_call_us": 12.06,
+      "n": 100
+     },
+     "T.nodeFromSection": {
+      "total_s": 0.0001,
+      "per_call_us": 0.93,
+      "n": 100
+     },
+     "F.sp.freqList_s": 0.0304,
+     "F.sp.v_full_sweep_s": 0.017
+    },
+    "steady_us": {
+     "F.sp.v": 0.056,
+     "F.g_word.v": 0.069,
+     "L.u": 0.111,
+     "L.d": 0.569,
+     "L.n": 0.237,
+     "L.p": 0.222,
+     "L.i": 0.039,
+     "E.mother.f": 0.035,
+     "E.mother.t": 0.043,
+     "E.mother.b": 0.067,
+     "T.sectionFromNode": 5.335,
+     "T.text.verse": 8.818,
+     "T.nodeFromSection": 0.223,
+     "N.walk_full_s": 0.0199,
+     "N.walk_nodes": 1446831
+    },
+    "queries": {
+     "q_phrase_without_verb": {
+      "s": 0.3063,
+      "count": 62771
+     },
+     "q_regex_gcons": {
+      "s": 0.122,
+      "count": 816
+     },
+     "q_regex_typ": {
+      "s": 0.1536,
+      "count": 3098
+     },
+     "q_regex_gloss_space": {
+      "s": 0.0042,
+      "count": 406
+     },
+     "q_feat_exists_qere": {
+      "s": 0.0664,
+      "count": 1892
+     },
+     "q_feat_empty_qere": {
+      "s": 0.0894,
+      "count": 424698
+     },
+     "q_multivalue_neg": {
+      "s": 0.2393,
+      "count": 271
+     },
+     "q_slot_equal": {
+      "s": 0.5257,
+      "count": 3583
+     },
+     "q_mother_basic": {
+      "s": 0.0362,
+      "count": 13917
+     },
+     "q_mother_reverse": {
+      "s": 0.0348,
+      "count": 13917
+     },
+     "q_mother_named_distinct_verse": {
+      "s": 0.0746,
+      "count": 710
+     },
+     "q_slot_overlap_parent": {
+      "s": 0.4437,
+      "count": 887
+     }
+    }
+   },
+   "cf_python": {
+    "engine_version": "0.5.8",
+    "cold_load_s": 67.0807,
+    "cold_peak_rss_mb": 8649.1,
+    "cold_cache_cleared": true,
+    "warm_load_s_median": 0.4271,
+    "warm_load_s_runs": [
+     0.4271,
+     0.4804,
+     0.42
+    ],
+    "warm_after_load_memory": {
+     "peak_rss_mb": 430.6,
+     "rss_mb": 291.0,
+     "uss_mb": 961.8
+    },
+    "full_load_s": 0.3346,
+    "memory": {
+     "before_load": {
+      "peak_rss_mb": 36.9,
+      "rss_mb": 37.8,
+      "uss_mb": 26.2
+     },
+     "after_load": {
+      "peak_rss_mb": 430.2,
+      "rss_mb": 289.7,
+      "uss_mb": 960.5
+     },
+     "after_gate_probes": {
+      "peak_rss_mb": 430.2,
+      "rss_mb": 309.6,
+      "uss_mb": 965.5
+     },
+     "after_steady_probes": {
+      "peak_rss_mb": 430.2,
+      "rss_mb": 336.2,
+      "uss_mb": 965.8
+     },
+     "final": {
+      "peak_rss_mb": 558.9,
+      "rss_mb": 421.0,
+      "uss_mb": 1002.1
+     }
+    },
+    "gate": {
+     "_intervals": {
+      "max_slot": 426590,
+      "phrase": [
+       651573,
+       904775
+      ],
+      "verse": [
+       1414389,
+       1437601
+      ]
+     },
+     "F.sp.v": {
+      "total_s": 0.0026,
+      "per_call_us": 0.26,
+      "n": 10000
+     },
+     "F.g_word.v": {
+      "total_s": 0.0033,
+      "per_call_us": 0.33,
+      "n": 10000
+     },
+     "L.u": {
+      "total_s": 0.0,
+      "per_call_us": 1.5,
+      "n": 30
+     },
+     "L.d": {
+      "total_s": 0.0002,
+      "per_call_us": 7.92,
+      "n": 30
+     },
+     "E.mother.f": {
+      "total_s": 0.0003,
+      "per_call_us": 0.54,
+      "n": 500
+     },
+     "T.sectionFromNode": {
+      "total_s": 0.0028,
+      "per_call_us": 14.22,
+      "n": 200
+     },
+     "T.text.verse": {
+      "total_s": 0.0035,
+      "per_call_us": 35.12,
+      "n": 100
+     },
+     "T.nodeFromSection": {
+      "total_s": 0.0001,
+      "per_call_us": 0.79,
+      "n": 100
+     },
+     "F.sp.freqList_s": 0.0018,
+     "F.sp.v_full_sweep_s": 0.082
+    },
+    "steady_us": {
+     "F.sp.v": 0.183,
+     "F.g_word.v": 0.208,
+     "L.u": 0.82,
+     "L.d": 3.269,
+     "L.n": 1.576,
+     "L.p": 1.593,
+     "L.i": 0.037,
+     "E.mother.f": 0.349,
+     "E.mother.t": 0.389,
+     "E.mother.b": null,
+     "T.sectionFromNode": 13.752,
+     "T.text.verse": 31.315,
+     "T.nodeFromSection": 0.263,
+     "N.walk_full_s": 0.1563,
+     "N.walk_nodes": 1446831,
+     "_errors": {
+      "E.mother.b": "AttributeError: 'tuple' object has no attribute 'tolist'"
+     }
+    },
+    "queries": {
+     "q_phrase_without_verb": {
+      "s": 0.2905,
+      "count": 62771
+     },
+     "q_regex_gcons": {
+      "s": 0.1971,
+      "count": 816
+     },
+     "q_regex_typ": {
+      "s": 0.1465,
+      "count": 3098
+     },
+     "q_regex_gloss_space": {
+      "s": 0.0049,
+      "count": 406
+     },
+     "q_feat_exists_qere": {
+      "s": 0.0691,
+      "count": 1892
+     },
+     "q_feat_empty_qere": {
+      "s": 0.1077,
+      "count": 424698
+     },
+     "q_multivalue_neg": {
+      "s": 0.1113,
+      "count": 271
+     },
+     "q_slot_equal": {
+      "s": 0.3023,
+      "count": 3583
+     },
+     "q_mother_basic": {
+      "s": 0.1387,
+      "count": 13917
+     },
+     "q_mother_reverse": {
+      "s": 0.1229,
+      "count": 13917
+     },
+     "q_mother_named_distinct_verse": {
+      "s": 0.2728,
+      "count": 710
+     },
+     "q_slot_overlap_parent": {
+      "s": 1.3087,
+      "count": 887
+     }
+    }
+   },
+   "cf_rust": {
+    "engine_version": "0.6.0rc1",
+    "cold_load_s": 28.7265,
+    "cold_peak_rss_mb": 3079.9,
+    "cold_cache_cleared": true,
+    "warm_load_s_median": 0.0026,
+    "warm_load_s_runs": [
+     0.0026,
+     0.0026,
+     0.0027
+    ],
+    "warm_after_load_memory": {
+     "peak_rss_mb": 32.6,
+     "rss_mb": 32.6,
+     "uss_mb": 16.0
+    },
+    "full_load_s": 0.0027,
+    "memory": {
+     "before_load": {
+      "peak_rss_mb": 23.7,
+      "rss_mb": 25.5,
+      "uss_mb": 15.4
+     },
+     "after_load": {
+      "peak_rss_mb": 32.6,
+      "rss_mb": 32.6,
+      "uss_mb": 15.9
+     },
+     "after_gate_probes": {
+      "peak_rss_mb": 109.6,
+      "rss_mb": 109.6,
+      "uss_mb": 26.8
+     },
+     "after_steady_probes": {
+      "peak_rss_mb": 206.0,
+      "rss_mb": 163.0,
+      "uss_mb": 40.3
+     },
+     "final": {
+      "peak_rss_mb": 269.5,
+      "rss_mb": 249.6,
+      "uss_mb": 96.2
+     }
+    },
+    "gate": {
+     "_intervals": {
+      "max_slot": 426590,
+      "phrase": [
+       651573,
+       904775
+      ],
+      "verse": [
+       1414389,
+       1437601
+      ]
+     },
+     "F.sp.v": {
+      "total_s": 0.0011,
+      "per_call_us": 0.11,
+      "n": 10000
+     },
+     "F.g_word.v": {
+      "total_s": 0.0018,
+      "per_call_us": 0.18,
+      "n": 10000
+     },
+     "L.u": {
+      "total_s": 0.0001,
+      "per_call_us": 2.37,
+      "n": 30
+     },
+     "L.d": {
+      "total_s": 0.0001,
+      "per_call_us": 2.6,
+      "n": 30
+     },
+     "E.mother.f": {
+      "total_s": 0.0007,
+      "per_call_us": 1.31,
+      "n": 500
+     },
+     "T.sectionFromNode": {
+      "total_s": 0.0004,
+      "per_call_us": 2.05,
+      "n": 200
+     },
+     "T.text.verse": {
+      "total_s": 0.0008,
+      "per_call_us": 8.0,
+      "n": 100
+     },
+     "T.nodeFromSection": {
+      "total_s": 0.0061,
+      "per_call_us": 60.82,
+      "n": 100
+     },
+     "F.sp.freqList_s": 0.0005,
+     "F.sp.v_full_sweep_s": 0.013
+    },
+    "steady_us": {
+     "F.sp.v": 0.029,
+     "F.g_word.v": 0.038,
+     "L.u": 0.131,
+     "L.d": 0.136,
+     "L.n": 0.109,
+     "L.p": 0.094,
+     "L.i": 0.021,
+     "E.mother.f": 0.032,
+     "E.mother.t": 0.03,
+     "E.mother.b": 0.04,
+     "T.sectionFromNode": 0.45,
+     "T.text.verse": 1.558,
+     "T.nodeFromSection": 0.202,
+     "N.walk_full_s": 0.0298,
+     "N.walk_nodes": 1446831
+    },
+    "queries": {
+     "q_phrase_without_verb": {
+      "s": 0.0358,
+      "count": 62771
+     },
+     "q_regex_gcons": {
+      "s": 0.0069,
+      "count": 816
+     },
+     "q_regex_typ": {
+      "s": 0.0068,
+      "count": 3098
+     },
+     "q_regex_gloss_space": {
+      "s": 0.0032,
+      "count": 406
+     },
+     "q_feat_exists_qere": {
+      "s": 0.0002,
+      "count": 1892
+     },
+     "q_feat_empty_qere": {
+      "s": 0.019,
+      "count": 424698
+     },
+     "q_multivalue_neg": {
+      "s": 0.0093,
+      "count": 271
+     },
+     "q_slot_equal": {
+      "s": 0.0116,
+      "count": 3583
+     },
+     "q_mother_basic": {
+      "s": 0.0117,
+      "count": 13917
+     },
+     "q_mother_reverse": {
+      "s": 0.0113,
+      "count": 13917
+     },
+     "q_mother_named_distinct_verse": {
+      "s": 0.0261,
+      "count": 710
+     },
+     "q_slot_overlap_parent": {
+      "s": 0.0332,
+      "count": 887
+     }
+    }
+   },
+   "cf_rust_mapped": {
+    "engine_version": "0.6.0rc1",
+    "full_load_s": 0.0012,
+    "memory": {
+     "before_load": {
+      "peak_rss_mb": 23.8,
+      "rss_mb": 25.6,
+      "uss_mb": 15.5
+     },
+     "after_load": {
+      "peak_rss_mb": 32.4,
+      "rss_mb": 32.4,
+      "uss_mb": 15.9
+     },
+     "after_gate_probes": {
+      "peak_rss_mb": 109.5,
+      "rss_mb": 109.5,
+      "uss_mb": 26.8
+     },
+     "after_steady_probes": {
+      "peak_rss_mb": 206.0,
+      "rss_mb": 163.0,
+      "uss_mb": 40.3
+     },
+     "final": {
+      "peak_rss_mb": 271.9,
+      "rss_mb": 251.0,
+      "uss_mb": 97.6
+     }
+    },
+    "gate": {
+     "_intervals": {
+      "max_slot": 426590,
+      "phrase": [
+       651573,
+       904775
+      ],
+      "verse": [
+       1414389,
+       1437601
+      ]
+     },
+     "F.sp.v": {
+      "total_s": 0.0013,
+      "per_call_us": 0.13,
+      "n": 10000
+     },
+     "F.g_word.v": {
+      "total_s": 0.0026,
+      "per_call_us": 0.26,
+      "n": 10000
+     },
+     "L.u": {
+      "total_s": 0.0001,
+      "per_call_us": 2.34,
+      "n": 30
+     },
+     "L.d": {
+      "total_s": 0.0001,
+      "per_call_us": 2.7,
+      "n": 30
+     },
+     "E.mother.f": {
+      "total_s": 0.0007,
+      "per_call_us": 1.34,
+      "n": 500
+     },
+     "T.sectionFromNode": {
+      "total_s": 0.0004,
+      "per_call_us": 2.21,
+      "n": 200
+     },
+     "T.text.verse": {
+      "total_s": 0.0009,
+      "per_call_us": 8.79,
+      "n": 100
+     },
+     "T.nodeFromSection": {
+      "total_s": 0.0061,
+      "per_call_us": 61.18,
+      "n": 100
+     },
+     "F.sp.freqList_s": 0.0005,
+     "F.sp.v_full_sweep_s": 0.013
+    },
+    "steady_us": {
+     "F.sp.v": 0.028,
+     "F.g_word.v": 0.037,
+     "L.u": 0.129,
+     "L.d": 0.134,
+     "L.n": 0.102,
+     "L.p": 0.093,
+     "L.i": 0.021,
+     "E.mother.f": 0.032,
+     "E.mother.t": 0.03,
+     "E.mother.b": 0.04,
+     "T.sectionFromNode": 0.445,
+     "T.text.verse": 1.524,
+     "T.nodeFromSection": 0.201,
+     "N.walk_full_s": 0.0285,
+     "N.walk_nodes": 1446831
+    },
+    "queries": {
+     "q_phrase_without_verb": {
+      "s": 0.0356,
+      "count": 62771
+     },
+     "q_regex_gcons": {
+      "s": 0.0063,
+      "count": 816
+     },
+     "q_regex_typ": {
+      "s": 0.0068,
+      "count": 3098
+     },
+     "q_regex_gloss_space": {
+      "s": 0.0032,
+      "count": 406
+     },
+     "q_feat_exists_qere": {
+      "s": 0.0001,
+      "count": 1892
+     },
+     "q_feat_empty_qere": {
+      "s": 0.0182,
+      "count": 424698
+     },
+     "q_multivalue_neg": {
+      "s": 0.0092,
+      "count": 271
+     },
+     "q_slot_equal": {
+      "s": 0.0119,
+      "count": 3583
+     },
+     "q_mother_basic": {
+      "s": 0.0121,
+      "count": 13917
+     },
+     "q_mother_reverse": {
+      "s": 0.0111,
+      "count": 13917
+     },
+     "q_mother_named_distinct_verse": {
+      "s": 0.026,
+      "count": 710
+     },
+     "q_slot_overlap_parent": {
+      "s": 0.0333,
+      "count": 887
+     }
+    }
+   }
+  },
+  "n1904": {
+   "tf": {
+    "engine_version": "13.0.19",
+    "cold_load_s": 11.5274,
+    "cold_peak_rss_mb": 1500.6,
+    "cold_cache_cleared": true,
+    "warm_load_s_median": 1.3001,
+    "warm_load_s_runs": [
+     1.3504,
+     1.3001,
+     1.2389
+    ],
+    "warm_after_load_memory": {
+     "peak_rss_mb": 1424.6,
+     "rss_mb": 1424.6,
+     "uss_mb": 1417.9
+    },
+    "full_load_s": 1.2791,
+    "memory": {
+     "before_load": {
+      "peak_rss_mb": 20.6,
+      "rss_mb": 22.7,
+      "uss_mb": 13.2
+     },
+     "after_load": {
+      "peak_rss_mb": 1422.5,
+      "rss_mb": 1422.5,
+      "uss_mb": 1415.8
+     },
+     "after_gate_probes": {
+      "peak_rss_mb": 1423.1,
+      "rss_mb": 1423.1,
+      "uss_mb": 1416.4
+     },
+     "after_steady_probes": {
+      "peak_rss_mb": 1423.3,
+      "rss_mb": 1423.3,
+      "uss_mb": 1416.6
+     },
+     "final": {
+      "peak_rss_mb": 1452.1,
+      "rss_mb": 1448.6,
+      "uss_mb": 1441.8
+     }
+    },
+    "gate": {
+     "_intervals": {
+      "max_slot": 137779,
+      "phrase": [
+       189518,
+       258524
+      ],
+      "verse": [
+       382714,
+       390657
+      ]
+     },
+     "F.sp.v": {
+      "total_s": 0.0021,
+      "per_call_us": 0.21,
+      "n": 10000
+     },
+     "F.unicode.v": {
+      "total_s": 0.0023,
+      "per_call_us": 0.23,
+      "n": 10000
+     },
+     "L.u": {
+      "total_s": 0.0,
+      "per_call_us": 0.56,
+      "n": 30
+     },
+     "L.d": {
+      "total_s": 0.0001,
+      "per_call_us": 2.23,
+      "n": 30
+     },
+     "E.parent.f": {
+      "total_s": 0.0003,
+      "per_call_us": 0.64,
+      "n": 500
+     },
+     "T.sectionFromNode": {
+      "total_s": 0.0013,
+      "per_call_us": 6.6,
+      "n": 200
+     },
+     "T.text.verse": {
+      "total_s": 0.001,
+      "per_call_us": 10.44,
+      "n": 100
+     },
+     "T.nodeFromSection": {
+      "total_s": 0.0001,
+      "per_call_us": 0.54,
+      "n": 100
+     },
+     "F.sp.freqList_s": 0.0185,
+     "F.sp.v_full_sweep_s": 0.005
+    },
+    "steady_us": {
+     "F.sp.v": 0.058,
+     "F.unicode.v": 0.051,
+     "L.u": 0.104,
+     "L.d": 0.628,
+     "L.n": 0.205,
+     "L.p": 0.194,
+     "L.i": 0.037,
+     "E.parent.f": 0.215,
+     "E.parent.t": 0.106,
+     "E.parent.b": 0.384,
+     "T.sectionFromNode": 5.701,
+     "T.text.verse": 7.931,
+     "T.nodeFromSection": 0.219,
+     "N.walk_full_s": 0.0069,
+     "N.walk_nodes": 497525
+    },
+    "queries": {
+     "n_word_verb": {
+      "s": 0.0366,
+      "count": 28357
+     },
+     "n_clause_phrase_word": {
+      "s": 0.1004,
+      "count": 78879
+     },
+     "n_regex_lemma": {
+      "s": 0.0368,
+      "count": 4
+     },
+     "n_sentence_without_verb": {
+      "s": 0.0501,
+      "count": 187
+     }
+    }
+   },
+   "cf_python": {
+    "engine_version": "0.5.8",
+    "cold_load_s": 20.9331,
+    "cold_peak_rss_mb": 2521.4,
+    "cold_cache_cleared": true,
+    "warm_load_s_median": 0.554,
+    "warm_load_s_runs": [
+     0.5309,
+     0.554,
+     0.6138
+    ],
+    "warm_after_load_memory": {
+     "peak_rss_mb": 303.0,
+     "rss_mb": 302.2,
+     "uss_mb": 412.5
+    },
+    "full_load_s": 0.7415,
+    "memory": {
+     "before_load": {
+      "peak_rss_mb": 37.0,
+      "rss_mb": 37.8,
+      "uss_mb": 26.2
+     },
+     "after_load": {
+      "peak_rss_mb": 303.4,
+      "rss_mb": 302.4,
+      "uss_mb": 412.6
+     },
+     "after_gate_probes": {
+      "peak_rss_mb": 309.3,
+      "rss_mb": 309.3,
+      "uss_mb": 413.2
+     },
+     "after_steady_probes": {
+      "peak_rss_mb": 317.1,
+      "rss_mb": 317.1,
+      "uss_mb": 413.3
+     },
+     "final": {
+      "peak_rss_mb": 348.4,
+      "rss_mb": 343.2,
+      "uss_mb": 438.4
+     }
+    },
+    "gate": {
+     "_intervals": {
+      "max_slot": 137779,
+      "phrase": [
+       189518,
+       258524
+      ],
+      "verse": [
+       382714,
+       390657
+      ]
+     },
+     "F.sp.v": {
+      "total_s": 0.0025,
+      "per_call_us": 0.25,
+      "n": 10000
+     },
+     "F.unicode.v": {
+      "total_s": 0.0027,
+      "per_call_us": 0.27,
+      "n": 10000
+     },
+     "L.u": {
+      "total_s": 0.0,
+      "per_call_us": 1.54,
+      "n": 30
+     },
+     "L.d": {
+      "total_s": 0.0003,
+      "per_call_us": 9.26,
+      "n": 30
+     },
+     "E.parent.f": {
+      "total_s": 0.0014,
+      "per_call_us": 2.71,
+      "n": 500
+     },
+     "T.sectionFromNode": {
+      "total_s": 0.0038,
+      "per_call_us": 18.97,
+      "n": 200
+     },
+     "T.text.verse": {
+      "total_s": 0.0029,
+      "per_call_us": 28.85,
+      "n": 100
+     },
+     "T.nodeFromSection": {
+      "total_s": 0.0001,
+      "per_call_us": 0.66,
+      "n": 100
+     },
+     "F.sp.freqList_s": 0.0013,
+     "F.sp.v_full_sweep_s": 0.027
+    },
+    "steady_us": {
+     "F.sp.v": 0.178,
+     "F.unicode.v": 0.192,
+     "L.u": 0.85,
+     "L.d": 3.456,
+     "L.n": 1.553,
+     "L.p": 1.541,
+     "L.i": 0.04,
+     "E.parent.f": 2.089,
+     "E.parent.t": 1.017,
+     "E.parent.b": null,
+     "T.sectionFromNode": 16.069,
+     "T.text.verse": 23.47,
+     "T.nodeFromSection": 0.255,
+     "N.walk_full_s": 0.0517,
+     "N.walk_nodes": 497525,
+     "_errors": {
+      "E.parent.b": "AttributeError: 'tuple' object has no attribute 'tolist'"
+     }
+    },
+    "queries": {
+     "n_word_verb": {
+      "s": 0.0259,
+      "count": 28357
+     },
+     "n_clause_phrase_word": {
+      "s": 0.1755,
+      "count": 78879
+     },
+     "n_regex_lemma": {
+      "s": 0.0609,
+      "count": 4
+     },
+     "n_sentence_without_verb": {
+      "s": 0.0812,
+      "count": 187
+     }
+    }
+   },
+   "cf_rust": {
+    "engine_version": "0.6.0rc1",
+    "cold_load_s": 7.723,
+    "cold_peak_rss_mb": 1158.2,
+    "cold_cache_cleared": true,
+    "warm_load_s_median": 0.0012,
+    "warm_load_s_runs": [
+     0.0012,
+     0.0012,
+     0.0012
+    ],
+    "warm_after_load_memory": {
+     "peak_rss_mb": 28.6,
+     "rss_mb": 28.6,
+     "uss_mb": 15.8
+    },
+    "full_load_s": 0.0011,
+    "memory": {
+     "before_load": {
+      "peak_rss_mb": 23.6,
+      "rss_mb": 25.4,
+      "uss_mb": 15.3
+     },
+     "after_load": {
+      "peak_rss_mb": 28.6,
+      "rss_mb": 28.6,
+      "uss_mb": 15.8
+     },
+     "after_gate_probes": {
+      "peak_rss_mb": 82.1,
+      "rss_mb": 82.1,
+      "uss_mb": 19.7
+     },
+     "after_steady_probes": {
+      "peak_rss_mb": 114.8,
+      "rss_mb": 100.8,
+      "uss_mb": 25.5
+     },
+     "final": {
+      "peak_rss_mb": 137.8,
+      "rss_mb": 128.9,
+      "uss_mb": 50.8
+     }
+    },
+    "gate": {
+     "_intervals": {
+      "max_slot": 137779,
+      "phrase": [
+       189518,
+       258524
+      ],
+      "verse": [
+       382714,
+       390657
+      ]
+     },
+     "F.sp.v": {
+      "total_s": 0.0006,
+      "per_call_us": 0.06,
+      "n": 10000
+     },
+     "F.unicode.v": {
+      "total_s": 0.0011,
+      "per_call_us": 0.11,
+      "n": 10000
+     },
+     "L.u": {
+      "total_s": 0.0001,
+      "per_call_us": 1.67,
+      "n": 30
+     },
+     "L.d": {
+      "total_s": 0.0001,
+      "per_call_us": 2.23,
+      "n": 30
+     },
+     "E.parent.f": {
+      "total_s": 0.0012,
+      "per_call_us": 2.46,
+      "n": 500
+     },
+     "T.sectionFromNode": {
+      "total_s": 0.0033,
+      "per_call_us": 16.72,
+      "n": 200
+     },
+     "T.text.verse": {
+      "total_s": 0.0004,
+      "per_call_us": 4.07,
+      "n": 100
+     },
+     "T.nodeFromSection": {
+      "total_s": 0.0021,
+      "per_call_us": 20.88,
+      "n": 100
+     },
+     "F.sp.freqList_s": 0.0004,
+     "F.sp.v_full_sweep_s": 0.004
+    },
+    "steady_us": {
+     "F.sp.v": 0.028,
+     "F.unicode.v": 0.032,
+     "L.u": 0.169,
+     "L.d": 0.148,
+     "L.n": 0.108,
+     "L.p": 0.091,
+     "L.i": 0.022,
+     "E.parent.f": 0.055,
+     "E.parent.t": 0.043,
+     "E.parent.b": 0.081,
+     "T.sectionFromNode": 0.498,
+     "T.text.verse": 1.861,
+     "T.nodeFromSection": 0.184,
+     "N.walk_full_s": 0.0091,
+     "N.walk_nodes": 497525
+    },
+    "queries": {
+     "n_word_verb": {
+      "s": 0.0026,
+      "count": 28357
+     },
+     "n_clause_phrase_word": {
+      "s": 0.0367,
+      "count": 78879
+     },
+     "n_regex_lemma": {
+      "s": 0.0022,
+      "count": 4
+     },
+     "n_sentence_without_verb": {
+      "s": 0.005,
+      "count": 187
+     }
+    }
+   },
+   "cf_rust_mapped": {
+    "engine_version": "0.6.0rc1",
+    "full_load_s": 0.0005,
+    "memory": {
+     "before_load": {
+      "peak_rss_mb": 23.7,
+      "rss_mb": 25.5,
+      "uss_mb": 15.4
+     },
+     "after_load": {
+      "peak_rss_mb": 28.4,
+      "rss_mb": 28.4,
+      "uss_mb": 15.8
+     },
+     "after_gate_probes": {
+      "peak_rss_mb": 82.2,
+      "rss_mb": 82.2,
+      "uss_mb": 19.9
+     },
+     "after_steady_probes": {
+      "peak_rss_mb": 114.9,
+      "rss_mb": 100.9,
+      "uss_mb": 25.7
+     },
+     "final": {
+      "peak_rss_mb": 137.9,
+      "rss_mb": 129.0,
+      "uss_mb": 50.9
+     }
+    },
+    "gate": {
+     "_intervals": {
+      "max_slot": 137779,
+      "phrase": [
+       189518,
+       258524
+      ],
+      "verse": [
+       382714,
+       390657
+      ]
+     },
+     "F.sp.v": {
+      "total_s": 0.0005,
+      "per_call_us": 0.05,
+      "n": 10000
+     },
+     "F.unicode.v": {
+      "total_s": 0.0011,
+      "per_call_us": 0.11,
+      "n": 10000
+     },
+     "L.u": {
+      "total_s": 0.0001,
+      "per_call_us": 1.73,
+      "n": 30
+     },
+     "L.d": {
+      "total_s": 0.0001,
+      "per_call_us": 2.1,
+      "n": 30
+     },
+     "E.parent.f": {
+      "total_s": 0.0012,
+      "per_call_us": 2.33,
+      "n": 500
+     },
+     "T.sectionFromNode": {
+      "total_s": 0.0033,
+      "per_call_us": 16.29,
+      "n": 200
+     },
+     "T.text.verse": {
+      "total_s": 0.0004,
+      "per_call_us": 4.24,
+      "n": 100
+     },
+     "T.nodeFromSection": {
+      "total_s": 0.0021,
+      "per_call_us": 20.98,
+      "n": 100
+     },
+     "F.sp.freqList_s": 0.0004,
+     "F.sp.v_full_sweep_s": 0.004
+    },
+    "steady_us": {
+     "F.sp.v": 0.027,
+     "F.unicode.v": 0.032,
+     "L.u": 0.157,
+     "L.d": 0.146,
+     "L.n": 0.104,
+     "L.p": 0.091,
+     "L.i": 0.022,
+     "E.parent.f": 0.055,
+     "E.parent.t": 0.042,
+     "E.parent.b": 0.079,
+     "T.sectionFromNode": 0.453,
+     "T.text.verse": 1.797,
+     "T.nodeFromSection": 0.185,
+     "N.walk_full_s": 0.0096,
+     "N.walk_nodes": 497525
+    },
+    "queries": {
+     "n_word_verb": {
+      "s": 0.0027,
+      "count": 28357
+     },
+     "n_clause_phrase_word": {
+      "s": 0.037,
+      "count": 78879
+     },
+     "n_regex_lemma": {
+      "s": 0.0022,
+      "count": 4
+     },
+     "n_sentence_without_verb": {
+      "s": 0.0051,
+      "count": 187
+     }
+    }
+   }
+  }
+ },
+ "perf_gate": {
+  "tf": {
+   "engine": "tf",
+   "rss_before_load_mb": 33.4,
+   "load_s": 3.962,
+   "rss_after_load_mb": 6178.2,
+   "rss_load_delta_mb": 6144.8,
+   "F.sp.v": {
+    "total_s": 0.0029,
+    "per_call_us": 0.29,
+    "n": 10000
+   },
+   "F.g_word.v": {
+    "total_s": 0.0028,
+    "per_call_us": 0.28,
+    "n": 10000
+   },
+   "L.u": {
+    "total_s": 0.0,
+    "per_call_us": 0.63,
+    "n": 30
+   },
+   "L.d": {
+    "total_s": 0.0001,
+    "per_call_us": 2.07,
+    "n": 30
+   },
+   "L.n": {
+    "total_s": 0.0,
+    "per_call_us": 0.74,
+    "n": 30
+   },
+   "L.p": {
+    "total_s": 0.0,
+    "per_call_us": 0.63,
+    "n": 30
+   },
+   "L.i": {
+    "total_s": 0.0002,
+    "per_call_us": 6.79,
+    "n": 30
+   },
+   "E.mother.f": {
+    "total_s": 0.0001,
+    "per_call_us": 0.18,
+    "n": 500
+   },
+   "E.mother.t": {
+    "total_s": 0.0001,
+    "per_call_us": 0.24,
+    "n": 500
+   },
+   "E.mother.b": {
+    "total_s": 0.0,
+    "per_call_us": 0.07,
+    "n": 500
+   },
+   "T.sectionFromNode": {
+    "total_s": 0.0012,
+    "per_call_us": 6.22,
+    "n": 200
+   },
+   "T.text.verse": {
+    "total_s": 0.0011,
+    "per_call_us": 10.8,
+    "n": 100
+   },
+   "T.nodeFromSection": {
+    "total_s": 0.0001,
+    "per_call_us": 0.68,
+    "n": 100
+   },
+   "F.sp.freqList_s": 0.0304,
+   "F.sp.v_full_sweep_s": 0.017,
+   "steady_state_us": {
+    "F.sp.v": 0.052,
+    "F.g_word.v": 0.055,
+    "L.u": 0.102,
+    "L.d": 0.561,
+    "L.n": 0.199,
+    "L.p": 0.189,
+    "L.i": 4.558,
+    "E.mother.f": 0.033,
+    "E.mother.t": 0.043,
+    "E.mother.b": 0.068,
+    "T.sectionFromNode": 5.261,
+    "T.text.verse": 8.69,
+    "T.nodeFromSection": 0.223
+   },
+   "N.walk_full_s": 0.0112,
+   "queries": {
+    "q_phrase_without_verb": {
+     "s": 0.3055,
+     "count": 62771
+    },
+    "q_regex_gcons": {
+     "s": 0.1182,
+     "count": 816
+    },
+    "q_regex_typ": {
+     "s": 0.1514,
+     "count": 3098
+    },
+    "q_regex_gloss_space": {
+     "s": 0.0041,
+     "count": 406
+    },
+    "q_feat_exists_qere": {
+     "s": 0.0642,
+     "count": 1892
+    },
+    "q_feat_empty_qere": {
+     "s": 0.0906,
+     "count": 424698
+    },
+    "q_multivalue_neg": {
+     "s": 0.2369,
+     "count": 271
+    },
+    "q_slot_equal": {
+     "s": 0.5355,
+     "count": 3583
+    },
+    "q_mother_basic": {
+     "s": 0.0355,
+     "count": 13917
+    },
+    "q_mother_reverse": {
+     "s": 0.0348,
+     "count": 13917
+    },
+    "q_mother_named_distinct_verse": {
+     "s": 0.0736,
+     "count": 710
+    },
+    "q_slot_overlap_parent": {
+     "s": 0.438,
+     "count": 887
+    }
+   },
+   "rss_final_mb": 6317.6
+  },
+  "cf": {
+   "engine": "cf",
+   "rss_before_load_mb": 33.4,
+   "load_s": 0.003,
+   "rss_after_load_mb": 41.5,
+   "rss_load_delta_mb": 8.1,
+   "F.sp.v": {
+    "total_s": 0.001,
+    "per_call_us": 0.1,
+    "n": 10000
+   },
+   "F.g_word.v": {
+    "total_s": 0.002,
+    "per_call_us": 0.2,
+    "n": 10000
+   },
+   "L.u": {
+    "total_s": 0.0001,
+    "per_call_us": 2.8,
+    "n": 30
+   },
+   "L.d": {
+    "total_s": 0.0001,
+    "per_call_us": 3.81,
+    "n": 30
+   },
+   "L.n": {
+    "total_s": 0.0,
+    "per_call_us": 1.5,
+    "n": 30
+   },
+   "L.p": {
+    "total_s": 0.0,
+    "per_call_us": 1.14,
+    "n": 30
+   },
+   "L.i": {
+    "total_s": 0.0001,
+    "per_call_us": 4.3,
+    "n": 30
+   },
+   "E.mother.f": {
+    "total_s": 0.0006,
+    "per_call_us": 1.27,
+    "n": 500
+   },
+   "E.mother.t": {
+    "total_s": 0.0004,
+    "per_call_us": 0.77,
+    "n": 500
+   },
+   "E.mother.b": {
+    "total_s": 0.0,
+    "per_call_us": 0.04,
+    "n": 500
+   },
+   "T.sectionFromNode": {
+    "total_s": 0.0006,
+    "per_call_us": 3.23,
+    "n": 200
+   },
+   "T.text.verse": {
+    "total_s": 0.0008,
+    "per_call_us": 8.16,
+    "n": 100
+   },
+   "T.nodeFromSection": {
+    "total_s": 0.0062,
+    "per_call_us": 61.57,
+    "n": 100
+   },
+   "F.sp.freqList_s": 0.0005,
+   "F.sp.v_full_sweep_s": 0.013,
+   "steady_state_us": {
+    "F.sp.v": 0.028,
+    "F.g_word.v": 0.038,
+    "L.u": 0.128,
+    "L.d": 0.136,
+    "L.n": 0.105,
+    "L.p": 0.092,
+    "L.i": 0.692,
+    "E.mother.f": 0.031,
+    "E.mother.t": 0.029,
+    "E.mother.b": 0.04,
+    "T.sectionFromNode": 0.407,
+    "T.text.verse": 1.511,
+    "T.nodeFromSection": 0.204
+   },
+   "N.walk_full_s": 0.0158,
+   "queries": {
+    "q_phrase_without_verb": {
+     "s": 0.0351,
+     "count": 62771
+    },
+    "q_regex_gcons": {
+     "s": 0.0068,
+     "count": 816
+    },
+    "q_regex_typ": {
+     "s": 0.0081,
+     "count": 3098
+    },
+    "q_regex_gloss_space": {
+     "s": 0.0033,
+     "count": 406
+    },
+    "q_feat_exists_qere": {
+     "s": 0.0002,
+     "count": 1892
+    },
+    "q_feat_empty_qere": {
+     "s": 0.0184,
+     "count": 424698
+    },
+    "q_multivalue_neg": {
+     "s": 0.0087,
+     "count": 271
+    },
+    "q_slot_equal": {
+     "s": 0.0118,
+     "count": 3583
+    },
+    "q_mother_basic": {
+     "s": 0.0118,
+     "count": 13917
+    },
+    "q_mother_reverse": {
+     "s": 0.011,
+     "count": 13917
+    },
+    "q_mother_named_distinct_verse": {
+     "s": 0.0256,
+     "count": 710
+    },
+    "q_slot_overlap_parent": {
+     "s": 0.0329,
+     "count": 887
+    }
+   },
+   "rss_final_mb": 254.7
+  },
+  "cf_assert": [
+   "PERF GATE: all targets met"
+  ]
+ },
+ "microbench": {
+  "bench_batch_apis": {
+   "fail_lines": [],
+   "tail": [
+    "loaded /private/tmp/cf_rc1/cf_bhsa.cfr in 0.01s  maxSlot=426590 maxNode=1446831",
+    "",
+    "api                            N   batch ms  cf loop ms  tf loop ms    vs cf    vs tf",
+    "-------------------------------------------------------------------------------------",
+    "F.sp.vs (str)             100000       1.98        5.05      33.00     2.6x    16.7x",
+    "F.number.vs (int)         100000       3.52        7.95           -     2.3x        -",
+    "F.number.vs_array         100000       2.23        7.81           -     3.5x        -",
+    "L.u_many                  100000      31.18       28.87      67.00     0.9x     2.1x",
+    "L.d_many (clauses)        100000      56.63       61.50     223.00     1.1x     3.9x",
+    "T.text_many (words)       100000      29.84       31.58           -     1.1x        -",
+    "T.text_many (verses)       20000      35.15       39.20     223.60     1.1x     6.4x",
+    "",
+    "vs cf = CF per-call loop / CF batch  (target >= 10x)",
+    "vs tf = TF per-call loop / CF batch  (tf loop extrapolated from baselines/bhsa_tf.json unless --live-tf)"
+   ]
+  },
+  "bench_scalar_latency": {
+   "fail_lines": [],
+   "tail": [
+    "pyo3 _noop floor: 0.023 µs/call",
+    "",
+    "RSS after warm+fill:     118.7 MB",
+    "RSS after 36M timed calls: 120.1 MB",
+    "RSS delta (intern during timing): 1.4 MB  (must be < 50)",
+    "",
+    "intern identity: F.sp.v reuse for equal value 'prep' -> same object (interned)",
+    "",
+    "intern-table bound per feature (entries):",
+    "  sp         held<=14     ~0.00 MB",
+    "  lex        held<=8769   ~0.75 MB",
+    "  g_word     held<=65536  ~5.62 MB",
+    "  number     held<=29736  ~2.55 MB",
+    "",
+    "ALL TARGETS BEAT TF"
+   ]
+  }
+ },
+ "bench_cli": {
+  "cf_python": {
+   "memory": {
+    "CF/fork": {
+     "runs": 3,
+     "load_time_s": 0.0,
+     "rss_after_mb": 524.021,
+     "total_rss_mb": 524.021,
+     "per_worker_rss_mb": 131.005
+    },
+    "CF/single": {
+     "runs": 3,
+     "load_time_s": 0.584,
+     "rss_after_mb": 388.104,
+     "total_rss_mb": null,
+     "per_worker_rss_mb": null
+    },
+    "CF/spawn": {
+     "runs": 3,
+     "load_time_s": 1.349,
+     "rss_after_mb": 1559.781,
+     "total_rss_mb": 1559.781,
+     "per_worker_rss_mb": 389.945
+    },
+    "TF/fork": {
+     "runs": 3,
+     "load_time_s": 0.0,
+     "rss_after_mb": 6424.083,
+     "total_rss_mb": 6424.083,
+     "per_worker_rss_mb": 1606.021
+    },
+    "TF/single": {
+     "runs": 3,
+     "load_time_s": 4.712,
+     "rss_after_mb": 6275.51,
+     "total_rss_mb": null,
+     "per_worker_rss_mb": null
+    },
+    "TF/spawn": {
+     "runs": 3,
+     "load_time_s": 6.819,
+     "rss_after_mb": 25122.646,
+     "total_rss_mb": 25122.646,
+     "per_worker_rss_mb": 6280.661
+    }
+   },
+   "latency": {
+    "queries": 100,
+    "tf_total_ms": 15695.1,
+    "cf_total_ms": 14836.3,
+    "geomean_speedup_tf_over_cf": 1.15,
+    "cf_slower_queries": [
+     "complex_003",
+     "complex_004",
+     "complex_007",
+     "complex_009",
+     "complex_011",
+     "complex_013",
+     "complex_014",
+     "complex_016",
+     "complex_017",
+     "complex_018",
+     "quant_001",
+     "quant_003",
+     "quant_014",
+     "quant_015",
+     "quant_017",
+     "quant_018",
+     "quant_020",
+     "struct_014",
+     "struct_020",
+     "struct_021",
+     "struct_023",
+     "struct_024",
+     "struct_025",
+     "struct_026",
+     "struct_027",
+     "struct_028",
+     "struct_029",
+     "struct_030"
+    ],
+    "error_count": {
+     "TF": 0,
+     "CF": 0
+    }
+   }
+  },
+  "cf_rust": {
+   "memory": {
+    "CF/fork": {
+     "runs": 3,
+     "load_time_s": 0.0,
+     "rss_after_mb": 260.047,
+     "total_rss_mb": 260.047,
+     "per_worker_rss_mb": 65.012
+    },
+    "CF/single": {
+     "runs": 3,
+     "load_time_s": 0.003,
+     "rss_after_mb": 143.224,
+     "total_rss_mb": null,
+     "per_worker_rss_mb": null
+    },
+    "CF/spawn": {
+     "runs": 3,
+     "load_time_s": 0.708,
+     "rss_after_mb": 642.135,
+     "total_rss_mb": 642.135,
+     "per_worker_rss_mb": 160.534
+    },
+    "TF/fork": {
+     "runs": 3,
+     "load_time_s": 0.0,
+     "rss_after_mb": 6423.531,
+     "total_rss_mb": 6423.531,
+     "per_worker_rss_mb": 1605.883
+    },
+    "TF/single": {
+     "runs": 3,
+     "load_time_s": 4.907,
+     "rss_after_mb": 6275.182,
+     "total_rss_mb": null,
+     "per_worker_rss_mb": null
+    },
+    "TF/spawn": {
+     "runs": 3,
+     "load_time_s": 6.863,
+     "rss_after_mb": 25125.708,
+     "total_rss_mb": 25125.708,
+     "per_worker_rss_mb": 6281.427
+    }
+   },
+   "latency": {
+    "queries": 100,
+    "tf_total_ms": 16580.9,
+    "cf_total_ms": 1351.0,
+    "geomean_speedup_tf_over_cf": 15.4,
+    "cf_slower_queries": [],
+    "error_count": {
+     "TF": 0,
+     "CF": 0
+    }
+   }
+  }
+ },
+ "june_record": {
+  "cf": {
+   "engine": "cf",
+   "rss_before_load_mb": 33.5,
+   "load_s": 0.003,
+   "rss_after_load_mb": 41.4,
+   "rss_load_delta_mb": 7.9,
+   "F.sp.v": {
+    "total_s": 0.0011,
+    "per_call_us": 0.11,
+    "n": 10000
+   },
+   "F.g_word.v": {
+    "total_s": 0.0022,
+    "per_call_us": 0.22,
+    "n": 10000
+   },
+   "L.u": {
+    "total_s": 0.0001,
+    "per_call_us": 2.46,
+    "n": 30
+   },
+   "L.d": {
+    "total_s": 0.0001,
+    "per_call_us": 3.6,
+    "n": 30
+   },
+   "L.n": {
+    "total_s": 0.0,
+    "per_call_us": 1.26,
+    "n": 30
+   },
+   "L.p": {
+    "total_s": 0.0,
+    "per_call_us": 1.06,
+    "n": 30
+   },
+   "L.i": {
+    "total_s": 0.0001,
+    "per_call_us": 3.86,
+    "n": 30
+   },
+   "E.mother.f": {
+    "total_s": 0.0007,
+    "per_call_us": 1.37,
+    "n": 500
+   },
+   "E.mother.t": {
+    "total_s": 0.0004,
+    "per_call_us": 0.85,
+    "n": 500
+   },
+   "E.mother.b": {
+    "total_s": 0.0,
+    "per_call_us": 0.04,
+    "n": 500
+   },
+   "T.sectionFromNode": {
+    "total_s": 0.0006,
+    "per_call_us": 3.12,
+    "n": 200
+   },
+   "T.text.verse": {
+    "total_s": 0.0009,
+    "per_call_us": 9.3,
+    "n": 100
+   },
+   "T.nodeFromSection": {
+    "total_s": 0.0065,
+    "per_call_us": 64.7,
+    "n": 100
+   },
+   "F.sp.freqList_s": 0.0006,
+   "F.sp.v_full_sweep_s": 0.014,
+   "steady_state_us": {
+    "F.sp.v": 0.028,
+    "F.g_word.v": 0.037,
+    "L.u": 0.144,
+    "L.d": 0.153,
+    "L.n": 0.113,
+    "L.p": 0.099,
+    "L.i": 0.75,
+    "E.mother.f": 0.031,
+    "E.mother.t": 0.029,
+    "E.mother.b": 0.04,
+    "T.sectionFromNode": 0.512,
+    "T.text.verse": 1.637,
+    "T.nodeFromSection": 0.202
+   },
+   "N.walk_full_s": 0.017,
+   "queries": {
+    "q_phrase_without_verb": {
+     "s": 0.0392,
+     "count": 62771
+    },
+    "q_regex_gcons": {
+     "s": 0.0069,
+     "count": 816
+    },
+    "q_regex_typ": {
+     "s": 0.0088,
+     "count": 3098
+    },
+    "q_regex_gloss_space": {
+     "s": 0.0034,
+     "count": 406
+    },
+    "q_feat_exists_qere": {
+     "s": 0.0002,
+     "count": 1892
+    },
+    "q_feat_empty_qere": {
+     "s": 0.0196,
+     "count": 424698
+    },
+    "q_multivalue_neg": {
+     "s": 0.0093,
+     "count": 271
+    },
+    "q_slot_equal": {
+     "s": 0.0127,
+     "count": 3583
+    },
+    "q_mother_basic": {
+     "s": 0.0135,
+     "count": 13917
+    },
+    "q_mother_reverse": {
+     "s": 0.0131,
+     "count": 13917
+    },
+    "q_mother_named_distinct_verse": {
+     "s": 0.0288,
+     "count": 710
+    },
+    "q_slot_overlap_parent": {
+     "s": 0.0359,
+     "count": 887
+    }
+   },
+   "rss_final_mb": 261.9,
+   "note": "context-fabric 0.6.0rc1 (Rust core, .cfr v4), python -m cfabric_benchmarks.perf_gate --engine cf on a compiled BHSA cache, same machine and session as bhsa_tf.json, 2026-10-14. Median per timing over 3 runs interleaved with TF runs (memory: worst of 3). per_call_us probes are first calls over small node sets and include one-time index builds; steady_state_us is warm (best of 5 passes)."
+  },
+  "tf": {
+   "engine": "tf",
+   "rss_before_load_mb": 33.7,
+   "load_s": 4.316,
+   "rss_after_load_mb": 6182.2,
+   "rss_load_delta_mb": 6148.6,
+   "F.sp.v": {
+    "total_s": 0.0033,
+    "per_call_us": 0.33,
+    "n": 10000
+   },
+   "F.g_word.v": {
+    "total_s": 0.0033,
+    "per_call_us": 0.33,
+    "n": 10000
+   },
+   "L.u": {
+    "total_s": 0.0,
+    "per_call_us": 0.67,
+    "n": 30
+   },
+   "L.d": {
+    "total_s": 0.0001,
+    "per_call_us": 2.23,
+    "n": 30
+   },
+   "L.n": {
+    "total_s": 0.0,
+    "per_call_us": 0.73,
+    "n": 30
+   },
+   "L.p": {
+    "total_s": 0.0,
+    "per_call_us": 0.76,
+    "n": 30
+   },
+   "L.i": {
+    "total_s": 0.0002,
+    "per_call_us": 6.93,
+    "n": 30
+   },
+   "E.mother.f": {
+    "total_s": 0.0001,
+    "per_call_us": 0.17,
+    "n": 500
+   },
+   "E.mother.t": {
+    "total_s": 0.0001,
+    "per_call_us": 0.24,
+    "n": 500
+   },
+   "E.mother.b": {
+    "total_s": 0.0,
+    "per_call_us": 0.08,
+    "n": 500
+   },
+   "T.sectionFromNode": {
+    "total_s": 0.0013,
+    "per_call_us": 6.48,
+    "n": 200
+   },
+   "T.text.verse": {
+    "total_s": 0.0011,
+    "per_call_us": 11.18,
+    "n": 100
+   },
+   "T.nodeFromSection": {
+    "total_s": 0.0001,
+    "per_call_us": 0.76,
+    "n": 100
+   },
+   "F.sp.freqList_s": 0.0296,
+   "F.sp.v_full_sweep_s": 0.019,
+   "steady_state_us": {
+    "F.sp.v": 0.064,
+    "F.g_word.v": 0.075,
+    "L.u": 0.115,
+    "L.d": 0.608,
+    "L.n": 0.25,
+    "L.p": 0.212,
+    "L.i": 5.254,
+    "E.mother.f": 0.033,
+    "E.mother.t": 0.044,
+    "E.mother.b": 0.068,
+    "T.sectionFromNode": 5.677,
+    "T.text.verse": 9.348,
+    "T.nodeFromSection": 0.223
+   },
+   "N.walk_full_s": 0.0111,
+   "queries": {
+    "q_phrase_without_verb": {
+     "s": 0.2689,
+     "count": 62771
+    },
+    "q_regex_gcons": {
+     "s": 0.124,
+     "count": 816
+    },
+    "q_regex_typ": {
+     "s": 0.1559,
+     "count": 3098
+    },
+    "q_regex_gloss_space": {
+     "s": 0.0049,
+     "count": 406
+    },
+    "q_feat_exists_qere": {
+     "s": 0.0719,
+     "count": 1892
+    },
+    "q_feat_empty_qere": {
+     "s": 0.0961,
+     "count": 424698
+    },
+    "q_multivalue_neg": {
+     "s": 0.2453,
+     "count": 271
+    },
+    "q_slot_equal": {
+     "s": 0.7812,
+     "count": 3583
+    },
+    "q_mother_basic": {
+     "s": 0.0384,
+     "count": 13917
+    },
+    "q_mother_reverse": {
+     "s": 0.0372,
+     "count": 13917
+    },
+    "q_mother_named_distinct_verse": {
+     "s": 0.0808,
+     "count": 710
+    },
+    "q_slot_overlap_parent": {
+     "s": 0.454,
+     "count": 887
+    }
+   },
+   "rss_final_mb": 6321.7,
+   "note": "Text-Fabric 13.0.19, python -m cfabric_benchmarks.perf_gate --engine tf, Apple M5 Max (shared machine, load average 6-11), 2026-10-14. Median per timing over 4 runs interleaved with CF runs (memory: worst of 4)."
+  }
+ },
+ "regressions_vs_june": [
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "gate F.sp.v per_call",
+   "june": 0.11,
+   "now": 0.13,
+   "unit": "us",
+   "ratio": 1.18,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "gate F.g_word.v per_call",
+   "june": 0.22,
+   "now": 0.26,
+   "unit": "us",
+   "ratio": 1.18,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "gate L.u per_call",
+   "june": 2.46,
+   "now": 2.34,
+   "unit": "us",
+   "ratio": 0.95,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "gate L.d per_call",
+   "june": 3.6,
+   "now": 2.7,
+   "unit": "us",
+   "ratio": 0.75,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "gate E.mother.f per_call",
+   "june": 1.37,
+   "now": 1.34,
+   "unit": "us",
+   "ratio": 0.98,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "gate T.sectionFromNode per_call",
+   "june": 3.12,
+   "now": 2.21,
+   "unit": "us",
+   "ratio": 0.71,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "gate T.text.verse per_call",
+   "june": 9.3,
+   "now": 8.79,
+   "unit": "us",
+   "ratio": 0.95,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "gate T.nodeFromSection per_call",
+   "june": 64.7,
+   "now": 61.18,
+   "unit": "us",
+   "ratio": 0.95,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "F.sp.freqList",
+   "june": 0.0006,
+   "now": 0.0005,
+   "unit": "s",
+   "ratio": 0.83,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "F.sp.v full sweep",
+   "june": 0.014,
+   "now": 0.013,
+   "unit": "s",
+   "ratio": 0.93,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "load",
+   "june": 0.003,
+   "now": 0.0012,
+   "unit": "s",
+   "ratio": 0.4,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "peak RSS after load",
+   "june": 41.4,
+   "now": 32.4,
+   "unit": "mb",
+   "ratio": 0.78,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "peak RSS final",
+   "june": 261.9,
+   "now": 271.9,
+   "unit": "mb",
+   "ratio": 1.04,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "query q_phrase_without_verb",
+   "june": 0.0392,
+   "now": 0.0356,
+   "unit": "s",
+   "ratio": 0.91,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "query q_regex_gcons",
+   "june": 0.0069,
+   "now": 0.0063,
+   "unit": "s",
+   "ratio": 0.91,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "query q_regex_typ",
+   "june": 0.0088,
+   "now": 0.0068,
+   "unit": "s",
+   "ratio": 0.77,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "query q_regex_gloss_space",
+   "june": 0.0034,
+   "now": 0.0032,
+   "unit": "s",
+   "ratio": 0.94,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "query q_feat_exists_qere",
+   "june": 0.0002,
+   "now": 0.0001,
+   "unit": "s",
+   "ratio": 0.5,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "query q_feat_empty_qere",
+   "june": 0.0196,
+   "now": 0.0182,
+   "unit": "s",
+   "ratio": 0.93,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "query q_multivalue_neg",
+   "june": 0.0093,
+   "now": 0.0092,
+   "unit": "s",
+   "ratio": 0.99,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "query q_slot_equal",
+   "june": 0.0127,
+   "now": 0.0119,
+   "unit": "s",
+   "ratio": 0.94,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "query q_mother_basic",
+   "june": 0.0135,
+   "now": 0.0121,
+   "unit": "s",
+   "ratio": 0.9,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "query q_mother_reverse",
+   "june": 0.0131,
+   "now": 0.0111,
+   "unit": "s",
+   "ratio": 0.85,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "query q_mother_named_distinct_verse",
+   "june": 0.0288,
+   "now": 0.026,
+   "unit": "s",
+   "ratio": 0.9,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "query q_slot_overlap_parent",
+   "june": 0.0359,
+   "now": 0.0333,
+   "unit": "s",
+   "ratio": 0.93,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate F.sp.v per_call",
+   "june": 0.11,
+   "now": 0.1,
+   "unit": "us",
+   "ratio": 0.91,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate F.g_word.v per_call",
+   "june": 0.22,
+   "now": 0.2,
+   "unit": "us",
+   "ratio": 0.91,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate L.u per_call",
+   "june": 2.46,
+   "now": 2.8,
+   "unit": "us",
+   "ratio": 1.14,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate L.d per_call",
+   "june": 3.6,
+   "now": 3.81,
+   "unit": "us",
+   "ratio": 1.06,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate L.n per_call",
+   "june": 1.26,
+   "now": 1.5,
+   "unit": "us",
+   "ratio": 1.19,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate L.p per_call",
+   "june": 1.06,
+   "now": 1.14,
+   "unit": "us",
+   "ratio": 1.08,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate L.i per_call",
+   "june": 3.86,
+   "now": 4.3,
+   "unit": "us",
+   "ratio": 1.11,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate E.mother.f per_call",
+   "june": 1.37,
+   "now": 1.27,
+   "unit": "us",
+   "ratio": 0.93,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate E.mother.t per_call",
+   "june": 0.85,
+   "now": 0.77,
+   "unit": "us",
+   "ratio": 0.91,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate E.mother.b per_call",
+   "june": 0.04,
+   "now": 0.04,
+   "unit": "us",
+   "ratio": 1.0,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate T.sectionFromNode per_call",
+   "june": 3.12,
+   "now": 3.23,
+   "unit": "us",
+   "ratio": 1.04,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate T.text.verse per_call",
+   "june": 9.3,
+   "now": 8.16,
+   "unit": "us",
+   "ratio": 0.88,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "gate T.nodeFromSection per_call",
+   "june": 64.7,
+   "now": 61.57,
+   "unit": "us",
+   "ratio": 0.95,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "F.sp.freqList",
+   "june": 0.0006,
+   "now": 0.0005,
+   "unit": "s",
+   "ratio": 0.83,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "F.sp.v full sweep",
+   "june": 0.014,
+   "now": 0.013,
+   "unit": "s",
+   "ratio": 0.93,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "load",
+   "june": 0.003,
+   "now": 0.003,
+   "unit": "s",
+   "ratio": 1.0,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "peak RSS after load",
+   "june": 41.4,
+   "now": 41.5,
+   "unit": "mb",
+   "ratio": 1.0,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "peak RSS final",
+   "june": 261.9,
+   "now": 254.7,
+   "unit": "mb",
+   "ratio": 0.97,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "query q_phrase_without_verb",
+   "june": 0.0392,
+   "now": 0.0351,
+   "unit": "s",
+   "ratio": 0.9,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "query q_regex_gcons",
+   "june": 0.0069,
+   "now": 0.0068,
+   "unit": "s",
+   "ratio": 0.99,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "query q_regex_typ",
+   "june": 0.0088,
+   "now": 0.0081,
+   "unit": "s",
+   "ratio": 0.92,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "query q_regex_gloss_space",
+   "june": 0.0034,
+   "now": 0.0033,
+   "unit": "s",
+   "ratio": 0.97,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "query q_feat_exists_qere",
+   "june": 0.0002,
+   "now": 0.0002,
+   "unit": "s",
+   "ratio": 1.0,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "query q_feat_empty_qere",
+   "june": 0.0196,
+   "now": 0.0184,
+   "unit": "s",
+   "ratio": 0.94,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "query q_multivalue_neg",
+   "june": 0.0093,
+   "now": 0.0087,
+   "unit": "s",
+   "ratio": 0.94,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "query q_slot_equal",
+   "june": 0.0127,
+   "now": 0.0118,
+   "unit": "s",
+   "ratio": 0.93,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "query q_mother_basic",
+   "june": 0.0135,
+   "now": 0.0118,
+   "unit": "s",
+   "ratio": 0.87,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "query q_mother_reverse",
+   "june": 0.0131,
+   "now": 0.011,
+   "unit": "s",
+   "ratio": 0.84,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "query q_mother_named_distinct_verse",
+   "june": 0.0288,
+   "now": 0.0256,
+   "unit": "s",
+   "ratio": 0.89,
+   "regression": false
+  },
+  {
+   "source": "perf_gate cf",
+   "metric": "query q_slot_overlap_parent",
+   "june": 0.0359,
+   "now": 0.0329,
+   "unit": "s",
+   "ratio": 0.92,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady F.sp.v",
+   "june": 0.028,
+   "now": 0.028,
+   "unit": "us",
+   "ratio": 1.0,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady F.g_word.v",
+   "june": 0.037,
+   "now": 0.037,
+   "unit": "us",
+   "ratio": 1.0,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady L.u",
+   "june": 0.144,
+   "now": 0.129,
+   "unit": "us",
+   "ratio": 0.9,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady L.d",
+   "june": 0.153,
+   "now": 0.134,
+   "unit": "us",
+   "ratio": 0.88,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady L.n",
+   "june": 0.113,
+   "now": 0.102,
+   "unit": "us",
+   "ratio": 0.9,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady L.p",
+   "june": 0.099,
+   "now": 0.093,
+   "unit": "us",
+   "ratio": 0.94,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady L.i",
+   "june": 0.75,
+   "now": 0.021,
+   "unit": "us",
+   "ratio": 0.03,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady E.mother.f",
+   "june": 0.031,
+   "now": 0.032,
+   "unit": "us",
+   "ratio": 1.03,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady E.mother.t",
+   "june": 0.029,
+   "now": 0.03,
+   "unit": "us",
+   "ratio": 1.03,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady E.mother.b",
+   "june": 0.04,
+   "now": 0.04,
+   "unit": "us",
+   "ratio": 1.0,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady T.sectionFromNode",
+   "june": 0.512,
+   "now": 0.445,
+   "unit": "us",
+   "ratio": 0.87,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady T.text.verse",
+   "june": 1.637,
+   "now": 1.524,
+   "unit": "us",
+   "ratio": 0.93,
+   "regression": false
+  },
+  {
+   "source": "perf_probe cf_rust_mapped",
+   "metric": "steady T.nodeFromSection",
+   "june": 0.202,
+   "now": 0.201,
+   "unit": "us",
+   "ratio": 1.0,
+   "regression": false
+  }
+ ]
+}

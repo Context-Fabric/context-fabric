@@ -112,7 +112,7 @@ path = snapshot_download("username/cfabric-corpus", repo_type="dataset")
 
 # Load with Context-Fabric
 TF = cfabric.Fabric(locations=path)
-api = TF.load_all()
+api = TF.loadAll()
 ```
 
 ## Citation
@@ -264,7 +264,7 @@ path = cfabric.download('bhsa')
 
 # Load corpus
 TF = cfabric.Fabric(locations=path)
-api = TF.load_all()
+api = TF.loadAll()
 
 # Use the API
 for word in api.F.otype.s('word')[:10]:

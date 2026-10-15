@@ -5,45 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.6.0] - 2026-06-10 ([ck])
+## [0.6.0] - Unreleased (release candidate 0.6.0rc1) ([ck])
 
-Rust core rewrite. The pure-Python engine is replaced by a Rust/PyO3 implementation
-packaged through maturin as `context-fabric`. The corpus stays memory-mapped at all
-times; speed comes from cached view metadata, precomputed CSR indexes stored inside
-the `.cfr`, and algorithmic fixes to the search engine. The public `tf.core` API
-surface is preserved (existing signatures and return types unchanged).
+The core engine is rewritten in Rust and ships as a compiled extension
+(`cfabric._core`, built with PyO3 and maturin). Every query is served from a
+memory-mapped compiled cache, and the Text-Fabric API is kept: existing code
+runs unchanged. See the README for the remaining differences from Text-Fabric
+and for performance figures.
 
 ### Changed
-- Replaced the pure-Python core engine with the Rust/PyO3 implementation packaged through maturin.
-- Core corpus loading is mmap-first; compiled cache and memory-mapped loading are public (`loadCompiled()`, `openMapped()`).
-- Dropped the in-memory search executor; the mapped engine is now the only search engine (`search.rs` 2816 -> 590 lines).
-- Bumped cache path versions (CFM 2, CFR 3); pre-v3 default caches are auto-invalidated and recompiled.
+- The pure-Python engine and its `.cfm` cache (NumPy arrays) are replaced by the Rust engine and a single-file `.cfr` cache in `<corpus>/.cfr/4/corpus.<fingerprint>.cfr` (format 4, header `CFRUST04`). The cache stores precomputed indexes (`levUp`, `levDown`, boundaries, reverse edges, row offsets, section tables, typed structure headings) that are read straight from the map.
+- A cache is named after a fingerprint of its sources (module paths, the name, size and modification time of every `.tf` file, format and engine release), so a load uses the cache of the current sources and compiles one when there is none. A composition of several locations gets its own cache file, and a read-only corpus compiles its cache under `cfabric.get_cache_dir()` (`CFABRIC_CACHE`, else the platform cache directory). A cache in another format is rebuilt when loaded through `Fabric.load` / `loadAll`; opening one with `openMapped` raises `ValueError` asking to recompile it.
+- Caches are written to a staged file and published under their name without ever replacing a valid cache, so a process that has a cache mapped is never disturbed (on every platform, including Windows, which cannot replace a mapped file), processes compiling the same corpus at once share the first published cache, an interrupted compile leaves no file behind, and stale caches are deleted once no process holds them; corrupted caches fail with a clear error.
+- Loading, compiling, and searching release the GIL; Ctrl-C interrupts a running search with `KeyboardInterrupt`.
+- `S.search` / `S.fetch` without a limit return a lazy iterator (`SearchResultIterator`) that produces results in chunks as it is read, as Text-Fabric returns a generator; with a limit they return a tuple, and with `shallow` the complete set whatever the limit. Without a positive limit, results and `S.count()` stop at Text-Fabric's fail limit of `4 * maxNode` with its message `cut off at N results. There are more ...` as a `UserWarning`.
+- `S.showPlan()` describes the plan (atoms, relations, and with `details` the binding order with candidate counts) without running the search.
+- Dependencies: none are required. NumPy is the `numpy` extra (for `vs_array`) and `huggingface_hub` the `download` extra (for `cfabric.download`, whose `ImportError` names the extra); `pyyaml` and `platformdirs` are no longer used.
+- The package version comes from `Cargo.toml`.
 
 ### Added
-- **TF-core compatibility**: 34/34 real-world ETCBC query parity (counts and result sets match Text-Fabric); 407,719/409,288 public-API value checks pass against TF 13.0.19 on BHSA; valued edges; `TF.save` round-trip (TF reloads CF-authored `.tf`); `sets=`/`shallow=` search; multi-location corpus loading.
-- **Performance** (BHSA, measured on an idle machine 2026-06-10; see `libs/benchmarks/baselines/cf_0.6.0_record.json`): steady-state per-call latency beats Text-Fabric on every probe — `L.u` 0.62 µs, `L.d` 0.75 µs, `E.mother.f` 0.14 µs, `T.sectionFromNode` 3.2 µs, `T.text` (verse) 7.1 µs, `F.v` 0.33 µs; load 0.018 s vs TF 8.6 s; resident memory 236 MB vs TF 6.4 GB; all 34 queries run in <= TF wall time.
-- **Additive batch APIs** (opt-in; existing scalar methods unchanged): `F.<feat>.vs` / `vs_array` (node-array value lookup returning a list / numpy array), `L.u_many` / `L.d_many`, `T.text_many` — ~10x faster than per-node loops.
-- **`.cfr` v3 format**: appended `levUp` / `levDown` / `boundary` / `sections` CSR sections (plain u32, mmap'd for random access, 0 added RSS); caches auto-invalidate via the bumped path version.
-- Computed-feature views for `levUp` / `levDown` / `sections` / `characters` / `boundary`; `F.otype.all`, `N.sortKeyChunk`.
-- Text-Fabric oracle parity gates, golden comparison tooling, a 34-query parity gate, a recorded per-call performance gate, and public API compatibility tests.
+- `Fabric.compile(path)` and `Fabric.openMapped(path)` to build and open a cache explicitly.
+- Batch calls: `F.<feature>.vs` / `vs_array`, `L.u_many` / `L.d_many`, `T.text_many`.
+- Text-Fabric API surface: the `api` aliases (`Feature`, `FeatureString`, `AllFeatures`, `Locality`, ..., `loadLog`), `api.TF`, `ignored`, and an `api` back-reference on every member; the `TF.info` / `warning` / `error` / `indent` / `setSilent` messages; `TF.api`, `clearCache`, `featureSets`, `features`, `featuresRequested` / `featuresIgnored`; `T.text(func=, explain=, **kwargs)`, `T.<section0>Name` / `T.<section0>Node`, `T.config`, `T.defaultFormats`, `T.splitFormat`, `T.headings`, `T.up` / `T.down`; `F.otype.all` / `support` / `sInterval`, `N.sortKeyChunk` / `makeSortKeyChunk`; `C.levUp`, `C.levDown`, `C.sections`, `C.characters`, `C.boundary`, `C.structure`; `sets=` and `shallow=` in search; `TF.save` writes `.tf` files that Text-Fabric loads; corpora composed from several locations or modules.
+- `cfabric/_core.pyi` type stubs, checked against the extension with mypy stubtest.
+- `cfabric.SearchTemplateError` (a `ValueError`): `S.search`, `S.fetch` and `S.count` raise it for every template Text-Fabric reports as bad, with Text-Fabric's line numbers and messages (line syntax and quantifier structure, indentation, lonely relations, undefined names, unknown node types, features and relations, wrong feature values and types, templates without atoms or with unconnected atoms, and errors in quantifier sub-templates). `S.study()` records them on `S.exe` (`good`, `badSyntax`, `badSemantics`) instead of raising.
+- `describe_text_formats` (the MCP `get_text_formats` tool) pairs `-orig-` formats with `-translit-` transliterations as well as `-trans-` ones, so N1904 reports its pairs.
 
 ### Fixed
-- Search engine: operator-prefixed atom lines (`< w`, `<: w`, `:> w`, `=: w`, `:= w`, `:k> w`) now emit TF's two-edge semantics (sibling relation added, not substituted for embedding), eliminating corpus-wide cross-products, always-empty results, and parse errors (was 8/34 queries correct, 19 timeouts, 3 crashes, 4 wrong-zeros).
-- Quantifiers (`/without/`, `/where/have/`, `/with/or/`) rewritten to TF's single global sub-search + set algebra instead of one sub-search per candidate root.
-- Adjacency and k-near relations use a slot index (binary search) instead of O(n^2) scans.
-- Mapped-view performance: feature views no longer rebuild mmap views per call; locality, sections, and text contexts are handle-owned with lazy format compilation.
-- Cross-corpus defects: multi-location compile, empty-string text fallback, `@levelConstraints`, section-0 feature selection, fast `nodeFromSection` miss.
-- `L.i` ordering (removed a spurious reversal, confirmed against the TF oracle).
-- Quadratic precompute paths (`levUp` via first-slot candidates, `sections` via precomputed level arrays): BHSA v3 compile dropped from 2.5h+ to ~57 s.
-- Text-Fabric valued edge parsing for implicit `@edgeValues` rows and compact `target:value` syntax.
-- `Fabric.load("a b c")` whitespace feature split; `freqList` node-type/edge filters; `T.text` accepts int or iterable; `sectionTuple` split from `sectionFromNode`; `lastSlot`; `S.glean`/`S.showPlan`; `walk(events=True)`.
-- Downstream MCP and benchmark package imports for the new top-level `cfabric` API surface.
+- Results follow Text-Fabric on BHSA: the 34 reference ETCBC queries return Text-Fabric's result sets, and public-API values and return types are compared with Text-Fabric 13.0.19 on BHSA, N1904 and BANKS (`tests/parity`).
+- `L.i` returns nodes in canonical order.
+- Search: operator-prefixed atom lines (`< w`, `<: w`, `:> w`, `=: w`, `:= w`, `:k> w`) relate siblings as in Text-Fabric; quantifiers run as one sub-search with set algebra; `f*` imposes no condition; edge value conditions `-f>n>`, `-f<n>`, `-f#>`, `-f*>` work and `-f#v>` admits edges without a value; `limit=0` or a negative limit falls back to the fail limit; `S.study()` followed by `S.fetch()` works.
+- `T.text` descends to the format's target type through `L.d`, and keeps a present empty value instead of falling back to the next feature; `@levelConstraints` orders node types; `T.nodeFromSection` reads the first three parts and misses fast.
+- Return types match Text-Fabric: `Fall` / `Eall` / `Call` / `sortNodes` / `locations` / `sectionTypes` are lists, `N.walk` is an iterator, `isLoaded` returns Text-Fabric's info dict (or prints it), `ensureLoaded` returns a set, `showPlan` / `relationsLegend` / `structureInfo` / `footprint` print and return `None`, `E.<feature>.data` / `dataInv` hold frozensets / sets (or value dicts), structure headings keep their feature type, and `freqList` breaks ties by value.
+- `TF.load(features)` exposes only the requested, warp, and text features; `add=True` widens the current API; unknown features return `False`.
+- Out-of-range node numbers answer `None` / `()` instead of raising `OverflowError`, also in the batch calls (`F.<feature>.vs` / `vs_array`, `L.u_many` / `L.d_many`, `T.text_many`); `N.sortNodes`, `N.walk(nodes=...)` and search `sets=` raise `IndexError` naming a number that is not a node.
+- Search templates indented at the top level, with an unknown node type, feature or relation, or with a non-numeric `<` / `>` bound are rejected instead of being searched; a missing feature raises `ValueError` instead of a bare `Exception`.
+- Valued edges with implicit `@edgeValues` rows and the compact `target:value` syntax parse as in Text-Fabric.
+- Distributions ship the MIT license file.
 
-### Known divergences from Text-Fabric
-- Result-*list* ordering is unspecified-but-deterministic; parity is defined by result counts and sets, not list order (TF's order is search-strategy dependent). Within-tuple column order matches template atom order.
-- `silent` / progress-banner knobs are accepted but are no-ops.
-- Volumes/works and MQL are out of scope.
-- `C.levUp` / `C.levDown` are exposed as lazy views keyed by node id.
+### Removed
+- `cfabric.NodeList` and `cfabric.SearchResult` (no remaining users; `NodeInfo`, `FeatureInfo` and `CorpusInfo` stay).
+- `cfabric.download(compiled_only=True)`: it fetched `.cfm` caches, which this release cannot read; caches are built locally.
+
 ## [0.5.8] - 2026-10-14
 
 ### Added

@@ -16,34 +16,27 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-import pytest
-
 from cfabric import Fabric
 
-CORPORA = Path(__file__).resolve().parents[2].parent / "benchmarks" / ".corpora"
 
-
-def _open(corpus: str, tmp_path: Path):
-    tf_dir = CORPORA / corpus / "tf"
-    if not tf_dir.is_dir():
-        pytest.skip(f"{corpus} corpus not available at {tf_dir}")
-    cache = tmp_path / f"{corpus}.cfr"
+def _open(tf_dir: Path, tmp_path: Path):
+    cache = tmp_path / f"{tf_dir.parent.name}.cfr"
     fab = Fabric(locations=[str(tf_dir)], silent="deep")
     fab.compile(str(cache), None, "deep")
     return fab.openMapped(str(cache))
 
 
-def test_quran_top_section_uses_number_not_name(tmp_path):
+def test_quran_top_section_uses_number_not_name(corpus_tf_dir, tmp_path):
     """quran @sectionFeatures=number,number — sura heading must be the number."""
-    co = _open("quran", tmp_path)
+    co = _open(corpus_tf_dir("quran"), tmp_path)
     assert tuple(co.T.sectionFeatures) == ("number", "number")
     # node 128220 is sura 1 (TF: (1, 1), CF previously returned 'The Opening').
     assert co.T.sectionFromNode(128220) == (1, 1)
     assert co.T.sectionFromNode(128450) == (2, 224)
 
 
-def test_quran_node_from_section_round_trips_and_fast_miss(tmp_path):
-    co = _open("quran", tmp_path)
+def test_quran_node_from_section_round_trips_and_fast_miss(corpus_tf_dir, tmp_path):
+    co = _open(corpus_tf_dir("quran"), tmp_path)
     # Round trip via the number-based heading (the TF head shape).
     assert co.T.nodeFromSection((1, 1)) == 128220
     assert co.T.nodeFromSection((2, 224)) == 128450
@@ -55,11 +48,9 @@ def test_quran_node_from_section_round_trips_and_fast_miss(tmp_path):
     assert elapsed < 5.0, f"nodeFromSection miss took {elapsed:.2f}s (expected fast index miss)"
 
 
-def test_bhsa_book_section_language_variants(tmp_path):
+def test_bhsa_book_section_language_variants(bhsa_tf_dir, tmp_path):
     """The BUG-4 fix must keep BHSA's book@<lang> variants working."""
-    tf_dir = CORPORA / "bhsa" / "tf"
-    if not tf_dir.is_dir():
-        pytest.skip("bhsa corpus not available")
+    tf_dir = bhsa_tf_dir
     cache = tmp_path / "bhsa.cfr"
     fab = Fabric(locations=[str(tf_dir)], silent="deep")
     # Compile a small subset that includes the English book-name variant.

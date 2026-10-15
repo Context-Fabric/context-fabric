@@ -1,0 +1,520 @@
+{
+ "engine": "cf_python",
+ "engine_version": "0.5.8",
+ "oracle_version": "13.0.19",
+ "total": 2370,
+ "passed": 2350,
+ "failed": 20,
+ "by_area": {
+  "E": {
+   "passed": 117,
+   "total": 117
+  },
+  "F": {
+   "passed": 949,
+   "total": 949
+  },
+  "L": {
+   "passed": 585,
+   "total": 585
+  },
+  "N": {
+   "passed": 2,
+   "total": 2
+  },
+  "T": {
+   "passed": 573,
+   "total": 593
+  },
+  "meta": {
+   "passed": 6,
+   "total": 6
+  },
+  "order": {
+   "passed": 118,
+   "total": 118
+  }
+ },
+ "failing_groups": [
+  {
+   "area": "T",
+   "check": "T.headingFromNode",
+   "categories": {
+    "value": 18
+   },
+   "failed": 18,
+   "total": 117,
+   "examples": [
+    {
+     "arg": 100,
+     "expected": [
+      [
+       "book",
+       "Consider Phlebas"
+      ]
+     ],
+     "actual": null
+    },
+    {
+     "arg": 101,
+     "expected": [
+      [
+       "book",
+       "Consider Phlebas"
+      ],
+      [
+       "chapter",
+       1
+      ]
+     ],
+     "actual": null
+    },
+    {
+     "arg": 102,
+     "expected": [
+      [
+       "book",
+       "Consider Phlebas"
+      ],
+      [
+       "chapter",
+       2
+      ]
+     ],
+     "actual": null
+    },
+    {
+     "arg": 103,
+     "expected": [
+      [
+       "book",
+       "Consider Phlebas"
+      ],
+      [
+       "chapter",
+       1
+      ],
+      [
+       "sentence",
+       1
+      ],
+      [
+       "line",
+       1
+      ]
+     ],
+     "actual": null
+    },
+    {
+     "arg": 104,
+     "expected": [
+      [
+       "book",
+       "Consider Phlebas"
+      ],
+      [
+       "chapter",
+       1
+      ],
+      [
+       "sentence",
+       1
+      ],
+      [
+       "line",
+       2
+      ]
+     ],
+     "actual": null
+    },
+    {
+     "arg": 105,
+     "expected": [
+      [
+       "book",
+       "Consider Phlebas"
+      ],
+      [
+       "chapter",
+       1
+      ],
+      [
+       "sentence",
+       1
+      ],
+      [
+       "line",
+       3
+      ]
+     ],
+     "actual": null
+    },
+    {
+     "arg": 106,
+     "expected": [
+      [
+       "book",
+       "Consider Phlebas"
+      ],
+      [
+       "chapter",
+       1
+      ],
+      [
+       "sentence",
+       1
+      ],
+      [
+       "line",
+       4
+      ]
+     ],
+     "actual": null
+    },
+    {
+     "arg": 107,
+     "expected": [
+      [
+       "book",
+       "Consider Phlebas"
+      ],
+      [
+       "chapter",
+       1
+      ],
+      [
+       "sentence",
+       2
+      ],
+      [
+       "line",
+       6
+      ]
+     ],
+     "actual": null
+    },
+    {
+     "arg": 108,
+     "expected": [
+      [
+       "book",
+       "Consider Phlebas"
+      ],
+      [
+       "chapter",
+       1
+      ],
+      [
+       "sentence",
+       2
+      ],
+      [
+       "line",
+       7
+      ]
+     ],
+     "actual": null
+    },
+    {
+     "arg": 109,
+     "expected": [
+      [
+       "book",
+       "Consider Phlebas"
+      ],
+      [
+       "chapter",
+       1
+      ],
+      [
+       "sentence",
+       2
+      ],
+      [
+       "line",
+       8
+      ]
+     ],
+     "actual": null
+    },
+    {
+     "arg": 110,
+     "expected": [
+      [
+       "book",
+       "Consider Phlebas"
+      ],
+      [
+       "chapter",
+       2
+      ],
+      [
+       "sentence",
+       1
+      ],
+      [
+       "line",
+       1
+      ]
+     ],
+     "actual": null
+    },
+    {
+     "arg": 111,
+     "expected": [
+      [
+       "book",
+       "Consider Phlebas"
+      ],
+      [
+       "chapter",
+       2
+      ],
+      [
+       "sentence",
+       1
+      ],
+      [
+       "line",
+       2
+      ]
+     ],
+     "actual": null
+    },
+    {
+     "arg": 112,
+     "expected": [
+      [
+       "book",
+       "Consider Phlebas"
+      ],
+      [
+       "chapter",
+       2
+      ],
+      [
+       "sentence",
+       1
+      ],
+      [
+       "line",
+       3
+      ]
+     ],
+     "actual": null
+    },
+    {
+     "arg": 113,
+     "expected": [
+      [
+       "book",
+       "Consider Phlebas"
+      ],
+      [
+       "chapter",
+       2
+      ],
+      [
+       "sentence",
+       1
+      ],
+      [
+       "line",
+       4
+      ]
+     ],
+     "actual": null
+    },
+    {
+     "arg": 114,
+     "expected": [
+      [
+       "book",
+       "Consider Phlebas"
+      ],
+      [
+       "chapter",
+       2
+      ],
+      [
+       "sentence",
+       1
+      ],
+      [
+       "line",
+       5
+      ]
+     ],
+     "actual": null
+    },
+    {
+     "arg": 115,
+     "expected": [
+      [
+       "book",
+       "Consider Phlebas"
+      ],
+      [
+       "chapter",
+       1
+      ],
+      [
+       "sentence",
+       1
+      ]
+     ],
+     "actual": null
+    },
+    {
+     "arg": 116,
+     "expected": [
+      [
+       "book",
+       "Consider Phlebas"
+      ],
+      [
+       "chapter",
+       1
+      ],
+      [
+       "sentence",
+       2
+      ]
+     ],
+     "actual": null
+    },
+    {
+     "arg": 117,
+     "expected": [
+      [
+       "book",
+       "Consider Phlebas"
+      ],
+      [
+       "chapter",
+       2
+      ],
+      [
+       "sentence",
+       1
+      ]
+     ],
+     "actual": null
+    }
+   ]
+  },
+  {
+   "area": "T",
+   "check": "T.top",
+   "categories": {
+    "value": 1
+   },
+   "failed": 1,
+   "total": 1,
+   "examples": [
+    {
+     "arg": null,
+     "expected": [
+      100
+     ],
+     "actual": null
+    }
+   ]
+  },
+  {
+   "area": "T",
+   "check": "T.structure",
+   "categories": {
+    "value": 1
+   },
+   "failed": 1,
+   "total": 1,
+   "examples": [
+    {
+     "arg": null,
+     "expected": [
+      [
+       100,
+       [
+        [
+         101,
+         [
+          [
+           115,
+           [
+            [
+             103,
+             []
+            ],
+            [
+             104,
+             []
+            ],
+            [
+             105,
+             []
+            ],
+            [
+             106,
+             []
+            ]
+           ]
+          ],
+          [
+           116,
+           [
+            [
+             107,
+             []
+            ],
+            [
+             108,
+             []
+            ],
+            [
+             109,
+             []
+            ]
+           ]
+          ]
+         ]
+        ],
+        [
+         102,
+         [
+          [
+           117,
+           [
+            [
+             110,
+             []
+            ],
+            [
+             111,
+             []
+            ],
+            [
+             112,
+             []
+            ],
+            [
+             113,
+             []
+            ],
+            [
+             114,
+             []
+            ]
+           ]
+          ]
+         ]
+        ]
+       ]
+      ]
+     ],
+     "actual": null
+    }
+   ]
+  }
+ ]
+}

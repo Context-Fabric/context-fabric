@@ -1,0 +1,141 @@
+{
+ "engine": "cf",
+ "rss_before_load_mb": 33.4,
+ "load_s": 0.003,
+ "rss_after_load_mb": 41.5,
+ "rss_load_delta_mb": 8.1,
+ "F.sp.v": {
+  "total_s": 0.001,
+  "per_call_us": 0.1,
+  "n": 10000
+ },
+ "F.g_word.v": {
+  "total_s": 0.002,
+  "per_call_us": 0.2,
+  "n": 10000
+ },
+ "L.u": {
+  "total_s": 0.0001,
+  "per_call_us": 2.8,
+  "n": 30
+ },
+ "L.d": {
+  "total_s": 0.0001,
+  "per_call_us": 3.81,
+  "n": 30
+ },
+ "L.n": {
+  "total_s": 0.0,
+  "per_call_us": 1.5,
+  "n": 30
+ },
+ "L.p": {
+  "total_s": 0.0,
+  "per_call_us": 1.14,
+  "n": 30
+ },
+ "L.i": {
+  "total_s": 0.0001,
+  "per_call_us": 4.3,
+  "n": 30
+ },
+ "E.mother.f": {
+  "total_s": 0.0006,
+  "per_call_us": 1.27,
+  "n": 500
+ },
+ "E.mother.t": {
+  "total_s": 0.0004,
+  "per_call_us": 0.77,
+  "n": 500
+ },
+ "E.mother.b": {
+  "total_s": 0.0,
+  "per_call_us": 0.04,
+  "n": 500
+ },
+ "T.sectionFromNode": {
+  "total_s": 0.0006,
+  "per_call_us": 3.23,
+  "n": 200
+ },
+ "T.text.verse": {
+  "total_s": 0.0008,
+  "per_call_us": 8.16,
+  "n": 100
+ },
+ "T.nodeFromSection": {
+  "total_s": 0.0062,
+  "per_call_us": 61.57,
+  "n": 100
+ },
+ "F.sp.freqList_s": 0.0005,
+ "F.sp.v_full_sweep_s": 0.013,
+ "steady_state_us": {
+  "F.sp.v": 0.028,
+  "F.g_word.v": 0.038,
+  "L.u": 0.128,
+  "L.d": 0.136,
+  "L.n": 0.105,
+  "L.p": 0.092,
+  "L.i": 0.692,
+  "E.mother.f": 0.031,
+  "E.mother.t": 0.029,
+  "E.mother.b": 0.04,
+  "T.sectionFromNode": 0.407,
+  "T.text.verse": 1.511,
+  "T.nodeFromSection": 0.204
+ },
+ "N.walk_full_s": 0.0158,
+ "queries": {
+  "q_phrase_without_verb": {
+   "s": 0.0351,
+   "count": 62771
+  },
+  "q_regex_gcons": {
+   "s": 0.0068,
+   "count": 816
+  },
+  "q_regex_typ": {
+   "s": 0.0081,
+   "count": 3098
+  },
+  "q_regex_gloss_space": {
+   "s": 0.0033,
+   "count": 406
+  },
+  "q_feat_exists_qere": {
+   "s": 0.0002,
+   "count": 1892
+  },
+  "q_feat_empty_qere": {
+   "s": 0.0184,
+   "count": 424698
+  },
+  "q_multivalue_neg": {
+   "s": 0.0087,
+   "count": 271
+  },
+  "q_slot_equal": {
+   "s": 0.0118,
+   "count": 3583
+  },
+  "q_mother_basic": {
+   "s": 0.0118,
+   "count": 13917
+  },
+  "q_mother_reverse": {
+   "s": 0.011,
+   "count": 13917
+  },
+  "q_mother_named_distinct_verse": {
+   "s": 0.0256,
+   "count": 710
+  },
+  "q_slot_overlap_parent": {
+   "s": 0.0329,
+   "count": 887
+  }
+ },
+ "rss_final_mb": 254.7
+}

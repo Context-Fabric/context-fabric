@@ -5,11 +5,15 @@ baseline (``libs/benchmarks/baselines/bhsa_tf.json``) to validate the
 scalar-latency fast paths (pool-id string interning, handle-owned dispatch,
 positional-only signature) added to ``bindings/features.rs``.
 
-Run from ``/tmp`` so the local source tree does not shadow the installed
-``cfabric`` extension::
+Run from outside the repository so the local source tree does not shadow the
+installed ``cfabric`` extension::
 
     source .venv/bin/activate
-    cd /tmp && python /Users/cody/github/context-fabric/libs/benchmarks/bench_scalar_latency.py
+    cd "$(mktemp -d)" && python <repo>/libs/benchmarks/bench_scalar_latency.py [--tf DIR] [--cache FILE]
+
+``--tf`` defaults to ``libs/benchmarks/.corpora/bhsa/tf``. Without ``--cache``
+the corpus is loaded through the cache ``Fabric`` keeps next to the sources;
+with ``--cache`` that compiled ``.cfr`` file is opened.
 
 Methodology mirrors ``perf_gate.py`` (capture the bound method once, loop over a
 seeded random list of nodes, ``per_call = elapsed / n``) so the numbers are
@@ -20,15 +24,15 @@ method (``F.<feat>._noop``) and subtracted to expose pure binding work.
 
 from __future__ import annotations
 
+import argparse
 import json
-import os
 import random
 import statistics
 import sys
 import time
 from pathlib import Path
 
-CACHE = "/tmp/cf_bhsa_v3_full.cfr"
+DEFAULT_TF = Path(__file__).resolve().parent / ".corpora" / "bhsa" / "tf"
 BASELINE = Path(__file__).resolve().parent / "baselines" / "bhsa_tf.json"
 N_CALLS = 1_000_000
 PASSES = 9
@@ -58,16 +62,22 @@ def measure(fn, nodes: list[int]) -> float:
 
 
 def main() -> int:
-    from cfabric._core import Fabric
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--tf", type=Path, default=DEFAULT_TF, help="BHSA tf directory")
+    parser.add_argument("--cache", type=Path, default=None, help="explicit .cfr cache")
+    args = parser.parse_args()
+
+    from cfabric import Fabric
 
     baseline = json.loads(BASELINE.read_text())
 
     t0 = time.perf_counter()
-    corpus = Fabric().openMapped(CACHE)
+    fabric = Fabric(locations=str(args.tf), silent="deep")
+    corpus = fabric.openMapped(str(args.cache)) if args.cache else fabric.loadAll(silent="deep")
     F = corpus.F
     load_s = time.perf_counter() - t0
     max_slot = F.otype.maxSlot
-    print(f"loaded {CACHE} in {load_s:.2f}s  maxSlot={max_slot}")
+    print(f"loaded {args.cache or args.tf} in {load_s:.2f}s  maxSlot={max_slot}")
 
     rng = random.Random(42)
     nodes = [rng.randint(1, max_slot) for _ in range(N_CALLS)]

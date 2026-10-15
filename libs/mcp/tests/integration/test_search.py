@@ -139,6 +139,26 @@ class TestSearch:
         # May return error or empty results depending on error handling
         assert "error" in result or len(result.get("results", [])) == 0
 
+    def test_bad_template_reports_text_fabric_messages(self, loaded_corpus):
+        """A bad template returns Text-Fabric's messages, one per line."""
+        result = tools.search("wordd", corpus=loaded_corpus)
+
+        assert result["error"] == "Invalid search template"
+        assert result["errors"] == [
+            'Line 0: Unknown object type: "wordd"',
+            "Valid object types are: sentence, phrase, word",
+        ]
+
+    def test_disconnected_template_reports_why(self, loaded_corpus):
+        """Errors outside S.exe's lists (unrelated atoms) are reported too."""
+        result = tools.search("x:word\ny:word", corpus=loaded_corpus)
+
+        assert result["error"] == "Invalid search template"
+        assert result["errors"] == [
+            "More than one connected components (2):",
+            "Either run the subqueries one by one, or connect the components by a relation",
+        ]
+
 
 class TestSearchSyntaxGuide:
     """Tests for the search syntax guide (section-based documentation)."""

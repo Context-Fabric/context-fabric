@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master, main]
+    branches: [master, main, cf-rust]
   pull_request:
-    branches: [master, main]
+    branches: [master, main, cf-rust]
 
 jobs:
   test-core:
@@ -15,30 +15,33 @@ jobs:
         working-directory: libs/core
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      # Pinned so a new clippy release can't fail CI with lints it just added;
+      # bump deliberately (and fix any new lints) when upgrading.
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.1
+          components: rustfmt, clippy
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Install dependencies
+      - name: Install package with dev dependencies
         run: |
           python -m pip install --upgrade pip
           pip install maturin
           pip install -e ".[dev]"
+          echo "PYO3_PYTHON=$(python -c 'import sys; print(sys.executable)')" >> "$GITHUB_ENV"
       - name: Check Rust formatting
         run: cargo fmt --check
+      - name: Clippy (every warning is an error)
+        run: cargo clippy --all-targets --features python -- -D warnings
       - name: Run Rust tests
-        env:
-          PYO3_PYTHON: ${{ github.workspace }}/libs/core/.venv/bin/python
-        run: |
-          python -m venv .venv
-          . .venv/bin/activate
-          pip install maturin
-          PYO3_PYTHON="$PWD/.venv/bin/python" cargo test --features python
-      - name: Build editable extension
-        run: |
-          PYO3_PYTHON="$(python -c 'import sys; print(sys.executable)')" maturin develop
+        run: cargo test --features python
       - name: Run Python tests
         run: pytest tests/python -v
+
+  distributions:
+    name: Build and test context-fabric distributions
+    uses: ./.github/workflows/core-wheels.yml
 
   test-mcp:
     name: Test cfabric-mcp

@@ -8,8 +8,8 @@ BUG-1: ``Fabric(locations=[a, b]).compile(...)`` must merge warp features from
 every location (otype/oslots from one, added features from another) instead of
 failing with "missing required feature: otype".
 
-Both are env-gated on the corpora shipped under ``libs/benchmarks/.corpora`` and
-the local parallels module; they skip when those are unavailable.
+Both need the BHSA corpus (see ``tests/conftest.py``) and the second also the
+local parallels module; they skip when those are unavailable.
 """
 
 from __future__ import annotations
@@ -17,17 +17,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from cfabric import Fabric
 
-CORPORA = Path(__file__).resolve().parents[2].parent / "benchmarks" / ".corpora"
 PARALLELS_2021 = Path.home() / "text-fabric-data" / "github" / "etcbc" / "parallels" / "tf" / "2021"
 
 
-def test_bhsa_qere_empty_trailer_no_spurious_space(tmp_path):
-    tf_dir = CORPORA / "bhsa" / "tf"
-    if not tf_dir.is_dir():
-        pytest.skip("bhsa corpus not available")
+def test_bhsa_qere_empty_trailer_no_spurious_space(bhsa_tf_dir, tmp_path):
+    tf_dir = bhsa_tf_dir
     cache = tmp_path / "bhsa.cfr"
     fab = Fabric(locations=[str(tf_dir)], silent="deep")
     fab.compile(
@@ -43,10 +39,8 @@ def test_bhsa_qere_empty_trailer_no_spurious_space(tmp_path):
     assert co.T.text(4420) == "אָהֳלֹֽו׃"
 
 
-def test_multi_location_compile_merges_otype_and_crossref(tmp_path):
-    bhsa = CORPORA / "bhsa" / "tf"
-    if not bhsa.is_dir():
-        pytest.skip("bhsa corpus not available")
+def test_multi_location_compile_merges_otype_and_crossref(bhsa_tf_dir, tmp_path):
+    bhsa = bhsa_tf_dir
     if not PARALLELS_2021.is_dir():
         pytest.skip(f"parallels module not available at {PARALLELS_2021}")
     cache = tmp_path / "merged.cfr"

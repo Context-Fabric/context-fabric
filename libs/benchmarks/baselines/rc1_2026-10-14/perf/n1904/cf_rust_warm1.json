@@ -1,0 +1,21 @@
+{
+ "engine": "cf_rust",
+ "engine_version": "0.6.0rc1",
+ "corpus": "n1904",
+ "tf_path": "/private/tmp/cf_rc1/corpora/n1904/tf",
+ "python": "3.13.12",
+ "mode": "warm",
+ "memory": {
+  "before_load": {
+   "peak_rss_mb": 23.6,
+   "rss_mb": 25.3,
+   "uss_mb": 15.2
+  },
+  "after_load": {
+   "peak_rss_mb": 28.5,
+   "rss_mb": 28.5,
+   "uss_mb": 15.7
+  }
+ },
+ "load_s": 0.0012
+}

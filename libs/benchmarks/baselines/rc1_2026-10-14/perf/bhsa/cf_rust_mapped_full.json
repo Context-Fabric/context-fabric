@@ -1,0 +1,158 @@
+{
+ "engine": "cf_rust_mapped",
+ "engine_version": "0.6.0rc1",
+ "corpus": "bhsa",
+ "tf_path": "/private/tmp/cf_rc1/corpora/bhsa/tf",
+ "python": "3.13.12",
+ "mode": "warm",
+ "memory": {
+  "before_load": {
+   "peak_rss_mb": 23.8,
+   "rss_mb": 25.6,
+   "uss_mb": 15.5
+  },
+  "after_load": {
+   "peak_rss_mb": 32.4,
+   "rss_mb": 32.4,
+   "uss_mb": 15.9
+  },
+  "after_gate_probes": {
+   "peak_rss_mb": 109.5,
+   "rss_mb": 109.5,
+   "uss_mb": 26.8
+  },
+  "after_steady_probes": {
+   "peak_rss_mb": 206.0,
+   "rss_mb": 163.0,
+   "uss_mb": 40.3
+  },
+  "final": {
+   "peak_rss_mb": 271.9,
+   "rss_mb": 251.0,
+   "uss_mb": 97.6
+  }
+ },
+ "load_s": 0.0012,
+ "gate": {
+  "_intervals": {
+   "max_slot": 426590,
+   "phrase": [
+    651573,
+    904775
+   ],
+   "verse": [
+    1414389,
+    1437601
+   ]
+  },
+  "F.sp.v": {
+   "total_s": 0.0013,
+   "per_call_us": 0.13,
+   "n": 10000
+  },
+  "F.g_word.v": {
+   "total_s": 0.0026,
+   "per_call_us": 0.26,
+   "n": 10000
+  },
+  "L.u": {
+   "total_s": 0.0001,
+   "per_call_us": 2.34,
+   "n": 30
+  },
+  "L.d": {
+   "total_s": 0.0001,
+   "per_call_us": 2.7,
+   "n": 30
+  },
+  "E.mother.f": {
+   "total_s": 0.0007,
+   "per_call_us": 1.34,
+   "n": 500
+  },
+  "T.sectionFromNode": {
+   "total_s": 0.0004,
+   "per_call_us": 2.21,
+   "n": 200
+  },
+  "T.text.verse": {
+   "total_s": 0.0009,
+   "per_call_us": 8.79,
+   "n": 100
+  },
+  "T.nodeFromSection": {
+   "total_s": 0.0061,
+   "per_call_us": 61.18,
+   "n": 100
+  },
+  "F.sp.freqList_s": 0.0005,
+  "F.sp.v_full_sweep_s": 0.013
+ },
+ "steady_us": {
+  "F.sp.v": 0.028,
+  "F.g_word.v": 0.037,
+  "L.u": 0.129,
+  "L.d": 0.134,
+  "L.n": 0.102,
+  "L.p": 0.093,
+  "L.i": 0.021,
+  "E.mother.f": 0.032,
+  "E.mother.t": 0.03,
+  "E.mother.b": 0.04,
+  "T.sectionFromNode": 0.445,
+  "T.text.verse": 1.524,
+  "T.nodeFromSection": 0.201,
+  "N.walk_full_s": 0.0285,
+  "N.walk_nodes": 1446831
+ },
+ "queries": {
+  "q_phrase_without_verb": {
+   "s": 0.0356,
+   "count": 62771
+  },
+  "q_regex_gcons": {
+   "s": 0.0063,
+   "count": 816
+  },
+  "q_regex_typ": {
+   "s": 0.0068,
+   "count": 3098
+  },
+  "q_regex_gloss_space": {
+   "s": 0.0032,
+   "count": 406
+  },
+  "q_feat_exists_qere": {
+   "s": 0.0001,
+   "count": 1892
+  },
+  "q_feat_empty_qere": {
+   "s": 0.0182,
+   "count": 424698
+  },
+  "q_multivalue_neg": {
+   "s": 0.0092,
+   "count": 271
+  },
+  "q_slot_equal": {
+   "s": 0.0119,
+   "count": 3583
+  },
+  "q_mother_basic": {
+   "s": 0.0121,
+   "count": 13917
+  },
+  "q_mother_reverse": {
+   "s": 0.0111,
+   "count": 13917
+  },
+  "q_mother_named_distinct_verse": {
+   "s": 0.026,
+   "count": 710
+  },
+  "q_slot_overlap_parent": {
+   "s": 0.0333,
+   "count": 887
+  }
+ }
+}

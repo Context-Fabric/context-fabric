@@ -11,8 +11,8 @@ For every query we assert:
 * each tuple in ``tf_first_results`` is a member of the result set.
 
 The suite is gated behind ``CONTEXT_FABRIC_RUN_PARITY=1`` (mirroring
-``test_tf_oracle_parity.py``) and skipped if the compiled ``.cfr`` cache is
-missing.
+``test_tf_oracle_parity.py``) and skipped when the BHSA corpus is unavailable.
+The BHSA cache is resolved by the shared ``tests/conftest.py`` fixtures.
 
 All queries now pass against the mapped engine, so the formerly-``xfail``
 markers (Phase 1-3 defects) have been removed and every case is a plain pass.
@@ -20,8 +20,7 @@ markers (Phase 1-3 defects) have been removed and every case is a plain pass.
 Environment overrides:
 
 * ``CFQ_TIMEOUT``      per-query timeout in seconds (default 60).
-* ``CFABRIC_BHSA_CFR`` path to the compiled cache (default ``/tmp/cf_bhsa.cfr``).
-* ``CFABRIC_BHSA_TF``  path to the BHSA TF source dir (default repo corpora).
+* ``CFABRIC_CORPORA`` / ``CFABRIC_BHSA_CFR``: see ``tests/conftest.py``.
 """
 
 from __future__ import annotations
@@ -30,6 +29,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -40,15 +40,7 @@ pytestmark = pytest.mark.skipif(
     reason="set CONTEXT_FABRIC_RUN_PARITY=1 to run Text-Fabric query parity tests",
 )
 
-ROOT = Path(__file__).resolve().parents[4]
 QUERIES_JSON = Path(__file__).resolve().parent / "parity_queries.json"
-TF_DIR = Path(
-    os.environ.get(
-        "CFABRIC_BHSA_TF",
-        str(ROOT / "libs" / "benchmarks" / ".corpora" / "bhsa" / "tf"),
-    )
-)
-CACHE = Path(os.environ.get("CFABRIC_BHSA_CFR", "/tmp/cf_bhsa.cfr"))
 TIMEOUT = float(os.environ.get("CFQ_TIMEOUT", "60"))
 
 def _load_queries() -> list[dict[str, Any]]:
@@ -68,7 +60,9 @@ _CHILD = r"""
 import sys, json
 payload = json.load(sys.stdin)
 from cfabric import Fabric
-api = Fabric(locations=payload["locations"]).openMapped(payload["cache"])
+fabric = Fabric(locations=payload["locations"], silent="deep")
+cache = payload["cache"]
+api = fabric.openMapped(cache) if cache else fabric.loadAll(silent="deep")
 F = api.F
 res = [tuple(int(x) for x in row) for row in api.S.search(payload["template"])]
 seen = set(res)
@@ -88,7 +82,17 @@ sys.stdout.write("@@CFRESULT@@" + json.dumps(out) + "\n")
 _MARKER = "@@CFRESULT@@"
 
 
+@pytest.fixture(scope="module")
+def bhsa_source(bhsa_api, bhsa_tf_dir: Path, bhsa_explicit_cache: Path | None) -> dict[str, Any]:
+    """Where query subprocesses load BHSA from; ``bhsa_api`` compiles it first."""
+    return {
+        "locations": str(bhsa_tf_dir),
+        "cache": str(bhsa_explicit_cache) if bhsa_explicit_cache else None,
+    }
+
+
 def _run_query(
+    source: dict[str, Any],
     template: str,
     first_results: list[Any],
     *,
@@ -97,8 +101,7 @@ def _run_query(
 ) -> dict[str, Any]:
     """Run a single query in an isolated subprocess with a hard timeout."""
     payload: dict[str, Any] = {
-        "locations": str(TF_DIR),
-        "cache": str(CACHE),
+        **source,
         "template": template,
         "first_results": [list(t) for t in first_results],
     }
@@ -109,7 +112,7 @@ def _run_query(
         input=json.dumps(payload),
         text=True,
         capture_output=True,
-        cwd="/tmp",  # importing cfabric from the repo root breaks
+        cwd=tempfile.gettempdir(),  # importing cfabric from the repo root breaks
         timeout=timeout,
     )
     if proc.returncode != 0:
@@ -125,13 +128,6 @@ def _run_query(
     )
 
 
-def _require_cache() -> None:
-    if not CACHE.exists():
-        pytest.skip(f"missing compiled cache at {CACHE}")
-    if not (TF_DIR / "otype.tf").exists():
-        pytest.skip(f"missing BHSA TF source at {TF_DIR}")
-
-
 def _query_params() -> list[Any]:
     return [
         pytest.param(idx, query, id=query["id"])
@@ -140,9 +136,8 @@ def _query_params() -> list[Any]:
 
 
 @pytest.mark.parametrize("idx,query", _query_params())
-def test_query_parity(idx: int, query: dict[str, Any]) -> None:
-    _require_cache()
-    out = _run_query(query["template"], query["tf_first_results"])
+def test_query_parity(bhsa_source: dict[str, Any], idx: int, query: dict[str, Any]) -> None:
+    out = _run_query(bhsa_source, query["template"], query["tf_first_results"])
     assert out["count"] == query["tf_count"], (
         f"{query['id']}: count {out['count']} != tf_count {query['tf_count']}"
     )
@@ -168,10 +163,12 @@ ORDER_CASES = [
 
 
 @pytest.mark.parametrize("qid,expected", ORDER_CASES, ids=[c[0] for c in ORDER_CASES])
-def test_within_tuple_order(qid: str, expected: list[str]) -> None:
-    _require_cache()
+def test_within_tuple_order(
+    bhsa_source: dict[str, Any], qid: str, expected: list[str]
+) -> None:
     query = QUERY_BY_ID[qid]
     out = _run_query(
+        bhsa_source,
         query["template"], query["tf_first_results"], expected_otypes=expected
     )
     assert out["count"] == query["tf_count"], f"{qid}: unexpected count"

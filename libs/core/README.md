@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="../../assets/fabric_tan_mark.svg" alt="Context Fabric" width="120">
+  <img src="https://raw.githubusercontent.com/Context-Fabric/context-fabric/master/assets/fabric_tan_mark.svg" alt="Context Fabric" width="120">
 </p>
 
 <h1 align="center">Context-Fabric</h1>
@@ -8,7 +8,11 @@
 
 ## Overview
 
-Context-Fabric provides a powerful data model for working with annotated text corpora as graphs. It enables efficient navigation, feature lookup, and pattern-based search across large textual datasets.
+Context-Fabric works with annotated text corpora as graphs: nodes (words,
+phrases, verses, books, ...) carry feature values, edges relate nodes, and
+templates search for structural patterns. It reads Text-Fabric datasets and
+keeps the Text-Fabric API, on a Rust core that serves every query from a
+memory-mapped compiled cache.
 
 Forked from Dirk Roorda's [Text-Fabric](https://github.com/annotation/text-fabric).
 
@@ -18,99 +22,154 @@ Forked from Dirk Roorda's [Text-Fabric](https://github.com/annotation/text-fabri
 pip install context-fabric
 ```
 
-## Quick Start
+Requires Python 3.13 or later. Wheels are built for Linux (x86_64, aarch64),
+macOS (arm64, x86_64) and Windows (x86_64); other platforms build from the
+source distribution, which needs a Rust toolchain.
+
+Optional extras:
+
+| Extra | Adds |
+|---|---|
+| `context-fabric[numpy]` | NumPy, for `F.<feature>.vs_array` |
+| `context-fabric[download]` | `huggingface_hub`, for `cfabric.download` |
+| `context-fabric[mcp]` | the `cfabric-mcp` server for AI agents |
+| `context-fabric[benchmarks]` | the `cfabric-benchmarks` suite |
+
+## Quick start
 
 ```python
 from cfabric import Fabric
 
-# Load a dataset
-CF = Fabric(locations='path/to/data')
-api = CF.load('feature1 feature2')
+CF = Fabric(locations="path/to/tf")
+api = CF.loadAll()                     # or CF.load("sp lex") for selected features
+F, L, T, S = api.F, api.L, api.T, api.S
 
-# Navigate nodes
-for node in api.N.walk():
-    print(api.F.feature1.v(node))
+for word in F.otype.s("word")[:5]:
+    clause = L.u(word, otype="clause")[0]
+    print(T.sectionFromNode(word), F.sp.v(word), T.text(clause))
 
-# Use locality
-embedders = api.L.u(node)
-embedded = api.L.d(node)
+for (phrase, word) in S.search("""
+phrase function=Pred
+  word sp=verb
+""", limit=5):
+    print(T.text(phrase))
 ```
+
+The first load of a corpus compiles its `.tf` files into a `.cfr` cache in
+`<corpus>/.cfr/4/` (or, when that directory is read-only, under
+`cfabric.get_cache_dir()`: `$CFABRIC_CACHE`, else the platform cache
+directory). Later loads map the cache and are near-instant; the cache is
+rebuilt when a `.tf` file changes or a release changes the cache format.
 
 ## Core API
 
-- **N** (Nodes) - Walk through nodes in canonical order
-- **F** (Features) - Access node feature values
-- **E** (Edges) - Access edge feature values
-- **L** (Locality) - Navigate between related nodes
-- **T** (Text) - Retrieve text representations
-- **S** (Search) - Search using templates
+- **N** (Nodes): walk nodes in canonical order
+- **F** (Features): node feature values
+- **E** (Edges): edge feature values
+- **L** (Locality): embedders, embeddees, neighbours of nodes
+- **T** (Text): text formats, sections, structure
+- **S** (Search): search templates
+- **C** (Computed): precomputed data (levels, order, rank, levUp, levDown, ...)
 
-## Compatibility
+## Text-Fabric compatibility
 
-Context-Fabric is `tf.core` API-compatible: the N/F/E/L/T/S surfaces keep
-Text-Fabric's signatures and return types, search templates parse identically, and
-`TF.save`-authored `.tf` files reload in Text-Fabric. On BHSA, 34/34 reference
-ETCBC queries match Text-Fabric result counts and sets.
+Context-Fabric keeps the `tf.core` API: `Fabric` (also importable as
+`cfabric.fabric.Fabric`), the `api` object with its aliases (`Feature`, `Fs`,
+`AllFeatures`, `TF`, ...), and the F/E/C/L/N/T/S members keep Text-Fabric's
+names, signatures, and return types; `tests/python/test_tf_api_surface.py`
+checks this against Text-Fabric 13. Search templates parse as in Text-Fabric,
+and `.tf` files written by `TF.save` load in Text-Fabric. On BHSA, the 34
+reference ETCBC queries return Text-Fabric's result sets.
 
-Known divergences:
+### Differences from Text-Fabric
 
-- **Result-list ordering** is unspecified-but-deterministic. Parity is defined by
-  result counts and sets, not list order (Text-Fabric's order is search-strategy
-  dependent). Within-tuple column order matches template atom order.
-- **`silent` / progress knobs** are accepted but are no-ops.
-- **Volumes/works and MQL** are out of scope.
-- **`C.levUp` / `C.levDown`** are exposed as lazy views keyed by node id.
+- **Result order**: search results come in a deterministic order that can
+  differ from Text-Fabric's (which depends on its search strategy); results
+  match as sets. Within a result tuple, nodes follow the template's atoms.
+- **Bad search templates** raise `cfabric.SearchTemplateError` (a
+  `ValueError`) carrying Text-Fabric's messages, where Text-Fabric prints them
+  and returns no results; `S.study` records them on `S.exe` as Text-Fabric
+  does. Quantifier sub-templates are checked with the template rather than
+  when the quantifier runs. Regular expressions follow Rust's `regex` syntax
+  (no look-around or backreferences).
+- **`S.search` / `S.fetch`** without a limit return a lazy
+  `SearchResultIterator` where Text-Fabric returns a generator; results stop
+  at Text-Fabric's fail limit (`4 * maxNode`) with its cut-off message as a
+  `UserWarning`, and Ctrl-C interrupts a running search. A feature repeated
+  within one atom applies every condition (Text-Fabric keeps the last).
+  `S.count()` returns the count.
+- **Node lists**: `N.sortNodes`, `N.walk(nodes=...)` and search `sets=` raise
+  `IndexError` for a number that is not a node (`1` to `maxNode`).
+- **`silent` and progress options** are accepted; only the `TF.info` /
+  `warning` / `error` messages honor `silent`.
+- **`C.levUp` / `C.levDown`** are lazy sequences indexed like Text-Fabric's
+  tuples; `row(n)` reads one node's row.
+- **Slot and level rows** (`E.oslots.s`, `E.oslots.data`, `C.levDown.data`,
+  `C.rank.data`) are tuples where Text-Fabric has `array('I')`.
+- **`T.nodeFromSection`** matches section values regardless of str/int type
+  (Text-Fabric needs the feature's type); `T.nodeFromHeading` is type-exact.
+- **`TF.features`** entries describe the feature files but carry no `data`;
+  feature data is read through `F` / `E` / `C`.
+- **Additions**: `F.otype.freqList`, `E.oslots.f/t/b`, `E.oslots.dataInv`, and
+  the batch calls `F.<feature>.vs` / `vs_array`, `L.u_many` / `L.d_many`,
+  `T.text_many`.
+- **Out of scope**: volumes/works and MQL.
 
 ## Performance
 
-Context-Fabric uses a Rust core that keeps the corpus memory-mapped at all times.
-Loading is near-instant, resident memory stays low, and per-call latency beats
-Text-Fabric on every probe. Compilation to the `.cfr` cache happens once; loading
-happens every session.
+Measured on BHSA (Hebrew Bible, 1.4M nodes, 109 features) against Text-Fabric
+13.0.19 on the same machine with `cfabric_benchmarks.perf_gate`
+(`libs/benchmarks/baselines/cf_0.6.0_record.json` and `bhsa_tf.json`):
 
-### Benchmarks (BHSA Hebrew Bible corpus — 1.4M nodes, 109 features)
+| | Text-Fabric | Context-Fabric |
+|---|---|---|
+| Load (compiled) | 4.3 s | 0.003 s |
+| Memory added by loading | 6.1 GB | 8 MB |
+| Peak memory after the gate workload | 6.3 GB | 262 MB |
+| 12 gate queries, total | 2.36 s | 0.19 s |
+| First load (compiles the cache) | ~38 s | ~30 s |
+| Cache on disk | 138 MB | 614 MB |
 
-Measured against Text-Fabric 13.0.19 on an idle machine, 2026-06-10
-(`libs/benchmarks/baselines/cf_0.6.0_record.json`).
+Steady-state latency per call, µs:
 
-| Metric | Text-Fabric | Context-Fabric | Improvement |
-|--------|-------------|----------------|-------------|
-| **Load time** | 8.6 s | 0.018 s | **~477x faster** |
-| **Resident memory** | 6.4 GB | 236 MB | **~27x less** |
-| Compile time | ~8 s | ~57 s | one-time cost |
-| Cache size | 138 MB | ~498 MB | larger (mmap'd, on-demand) |
+| Call | Text-Fabric | Context-Fabric |
+|---|---|---|
+| `F.sp.v` | 0.064 | 0.028 |
+| `E.mother.f` | 0.033 | 0.031 |
+| `E.mother.t` | 0.044 | 0.029 |
+| `L.u` | 0.115 | 0.144 |
+| `L.d` | 0.608 | 0.153 |
+| `L.n` / `L.p` | 0.250 / 0.212 | 0.113 / 0.099 |
+| `L.i` | 5.25 | 0.75 |
+| `T.sectionFromNode` | 5.68 | 0.51 |
+| `T.text` (verse) | 9.35 | 1.64 |
+| `T.nodeFromSection` | 0.223 | 0.202 |
 
-### Per-call latency (steady state)
+`L.u` and a full `N.walk()` (17 ms vs 11 ms) build fresh Python ints where
+Text-Fabric returns pre-built tuples. Because the corpus stays memory-mapped,
+worker processes share its pages instead of each holding a copy, which suits
+multi-worker API deployments.
 
-Median per-call latency after warmup. Context-Fabric reads from mmap'd CSR
-indexes and cached view metadata rather than loading the corpus into RAM.
-
-| Operation | Text-Fabric | Context-Fabric |
-|-----------|-------------|----------------|
-| `F.<feat>.v` (node feature) | 0.43 µs | 0.33 µs |
-| `E.<feat>.f` (edge feature) | 0.23 µs | 0.14 µs |
-| `L.u` (containing nodes) | 0.79 µs | 0.62 µs |
-| `L.d` (contained nodes) | 4.36 µs | 0.75 µs |
-| `T.sectionFromNode` | 9.55 µs | 3.2 µs |
-| `T.text` (verse) | 21.0 µs | 7.1 µs |
-
-All 34 ETCBC reference queries return Text-Fabric counts in <= Text-Fabric wall time.
-
-Because the data stays memory-mapped, multiple workers (spawn or fork) share the
-same on-disk pages instead of each duplicating the corpus in RAM, which is the
-core advantage for multi-worker API deployments.
-
-Run the benchmarks yourself:
+Run the gate (from outside the repository root):
 
 ```bash
-pip install context-fabric[benchmarks]
-python -m cfabric_benchmarks.perf_gate --engine cf --assert \
-    --targets baselines/targets.json --baseline baselines/bhsa_tf.json
+pip install "context-fabric[benchmarks]"
+python -m cfabric_benchmarks.perf_gate --engine cf --assert --strict
 ```
 
-## Testing
+## Versioning
 
-See [TESTING.md](TESTING.md) for how to run tests.
+`Cargo.toml` is the single source of truth for the release version (SemVer, e.g.
+`0.6.0-rc.1`). Maturin publishes the wheel under its PEP 440 rendering (`0.6.0rc1`;
+`pyproject.toml` declares `version` as dynamic), and `build.rs` exports the same
+rendering to the Rust core, so `cfabric.VERSION`, `cfabric.__version__`, and the
+banner always equal `importlib.metadata.version("context-fabric")`. Bump the
+version in `Cargo.toml` only.
+
+## Development
+
+See [TESTING.md](https://github.com/Context-Fabric/context-fabric/blob/master/TESTING.md)
+for building and testing, and the [changelog](https://github.com/Context-Fabric/context-fabric/blob/master/libs/core/CHANGELOG.md).
 
 ## Authors
 
@@ -119,4 +178,4 @@ See [TESTING.md](TESTING.md) for how to run tests.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License - see [LICENSE](https://github.com/Context-Fabric/context-fabric/blob/master/LICENSE) for details.

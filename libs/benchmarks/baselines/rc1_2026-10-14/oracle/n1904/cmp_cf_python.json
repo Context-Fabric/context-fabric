@@ -1,0 +1,547 @@
+{
+ "engine": "cf_python",
+ "engine_version": "0.5.8",
+ "oracle_version": "13.0.19",
+ "total": 147308,
+ "passed": 145986,
+ "failed": 1322,
+ "by_area": {
+  "E": {
+   "passed": 17031,
+   "total": 18353
+  },
+  "F": {
+   "passed": 102826,
+   "total": 102826
+  },
+  "L": {
+   "passed": 9175,
+   "total": 9175
+  },
+  "N": {
+   "passed": 2,
+   "total": 2
+  },
+  "T": {
+   "passed": 15110,
+   "total": 15110
+  },
+  "meta": {
+   "passed": 6,
+   "total": 6
+  },
+  "order": {
+   "passed": 1836,
+   "total": 1836
+  }
+ },
+ "failing_groups": [
+  {
+   "area": "E",
+   "check": "E.b[parent]",
+   "categories": {
+    "engine_error": 1277
+   },
+   "failed": 1277,
+   "total": 1835,
+   "examples": [
+    {
+     "arg": 1,
+     "expected": [
+      189518,
+      390659
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 693,
+     "expected": [
+      189872,
+      391170
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 1386,
+     "expected": [
+      267715,
+      391701
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 2078,
+     "expected": [
+      190550,
+      392238
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 2770,
+     "expected": [
+      190894,
+      392783
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 3463,
+     "expected": [
+      139104,
+      393326
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 4155,
+     "expected": [
+      270017,
+      393877
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 4847,
+     "expected": [
+      139587,
+      394426
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 5540,
+     "expected": [
+      139779,
+      394966
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 6232,
+     "expected": [
+      140027,
+      395513
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 6925,
+     "expected": [
+      140222,
+      396038
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 7617,
+     "expected": [
+      193401,
+      396585
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 8309,
+     "expected": [
+      140654,
+      397114
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 9002,
+     "expected": [
+      140883,
+      397629
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 9694,
+     "expected": [
+      141104,
+      398162
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 10386,
+     "expected": [
+      141334,
+      398695
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 11079,
+     "expected": [
+      275592,
+      399228
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 11771,
+     "expected": [
+      195611,
+      399736
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 12463,
+     "expected": [
+      195993,
+      400276
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 13156,
+     "expected": [
+      181412,
+      400787
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 13848,
+     "expected": [
+      277708,
+      401336
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 14540,
+     "expected": [
+      197032,
+      401896
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 15233,
+     "expected": [
+      259475,
+      402442
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 15925,
+     "expected": [
+      143151,
+      403006
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 16617,
+     "expected": [
+      198126,
+      403529
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    }
+   ]
+  },
+  {
+   "area": "E",
+   "check": "E.b[subjref]",
+   "categories": {
+    "engine_error": 45
+   },
+   "failed": 45,
+   "total": 1835,
+   "examples": [
+    {
+     "arg": 6232,
+     "expected": [
+      6104
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 6925,
+     "expected": [
+      6917,
+      6921
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 9694,
+     "expected": [
+      9684
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 10386,
+     "expected": [
+      10254
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 11079,
+     "expected": [
+      11082
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 16617,
+     "expected": [
+      16621,
+      16626,
+      16637,
+      16658
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 17310,
+     "expected": [
+      17307,
+      17313,
+      17318,
+      17326,
+      17328,
+      17352,
+      17359,
+      17360
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 18694,
+     "expected": "sha1:0526020c59e0c602ecf88fd84e44743eee8487af:len=259",
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 21464,
+     "expected": [
+      21337
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 22156,
+     "expected": [
+      22101
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 23541,
+     "expected": [
+      23543
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 24233,
+     "expected": [
+      24202
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 27695,
+     "expected": [
+      27672
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 29080,
+     "expected": [
+      29077,
+      29082
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 33234,
+     "expected": [
+      33186
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 34619,
+     "expected": [
+      34620
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 37388,
+     "expected": [
+      37390
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 41542,
+     "expected": [
+      41538
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 42234,
+     "expected": [
+      42211
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 44312,
+     "expected": [
+      44310
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 53312,
+     "expected": [
+      53074
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 54004,
+     "expected": [
+      53938
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 59543,
+     "expected": [
+      59532
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 61620,
+     "expected": [
+      61611
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    },
+    {
+     "arg": 63697,
+     "expected": [
+      63687
+     ],
+     "actual": {
+      "__error__": "AttributeError"
+     }
+    }
+   ]
+  }
+ ]
+}

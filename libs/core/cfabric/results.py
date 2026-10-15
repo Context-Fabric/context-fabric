@@ -7,7 +7,7 @@ making them suitable for serialization and agent interaction via MCP.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 # Maximum slots for text extraction - nodes larger than this skip textification
@@ -169,133 +169,6 @@ class NodeInfo:
 
 
 @dataclass
-class NodeList:
-    """A list of nodes with rich information.
-
-    Attributes:
-        nodes: List of NodeInfo objects
-        total_count: Total number of nodes (may differ from len(nodes) if limited)
-        query: Optional description of how nodes were obtained
-    """
-
-    nodes: list[NodeInfo] = field(default_factory=list)
-    total_count: int = 0
-    query: str | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to JSON-serializable dictionary."""
-        return {
-            "nodes": [n.to_dict() for n in self.nodes],
-            "total_count": self.total_count,
-            "query": self.query,
-        }
-
-    def to_json(self) -> str:
-        """Serialize to JSON string."""
-        return json.dumps(self.to_dict())
-
-    @classmethod
-    def from_nodes(
-        cls,
-        api: Any,
-        nodes: list[int] | tuple[int, ...],
-        limit: int | None = None,
-        query: str | None = None,
-        **node_kwargs: Any,
-    ) -> NodeList:
-        """Create NodeList from API and node IDs.
-
-        Parameters
-        ----------
-        api: Api
-            The Context Fabric API object
-        nodes: list[int] | tuple[int, ...]
-            The node IDs
-        limit: int | None
-            Maximum number of nodes to include (for pagination)
-        query: str | None
-            Description of how nodes were obtained
-        **node_kwargs:
-            Arguments passed to NodeInfo.from_api
-        """
-        total_count = len(nodes)
-        if limit is not None:
-            nodes = nodes[:limit]
-
-        node_infos = [NodeInfo.from_api(api, n, **node_kwargs) for n in nodes]
-
-        return cls(nodes=node_infos, total_count=total_count, query=query)
-
-
-@dataclass
-class SearchResult:
-    """Result of a search query.
-
-    Attributes:
-        results: List of result tuples, each tuple is a list of NodeInfo
-        total_count: Total number of results
-        template: The search template used
-        plan: Optional search plan description
-    """
-
-    results: list[list[NodeInfo]] = field(default_factory=list)
-    total_count: int = 0
-    template: str = ""
-    plan: str | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to JSON-serializable dictionary."""
-        return {
-            "results": [[n.to_dict() for n in r] for r in self.results],
-            "total_count": self.total_count,
-            "template": self.template,
-            "plan": self.plan,
-        }
-
-    def to_json(self) -> str:
-        """Serialize to JSON string."""
-        return json.dumps(self.to_dict())
-
-    @classmethod
-    def from_search(
-        cls,
-        api: Any,
-        results: tuple[tuple[int, ...], ...] | list[tuple[int, ...]],
-        template: str,
-        limit: int | None = None,
-        **node_kwargs: Any,
-    ) -> SearchResult:
-        """Create SearchResult from search results.
-
-        Parameters
-        ----------
-        api: Api
-            The Context Fabric API object
-        results: tuple[tuple[int, ...], ...]
-            Raw search results (tuples of node IDs)
-        template: str
-            The search template used
-        limit: int | None
-            Maximum number of results to include
-        **node_kwargs:
-            Arguments passed to NodeInfo.from_api
-        """
-        total_count = len(results)
-        if limit is not None:
-            results = results[:limit]
-
-        result_list = []
-        for tup in results:
-            result_list.append([NodeInfo.from_api(api, n, **node_kwargs) for n in tup])
-
-        return cls(
-            results=result_list,
-            total_count=total_count,
-            template=template,
-        )
-
-
-@dataclass
 class FeatureInfo:
     """Metadata about a feature.
 
@@ -358,7 +231,7 @@ class FeatureInfo:
 
         has_values = None
         if kind == "edge":
-            has_values = bool(fobj.hasEdgeValues())
+            has_values = bool(fobj.doValues)
 
         return cls(
             name=name,
@@ -461,8 +334,6 @@ class CorpusInfo:
 
 __all__ = [
     "NodeInfo",
-    "NodeList",
-    "SearchResult",
     "FeatureInfo",
     "CorpusInfo",
 ]

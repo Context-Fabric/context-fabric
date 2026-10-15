@@ -1,0 +1,126 @@
+{
+ "engine": "cf_rust_mapped",
+ "engine_version": "0.6.0rc1",
+ "corpus": "n1904",
+ "tf_path": "/private/tmp/cf_rc1/corpora/n1904/tf",
+ "python": "3.13.12",
+ "mode": "warm",
+ "memory": {
+  "before_load": {
+   "peak_rss_mb": 23.7,
+   "rss_mb": 25.5,
+   "uss_mb": 15.4
+  },
+  "after_load": {
+   "peak_rss_mb": 28.4,
+   "rss_mb": 28.4,
+   "uss_mb": 15.8
+  },
+  "after_gate_probes": {
+   "peak_rss_mb": 82.2,
+   "rss_mb": 82.2,
+   "uss_mb": 19.9
+  },
+  "after_steady_probes": {
+   "peak_rss_mb": 114.9,
+   "rss_mb": 100.9,
+   "uss_mb": 25.7
+  },
+  "final": {
+   "peak_rss_mb": 137.9,
+   "rss_mb": 129.0,
+   "uss_mb": 50.9
+  }
+ },
+ "load_s": 0.0005,
+ "gate": {
+  "_intervals": {
+   "max_slot": 137779,
+   "phrase": [
+    189518,
+    258524
+   ],
+   "verse": [
+    382714,
+    390657
+   ]
+  },
+  "F.sp.v": {
+   "total_s": 0.0005,
+   "per_call_us": 0.05,
+   "n": 10000
+  },
+  "F.unicode.v": {
+   "total_s": 0.0011,
+   "per_call_us": 0.11,
+   "n": 10000
+  },
+  "L.u": {
+   "total_s": 0.0001,
+   "per_call_us": 1.73,
+   "n": 30
+  },
+  "L.d": {
+   "total_s": 0.0001,
+   "per_call_us": 2.1,
+   "n": 30
+  },
+  "E.parent.f": {
+   "total_s": 0.0012,
+   "per_call_us": 2.33,
+   "n": 500
+  },
+  "T.sectionFromNode": {
+   "total_s": 0.0033,
+   "per_call_us": 16.29,
+   "n": 200
+  },
+  "T.text.verse": {
+   "total_s": 0.0004,
+   "per_call_us": 4.24,
+   "n": 100
+  },
+  "T.nodeFromSection": {
+   "total_s": 0.0021,
+   "per_call_us": 20.98,
+   "n": 100
+  },
+  "F.sp.freqList_s": 0.0004,
+  "F.sp.v_full_sweep_s": 0.004
+ },
+ "steady_us": {
+  "F.sp.v": 0.027,
+  "F.unicode.v": 0.032,
+  "L.u": 0.157,
+  "L.d": 0.146,
+  "L.n": 0.104,
+  "L.p": 0.091,
+  "L.i": 0.022,
+  "E.parent.f": 0.055,
+  "E.parent.t": 0.042,
+  "E.parent.b": 0.079,
+  "T.sectionFromNode": 0.453,
+  "T.text.verse": 1.797,
+  "T.nodeFromSection": 0.185,
+  "N.walk_full_s": 0.0096,
+  "N.walk_nodes": 497525
+ },
+ "queries": {
+  "n_word_verb": {
+   "s": 0.0027,
+   "count": 28357
+  },
+  "n_clause_phrase_word": {
+   "s": 0.037,
+   "count": 78879
+  },
+  "n_regex_lemma": {
+   "s": 0.0022,
+   "count": 4
+  },
+  "n_sentence_without_verb": {
+   "s": 0.0051,
+   "count": 187
+  }
+ }
+}

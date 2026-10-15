@@ -1,0 +1,22 @@
+{
+ "engine": "cf_python",
+ "engine_version": "0.5.8",
+ "corpus": "n1904",
+ "tf_path": "/private/tmp/cf_rc1/corpora/n1904/tf",
+ "python": "3.13.12",
+ "mode": "cold",
+ "memory": {
+  "before_load": {
+   "peak_rss_mb": 37.0,
+   "rss_mb": 37.8,
+   "uss_mb": 26.1
+  },
+  "after_load": {
+   "peak_rss_mb": 2521.4,
+   "rss_mb": 1644.8,
+   "uss_mb": 1495.8
+  }
+ },
+ "cache_cleared": true,
+ "load_s": 20.9331
+}

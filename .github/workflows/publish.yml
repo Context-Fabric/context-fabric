@@ -8,36 +8,50 @@ on:
       - 'benchmarks-v*'
 
 jobs:
+  core-distributions:
+    name: Build and test context-fabric distributions
+    if: startsWith(github.ref, 'refs/tags/core-v')
+    uses: ./.github/workflows/core-wheels.yml
+
   publish-core:
     name: Publish context-fabric
     if: startsWith(github.ref, 'refs/tags/core-v')
+    needs: core-distributions
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: libs/core
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Install dependencies
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: core-dist-*
+          merge-multiple: true
+          path: dist
+      - name: Check that the tag matches the package version
+        # The version is dynamic (derived from Cargo.toml), so read it from
+        # the built sdist's metadata rather than from pyproject.toml.
         run: |
-          python -m pip install --upgrade pip
-          pip install cibuildwheel maturin twine
-          pip install -e ".[dev]"
-      - name: Run Rust tests
-        run: PYO3_PYTHON="$(python -c 'import sys; print(sys.executable)')" cargo test --features python
-      - name: Build wheels
-        working-directory: libs/core
-        run: python -m cibuildwheel --output-dir dist
-      - name: Build source distribution
-        run: maturin sdist --out dist
+          version="$(python - <<'PY'
+          import email, glob, tarfile
+          (sdist,) = glob.glob("dist/context_fabric-*.tar.gz")
+          with tarfile.open(sdist) as archive:
+              member = next(m for m in archive.getmembers() if m.name.count("/") == 1 and m.name.endswith("/PKG-INFO"))
+              print(email.message_from_bytes(archive.extractfile(member).read())["Version"])
+          PY
+          )"
+          if [ "core-v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match context-fabric version $version" >&2
+            exit 1
+          fi
       - name: Publish to PyPI
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: twine upload --skip-existing dist/*
+        run: |
+          pip install twine
+          twine check dist/*
+          twine upload --skip-existing dist/*
 
   publish-mcp:
     name: Publish cfabric-mcp
