@@ -170,7 +170,7 @@ build/env/Scripts/pyinstaller packaging/cfabric-browser.spec --noconfirm
 dist/cfabric-browser/cfabric-browser bhsa
 ```
 
-Its entry point is `packaging/cfabric-browser.py`, which adds `--window` (`--no-window` overrides it) and, for the test version, `--only` for the corpora in its `CORPORA` list (BHSA, SP and DSS); empty that list to offer all corpora. As it has no console, it writes its output and errors to `~/.cfabric/logs/cfabric-browser.log`, and on Windows shows a message when it cannot start. If no window toolkit is available (on Linux, pywebview needs GTK or Qt), it opens a web browser instead.
+Its entry point is `packaging/cfabric-browser.py`, which adds `--window` (`--no-window` overrides it), `--ui parallel` (the parallel interface on a first start) and, for the test version, `--only` for the corpora in its `CORPORA` list (BHSA, SP and DSS); empty that list to offer all corpora. As it has no console, it writes its output and errors to `~/.cfabric/logs/cfabric-browser.log`, and on Windows shows a message when it cannot start. If no window toolkit is available (on Linux, pywebview needs GTK or Qt), it opens a web browser instead.
 
 The program icons in `packaging/icons/` are drawn from the Context-Fabric mark (`frontend/public/favicon.svg`) by `packaging/make_icons.py` (needs Pillow); run it again when the mark changes.
 

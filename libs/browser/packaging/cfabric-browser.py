@@ -44,7 +44,9 @@ if __name__ == "__main__":
     multiprocessing.freeze_support()
     try:
         only = [arg for corpus in CORPORA for arg in ("--only", corpus)]
-        status = main(["--window", *only, *sys.argv[1:]])
+        # the test version starts in the parallel interface; the switch in its
+        # top bar goes to the panes, and the window remembers the choice
+        status = main(["--window", "--ui", "parallel", *only, *sys.argv[1:]])
     except SystemExit as e:  # argparse
         status = e.code if isinstance(e.code, int) else 1
     except Exception:  # noqa: BLE001 - into the log, then the error message
