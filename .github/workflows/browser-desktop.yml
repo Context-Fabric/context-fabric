@@ -70,6 +70,12 @@ jobs:
           # on macOS the program as people start it, inside the app
           [ -d dist/Context-Fabric.app ] && program=dist/Context-Fabric.app/Contents/MacOS/cfabric-browser
           bash packaging/translation-test.sh "$program"
+      - name: Download a corpus (the SP, from its GitHub release)
+        run: |
+          program=dist/cfabric-browser/cfabric-browser
+          [ -f "$program.exe" ] && program=$program.exe
+          [ -d dist/Context-Fabric.app ] && program=dist/Context-Fabric.app/Contents/MacOS/cfabric-browser
+          bash packaging/download-test.sh "$program"
       - name: Size
         run: du -sh dist/*
       - name: Pack (keeps file permissions)
