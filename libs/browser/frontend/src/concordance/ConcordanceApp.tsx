@@ -36,8 +36,10 @@ const POSITION_NAMES: Record<string, string> = {
   R2: "2nd word after",
   R3: "3rd word after",
 };
+// `text` is a word's consonants, so for Hebrew; a translation has `lower`
 const SORT_FEATURES: [string, string][] = [
   ["text", "word"],
+  ["lower", "word"],
   ["lex", "lexeme"],
   ["sp", "part of speech"],
 ];
@@ -150,7 +152,7 @@ function Facet({
 
 /** The words that are typical near the hits. */
 function Collocations({ search, card, state }: { search: SearchStatus; card: CorpusCard; state: Concordance }) {
-  const [feature, setFeature] = useState(card.lexicon ? "lex" : "text");
+  const [feature, setFeature] = useState(card.lexicon ? "lex" : card.translation ? "lower" : "text");
   const [window, setWindow] = useState(3);
   const filter = filterParam(state.filters);
   const { data, isFetching } = useQuery({
@@ -180,8 +182,14 @@ function Collocations({ search, card, state }: { search: SearchStatus; card: Cor
             className="rounded border border-rule-strong bg-raised px-1.5 py-0.5"
           >
             {card.lexicon ? <option value="lex">by lexeme</option> : null}
-            <option value="text">by form (consonants)</option>
-            <option value="sp">by part of speech</option>
+            {card.translation ? (
+              <option value="lower">by word</option>
+            ) : (
+              <>
+                <option value="text">by form (consonants)</option>
+                <option value="sp">by part of speech</option>
+              </>
+            )}
           </select>
         </label>
         <label className="flex items-center gap-1.5">
@@ -278,6 +286,8 @@ export function ConcordanceApp() {
 
   const corpus = state.corpus && cards[state.corpus] ? state.corpus : null;
   const card = corpus ? cards[corpus] : undefined;
+  // a search to try: in English for a translation
+  const example = card?.translation ? "word lower=lord" : "word lex=HLK[";
   const [history, setHistory] = useState<string[]>([]);
   useEffect(() => setHistory(corpus ? loadHistory(corpus) : []), [corpus]);
 
@@ -630,7 +640,9 @@ export function ConcordanceApp() {
                             value={state.sort ? sortPos : ""}
                             onChange={(e) =>
                               actions.set({
-                                sort: e.target.value ? `${e.target.value}.${sortFeature || "text"}` : null,
+                                sort: e.target.value
+                                  ? `${e.target.value}.${sortFeature || (card?.translation ? "lower" : "text")}`
+                                  : null,
                               })
                             }
                             className={select}
@@ -648,7 +660,9 @@ export function ConcordanceApp() {
                               onChange={(e) => actions.set({ sort: `${sortPos}.${e.target.value}` })}
                               className={select}
                             >
-                              {SORT_FEATURES.filter(([f]) => f === "text" || featureNames.has(f)).map(([f, name]) => (
+                              {SORT_FEATURES.filter(([f]) =>
+                                f === "text" ? !card?.translation : featureNames.has(f),
+                              ).map(([f, name]) => (
                                 <option key={f} value={f}>
                                   {name}
                                 </option>
@@ -810,10 +824,10 @@ export function ConcordanceApp() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => run(`word lex=HLK[`)}
+                    onClick={() => run(example)}
                     className="rounded border border-rule-strong px-3 py-1 font-mono text-[13px] hover:border-woad"
                   >
-                    Try “word lex=HLK[”
+                    Try “{example}”
                   </button>
                 </div>
               ) : null}

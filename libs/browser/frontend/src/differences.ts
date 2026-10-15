@@ -80,9 +80,13 @@ function addAgreement(
  * compared with each of the others. It marks the words that differ from any
  * of them; each other pane marks how it differs from the first. A pane that
  * reads the DSS by biblical book is compared scroll by scroll, and cannot be
- * the first.
+ * the first. Translations are not compared.
  */
-export function useDifferences(panes: Pane[], on: boolean): (PaneDiff | null)[] {
+export function useDifferences(allPanes: Pane[], on: boolean): (PaneDiff | null)[] {
+  // translations are left out quietly: their words cannot be compared with the Hebrew
+  const corpora = useQuery({ queryKey: ["corpora"], queryFn: api.corpora });
+  const translations = new Set(corpora.data?.corpora.filter((c) => c.translation).map((c) => c.name));
+  const panes = allPanes.map((p) => (p.corpus && translations.has(p.corpus) ? { ...p, corpus: null } : p));
   const agreement = useAgreement(panes, on);
   const reading = panes.map((p, i) => (p.view === "read" && p.corpus ? i : -1)).filter((i) => i >= 0);
   const base = reading.find((i) => panes[i].by !== "books") ?? -1;

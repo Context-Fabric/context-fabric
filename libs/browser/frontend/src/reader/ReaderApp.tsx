@@ -86,6 +86,20 @@ function Chapter({ card, chapter, settings, mode, selected, marks, onSelect, onW
         marks={marks}
       >
         <Plain tree={tree} />
+        {data.printeds?.[tree.node] ? (
+          <span
+            dir="ltr"
+            className="ms-1 text-[11px] text-stone"
+            title="This verse's number in the 1917 print, which divides the verses differently here"
+          >
+            ({data.printeds[tree.node]} in the print)
+          </span>
+        ) : null}
+        {data.notes?.[tree.node] ? (
+          <span className="ms-1 text-[0.85em] text-stone" title="Printed after the verse in small type">
+            [{data.notes[tree.node]}]
+          </span>
+        ) : null}
       </DisplayProvider>
     );
     if (inline) {

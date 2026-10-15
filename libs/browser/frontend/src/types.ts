@@ -87,7 +87,17 @@ export interface CorpusCard {
   bookView: boolean;
   /** Whether the corpus has a lexicon with glosses (BHSA). */
   lexicon: boolean;
+  /** For a translation (JPS 1917): its licence, source and how to cite it. */
+  translation: TranslationInfo | null;
   display: DisplayConfig;
+}
+
+export interface TranslationInfo {
+  id: string;
+  licence: string;
+  licenceNote: string;
+  source: string;
+  cite: string;
 }
 
 /** A lexeme in the lexicon; fields the corpus lacks are missing or null. */
@@ -263,7 +273,17 @@ export interface ParallelChapter {
   rows: {
     verse: number;
     ref: string;
-    cells: Record<string, { trees?: RenderTree[]; witnesses?: Witness[] }>;
+    cells: Record<
+      string,
+      {
+        trees?: RenderTree[];
+        witnesses?: Witness[];
+        /** A translation: a note printed after the verse (Malachi 3:24). */
+        note?: string;
+        /** A translation: the verse's number in the print, where it divides differently. */
+        printed?: string;
+      }
+    >;
   }[];
 }
 
@@ -301,6 +321,10 @@ export interface InterlinearVerse {
     under: number[][];
     marks: Record<string, DiffKind>;
     marksHere: Record<string, DiffKind>;
+    /** A translation: the verse as a line (`text`), not word by word. */
+    translation?: boolean;
+    text?: string;
+    note?: string | null;
   } | null;
 }
 

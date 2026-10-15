@@ -30,6 +30,8 @@ ROLES: list[tuple[str, tuple[str, ...]]] = [
     ("number", ("nu_etcbc", "nu")),
     ("state", ("st_etcbc", "st")),
     ("language", ("lang_etcbc", "language")),
+    # a translation's word, as it is searched (`cfabric_browser.translations`)
+    ("word", ("lower",)),
 ]
 
 # a word's lexeme and language as in the BHSA, to find its gloss there
