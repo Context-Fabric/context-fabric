@@ -5,6 +5,7 @@ import { NotYet } from "./NotYet";
 import { INTERFACES, isUi, rememberedUi, rememberUi, uiOfUrl, type Ui } from "./ui";
 
 const ParallelApp = lazy(() => import("./parallel/ParallelApp").then((m) => ({ default: m.ParallelApp })));
+const ReaderApp = lazy(() => import("./reader/ReaderApp").then((m) => ({ default: m.ReaderApp })));
 
 /** Shows the interface the URL is for; at the bare start page the one used last,
  * or the server's default (`--ui`). */
@@ -37,10 +38,10 @@ export function Root() {
 
   if (ui === null) return null;
   if (ui === "classic") return <App key="classic" />;
-  if (ui !== "parallel") return <NotYet ui={ui} />;
+  if (ui !== "parallel" && ui !== "reader") return <NotYet ui={ui} />;
   return (
     <Suspense fallback={<main className="p-10 text-stone">Opening…</main>}>
-      <ParallelApp key="parallel" />
+      {ui === "parallel" ? <ParallelApp key="parallel" /> : <ReaderApp key="reader" />}
     </Suspense>
   );
 }

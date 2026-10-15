@@ -1,6 +1,15 @@
 import { api } from "./api";
-import { commonToParallel, commonToWorkspace, mergeCommon, workspaceToCommon, type Common } from "./common";
+import {
+  commonToParallel,
+  commonToReader,
+  commonToWorkspace,
+  mergeCommon,
+  readerToCommon,
+  workspaceToCommon,
+  type Common,
+} from "./common";
 import { serializeParallel } from "./parallel/state";
+import { serializeReader, type Reader } from "./reader/url";
 import { serialize, type Workspace } from "./state";
 import type { CorpusCard } from "./types";
 import { alignRef, INTERFACES, navigate, REFERENCE_IDS, rememberUi, type Ui } from "./ui";
@@ -48,6 +57,16 @@ export async function describeWorkspace(ws: Workspace): Promise<Partial<Common>>
   return workspaceToCommon(ws, aligned);
 }
 
+/** What the Reader shows, with its chapter in the reference corpus' numbering. */
+export async function describeReader(r: Reader): Promise<Partial<Common>> {
+  let aligned: string | null = null;
+  if (r.corpus && r.ref) {
+    const { reference } = await openCards();
+    aligned = reference ? await alignRef(r.corpus, r.ref, reference) : r.ref;
+  }
+  return readerToCommon(r, aligned ? aligned.split(":")[0] : null);
+}
+
 /** Open interface `target` with what the current one shows (`current`). */
 export async function switchInterface(target: Ui, current: Partial<Common>): Promise<void> {
   const common = mergeCommon(kept(), current);
@@ -65,6 +84,13 @@ export async function switchInterface(target: Ui, current: Partial<Common>): Pro
     );
     const byBook = cards.filter((c) => c.bookView).map((c) => c.name);
     navigate(`/${serialize(commonToWorkspace(common, refs, byBook))}`);
+  } else if (target === "reader") {
+    const { reference } = await openCards();
+    // the first corpus is read; the passage is in the reference corpus' numbering
+    const corpus = common.corpora[0] ?? reference;
+    const lead = reference ?? corpus;
+    const ref = common.ref && corpus && lead ? await alignRef(lead, common.ref, corpus) : null;
+    navigate(serializeReader(commonToReader(common, corpus, ref ? ref.split(":")[0] : null)));
   } else if (target === "parallel") {
     navigate(serializeParallel(commonToParallel(common)));
   } else {

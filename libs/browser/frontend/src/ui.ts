@@ -43,7 +43,7 @@ export const INTERFACES: UiInfo[] = [
     name: "Reader",
     about: "One text to read, with parallels, words and notes on request",
     prefix: "/read",
-    ready: false,
+    ready: true,
   },
   {
     id: "interlinear",
