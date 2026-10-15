@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from cfabric_browser import __version__
 from cfabric_browser.api import build_router
 from cfabric_browser.corpora import CorpusService
+from cfabric_browser.downloads import DownloadJobs
 from cfabric_browser.translations.manage import Jobs
 from cfabric_browser.workers import SearchPool
 
@@ -39,6 +40,7 @@ def create_app(
     ui: str = "classic",
     hidden_uis: list[str] | None = None,
     translations: Jobs | None = None,
+    downloads: DownloadJobs | None = None,
 ) -> FastAPI:
     """Build the application.
 
@@ -64,6 +66,9 @@ def create_app(
     translations: Jobs | None
         Where translations are built and how (`cfabric_browser.translations`);
         by default into the first place the library looks.
+    downloads: DownloadJobs | None
+        Where corpora are downloaded to (`cfabric_browser.downloads`); by
+        default the first place the library looks.
     """
 
     @asynccontextmanager
@@ -82,7 +87,13 @@ def create_app(
         lifespan=lifespan,
     )
     app.include_router(
-        build_router(service, pool, library=library, translations=translations)
+        build_router(
+            service,
+            pool,
+            library=library,
+            translations=translations,
+            downloads=downloads,
+        )
     )
 
     try:

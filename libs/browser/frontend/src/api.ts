@@ -20,6 +20,7 @@ import type {
   KwicLine,
   ParallelChapter,
   Translation,
+  CorpusDownload,
 } from "./types";
 
 export class ApiError extends Error {
@@ -94,6 +95,11 @@ export const api = {
         open: boolean;
       }[];
     }>("/api/library"),
+
+  /** Corpora that can be downloaded (BHSA, SP, DSS), whether they are here, and the progress. */
+  downloads: () => request<{ enabled: boolean; downloads: CorpusDownload[] }>("/api/downloads"),
+
+  startDownload: (id: string) => request<CorpusDownload>(`/api/downloads/${id}`, { method: "POST" }),
 
   translations: () => request<{ enabled: boolean; translations: Translation[] }>("/api/translations"),
 

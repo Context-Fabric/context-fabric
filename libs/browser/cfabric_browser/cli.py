@@ -26,7 +26,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "Without corpora, the browser starts empty and offers the corpora on "
             "this computer to open. 'cfabric-browser add' lists the translations "
             "that can be added (such as the JPS 1917); 'cfabric-browser add ID' "
-            "adds one and 'cfabric-browser remove ID' removes it."
+            "adds one and 'cfabric-browser remove ID' removes it. 'cfabric-browser "
+            "download' lists the corpora that can be downloaded (the BHSA, the SP "
+            "and the DSS), and 'cfabric-browser download bhsa sp dss' downloads "
+            "them."
         ),
     )
     parser.add_argument("corpora", nargs="*", metavar="CORPUS")
@@ -93,6 +96,64 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def download_command(names: list[str]) -> int:
+    """`cfabric-browser download [NAME ...]`: download corpora without starting
+    the browser; without names, list those that can be downloaded."""
+    from cfabric_browser.corpora import SEARCH_ROOTS
+    from cfabric_browser.downloads import (
+        DOWNLOADS,
+        DownloadError,
+        find,
+        get,
+        is_present,
+    )
+
+    root = SEARCH_ROOTS[0]
+    if not names:
+        print("Corpora that can be downloaded (cfabric-browser download NAME ...):")
+        for d in DOWNLOADS.values():
+            here = any(is_present(d, r) for r in SEARCH_ROOTS)
+            state = "on this computer" if here else f"{d.size / 1e6:.0f} MB"
+            print(f"  {d.name:<6} {d.id} {d.version}: {d.title} ({state})")
+        return 0
+    wanted = [(name, find(name)) for name in names]
+    unknown = [name for (name, d) in wanted if d is None]
+    if unknown:
+        known = ", ".join(d.name for d in DOWNLOADS.values())
+        print(
+            f"cfabric-browser: cannot download {', '.join(unknown)}; known: {known}",
+            file=sys.stderr,
+        )
+        return 2
+
+    status = 0
+    for _, d in wanted:
+        assert d is not None
+        if any(is_present(d, r) for r in SEARCH_ROOTS):
+            print(f"{d.id} {d.version} is already on this computer.")
+            continue
+        print(
+            f"Downloading {d.id} {d.version} ({d.size / 1e6:.0f} MB); terms of use: {d.terms}"
+        )
+
+        def progress(step: str, done: int, total: int) -> None:
+            if step == "download":
+                print(
+                    f"\r  {done / 1e6:.1f} of {total / 1e6:.1f} MB", end="", flush=True
+                )
+            elif done == total:
+                print(f"\n  unpacked {total} files", flush=True)
+
+        try:
+            data = get(d, root=root, progress=progress)
+        except (DownloadError, OSError) as e:
+            print(f"\ncfabric-browser: {e}", file=sys.stderr)
+            status = 1
+            continue
+        print(f"  done: {data}")
+    return status
+
+
 def translation_command(argv: list[str]) -> int:
     """`cfabric-browser add [ID]` and `cfabric-browser remove ID`: add or
     remove a translation without starting the browser."""
@@ -153,6 +214,8 @@ def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if argv and argv[0] in ("add", "remove"):
         return translation_command(argv)
+    if argv and argv[0] == "download":
+        return download_command(argv[1:])
     args = parse_args(argv)
     if not args.corpora and args.no_library:
         # nothing to show and no way to open anything

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
-import type { Translation } from "./types";
+import type { CorpusDownload, Translation } from "./types";
 
 interface Props {
   onOpen: (corpus: string) => void;
@@ -99,13 +99,14 @@ export function Library({ onOpen, onClose }: Props) {
                   </li>
                 ))}
               </ul>
-              <Translations onAdded={(corpus) => open.mutate(corpus)} />
               {data.corpora.length === 0 ? (
                 <p className="text-stone">
-                  No corpora found in ~/text-fabric-data/github or ~/github. Download one with Text-Fabric first, or
+                  No corpora found in ~/text-fabric-data/github or ~/github. Download one below, or with Text-Fabric, or
                   start the browser with the path of a corpus.
                 </p>
               ) : null}
+              <Downloads onDone={(corpus) => open.mutate(corpus)} />
+              <Translations onAdded={(corpus) => open.mutate(corpus)} />
             </>
           ) : null}
         </div>
@@ -264,4 +265,91 @@ const LANGUAGES: Record<string, string> = { eng: "English", deu: "German", nld: 
 
 function languageName(code: string): string {
   return LANGUAGES[code] ?? code;
+}
+
+/** Corpora that are not on this computer and can be downloaded from their own releases. */
+function Downloads({ onDone }: { onDone: (corpus: string) => void }) {
+  const client = useQueryClient();
+  // the downloads started here, to open once they are done
+  const [started, setStarted] = useState<string[]>([]);
+  const { data } = useQuery({
+    queryKey: ["downloads"],
+    queryFn: api.downloads,
+    refetchInterval: (q) => (q.state.data?.downloads.some((d) => d.job?.state === "running") ? 500 : false),
+  });
+  const start = useMutation({
+    mutationFn: (id: string) => api.startDownload(id),
+    onSuccess: (entry) => {
+      // show the running job straight away, so that a finished job of before isn't taken for this one
+      client.setQueryData(["downloads"], (old: { enabled: boolean; downloads: CorpusDownload[] } | undefined) =>
+        old ? { ...old, downloads: old.downloads.map((d) => (d.id === entry.id ? entry : d)) } : old,
+      );
+      if (!entry.present) setStarted((ids) => [...ids, entry.id]);
+    },
+  });
+
+  const downloads = data?.enabled ? data.downloads : [];
+  useEffect(() => {
+    for (const d of downloads) {
+      if (started.includes(d.id) && d.job && d.job.state !== "running") {
+        setStarted((ids) => ids.filter((id) => id !== d.id));
+        void client.invalidateQueries({ queryKey: ["library"] });
+        if (d.present) onDone(d.id);
+      }
+    }
+  });
+
+  // only those not on this computer (or still being downloaded)
+  const missing = downloads.filter((d) => !d.present || started.includes(d.id));
+  if (missing.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-2 border-t border-rule pt-3">
+      <h3 className="text-[15px] font-semibold">Can be downloaded</h3>
+      <p className="text-[13px] text-stone">
+        Not on this computer yet. They come from their own releases on GitHub, the same files Text-Fabric uses.
+      </p>
+      {start.error ? (
+        <p className="text-[13px] text-madder" role="alert">
+          {String((start.error as Error).message)}
+        </p>
+      ) : null}
+      <ul className="flex flex-col">
+        {missing.map((d) => (
+          <li key={d.id} className="flex items-start gap-3 border-b border-rule py-2 last:border-b-0">
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold">{d.title.split(" = ").pop()}</p>
+              <p className="text-[13px] text-stone">
+                {d.id}, version {d.version}: {megabytes(d.size)} to download, {megabytes(d.unpacked)} on disk.{" "}
+                <a href={d.terms} target="_blank" rel="noreferrer" className="text-woad hover:underline">
+                  Terms of use
+                </a>
+              </p>
+              {d.job?.state === "failed" ? (
+                <p className="text-[13px] text-madder" role="alert">
+                  Could not download it: {d.job.error}
+                </p>
+              ) : null}
+            </div>
+            {d.job?.state === "running" ? (
+              <span className="shrink-0 text-[13px] text-stone" role="status">
+                {d.job.step === "download"
+                  ? `${megabytes(d.job.done)} of ${megabytes(d.job.total || d.size)}…`
+                  : "Unpacking…"}
+              </span>
+            ) : d.present ? (
+              <span className="shrink-0 text-[13px] text-stone">Opening…</span>
+            ) : (
+              <button type="button" disabled={start.isPending} onClick={() => start.mutate(d.id)} className={BUTTON}>
+                {d.job?.state === "failed" ? "Try again" : "Download"}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function megabytes(bytes: number): string {
+  return `${(bytes / 1e6).toFixed(bytes < 1e7 ? 1 : 0)} MB`;
 }
