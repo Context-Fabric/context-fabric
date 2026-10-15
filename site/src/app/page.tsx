@@ -1,5 +1,5 @@
 import { Header, Footer } from "@/components/layout";
-import { Hero, Features, Stats, CodeExamples, CTA } from "@/components/home";
+import { Hero, Features, WhatsNew, CodeExamples, CTA } from "@/components/home";
 
 export default function Home() {
   return (
@@ -8,7 +8,7 @@ export default function Home() {
       <main>
         <Hero />
         <Features />
-        <Stats />
+        <WhatsNew />
         <CodeExamples />
         <CTA />
       </main>
