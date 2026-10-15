@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Translations as corpora, starting with the JPS 1917 (`cfabric_browser/translations/`): the builder downloads the 39 books from Sefaria's export, checks the title, the licence and the number of chapters and verses against the BHSA, removes the markup (a verse repeated in small type goes into `note`), and writes a corpus with words, verses, chapters and books (`text`, `trailer`, `lower`). Where the 1917 print divides verses differently (the Ten Commandments in Exodus 20 and Deuteronomy 5, and Numbers 25:19), the verses are divided as in the BHSA, and `printed` keeps the print's number.
 - *Cite* in the Reader and the Interlinear (the chapter, or the verse chosen).
 - *Concordance*, the fifth interface, after Sketch Engine and AntConc:
   - search results as lines with the hit in context, sorted by the hit or the words around it;
