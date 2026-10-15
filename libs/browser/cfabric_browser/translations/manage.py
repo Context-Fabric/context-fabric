@@ -166,7 +166,7 @@ class Jobs:
             self._finish(tid, str(e))
         except OSError as e:
             self._finish(tid, f"Could not write the corpus: {e}")
-        except Exception as e:  # noqa: BLE001 - shown to the user instead of lost in a thread
+        except Exception as e:
             logger.exception("Building %s failed", tid)
             self._finish(tid, f"Building failed: {e}")
         else:
