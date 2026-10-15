@@ -9,8 +9,6 @@ On ``mini_corpus`` ``maxNode`` is 8, so the fail limit is 32 results.
 
 from __future__ import annotations
 
-import signal
-import time
 import warnings
 from collections.abc import Iterator
 
@@ -95,9 +93,10 @@ def test_count_applies_the_fail_limit(loaded_api):
 def test_lazy_results_keep_memory_bounded(corpus_tf_dir):
     """The first rows of a cross product of N1904's 137,779 words arrive at
     once, without producing the rest."""
-    child = WatchedProcess(
-        LAZY_SCRIPT, str(corpus_tf_dir("n1904")), rss_limit_mb=2048, timeout=120
-    )
+    corpus = str(corpus_tf_dir("n1904"))
+    # Compiling the cache takes far more memory than searching; do it first.
+    WatchedProcess(LOAD_SCRIPT, corpus, rss_limit_mb=4096, timeout=600).finish()
+    child = WatchedProcess(LAZY_SCRIPT, corpus, rss_limit_mb=2048, timeout=120)
     stdout, _ = child.finish()
     rows, seconds, peak_mb = stdout.split()
     assert int(rows) == 10
@@ -105,38 +104,59 @@ def test_lazy_results_keep_memory_bounded(corpus_tf_dir):
     assert float(peak_mb) < 500
 
 
-LAZY_SCRIPT = """
-import itertools, resource, sys, time
+LOAD_SCRIPT = """
+import sys
 from cfabric import Fabric
+Fabric(locations=sys.argv[1], silent="deep").loadAll(silent="deep")
+"""
+
+
+LAZY_SCRIPT = """
+import itertools, sys, time
+from cfabric import Fabric
+from process_memory import peak_resident_mb
 api = Fabric(locations=sys.argv[1], silent="deep").loadAll(silent="deep")
 start = time.perf_counter()
 rows = list(itertools.islice(api.S.search("x:word\\ny:word\\nx # y"), 10))
 seconds = time.perf_counter() - start
-peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-peak_mb = peak / 2**20 if sys.platform == "darwin" else peak / 2**10
-print(len(rows), seconds, peak_mb)
+print(len(rows), seconds, peak_resident_mb())
 """
 
 
 INTERRUPT_SCRIPT = """
-import sys
+import _thread, sys, threading, time
 from cfabric import Fabric
 api = Fabric(locations=sys.argv[1], silent="deep").loadAll(silent="deep")
+mode, delay = sys.argv[2], float(sys.argv[3])
 # Two contradictory conditions: no results, a cross product of work.
 template = "a:word\\nb:word\\na .letter=letter. b\\na .letter#letter. b"
-print("ready", flush=True)
+searching = threading.Event()
+pressed = []
+
+def press_ctrl_c():
+    # What Ctrl-C does on every platform: SIGINT's handler becomes pending
+    # for the main thread, which the engine polls while it searches.
+    pressed.append((time.monotonic(), searching.is_set()))
+    _thread.interrupt_main()
+
+timer = threading.Timer(delay, press_ctrl_c)
 try:
-    if sys.argv[2] == "iterate":
+    searching.set()
+    timer.start()
+    if mode == "iterate":
         for _ in api.S.search(template):
             pass
-    elif sys.argv[2] == "limit":
+    elif mode == "limit":
         api.S.search(template, limit=10)
     else:
         api.S.study(template)
         api.S.count()
+    searching.clear()
+    timer.cancel()
     print("finished", flush=True)
 except KeyboardInterrupt:
-    print("interrupted", flush=True)
+    pressed_at, was_searching = pressed[0]
+    print("interrupted", was_searching, time.monotonic() - pressed_at, flush=True)
 """
 
 
@@ -150,17 +170,25 @@ def interrupt_corpus(tmp_path_factory):
     return corpus
 
 
+CTRL_C_AFTER_SECONDS = 1.0
+"""How long the search runs before the child presses Ctrl-C (it takes several
+seconds uninterrupted)."""
+
+
 @pytest.mark.parametrize("mode", ["iterate", "limit", "count"])
 def test_ctrl_c_interrupts_a_running_search(interrupt_corpus, mode):
     child = WatchedProcess(
-        INTERRUPT_SCRIPT, str(interrupt_corpus), mode, rss_limit_mb=1024, timeout=60
+        INTERRUPT_SCRIPT,
+        str(interrupt_corpus),
+        mode,
+        str(CTRL_C_AFTER_SECONDS),
+        rss_limit_mb=1024,
+        timeout=60,
     )
-    assert child.readline() == "ready"
-    time.sleep(1)
-    assert child.process.poll() is None, "the search ended before it could be interrupted"
-    child.process.send_signal(signal.SIGINT)
-    sent = time.monotonic()
-    assert child.readline() == "interrupted"
-    assert time.monotonic() - sent < 2
-    child.finish()
+    stdout, stderr = child.finish()
+    outcome, *details = stdout.split()
+    assert outcome == "interrupted", f"{stdout}\n{stderr}"
+    was_searching, seconds = details
+    assert was_searching == "True", "the search ended before it could be interrupted"
+    assert float(seconds) < 2
     assert child.process.returncode == 0

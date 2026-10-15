@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -10,6 +11,10 @@ from pathlib import Path
 import pytest
 
 from cfabric import Fabric
+from process_memory import resident_mb
+
+TESTS_DIR = Path(__file__).resolve().parent
+"""This directory, importable by `WatchedProcess` scripts."""
 
 
 @pytest.fixture
@@ -90,28 +95,25 @@ def write_synthetic_corpus(directory: Path, words: int, words_per_sentence: int 
     return directory
 
 
-def _rss_mb(pid: int) -> float:
-    """Resident memory of process ``pid`` in MB (0 once it has exited)."""
-    result = subprocess.run(
-        ["ps", "-o", "rss=", "-p", str(pid)], capture_output=True, text=True, check=False
-    )
-    return int(result.stdout.strip() or 0) / 1024
-
-
 class WatchedProcess:
     """A Python child process that is killed when its resident memory passes
     ``rss_limit_mb`` or it runs longer than ``timeout`` seconds, so that a
-    search that runs away cannot take the machine down with it.
+    search that runs away cannot take the machine down with it. The script
+    can import the modules beside this one, such as `process_memory`.
     """
 
     def __init__(
         self, script: str, *args: str, rss_limit_mb: float = 2048, timeout: float = 120
     ) -> None:
+        python_path = os.pathsep.join(
+            filter(None, [str(TESTS_DIR), os.environ.get("PYTHONPATH")])
+        )
         self.process = subprocess.Popen(
             [sys.executable, "-c", script, *args],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            env={**os.environ, "PYTHONPATH": python_path},
         )
         self.killed: str | None = None
         self._limit = rss_limit_mb
@@ -121,7 +123,7 @@ class WatchedProcess:
 
     def _watch(self) -> None:
         while self.process.poll() is None:
-            rss = _rss_mb(self.process.pid)
+            rss = resident_mb(self.process.pid)
             if rss > self._limit:
                 self.killed = f"resident memory {rss:.0f} MB passed {self._limit} MB"
             elif time.monotonic() > self._deadline:
