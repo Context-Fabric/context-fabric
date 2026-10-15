@@ -8,6 +8,8 @@ Three small corpora besides the miniature DSS of `test_witnesses`:
 The DSS has Genesis 1:1 in three scrolls and Exodus 2:3 in one.
 """
 
+import time
+
 import pytest
 from cfabric_browser.app import create_app
 from cfabric_browser.corpora import CorpusService, resolve_corpus
@@ -40,7 +42,7 @@ SP = {
 
 
 @pytest.fixture(scope="module")
-def client(tmp_path_factory):
+def service(tmp_path_factory):
     root = tmp_path_factory.mktemp("parallel")
     write_tf(
         root / "Scrolls" / "mini" / "tf" / "1.0",
@@ -55,10 +57,31 @@ def client(tmp_path_factory):
         )
     roots = (str(root),)
     names = ("Scrolls/mini", "Hebrew/mt", "Hebrew/sp")
-    service = CorpusService([resolve_corpus(c, roots) for c in names], roots=roots)
+    return CorpusService([resolve_corpus(c, roots) for c in names], roots=roots)
+
+
+@pytest.fixture(scope="module")
+def client(service):
     app = create_app(service, SearchPool([]), manage_pool=False)
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture(scope="module")
+def searching(service):
+    """A client with search workers, for the results as parallel rows."""
+    pool = SearchPool(
+        [(n, str(service.spec(n).path)) for n in ("mt",)],
+        sort_key=lambda c: service.api(c).N.sortKeyTuple,
+        workers=1,
+        timeout=20,
+        max_results=100,
+    )
+    pool.start(wait=True)
+    app = create_app(service, pool, manage_pool=False)
+    with TestClient(app) as c:
+        yield c
+    pool.shutdown()
 
 
 def get(client, ref: str, texts: str, lead: str = "mt", **params):
@@ -124,3 +147,65 @@ class TestRows:
         assert get(client, "Genesis 9", "mt").status_code == 404
         assert get(client, "Genesis 1", "mt,nothing").status_code == 404
         assert get(client, "Genesis 1", "mt", lead="nothing").status_code == 404
+
+
+def highlighted(fragments) -> list[str]:
+    """The texts of highlighted fragments."""
+    result = []
+    for frag in fragments:
+        if frag.get("highlight") is not None:
+            result.extend(t for (t, _) in leaves([frag]))
+        elif frag.get("children"):
+            result.extend(highlighted(frag["children"]))
+    return result
+
+
+class TestSearchRows:
+    def search(self, client, template: str) -> str:
+        started = client.post("/api/corpora/mt/search", json={"template": template})
+        search_id = started.json()["id"]
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            status = client.get(f"/api/searches/{search_id}").json()
+            if status["state"] not in ("queued", "running"):
+                return search_id
+            time.sleep(0.05)
+        raise AssertionError("search did not finish")
+
+    def test_rows(self, searching):
+        search_id = self.search(searching, "verse\n  word g_cons_utf8=ש")
+        data = searching.get(
+            f"/api/searches/{search_id}/parallel", params={"texts": "mt,sp,mini"}
+        ).json()
+        assert data["columns"] == ["mt", "sp", "mini"]
+        (row,) = data["rows"]
+        assert row["ref"] == "Genesis 1:1"
+        assert sorted(row["cells"]) == ["mini", "mt", "sp"]
+        # the word is highlighted, not the verse that contains it
+        (tree,) = row["cells"]["mt"]["trees"]
+        assert highlighted(tree["fragments"]) == ["ש"]
+        assert words(row["cells"]["sp"]) == ["ברא", "ש"]
+        assert [w["scroll"] for w in row["cells"]["mini"]["witnesses"]] == [
+            "1Q1",
+            "4Q2",
+            "4Q10",
+        ]
+
+    def test_verse_others_lack(self, searching):
+        search_id = self.search(searching, "word g_cons_utf8=ארץ")
+        data = searching.get(
+            f"/api/searches/{search_id}/parallel", params={"texts": "sp,mini"}
+        ).json()
+        (row,) = data["rows"]
+        assert row["ref"] == "Genesis 1:2"
+        assert sorted(row["cells"]) == ["mt"]
+
+    def test_result_starting_with_a_book(self, searching):
+        # the row is the verse of the word, not the first verse of the book
+        search_id = self.search(searching, "book\n  word g_cons_utf8=תבה")
+        data = searching.get(
+            f"/api/searches/{search_id}/parallel", params={"texts": "mt"}
+        ).json()
+        (row,) = data["rows"]
+        assert row["ref"] == "Exodus 2:3"
+        assert highlighted(row["cells"]["mt"]["trees"][0]["fragments"]) == ["תבה"]

@@ -123,6 +123,9 @@ export interface SectionItem {
   type: string;
   label: string;
   ref: string;
+  /** The feature that names it and its own value (`book`, `Jesaia`), for search templates. */
+  feature?: string;
+  value?: string;
 }
 
 export interface Problem {

@@ -54,7 +54,12 @@ Hovering over a word shows the same card as in *Panes*; clicking it opens the wo
 
 *Differences* in the top bar (`&diff=1`) marks the words where the texts differ from the first column, with the same rules and colours as *Show differences* in *Panes*; each column header says how many words differ, and hovering over a marked word says from what. With MT, SP and the DSS shown, a DSS cell lists, for each place in that verse where MT and SP differ and a scroll preserves the text, which scrolls side with which.
 
-The parallel interface is being built: search follows.
+*Search* in the top bar searches one of the shown texts (`&search=1&sc=bhsa&q=…&s=…`), in either of two ways:
+
+- *Search terms*, as on Parabible: click a word, then *Add as search term* in the word panel. A term finds words with the features you tick (its transliterated lexeme, or else its lexeme, to start with; also part of speech, stem, tense, person, gender, number, state). Choose whether all terms must be in one verse, sentence, clause or phrase, and, for corpora with books, which books (by the book feature's own values: the BHSA's `book` says `Jesaia` where the list says Isaiah). The search template this makes is shown below.
+- *Template*: the query editor of *Panes*, starting from the template the terms make.
+
+Results are rows: the passage, then the verse the result lies in, in the searched text with the result's innermost nodes highlighted, and the same verse in the other texts (the DSS: per scroll); 25 per page. *Statistics*, *Download…* and *Cite* are as in *Panes*; clicking a passage opens its chapter at that verse. A shared link to a search the server no longer has runs it again.
 
 ## Queries
 
@@ -106,6 +111,7 @@ All functions of the interface are available as a JSON API; interactive document
 | `GET /api/corpora/{c}/witnesses?ref=Genesis 1` | A chapter or verse in the book view: per verse, the text of each scroll that contains it |
 | `GET /api/agreement?a=bhsa&aref=…&b=sp&bref=…&c=dss&cref=…` | At each place where `a` and `b` differ, which scrolls of `c` (book view) agree with `a`, with `b`, or with neither |
 | `GET /api/compare?a=bhsa&aref=Genesis 1&b=sp&bref=Genesis 1` | Words that differ between two corresponding Hebrew passages, compared on their consonants verse by verse: `matres` (only matres lectionis) or `variant` |
+| `GET /api/searches/{id}/parallel?offset=&limit=&texts=` | A page of results as parallel rows: each result's verse in the searched corpus, highlighted, and in `texts` |
 | `GET /api/parallel?lead=&ref=&texts=` | A chapter of `lead` (`Genesis 1`) in the corpora `texts`, as rows of verses with a cell per corpus (the DSS: per scroll), for the parallel interface |
 | `GET /api/corpora/{c}/lexicon` | All lexemes of a corpus with a lexicon (BHSA), in alphabetical order per language |
 | `GET /api/corpora/{c}/lexicon/{n}` | One lexeme, with its number of verses and how often it occurs per book |

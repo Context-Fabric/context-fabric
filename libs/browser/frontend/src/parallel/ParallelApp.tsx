@@ -8,12 +8,14 @@ import { Inspector } from "../Inspector";
 import { LexiconView } from "../lexicon/LexiconView";
 import { useDifferences, type PaneDiff } from "../differences";
 import { DiffNote } from "../read/BookView";
-import { emptyPane, serialize, useSettings, useTheme } from "../state";
+import { emptyPane, useSettings, useTheme } from "../state";
 import { switchToClassic } from "../switch";
 import type { CorpusCard } from "../types";
-import { alignRef, chapterOf, navigate, REFERENCE_IDS, rememberUi } from "../ui";
+import { alignRef, chapterOf, REFERENCE_IDS } from "../ui";
 import { UiSwitch } from "../UiSwitch";
+import { ParallelSearch } from "./Search";
 import { useParallel } from "./state";
+import { termFrom, type Term } from "./terms";
 import { settingsFor, Table } from "./Table";
 
 // The parallel interface, after Parabible's layout: a slim top bar with the
@@ -295,6 +297,8 @@ export function ParallelApp() {
   // the word shown in the panel on the left
   const [inspected, setInspected] = useState<{ corpus: string; node: number } | null>(null);
   const [lexiconHovered, onLexiconHover] = useHover();
+  // search terms made from words; they last while the page is open
+  const [terms, setTerms] = useState<Term[]>([]);
 
   const texts = (state.texts ?? []).filter((t) => names.includes(t));
   // the numbering the rows follow: the BHSA, or else the first column's
@@ -430,6 +434,16 @@ export function ParallelApp() {
         <div className="ms-auto flex items-center gap-1 sm:gap-2">
           <button
             type="button"
+            aria-pressed={state.searching}
+            disabled={!texts.length}
+            onClick={() => (state.searching ? actions.setSearch({ searching: false }) : actions.setSearch({}))}
+            className="rounded px-2.5 py-1 text-[14px] hover:bg-woad-soft disabled:opacity-40 aria-pressed:bg-ink aria-pressed:text-vellum"
+            title="Search with terms made from words, or with a template"
+          >
+            Search{terms.length ? ` (${terms.length})` : ""}
+          </button>
+          <button
+            type="button"
             aria-pressed={state.diff}
             disabled={texts.length < 2}
             onClick={() => actions.setDiff(!state.diff)}
@@ -458,7 +472,16 @@ export function ParallelApp() {
           >
             {theme === "dark" ? "Light" : "Dark"}
           </button>
-          <UiSwitch current="parallel" onSwitch={() => switchToClassic(state, reference.name)} />
+          <UiSwitch
+            current="parallel"
+            onSwitch={() =>
+              switchToClassic(
+                state,
+                reference.name,
+                texts.filter((t) => cards[t]?.bookView),
+              )
+            }
+          />
         </div>
       </header>
 
@@ -473,11 +496,27 @@ export function ParallelApp() {
               onClose={() => setInspected(null)}
               onOpenPassage={(ref) => void openPassage(inspected.corpus, ref)}
               onLexicon={(lex) => actions.setLexicon(inspected.corpus, lex)}
+              onSearchTerm={(info) => {
+                setTerms([...terms, termFrom(inspected.corpus, info)]);
+                actions.setSearch({ sc: inspected.corpus });
+              }}
             />
           </div>
         ) : null}
         <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-          {lexiconCard ? (
+          {state.searching && texts.length ? (
+            <ParallelSearch
+              cards={cards}
+              texts={texts}
+              search={state}
+              terms={terms}
+              settings={settings}
+              onTerms={setTerms}
+              onSearch={actions.setSearch}
+              onOpenPassage={(corpus, ref) => void openPassage(corpus, ref)}
+              onInspect={(corpus, node) => setInspected({ corpus, node })}
+            />
+          ) : lexiconCard ? (
             <div className="flex h-full min-h-0 flex-col">
               <p className="border-b border-rule px-4 py-1.5 text-[13px]">
                 <button type="button" onClick={() => actions.setLexicon(null)} className="text-woad hover:underline">
@@ -497,17 +536,7 @@ export function ParallelApp() {
                     settings={settingsFor(lexiconCard, settings)}
                     onLex={(lex) => actions.setLexicon(lexiconCard.name, lex)}
                     onOpenPassage={(ref) => void openPassage(lexiconCard.name, ref)}
-                    onSearch={(query) => {
-                      // searching is in the classic interface for now
-                      rememberUi("classic");
-                      navigate(
-                        serialize({
-                          panes: [{ ...emptyPane(lexiconCard.name), view: "search", query }],
-                          sync: false,
-                          diff: false,
-                        }),
-                      );
-                    }}
+                    onSearch={(q) => actions.setSearch({ sc: lexiconCard.name, q, s: null })}
                   />
                   {lexiconHovered ? <HoverCard corpus={lexiconCard} hovered={lexiconHovered} /> : null}
                 </DisplayProvider>

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { displayRef, scriptClass } from "./display/Display";
-import { borrowedFrom, type CorpusCard } from "./types";
+import { borrowedFrom, type CorpusCard, type NodeInfo } from "./types";
 
 interface Props {
   corpus: CorpusCard;
@@ -12,12 +12,14 @@ interface Props {
   onOpenPassage: (ref: string) => void;
   /** Open the lexicon at this lexeme; offered for words of a corpus with a lexicon. */
   onLexicon?: (lex: number) => void;
+  /** Use this node as a search term (the parallel interface). */
+  onSearchTerm?: (info: NodeInfo) => void;
   /** Which side of the screen the panel is on (the parallel interface has it on the left). */
   side?: "start" | "end";
 }
 
 /** Everything about one node: its features, edges, and what it lies in. */
-export function Inspector({ corpus, node, onInspect, onClose, onOpenPassage, onLexicon, side = "end" }: Props) {
+export function Inspector({ corpus, node, onInspect, onClose, onOpenPassage, onLexicon, onSearchTerm, side = "end" }: Props) {
   const panel = useRef<HTMLElement>(null);
   const { data, error } = useQuery({
     queryKey: ["node", corpus.name, node],
@@ -124,6 +126,16 @@ export function Inspector({ corpus, node, onInspect, onClose, onOpenPassage, onL
             </dl>
           ) : null}
 
+          {onSearchTerm && summary.length ? (
+            <button
+              type="button"
+              onClick={() => onSearchTerm(data)}
+              className="mb-1 block text-[13px] text-woad hover:underline"
+              title="Search for words like this one; choose which of its features count"
+            >
+              Add as search term
+            </button>
+          ) : null}
           {lexeme !== undefined && onLexicon ? (
             <button
               type="button"

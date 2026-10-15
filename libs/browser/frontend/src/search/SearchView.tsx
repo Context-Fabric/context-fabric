@@ -12,7 +12,7 @@ import { Stats } from "./Stats";
 const HISTORY_KEY = "cfabric-browser/history";
 const HISTORY_SIZE = 20;
 
-function loadHistory(corpus: string): string[] {
+export function loadHistory(corpus: string): string[] {
   try {
     const all = JSON.parse(window.localStorage.getItem(HISTORY_KEY) ?? "{}");
     return Array.isArray(all[corpus]) ? all[corpus] : [];
@@ -21,7 +21,7 @@ function loadHistory(corpus: string): string[] {
   }
 }
 
-function remember(corpus: string, template: string): string[] {
+export function remember(corpus: string, template: string): string[] {
   const list = [template, ...loadHistory(corpus).filter((t) => t !== template)].slice(0, HISTORY_SIZE);
   try {
     const all = JSON.parse(window.localStorage.getItem(HISTORY_KEY) ?? "{}");
@@ -35,7 +35,7 @@ function remember(corpus: string, template: string): string[] {
 
 /** Follow a search's status with server-sent events. */
 /** Whether the server no longer knows a search (it restarted, or the search expired). */
-function useSearchGone(id: string | null): boolean {
+export function useSearchGone(id: string | null): boolean {
   const { error } = useQuery({
     queryKey: ["search", id],
     queryFn: () => api.status(id!),
@@ -45,7 +45,7 @@ function useSearchGone(id: string | null): boolean {
   return error instanceof ApiError && error.status === 404;
 }
 
-function useSearchStatus(id: string | null): SearchStatus | null {
+export function useSearchStatus(id: string | null): SearchStatus | null {
   const client = useQueryClient();
   const { data } = useQuery({
     queryKey: ["search", id],
@@ -71,11 +71,11 @@ function useSearchStatus(id: string | null): SearchStatus | null {
   return data ?? null;
 }
 
-function formatCount(n: number): string {
+export function formatCount(n: number): string {
   return n.toLocaleString("en-US");
 }
 
-type Tab = "results" | "stats";
+export type Tab = "results" | "stats";
 
 interface StatusProps {
   status: SearchStatus;
@@ -86,7 +86,7 @@ interface StatusProps {
   onTab: (tab: Tab) => void;
 }
 
-function StatusLine({ status, onCancel, onDownload, corpus, tab, onTab }: StatusProps) {
+export function StatusLine({ status, onCancel, onDownload, corpus, tab, onTab }: StatusProps) {
   const seconds = status.elapsed < 10 ? status.elapsed.toFixed(2) : status.elapsed.toFixed(1);
   const results = `${formatCount(status.count)} ${status.count === 1 ? "result" : "results"}`;
   let text: string;
@@ -165,7 +165,7 @@ function StatusLine({ status, onCancel, onDownload, corpus, tab, onTab }: Status
   );
 }
 
-function Problems({ problems }: { problems: Problem[] }) {
+export function Problems({ problems }: { problems: Problem[] }) {
   if (!problems.length) return null;
   return (
     <ul className="flex flex-col gap-1.5 rounded border border-madder/40 bg-madder-soft px-3 py-2 text-[13px]" role="alert">
