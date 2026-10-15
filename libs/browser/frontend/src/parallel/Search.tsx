@@ -38,7 +38,7 @@ interface Props {
 }
 
 /** One search term: the word it was made from and the features that count. */
-function TermCard({ term, onChange, onRemove }: { term: Term; onChange: (t: Term) => void; onRemove: () => void }) {
+export function TermCard({ term, onChange, onRemove }: { term: Term; onChange: (t: Term) => void; onRemove: () => void }) {
   return (
     <li className="rounded border border-rule-strong bg-raised px-3 py-2">
       <div className="mb-1 flex items-baseline gap-2">

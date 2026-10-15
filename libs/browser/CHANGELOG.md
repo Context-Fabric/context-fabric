@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- *Concordance*, the fifth interface, after Sketch Engine and AntConc:
+  - search results as lines with the hit in context, sorted by the hit or the words around it;
+  - facets with counts that filter;
+  - one line per verse, random samples, hits per 10,000 words, download of the lines;
+  - collocations by logDice;
+  - statistics.
+  - New endpoints `/kwic`, `/kwic/facets` and `/collocations` under `/api/searches/{id}` (`cfabric_browser/concordance.py`). Values such as `NA` count as missing.
 - *Interlinear*, the fourth interface, after STEPBible and BibleHub:
   - word blocks with lines of choice and order (transliteration, lexeme, gloss, part of speech, morphology, any feature);
   - another text word by word under them, with differences;

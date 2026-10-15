@@ -83,7 +83,8 @@ interface StatusProps {
   onDownload: () => void;
   corpus: CorpusCard;
   tab: Tab;
-  onTab: (tab: Tab) => void;
+  /** Without it, the line offers no switch between results and statistics. */
+  onTab?: (tab: Tab) => void;
 }
 
 export function StatusLine({ status, onCancel, onDownload, corpus, tab, onTab }: StatusProps) {
@@ -118,7 +119,7 @@ export function StatusLine({ status, onCancel, onDownload, corpus, tab, onTab }:
       <span role="status" className={status.state === "timeout" ? "text-madder" : ""}>
         {text}
       </span>
-      {status.count > 0 ? (
+      {status.count > 0 && onTab ? (
         <div className="flex gap-0.5 text-[13px]" role="group" aria-label="Show">
           {(["results", "stats"] as const).map((t) => (
             <button

@@ -6,6 +6,7 @@ import { INTERFACES, isUi, rememberedUi, rememberUi, uiOfUrl, type Ui } from "./
 
 const ParallelApp = lazy(() => import("./parallel/ParallelApp").then((m) => ({ default: m.ParallelApp })));
 const ReaderApp = lazy(() => import("./reader/ReaderApp").then((m) => ({ default: m.ReaderApp })));
+const ConcordanceApp = lazy(() => import("./concordance/ConcordanceApp").then((m) => ({ default: m.ConcordanceApp })));
 const InterlinearApp = lazy(() => import("./interlinear/InterlinearApp").then((m) => ({ default: m.InterlinearApp })));
 
 /** Shows the interface the URL is for; at the bare start page the one used last,
@@ -39,15 +40,17 @@ export function Root() {
 
   if (ui === null) return null;
   if (ui === "classic") return <App key="classic" />;
-  if (ui !== "parallel" && ui !== "reader" && ui !== "interlinear") return <NotYet ui={ui} />;
+  if (!ready(ui)) return <NotYet ui={ui} />;
   return (
     <Suspense fallback={<main className="p-10 text-stone">Opening…</main>}>
       {ui === "parallel" ? (
         <ParallelApp key="parallel" />
       ) : ui === "reader" ? (
         <ReaderApp key="reader" />
-      ) : (
+      ) : ui === "interlinear" ? (
         <InterlinearApp key="interlinear" />
+      ) : (
+        <ConcordanceApp key="concordance" />
       )}
     </Suspense>
   );

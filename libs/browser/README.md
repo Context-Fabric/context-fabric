@@ -55,7 +55,7 @@ The server listens on `127.0.0.1` only. Pass `--host` to change that, and only w
 
 The browser has several interfaces, chosen in the menu at the right of the top bar (it shows the name of the one in use). Switching keeps the passage, the corpora, the search, the lexicon and the settings; what an interface cannot show is kept for the next one. The interface used last is remembered by the web browser (or the window); `--ui` only sets the one for a first start. *Choose which to offer…* in the menu leaves interfaces out of it, though never the one in use, nor both *Panes* and *Parallel*.
 
-Four are built: *Panes*, *Parallel*, *Reader* and *Interlinear*. *Concordance* is planned; its address, `/concordance/…`, shows a page saying so.
+All five are built: *Panes*, *Parallel*, *Reader*, *Interlinear* and *Concordance*.
 
 ### Reader
 
@@ -108,6 +108,21 @@ The top bar also has *Display* (text format and what is shown, shared with *Pane
 - Clicking a word opens the word panel on the right.
 
 A transliteration of the word as it sounds is not available yet: the BHSA's `phono` is a module of its own.
+
+### Concordance
+
+*Concordance* (`/concordance/bhsa?q=…`) is after Sketch Engine and AntConc. It starts from a search: a template, or search terms made from words in the results (click a word, then *Add as search term*). The results come as lines (KWIC, key word in context): the hit in the middle and the words before and after it on either side, within the same book. Clicking a passage opens it in the *Reader*.
+
+- **Sort by** the hit or a word before or after it (up to the third), by its form (consonants), lexeme or part of speech. Patterns show at once, such as what comes before HLK[.
+- **Facets** on the left: book, part of speech, stem, tense, person, gender, number, state, language, each with counts. A click filters the lines, and the facets follow.
+- **Above the lines:**
+  - the number of lines and of hits per 10,000 words;
+  - *Context* (3, 6 or 10 words);
+  - *One per verse*;
+  - *Sample* (a random 50 to 500; *another* draws again);
+  - *Download lines*: a TSV table of passage, before, hit and after, in the order and with the filters shown, at most 20,000.
+- **Collocations:** the lexemes (or forms, or parts of speech) within 1 to 5 words of the hits, with their count there, their frequency in the corpus and their logDice score. logDice measures how typical a word is near the hit (at most 14).
+- **Statistics:** as in the other interfaces.
 ## Queries
 
 Queries use Text-Fabric's search template language, run by Context-Fabric's search engine. Queries written for the TF browser work unchanged and give the same results.
@@ -160,6 +175,9 @@ All functions of the interface are available as a JSON API; interactive document
 | `GET /api/compare?a=bhsa&aref=Genesis 1&b=sp&bref=Genesis 1` | Words that differ between two corresponding Hebrew passages, compared on their consonants verse by verse: `matres` (only matres lectionis) or `variant` |
 | `GET /api/searches/{id}/parallel?offset=&limit=&texts=` | A page of results as parallel rows: each result's verse in the searched corpus, highlighted, and in `texts` |
 | `GET /api/corpora/{c}/interlinear?ref=&features=&under=` | A passage word by word: per word its lines in words, the extra features, and its phrase and clause (with function and type); with `under`, another corpus' words aligned under them, with their differences |
+| `GET /api/searches/{id}/kwic?offset=&limit=&left=&right=&sort=&filter=&per=&sample=&seed=&features=` | A page of the results as concordance lines: the hit and its context, sorted (`L1.text`, `hit.lex`, …), filtered by features of the hit (`vs:qal,book:Genesis`), one per verse, or sampled |
+| `GET /api/searches/{id}/kwic/facets?feature=&filter=&per=` | How often each value of a feature of the hit occurs in the filtered results (`book`: in book order) |
+| `GET /api/searches/{id}/collocations?feature=&window=&filter=&per=&min=&top=` | The values of a feature near the hits, with count, corpus frequency and logDice |
 | `GET /api/parallel?lead=&ref=&texts=` | A chapter of `lead` (`Genesis 1`) in the corpora `texts`, as rows of verses with a cell per corpus (the DSS: per scroll), for the parallel interface |
 | `GET /api/corpora/{c}/lexicon` | All lexemes of a corpus with a lexicon (BHSA), in alphabetical order per language |
 | `GET /api/corpora/{c}/lexicon/{n}` | One lexeme, with its number of verses and how often it occurs per book |

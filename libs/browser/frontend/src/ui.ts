@@ -57,7 +57,7 @@ export const INTERFACES: UiInfo[] = [
     name: "Concordance",
     about: "Search results in context, sorted and counted",
     prefix: "/concordance",
-    ready: false,
+    ready: true,
   },
 ];
 

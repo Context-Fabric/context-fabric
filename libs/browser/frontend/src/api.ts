@@ -17,6 +17,7 @@ import type {
   SectionItem,
   WitnessPassage,
   InterlinearPassage,
+  KwicLine,
   ParallelChapter,
 } from "./types";
 
@@ -127,6 +128,42 @@ export const api = {
         under: params.under,
       })}`,
     ),
+
+  /** A page of search results as concordance lines, sorted and filtered on the server. */
+  kwic: (
+    id: string,
+    params: {
+      offset: number;
+      limit: number;
+      left: number;
+      right: number;
+      sort?: string | null;
+      filter?: string;
+      per?: "result" | "verse";
+      sample?: number | null;
+      seed?: number;
+      features?: string[];
+      fmt?: string | null;
+    },
+  ) =>
+    request<{ search: SearchStatus; total: number; words: number; offset: number; lines: KwicLine[] }>(
+      `/api/searches/${id}/kwic${query({ ...params, features: params.features?.join(",") })}`,
+    ),
+
+  /** How often each value of a feature of the hit occurs in the (filtered) results. */
+  kwicFacets: (id: string, feature: string, filter: string, per: "result" | "verse") =>
+    request<{ feature: string; total: number; values: { value: string; count: number }[] }>(
+      `/api/searches/${id}/kwic/facets${query({ feature, filter, per })}`,
+    ),
+
+  /** The values of a feature near the hits, by how typical they are there (logDice). */
+  collocations: (id: string, feature: string, window: number, filter: string, per: "result" | "verse") =>
+    request<{
+      feature: string;
+      window: number;
+      hits: number;
+      values: { value: string; count: number; frequency: number; logDice: number }[];
+    }>(`/api/searches/${id}/collocations${query({ feature, window, filter, per })}`),
 
   /** A chapter of `lead` in the corpora `texts`, as rows of verses. */
   parallel: (lead: string, ref: string, texts: string[], params: RenderParams) =>
