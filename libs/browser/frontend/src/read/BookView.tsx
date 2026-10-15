@@ -126,7 +126,7 @@ const AGREES = {
 } as const;
 
 /** One place where MT and SP differ, and which scrolls side with which. */
-function PlaceSummary({ place, a, b }: { place: Place; a: string; b: string }) {
+export function PlaceSummary({ place, a, b }: { place: Place; a: string; b: string }) {
   return (
     <p className="mb-1 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] text-stone">
       <span>
