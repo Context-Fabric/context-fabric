@@ -26,6 +26,9 @@ from collections import Counter
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from pathlib import Path
+from typing import Any
+
+from cfabric_browser.books import canonical_book
 
 OSIS = "{http://www.bibletechnologies.net/2003/OSIS/namespace}"
 OSHB = "{http://openscriptures.github.com/morphhb/namespace}"
@@ -214,3 +217,38 @@ def read_aug_index(path: Path) -> dict[str, str]:
     """Augmented Strong's number (`834a`): lexical index id."""
     root = ET.parse(path).getroot()
     return {w.get("aug", ""): (w.text or "").strip() for w in root.iter(OSHB + "w")}
+
+
+def lemma_counts(
+    api: Any, verses: dict[tuple[str, int, int], list[Segment]]
+) -> dict[int, Counter[str]]:
+    """Per lexeme node of a corpus with the BHSA's features (`g_cons`, lexeme
+    nodes `lex`), how often its words align with each OSHB lemma."""
+    F, L, T = api.F, api.L, api.T
+    counts: dict[int, Counter[str]] = {}
+    for v in F.otype.s("verse"):
+        book, chapter, verse = T.sectionFromNode(v, lang="en")
+        found = verses.get((canonical_book(book) or "", int(chapter), int(verse)))
+        if found is None:
+            continue
+        words = [(int(w), F.g_cons.v(w) or "") for w in L.d(v, "word")]
+        aligned = align(words, found)
+        for w, _ in words:
+            s = aligned.get(w)
+            if s is not None and s.lemma is not None:
+                lexeme = int(L.u(w, "lex")[0])
+                counts.setdefault(lexeme, Counter())[s.lemma] += 1
+    return counts
+
+
+def entry_counts(
+    lemmas: Counter[str], aug: dict[str, str], index: dict[str, IndexEntry]
+) -> list[tuple[str, int]]:
+    """The BDB entries a lexeme's lemmas lead to, most frequent first (Strong's
+    may have two numbers for one entry, as for הלך)."""
+    counts: Counter[str] = Counter()
+    for lemma, n in lemmas.items():
+        e = index.get(aug.get(lemma, ""))
+        if e is not None and e.bdb:
+            counts[e.bdb] += n
+    return counts.most_common()
