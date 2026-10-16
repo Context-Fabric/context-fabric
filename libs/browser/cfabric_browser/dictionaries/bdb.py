@@ -39,6 +39,9 @@ TAGS: dict[str, tuple[str, ...]] = {
     "a": (),  # rewritten: data-osis or data-entry
 }
 VOID = {"br"}
+# BDB's sign "<" (rather, better) is usually followed by a space, once by a
+# name ("<Th We Dr"); Sefaria's tags are lowercase
+NOT_A_TAG = re.compile(r"<(?!/?[a-z])")
 
 
 class CleanError(Exception):
@@ -205,7 +208,7 @@ class _Cleaner(HTMLParser):
 def clean(raw: str) -> Cleaned:
     """Sefaria's HTML of an entry with only the tags in `TAGS`."""
     cleaner = _Cleaner()
-    cleaner.feed(raw)
+    cleaner.feed(NOT_A_TAG.sub("&lt;", raw))
     cleaner.close()
     for t in reversed(cleaner.open):
         cleaner.out.append(f"</{t}>")
