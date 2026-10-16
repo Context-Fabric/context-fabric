@@ -32,7 +32,7 @@ class Catalogued:
     sources: str
     corpus: str  # whose lexemes it links (`ETCBC/bhsa`)
     url: str | None  # None until it is published
-    sha256: str | None
+    sha256: str | None  # of the published file
     size: int
 
 
@@ -51,9 +51,9 @@ DICTIONARIES: dict[str, Catalogued] = {
         ),
         sources="Sefaria; Open Scriptures HebrewLexicon and OSHB (CC BY 4.0)",
         corpus="ETCBC/bhsa",
-        url=None,
-        sha256=None,
-        size=4_600_000,
+        url="https://github.com/Context-Fabric/bdb/releases/download/v1.0/bdb.json.gz",
+        sha256="d320e12c35f08891bf31edb6ba53a2eb78f5a0b5c8f3f7472b2f504689a6b7e1",
+        size=4_554_209,
     ),
 }
 
