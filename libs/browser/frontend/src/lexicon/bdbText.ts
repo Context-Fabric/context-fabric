@@ -45,3 +45,23 @@ export function linkNote(link: BdbLink): string | null {
   }
   return null;
 }
+
+/** An entry this long (in characters of HTML) is shown with its stems folded. */
+export const LONG = 3000;
+
+/** The parts of an entry, divided where Sefaria divides its stems (`<br>`). */
+export function stems(html: string): string[] {
+  return html.split(/<br\s*\/?>/i).filter((part) => part.trim() !== "");
+}
+
+const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'" };
+
+/** The first words of a part, as the heading of its fold. */
+export function preview(html: string, length = 70): string {
+  const text = html
+    .replace(/<[^>]+>/g, "")
+    .replace(/&(amp|lt|gt|quot|#39);/g, (_, e: string) => ENTITIES[e])
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > length ? `${text.slice(0, length).trimEnd()}…` : text;
+}
