@@ -12,6 +12,8 @@ This test is about three corpora, all under the licence CC BY-NC 4.0:
 
 **New in this version: you don't need them on your computer first.** When they are missing, the program offers to download them the first time it starts, from their own releases on GitHub (the same files [Text-Fabric](https://annotation.github.io/text-fabric/) uses). It puts them where Text-Fabric keeps its downloads (`text-fabric-data/github` in your home folder), so if you have used Text-Fabric with these corpora, the program finds them there and downloads nothing. Other corpora on your computer are not offered in this test.
 
+**New since test.6: the BDB dictionary.** The lexicon can show *A Hebrew and English Lexicon of the Old Testament* by Brown, Driver and Briggs (1906), with every lexeme of the BHSA linked to its entry; see *Use*. And the BHSA's text can be shown with or without vowels and accents (*Display → Text*).
+
 **Also new since test.4: an English translation.** The program can add the JPS 1917 (*The Holy Scriptures: A New Translation*, Jewish Publication Society, 1917) itself; see *Use*.
 
 ## Download
@@ -46,6 +48,8 @@ The program opens in **Parallel**, laid out after [Parabible](https://parabible.
 
 - **The JPS 1917 translation:** in *Texts → Add a text…*, under *Translations*, click *Add*. The program downloads it from Sefaria (about 5 MB, once), prepares it in a few seconds and shows it as a column next to the Hebrew. Its verses are numbered as in the Hebrew Bible, so they line up with the BHSA. In the Interlinear, choose it under *Under* for a line of English under each verse; in the Concordance, search it in English, for instance `word lower=lord`. It is in the public domain in the United States; elsewhere that depends on the translators' dates. *Remove* deletes it again.
 
+- **BDB:** in *Texts → Add a text…*, under *Dictionaries*, click *Add* (about 5 MB, once). A lexeme's page in the *Lexicon* then has a tab *BDB* with its entry: its verses open the passage, its references open other entries, BDB's abbreviations are explained when you hover over them, long entries have their stems folded, and the root family links to the other lexemes of the root. The lexicon's *Find* also searches BDB's definitions (*perish* finds אבד), and it can be ordered *By root (BDB)*. Hovering over a word shows its BDB entry, also for words in the Dead Sea Scrolls (through the BHSA); the Interlinear offers a line *BDB*. The text is from Sefaria, the ids and short definitions from Open Scriptures; the file is CC BY-NC 4.0 ([Context-Fabric/bdb](https://github.com/Context-Fabric/bdb)).
+- **Vocalized or unvocalized:** *Display → Text* chooses for the BHSA between *Vocalized* (vowels and accents, and the qere where it differs) and *Unvocalized* (the consonants of the ketiv). The other corpora have one text, so the choice isn't shown for them.
 - **The first time:** if the corpora are not on your computer, the program shows *Getting the corpora*: click *Download (68 MB)*. Each corpus is downloaded, unpacked and prepared once, which takes a few minutes in all (the download itself less than a minute on a fast connection); you see the progress of each. Then Parallel opens with the three. *Not now* skips this; the corpora can then be downloaded later in *Texts → Add a text…*, under *Can be downloaded*. Without an internet connection the program says so and offers *Try again*.
 - If the corpora are there already, the BHSA opens by itself, and *Open a corpus* offers the others. Opening a corpus the first time takes a little longer, because it is prepared once; after that it opens in a few seconds.
 - **Reading:** click the chapter name at the top for the books and chapters; `‹` and `›` (or the arrow keys) go to the previous and next chapter. *Texts* turns corpora on and off and changes their order. The Dead Sea Scrolls show, per verse, the text of every scroll that has it; dimmed letters are reconstructed by the editors.
@@ -64,6 +68,7 @@ The program opens in **Parallel**, laid out after [Parabible](https://parabible.
 - Fixed since test.3: on Windows, the program could fail to start when its zip was unpacked with Explorer.
 - New since test.4: the JPS 1917 translation.
 - New since test.5: downloading the three corpora from the program.
+- New since test.6: BDB, and the choice between vocalized and unvocalized text; the page of a frequent lexeme (הלך) opens at once instead of after about 20 seconds.
 
 - On macOS and Linux, the window hasn't been tried by anyone yet. You're the first.
 - In three places the 1917 print joins verses that the BHSA divides (the Ten Commandments in Exodus 20 and Deuteronomy 5, and Numbers 25:19 with 26:1). The program divides them as the BHSA does and shows the print's number next to those verses.
