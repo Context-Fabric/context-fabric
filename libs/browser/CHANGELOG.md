@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Searching in plain language, groundwork (`cfabric_browser/assistant/tools.py`): the tools a language model gets on the browser's open corpora: describing corpora and features and the template language (shared with `cfabric-mcp`), `check_template`, and `try_search`, a trial through the search pool (count up to 10,000 within 20 s, a few examples with their passages, and for an empty result the `feature=value` conditions whose value the feature never has). The browser now depends on `cfabric-mcp`.
 - Linking the BHSA's lexemes to entries of BDB (`cfabric_browser/dictionaries/link.py`), the groundwork for BDB in the lexicon: the words of each verse are aligned with the Open Scriptures Hebrew Bible by their consonants, and a lexeme gets the BDB entries its words' lemmas lead to through Open Scriptures' lexical index.
 - A lexeme's page for a frequent word (הלך, 1,547 occurrences) opened after about 20 s, because each word's book was looked up with `L.u`; the books are now found by slot range (0.5 s).
 - BDB: a long entry (הלך, דבר) shows its stems folded under their first words.
