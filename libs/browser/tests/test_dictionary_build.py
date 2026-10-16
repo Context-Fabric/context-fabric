@@ -312,3 +312,41 @@ def test_abbreviations(tmp_path: Path):
     found = build.abbreviations(client)
     assert found["A3"] == "meaning 3"
     assert "NOTE: about citations" not in found
+
+
+def test_citation_score():
+    cited = {"Gen.1.1", "Gen.1.2", "Gen.1.3", "Gen.1.4"}
+    assert build.citation_score(cited, {"Gen.1.1", "Gen.1.2"}) == (0.5, 2)
+    assert build.citation_score(cited, {"Exod.1.1"}) == (0.0, 0)
+
+
+def test_by_citations():
+    verses = {"Gen.1.1", "Gen.1.2", "Gen.1.3"}
+    cited = {
+        # a root entry citing many verses, one of them the lexeme's
+        "root": {"Gen.1.1"} | {f"Exod.{i}.1" for i in range(1, 40)},
+        # the entry of the word itself
+        "word": {"Gen.1.1", "Gen.1.2", "Gen.1.3"},
+        "other": {"Lev.1.1"},
+    }
+    assert build.by_citations(["root", "other"], ["word"], verses, cited) == [
+        "word",
+        "root",
+    ]
+    # the linked entry fits best: nothing changes
+    assert build.by_citations(["word"], ["root"], verses, cited) is None
+    # one cited verse is not enough, unless the lexeme has only one
+    assert build.by_citations(["other"], ["root"], verses, cited) is None
+    assert build.by_citations(["other"], ["word"], {"Gen.1.1"}, cited) == ["word"]
+
+
+def test_cross_references_and_roots():
+    assert build.is_cross_reference('יסך <a data-osis="Exod.30.32">Ex</a> v. סוּךְ.')
+    assert not build.is_cross_reference("סוּךְ vb. pour, anoint " + "x" * 200)
+    assert build.is_root('קעקע (√ of foll.) <a data-osis="Lev.19.28">Lv</a>')
+
+
+def test_verbs():
+    assert build.is_verb({"pos": "vb", "html": ""})
+    assert not build.is_verb({"pos": "n.f", "html": "vb."})
+    assert build.is_verb({"pos": None, "html": "† [דּוּר] <strong>vb.</strong> heap"})

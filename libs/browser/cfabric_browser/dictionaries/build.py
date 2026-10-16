@@ -12,7 +12,9 @@ not what is expected:
     `joins.yaml`; `clean` their HTML; references to other entries become
     their ids.
 4.  Link the corpus' lexemes: align its words with the OSHB per verse, count
-    the BDB entries their lemmas lead to, then apply `corrections.yaml`.
+    the BDB entries their lemmas lead to; where another entry cites the
+    lexeme's verses clearly better (`by_citations`), take that one; then
+    apply `corrections.yaml`.
 5.  `check`, and write the file with its metadata.
 """
 
@@ -33,6 +35,7 @@ from typing import Any
 import yaml
 
 from cfabric_browser import __version__
+from cfabric_browser.books import canonical_book
 from cfabric_browser.dictionaries import bdb, link, sefaria
 
 CACHE = "~/.cfabric/dictionaries/cache"
@@ -113,6 +116,12 @@ def _cut(raw: str) -> bool:
     """Whether Sefaria's text of an entry stops short."""
     return CUT.search(re.sub(r"<[^>]+>", "", raw).strip()) is not None
 
+
+# another entry replaces the linked one when it cites at least this many of
+# the lexeme's verses (all of them if it has fewer) and scores at least this
+# many times as high
+CITED = 2
+BETTER = 2.0
 
 Progress = Callable[[str, int, int], None]
 
@@ -367,17 +376,109 @@ def _number(strong: str) -> tuple[int, str]:
     return (int(digits.group()) if digits else 0, strong)
 
 
+def is_cross_reference(html_: str) -> bool:
+    """Whether an entry only refers to another (`יסך v. סוּךְ`): short, with
+    `v.`, BDB's "see"."""
+    text = re.sub(r"<[^>]+>", "", html_)
+    return len(text) < 150 and re.search(r"\bv\.\s", text) is not None
+
+
+def is_root(html_: str) -> bool:
+    """Whether an entry is a root that only introduces the words after it
+    (`קעקע (√ of foll.; …)`)."""
+    return "√ of foll" in re.sub(r"<[^>]+>", "", html_)[:80]
+
+
+def is_verb(entry: dict[str, Any]) -> bool:
+    """Whether an entry is a verb: by Open Scriptures' part of speech, else
+    by `vb.` at the start of Sefaria's text."""
+    if entry.get("pos"):
+        return str(entry["pos"]).startswith("vb")
+    return re.search(r"\bvb\.", re.sub(r"<[^>]+>", "", entry["html"])[:80]) is not None
+
+
+def cited_verses(entries: list[dict[str, Any]]) -> dict[str, set[str]]:
+    """Per entry the verses its text cites (OSIS, as `Gen.3.6`)."""
+    return {
+        e["id"]: {
+            r
+            for r in re.findall(r'data-osis="([^"]+)"', e["html"])
+            if r.count(".") == 2
+        }
+        for e in entries
+    }
+
+
+def citation_score(cited: set[str], verses: set[str]) -> tuple[float, int]:
+    """How well an entry's cited verses fit a lexeme's verses: the share of
+    the cited verses with the lexeme times the share of the lexeme's verses
+    cited (a root entry cites hundreds of verses, so it shouldn't win by
+    chance), and the number of verses both have."""
+    hits = len(cited & verses)
+    if not hits:
+        return (0.0, 0)
+    return (hits / len(cited) * hits / len(verses), hits)
+
+
+def by_citations(
+    current: list[str],
+    candidates: list[str],
+    verses: set[str],
+    cited: dict[str, set[str]],
+) -> list[str] | None:
+    """The entries of a lexeme when a candidate other than the linked entry
+    cites its verses clearly better (at least `CITED` of them, or all if the
+    lexeme has fewer, and `BETTER` times the score), else None. The chosen entry comes first; of the others
+    only those that cite one of its verses stay."""
+    main = current[0]
+    mine = citation_score(cited.get(main, set()), verses)[0]
+    best, bestScore = None, (0.0, 0)
+    for c in candidates:
+        if c == main:
+            continue
+        score = citation_score(cited.get(c, set()), verses)
+        if score > bestScore:
+            best, bestScore = c, score
+    enough = min(CITED, len(verses))
+    if best is None or bestScore[1] < enough or bestScore[0] < BETTER * mine:
+        return None
+    rest = [
+        c
+        for c in current
+        if c != best and citation_score(cited.get(c, set()), verses)[1]
+    ]
+    return [best, *rest]
+
+
 def links(
     api: Any,
     verses: dict[tuple[str, int, int], list[link.Segment]],
     aug: dict[str, str],
     index: dict[str, link.IndexEntry],
     fixed: dict[str, list[str]],
+    entries: list[dict[str, Any]] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Per lexeme (`<language> <lex>`) the BDB entries it links to, with how
-    the link was made."""
-    F = api.F
+    the link was made: `oshb`, `cited` (another entry cites its verses
+    better, `by_citations`; among the entries its lemmas lead to and those
+    with its consonants, in its language, verbs for verbs and other words
+    for other words) or `manual`."""
+    F, L, T = api.F, api.L, api.T
     counts = link.lemma_counts(api, verses)
+    cited = cited_verses(entries or [])
+    language = {e["id"]: e["lexicon"] for e in entries or []}
+    verb = {e["id"]: is_verb(e) for e in entries or []}
+    # an entry that only refers to another or introduces a root may stay,
+    # but doesn't replace another
+    minor = {
+        e["id"]
+        for e in entries or []
+        if is_cross_reference(e["html"]) or is_root(e["html"])
+    }
+    byConsonants: dict[tuple[str, str], list[str]] = {}
+    for e in entries or []:
+        cons = bdb.headword_consonants(e["headword"])
+        byConsonants.setdefault((e["lexicon"], cons), []).append(e["id"])
     result: dict[str, dict[str, Any]] = {}
     for node in F.otype.s("lex"):
         node = int(node)
@@ -386,12 +487,34 @@ def links(
         total = sum(n for (_, n) in found)
         if key in fixed:
             result[key] = {"entries": fixed[key], "how": "manual"}
-        elif found:
-            result[key] = {
-                "entries": [e for (e, n) in found if n >= SHARE * total],
-                "share": round(found[0][1] / total, 3),
-                "how": "oshb",
-            }
+            continue
+        if not found:
+            continue
+        result[key] = {
+            "entries": [e for (e, n) in found if n >= SHARE * total],
+            "share": round(found[0][1] / total, 3),
+            "how": "oshb",
+        }
+        if not cited:
+            continue
+        lang = "arc" if F.language.v(node) == "Aramaic" else "heb"
+        cons = link.etcbc_consonants(F.lex.v(node) or "")
+        candidates = [
+            c
+            for c in [e for (e, _) in found] + byConsonants.get((lang, cons), [])
+            if language.get(c) == lang
+            and verb[c] == (F.sp.v(node) == "verb")
+            and c not in minor
+        ]
+        lexVerses = set()
+        for w in L.d(node, "word"):
+            book, chapter, verse = T.sectionFromNode(w, lang="en")
+            lexVerses.add(f"{canonical_book(book)}.{chapter}.{verse}")
+        better = by_citations(result[key]["entries"], candidates, lexVerses, cited)
+        if better is not None:
+            result[key]["was"] = result[key]["entries"][0]
+            result[key]["entries"] = better
+            result[key]["how"] = "cited"
     return result
 
 
@@ -428,6 +551,7 @@ def check(
     return {
         "lexemes": len(F.otype.s("lex")),
         "linked": len(linked),
+        "linked by citations": sum(1 for v in linked.values() if v["how"] == "cited"),
         "unlinked": unlinked,
         "entries without text that lexemes link to": textless,
         "references": sum(e["refs"] for e in entries),
@@ -449,7 +573,7 @@ def build(
     if client is None:
         client = sefaria.Client(Path(cache).expanduser() / "sefaria")
     api = Fabric(locations=str(Path(corpus).expanduser()), silent="deep").load(
-        "g_cons lex language freq_lex book@en", silent="deep"
+        "g_cons lex language freq_lex sp book@en", silent="deep"
     )
     if not api:
         raise BuildError(f"Could not load the corpus in {corpus}")
@@ -461,7 +585,9 @@ def build(
         verses.update(link.read_oshb(paths[f"{b}.xml"]))
 
     allEntries, figures = entries(client, ours, index, progress)
-    linked = links(api, verses, aug, index, resolved(corrections(), allEntries))
+    linked = links(
+        api, verses, aug, index, resolved(corrections(), allEntries), allEntries
+    )
     allEntries += missing(ours, allEntries, linked, index)
     figures.update(check(api, allEntries, linked))
     for e in allEntries:

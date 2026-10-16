@@ -36,3 +36,8 @@ Hebrew KRWB=/:
   entries: ["BDB, כְּרוּב"]  # I. Kerub, the place in Babylonia (Ezr 2:59)
 Hebrew XSN[:
   entries: ["BDB, חָסַן"]  # be treasured up (Is 23:18)
+
+# Where BDB's citations mislead `by_citations`.
+Hebrew >T=:
+  entries: [a.er.ad, a.er.ac]  # אַתְּ (cites a few of its 57 verses, "+ 50
+  # times"), not אתי, the ketiv's spelling, which cites all of its 7
