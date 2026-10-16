@@ -5,6 +5,7 @@ test; the corpus is the miniature BHSA of `test_lexicon.py`."""
 import gzip
 import hashlib
 import json
+import time
 from dataclasses import replace
 from pathlib import Path
 
@@ -139,17 +140,35 @@ class TestManage:
         assert not manage.is_added(bdb, root)
 
     def test_not_published(self, tmp_path):
+        unpublished = replace(manage.DICTIONARIES["bdb"], url=None, sha256=None)
         with pytest.raises(DownloadError):
-            manage.add(manage.DICTIONARIES["bdb"], tmp_path)
+            manage.add(unpublished, tmp_path)
+
+    def test_published(self):
+        bdb = manage.DICTIONARIES["bdb"]
+        assert bdb.url and bdb.url.startswith("https://github.com/Context-Fabric/bdb/")
+        assert bdb.sha256 and len(bdb.sha256) == 64
 
 
 @pytest.fixture
-def setup(tmp_path):
+def setup(tmp_path, monkeypatch):
     root = tmp_path / "corpora"
     write_tf(root / "Hebrew" / "bible" / "tf" / "1.0")
     roots = (str(root),)
     service = CorpusService([resolve_corpus("Hebrew/bible", roots)], roots=roots)
-    jobs = manage.DictionaryJobs(tmp_path / "dictionaries")
+    # BDB "published" at a file of the test; downloads read it, never the network
+    published = write_dictionary(tmp_path / "published" / "bdb.json.gz")
+    sha = hashlib.sha256(published.read_bytes()).hexdigest()
+    monkeypatch.setitem(
+        manage.DICTIONARIES,
+        "bdb",
+        replace(manage.DICTIONARIES["bdb"], url="https://example.org/bdb", sha256=sha),
+    )
+
+    def fetch(url, target, report):
+        target.write_bytes(published.read_bytes())
+
+    jobs = manage.DictionaryJobs(tmp_path / "dictionaries", fetcher=fetch)
     app = create_app(service, SearchPool([]), manage_pool=False, dictionaries=jobs)
     with TestClient(app) as client:
         yield client, tmp_path
@@ -164,12 +183,10 @@ class TestRoutes:
     def test_without_the_dictionary(self, setup):
         client, _ = setup
         [bdb] = client.get("/api/dictionaries").json()["dictionaries"]
-        assert bdb["id"] == "bdb" and not bdb["added"] and not bdb["available"]
+        assert bdb["id"] == "bdb" and not bdb["added"] and bdb["available"]
         entry = client.get(f"/api/corpora/bible/lexicon/{node_of(client, 'BR>[')}")
         assert entry.json()["bdb"] is None
         assert client.get("/api/dictionaries/bdb/entries/b.aa.aa").status_code == 404
-        # not published yet: can't be downloaded
-        assert client.post("/api/dictionaries/bdb").status_code == 409
         assert client.delete("/api/dictionaries/bdb").status_code == 404
         assert client.get("/api/dictionaries/xyz").status_code == 404
 
@@ -246,3 +263,29 @@ def test_interlinear_line(setup):
     words = {w["node"]: w["lines"] for v in found.json()["verses"] for w in v["words"]}
     assert words[3]["bdb"] == "shape, create"
     assert "bdb" not in words[1]
+
+
+def test_add_from_the_library(setup):
+    client, _ = setup
+    started = client.post("/api/dictionaries/bdb")
+    assert started.status_code == 202
+    for _ in range(100):
+        bdb = client.get("/api/dictionaries/bdb").json()
+        if bdb["job"] and bdb["job"]["state"] != "running":
+            break
+        time.sleep(0.05)
+    assert bdb["job"]["state"] == "done" and bdb["added"]
+    assert bdb["abbreviations"] == {"Gn": "Genesis"}
+
+
+def test_not_published_from_the_library(setup, monkeypatch):
+    client, _ = setup
+    monkeypatch.setitem(
+        manage.DICTIONARIES,
+        "bdb",
+        replace(manage.DICTIONARIES["bdb"], url=None, sha256=None),
+    )
+    assert client.post("/api/dictionaries/bdb").status_code == 409
+    assert (
+        client.get("/api/dictionaries").json()["dictionaries"][0]["available"] is False
+    )
