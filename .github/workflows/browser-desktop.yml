@@ -146,12 +146,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          sparse-checkout: libs/browser/packaging/RELEASE_NOTES.md
+          sparse-checkout: |
+            libs/browser/packaging/RELEASE_NOTES.md
+            libs/browser/packaging/mcpb
           sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@v4
         with:
           path: out
           merge-multiple: true
+      # the Claude Desktop extension, which reaches the running program
+      - run: python3 libs/browser/packaging/mcpb/pack.py out/Context-Fabric.mcpb
       - run: ls -l out
       # desktop-v0.1.0-test.2 is released as "Context-Fabric 0.1.0-test.2"
       - id: version

@@ -10,9 +10,13 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from mcp.server.fastmcp.server import StreamableHTTPASGIApp
+from starlette.routing import Route
 
 from cfabric_browser import __version__
 from cfabric_browser.api import build_router
+from cfabric_browser.assistant.mcp import build_server as build_mcp
+from cfabric_browser.assistant.mcp import local
 from cfabric_browser.assistant.tools import Tools
 from cfabric_browser.corpora import CorpusService
 from cfabric_browser.dictionaries.manage import DictionaryJobs
@@ -89,12 +93,18 @@ def create_app(
         one, nothing can propose.
     """
 
+    # searching in plain language: the tools, also as an MCP server at /mcp
+    tools = assistant if assistant is not None else Tools(service, pool)
+    mcpServer = build_mcp(local(tools))
+    mcpServer.streamable_http_app()  # makes its session manager
+
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if manage_pool:
             pool.start(wait=False)
         try:
-            yield
+            async with mcpServer.session_manager.run():
+                yield
         finally:
             if manage_pool:
                 pool.shutdown()
@@ -112,9 +122,13 @@ def create_app(
             translations=translations,
             downloads=downloads,
             dictionaries=dictionaries,
-            assistant=assistant,
+            assistant=tools,
             secret=secret,
         )
+    )
+    # before the interface's catch-all route
+    app.router.routes.insert(
+        0, Route("/mcp", endpoint=StreamableHTTPASGIApp(mcpServer.session_manager))
     )
 
     try:

@@ -197,6 +197,20 @@ Queries use Text-Fabric's search template language, run by Context-Fabric's sear
 
 Problems in a template are reported per line. That includes problems inside quantifiers such as `/without/`, which the engine itself only logs, and then returns results as if the quantifier excluded nothing.
 
+## Asking in your own words
+
+You can ask your own AI app (with your own subscription) for a search in plain language, for instance *all cases of >LHJM/ in the BHSA*. The model writes a search template, checks it with a small trial search, and sends it to the browser. There it appears above the search form, in Panes, Parallel and the Concordance, with your request, the template, the model's explanation and the trial's count: *Run* runs it, *Edit* puts it in the editor first, *Dismiss* drops it. Nothing runs by itself, and the results always come from the browser's own search, never from the model's text. Where a search came from stays with it: in its link, the workspace and the citation ("Proposed by Claude, 16 October 2026, for: …", with *(edited)* when you changed the template).
+
+The browser serves its tools over MCP; the app connects to it while the browser runs:
+
+- **Claude Code:** `claude mcp add --transport http context-fabric http://127.0.0.1:8107/mcp` (8107 is the browser's usual port; with `--port`, use that one). Or, whatever the port: `claude mcp add context-fabric -- cfabric-browser mcp`.
+- **Claude Desktop:** install the extension `Context-Fabric.mcpb` (from the release, or `python packaging/mcpb/pack.py`) by opening it, or in *Settings → Extensions*. Or add to `claude_desktop_config.json`: `"mcpServers": {"context-fabric": {"command": "cfabric-browser", "args": ["mcp"]}}` (the standalone program works too: its path, with `mcp`).
+- **Antigravity CLI** (Google's successor of Gemini CLI): in `~/.gemini/config/mcp_config.json`, `"mcpServers": {"context-fabric": {"command": "cfabric-browser", "args": ["mcp"]}}`.
+
+`cfabric-browser mcp` passes each message on to the running browser (found in `~/.cfabric/running.json`, which the browser writes when it starts) and starts one if none runs. The tools: `list_corpora`, `corpus_guide`, `describe_corpus`, `list_features`, `describe_feature`, `search_syntax_guide`, `check_template`, `try_search` (the count up to 10,000 within 20 s and a few examples, with hints when there are none) and `propose_search`. `/mcp` only answers on 127.0.0.1 and refuses requests from web pages, so other sites in your web browser can't use it.
+
+What you ask goes to the AI company of your app; the corpora stay on your computer, apart from the few examples the model sees in its trial searches.
+
 ## Words
 
 Hovering over a word shows a card with its essentials: gloss, lexeme, transliteration, part of speech and morphology (stem, tense, person, gender, number, state, suffix), in words rather than codes, and, with *Show differences*, what it differs from. Each is read from the first feature of its role that has a value; values such as `NA` and `absent` are left out (`cfabric_browser/summary.py`). The DSS has its own analysis and the ETCBC's (features ending in `_etcbc`, as in the BHSA): the ETCBC's comes first (e.g. `sp_etcbc`, which tells prepositions and proper nouns apart), the DSS's own where the ETCBC has nothing. The DSS has no glosses: they come from the lexicon of another open corpus (the BHSA), by the word's ETCBC lexeme and language (`lex_etcbc`, `lang_etcbc`), marked `· bhsa`. Clicking a word opens the inspector with the same essentials, all other features (folded away; without empty values, and without the `g_` features unless asked for), its relations and what it lies in.
@@ -255,6 +269,9 @@ All functions of the interface are available as a JSON API; interactive document
 | `GET /api/downloads[/{org}/{repo}]`, `POST`/`DELETE /api/downloads/{org}/{repo}` | Corpora that can be downloaded, whether they are here, and the progress of a download (`job`: download, unpack, prepare); start or cancel one |
 | `GET /api/translations[/{t}]` | Translations that can be added, whether they are, and the progress of adding one (`job`) |
 | `POST /api/translations/{t}`, `DELETE /api/translations/{t}` | Add a translation (download and build it, in the background), or remove it |
+| `GET /api/proposals`, `GET /api/proposals/events` | Searches proposed by a language model, newest first; server-sent events whenever they change |
+| `POST /api/proposals` (needs `X-Cfabric-Secret`), `POST /api/proposals/{id}` | Propose a search; mark one `run` or `dismissed` |
+| `POST /mcp` | The tools for a language model, as an MCP server (Streamable HTTP, stateless); only on 127.0.0.1, not from web pages |
 | `GET /api/dictionaries[/{d}]` | Dictionaries that can be added (BDB), whether they are, and the progress of adding one; one of them with its metadata and abbreviations |
 | `POST /api/dictionaries/{d}`, `DELETE /api/dictionaries/{d}` | Download a dictionary (in the background), or remove it |
 | `GET /api/dictionaries/{d}/entries/{id}?corpus=` | An entry: its text, neighbours and root family, with the lexemes of `corpus` linked to them and its verses as references there |

@@ -59,6 +59,9 @@ def show_error(message: str) -> None:
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["mcp"]:
+        # started by an AI app (Claude Desktop): stdout carries its messages
+        sys.exit(main(["mcp"]))
     logged = log_to_file()
     # In a frozen program, each search worker starts the program again; this
     # turns that start into the worker instead of a second window.
