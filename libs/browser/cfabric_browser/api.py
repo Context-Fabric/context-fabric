@@ -33,6 +33,7 @@ from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from cfabric_browser import formats
+from cfabric_browser.assistant.tools import ToolError, Tools
 from cfabric_browser.compare import (
     compare_passages,
     compare_three,
@@ -85,6 +86,20 @@ class OpenRequest(BaseModel):
     name: str | None = Field(default=None, description="Name to show it under")
 
 
+class ProposalRequest(BaseModel):
+    """A search proposed by a language model."""
+
+    corpus: str
+    template: str
+    request: str = Field(description="The user's request in their own words")
+    explanation: str = ""
+    model: str | None = None
+
+
+class ProposalState(BaseModel):
+    state: Literal["new", "run", "dismissed"]
+
+
 class SearchRequest(BaseModel):
     template: str
     language: str = Field(default="cf-template", description=f"One of {LANGUAGES}")
@@ -130,8 +145,12 @@ def build_router(
     translations: Jobs | None = None,
     downloads: DownloadJobs | None = None,
     dictionaries: DictionaryJobs | None = None,
+    assistant: Tools | None = None,
+    secret: str | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api")
+    # searching in plain language: the model's tools, and its proposals
+    tools = assistant if assistant is not None else Tools(service, pool)
     # dictionaries (BDB): downloaded into ~/.cfabric/dictionaries, read when
     # first needed
     lookups = dictionaries if dictionaries is not None else DictionaryJobs()
@@ -1133,6 +1152,58 @@ def build_router(
         job = search_job(search_id)
         pool.cancel(search_id)
         return job.snapshot()
+
+    # searches proposed by a language model (cfabric_browser.assistant)
+
+    @router.get("/proposals")
+    def list_proposals() -> dict[str, Any]:
+        """The proposals, the newest first."""
+        return tools.proposals.snapshot()
+
+    @router.post("/proposals")
+    def add_proposal(body: ProposalRequest, request: Request) -> dict[str, Any]:
+        """Propose a search (the model's `propose_search`); needs the secret
+        of this browser (`X-Cfabric-Secret`), so that other web pages can't."""
+        if secret is None or request.headers.get("x-cfabric-secret") != secret:
+            raise HTTPException(403, "Proposals need this browser's secret")
+        try:
+            return tools.propose_search(
+                body.corpus, body.template, body.request, body.explanation, body.model
+            )
+        except ToolError as e:
+            raise HTTPException(404, str(e)) from None
+
+    @router.post("/proposals/{pid}")
+    def set_proposal(pid: str, body: ProposalState) -> dict[str, Any]:
+        """The user ran or dismissed a proposal."""
+        found = tools.proposals.set_state(pid, body.state)
+        if found is None:
+            raise HTTPException(404, f"No proposal {pid}")
+        return found
+
+    @router.get("/proposals/events")
+    async def proposal_events(request: Request) -> StreamingResponse:
+        """Server-sent events with all proposals whenever they change."""
+        store = tools.proposals
+
+        async def stream():
+            version = -1
+            while True:
+                if await request.is_disconnected():
+                    return
+                now = await to_thread.run_sync(store.wait_change, version, 5.0)
+                if now != version:
+                    version = now
+                    yield f"event: proposals\ndata: {json.dumps(store.snapshot())}\n\n"
+                else:
+                    # keeps the connection open through proxies
+                    yield ": waiting\n\n"
+
+        return StreamingResponse(
+            stream(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     @router.get("/searches/{search_id}/events")
     async def search_events(search_id: str, request: Request) -> StreamingResponse:

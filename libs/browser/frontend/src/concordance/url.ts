@@ -9,6 +9,8 @@ export interface Concordance {
   /** The search template, and the search (its id on the server). */
   q: string;
   s: string | null;
+  /** Where the search came from, if a model proposed it (`shared/asked.ts`). */
+  ask: string | null;
   /** `<position>.<feature>`: hit.text, L1.lex, R2.sp; null: in result order. */
   sort: string | null;
   /** Features of the hit's first word that results must have. */
@@ -42,6 +44,7 @@ export function parseConcordance(location: { pathname: string; search: string })
     corpus: corpus ?? null,
     q: p.get("q") ?? "",
     s: p.get("s"),
+    ask: p.get("ask"),
     sort: p.get("sort"),
     filters: (p.get("f") ?? "")
       .split(",")
@@ -64,6 +67,7 @@ export function serializeConcordance(state: Concordance): string {
   const p = new URLSearchParams();
   if (state.q) p.set("q", state.q);
   if (state.s) p.set("s", state.s);
+  if (state.ask) p.set("ask", state.ask);
   if (state.sort) p.set("sort", state.sort);
   if (state.filters.length) p.set("f", filterParam(state.filters));
   if (state.per === "verse") p.set("per", "verse");

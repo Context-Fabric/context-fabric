@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from cfabric_browser import __version__
 from cfabric_browser.api import build_router
+from cfabric_browser.assistant.tools import Tools
 from cfabric_browser.corpora import CorpusService
 from cfabric_browser.dictionaries.manage import DictionaryJobs
 from cfabric_browser.downloads import DownloadJobs
@@ -44,6 +45,8 @@ def create_app(
     downloads: DownloadJobs | None = None,
     ask_downloads: bool = False,
     dictionaries: DictionaryJobs | None = None,
+    assistant: Tools | None = None,
+    secret: str | None = None,
 ) -> FastAPI:
     """Build the application.
 
@@ -78,6 +81,12 @@ def create_app(
     dictionaries: DictionaryJobs | None
         Where dictionaries (BDB) are kept (`cfabric_browser.dictionaries`); by
         default `~/.cfabric/dictionaries`.
+    assistant: Tools | None
+        The tools of searching in plain language and their proposals
+        (`cfabric_browser.assistant`); by default on these corpora and pool.
+    secret: str | None
+        What a language model's tools must send to propose a search; without
+        one, nothing can propose.
     """
 
     @asynccontextmanager
@@ -103,6 +112,8 @@ def create_app(
             translations=translations,
             downloads=downloads,
             dictionaries=dictionaries,
+            assistant=assistant,
+            secret=secret,
         )
     )
 

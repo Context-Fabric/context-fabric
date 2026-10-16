@@ -1,4 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
+import { decodeAsked, encodeAsked } from "../shared/asked";
+import { AskedLine, ProposalCard } from "../shared/Proposals";
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../api";
 import { displayRef } from "../display/Display";
@@ -232,15 +234,20 @@ export function ParallelSearch({
     enabled: corpus !== null,
   });
 
-  const run = async () => {
-    if (!corpus || !template.trim()) return;
+  // `given`: a proposal's template and corpus, instead of the form's
+  const run = async (given?: { template: string; corpus: string; ask: string | null }) => {
+    const where = given?.corpus ?? corpus;
+    const query = given?.template ?? template;
+    if (!where || !query.trim()) return;
     setStarting(true);
     setProblems([]);
     try {
-      const started = await api.search(corpus, template);
-      setHistory(remember(corpus, template));
+      const started = await api.search(where, query);
+      setHistory(remember(where, query));
       setTab("results");
-      onSearch({ sc: corpus, q: template, s: started.id });
+      // a template made from search terms is not the proposal any more
+      const ask = given ? given.ask : byHand ? search.ask : null;
+      onSearch({ sc: where, q: query, s: started.id, ask });
     } catch (e) {
       if (e instanceof ApiError && e.problems.length) setProblems(e.problems);
       else setProblems([{ kind: "error", line: null, message: String(e instanceof Error ? e.message : e) }]);
@@ -270,6 +277,18 @@ export function ParallelSearch({
   return (
     <div className="grid h-full min-h-0 grid-cols-1 md:grid-cols-[minmax(19rem,24rem)_1fr]">
       <aside className="flex max-h-[50vh] min-h-0 flex-col gap-4 overflow-y-auto border-b border-rule p-4 md:max-h-none md:border-b-0 md:border-e">
+        <ProposalCard
+          corpora={shown}
+          onRun={(p, asked) => {
+            setByHand(true);
+            void run({ template: p.template, corpus: p.corpus, ask: encodeAsked(asked) });
+          }}
+          onEdit={(p, asked) => {
+            setByHand(true);
+            onSearch({ sc: p.corpus, q: p.template, s: null, ask: encodeAsked(asked) }, false);
+          }}
+        />
+        {byHand ? <AskedLine asked={decodeAsked(search.ask)} template={search.q} /> : null}
         <label className="flex items-center gap-2 text-[14px]">
           <span className="text-stone">Search in</span>
           <select
@@ -316,7 +335,7 @@ export function ParallelSearch({
             typeCounts={Object.fromEntries(card.nodeTypes.map((t) => [t.type, t.count]))}
             features={features?.features ?? []}
             onChange={(q) => onSearch({ q }, false)}
-            onRun={run}
+            onRun={() => void run()}
           />
         ) : (
           <>
@@ -402,7 +421,7 @@ export function ParallelSearch({
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={run}
+            onClick={() => void run()}
             disabled={starting || running || !template.trim()}
             className="rounded bg-woad px-4 py-1.5 text-[14px] font-semibold text-vellum disabled:opacity-50"
           >
@@ -445,6 +464,7 @@ export function ParallelSearch({
               corpus={statusCard}
               tab={tab}
               onTab={setTab}
+              ask={search.ask}
             />
             <div className="min-h-0 flex-1 overflow-y-auto">
               {status.count > 0 && tab === "stats" ? (

@@ -184,3 +184,11 @@ body {
   font-size: 1.25em;
   line-height: 1;
 }
+
+/* templates are code: `lex=>LHJM/` must not become an arrow */
+.font-mono,
+code,
+pre,
+.cm-editor {
+  font-variant-ligatures: none;
+}

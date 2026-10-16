@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { displayRef } from "./display/Display";
+import { describeAsked, type Asked } from "./shared/asked";
 import type { CorpusCard } from "./types";
 
 // A citation for what you are looking at: the passage, or the search with its
@@ -35,9 +36,11 @@ export function citeSearch(
   truncated: boolean,
   software: string,
   date: string,
+  asked: Asked | null = null,
 ): string {
   const results = `${count.toLocaleString("en-US")}${truncated ? " (stopped at the limit)" : ""} results`;
-  return `Search in ${corpusLine(corpus)}\nTemplate:\n${template.trim()}\n${results}, found with ${software}, ${date}.`;
+  const proposed = asked ? `\n${describeAsked(asked, template)}.` : "";
+  return `Search in ${corpusLine(corpus)}\nTemplate:\n${template.trim()}\n${results}, found with ${software}, ${date}.${proposed}`;
 }
 
 interface Props {
