@@ -8,8 +8,9 @@ not what is expected:
     OSHB's books, at pinned commits, the lexicon files by checksum.
 2.  Sefaria's two lexicons, walked entry by entry (`sefaria.walk`; from its
     cache after the first time), and its list of abbreviations.
-3.  `join` Sefaria's entries to Open Scriptures' ids; `clean` their HTML;
-    references to other entries become their ids.
+3.  `join` Sefaria's entries to Open Scriptures' ids, then the joins of
+    `joins.yaml`; `clean` their HTML; references to other entries become
+    their ids.
 4.  Link the corpus' lexemes: align its words with the OSHB per verse, count
     the BDB entries their lemmas lead to, then apply `corrections.yaml`.
 5.  `check`, and write the file with its metadata.
@@ -104,6 +105,14 @@ OSHB_BOOKS = (
 SHARE = 0.1
 # lexemes this frequent must be linked to an entry with text
 FREQUENT = 10
+# 22 of Sefaria's entries stop after the gender, as `[אֶ֫שֶׁר, or אָשָׁר] n.[m.`
+CUT = re.compile(r"\[(?:m|f)\.\??(?: or f\.)?$")
+
+
+def _cut(raw: str) -> bool:
+    """Whether Sefaria's text of an entry stops short."""
+    return CUT.search(re.sub(r"<[^>]+>", "", raw).strip()) is not None
+
 
 Progress = Callable[[str, int, int], None]
 
@@ -146,16 +155,26 @@ def fetch_sources(
     return paths, sums
 
 
+def _package_yaml(name: str) -> dict[Any, Any]:
+    text = (
+        resources.files("cfabric_browser.dictionaries")
+        .joinpath(name)
+        .read_text(encoding="utf-8")
+    )
+    return yaml.safe_load(text) or {}
+
+
 def corrections() -> dict[str, list[str]]:
     """Links made by hand: `<language> <lex>` → entry ids (the first is the
     main entry), from `corrections.yaml`."""
-    text = (
-        resources.files("cfabric_browser.dictionaries")
-        .joinpath("corrections.yaml")
-        .read_text(encoding="utf-8")
-    )
-    data = yaml.safe_load(text) or {}
+    data = _package_yaml("corrections.yaml")
     return {str(k): [str(i) for i in v["entries"]] for (k, v) in data.items()}
+
+
+def joins() -> dict[str, str]:
+    """Joins made by hand: Sefaria's reference (`BDB, אֶלְקֹשִׁי`) → Open
+    Scriptures' id, from `joins.yaml`."""
+    return {str(k): str(v) for (k, v) in _package_yaml("joins.yaml").items()}
 
 
 def abbreviations(client: sefaria.Client) -> dict[str, str]:
@@ -178,17 +197,17 @@ def entries(
     ours: list[bdb.Entry],
     index: dict[str, link.IndexEntry],
     progress: Progress | None = None,
+    byHand: dict[str, str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """BDB's entries with Sefaria's text joined to Open Scriptures' ids, in
-    BDB's order (Hebrew, then Aramaic), and figures about the join."""
-    numbers: dict[str, tuple[set[str], set[str]]] = {}
-    for ix in index.values():
-        if ix.bdb:
-            strongs, twots = numbers.setdefault(ix.bdb, (set(), set()))
-            if ix.strong:
-                strongs.add(ix.strong)
-            if ix.twot:
-                twots.add(ix.twot)
+    BDB's order (Hebrew, then Aramaic), and figures about the join. `byHand`
+    (Sefaria's reference → id) replaces what the join did with either side:
+    for entries it leaves out, and for neighbours with the same consonants
+    (a homonym, a root, a cross reference) that it takes for each other."""
+    byHand = joins() if byHand is None else byHand
+    if len(set(byHand.values())) < len(byHand):
+        raise BuildError("joins.yaml: an id is joined twice")
+    numbers = _numbers(index)
 
     result: list[dict[str, Any]] = []
     figures: dict[str, Any] = {}
@@ -206,10 +225,28 @@ def entries(
             [bdb.headword_consonants(e["headword"]) for e in theirs],
         )
         byTheirs = {j: mine[i] for (i, j) in pairs.items()}
+        joined = len(pairs)
+        refs = {f"{book}, {e['headword']}": j for (j, e) in enumerate(theirs)}
+        positions = {e.id: i for (i, e) in enumerate(mine)}
+        for ref, oid in byHand.items():
+            if not ref.startswith(f"{book}, "):
+                continue
+            j, i = refs.get(ref), positions.get(oid)
+            if j is None or i is None:
+                raise BuildError(f"joins.yaml: no entry {ref if j is None else oid}")
+            if j in byTheirs:
+                del pairs[positions[byTheirs.pop(j).id]]
+            if i in pairs:
+                del byTheirs[pairs.pop(i)]
+            byTheirs[j] = mine[i]
+            pairs[i] = j
+        incomplete = [f"{book}, {e['headword']}" for e in theirs if _cut(e["html"])]
         figures[book] = {
             "sefaria": len(theirs),
             "openscriptures": len(mine),
-            "joined": len(pairs),
+            "joined": joined,
+            "joined by hand": sum(1 for r in byHand if r.startswith(f"{book}, ")),
+            "incomplete at Sefaria": incomplete,
         }
         for j, e in enumerate(theirs):
             try:
@@ -225,6 +262,7 @@ def entries(
                     "headword": e["headword"],
                     "ref": f"{book}, {e['headword']}",
                     "html": cleaned.html,
+                    "incomplete": bool(_cut(e["html"])),
                     "refs": len(cleaned.refs),
                     "unknownRefs": cleaned.unknown,
                     "pos": os.pos if os else None,
@@ -251,6 +289,77 @@ def entries(
         entry["html"] = re.sub(r'<a data-entry="([^"]*)">', resolve, entry["html"])
     figures["unresolved cross references"] = unresolved
     return result, figures
+
+
+def _numbers(
+    index: dict[str, link.IndexEntry],
+) -> dict[str, tuple[set[str], set[str]]]:
+    """Per entry id its Strong's and TWOT numbers."""
+    numbers: dict[str, tuple[set[str], set[str]]] = {}
+    for ix in index.values():
+        if ix.bdb:
+            strongs, twots = numbers.setdefault(ix.bdb, (set(), set()))
+            if ix.strong:
+                strongs.add(ix.strong)
+            if ix.twot:
+                twots.add(ix.twot)
+    return numbers
+
+
+def missing(
+    ours: list[bdb.Entry],
+    entries: list[dict[str, Any]],
+    linked: dict[str, dict[str, Any]],
+    index: dict[str, link.IndexEntry],
+) -> list[dict[str, Any]]:
+    """Entries that lexemes link to and Sefaria lacks (its text has gaps):
+    Open Scriptures' headword, part of speech and short definitions, without
+    text."""
+    have = {e["id"] for e in entries}
+    wanted = {i for v in linked.values() for i in v["entries"]} - have
+    numbers = _numbers(index)
+    result = []
+    for os in ours:
+        if os.id in wanted:
+            strong, twot = numbers.get(os.id, (set(), set()))
+            result.append(
+                {
+                    "id": os.id,
+                    "lexicon": "arc" if os.aramaic else "heb",
+                    "headword": os.headword,
+                    "ref": None,
+                    "html": "",
+                    "incomplete": True,
+                    "refs": 0,
+                    "unknownRefs": [],
+                    "pos": os.pos,
+                    "defs": os.defs,
+                    "root": os.root,
+                    "section": os.section,
+                    "strong": sorted(strong, key=_number),
+                    "twot": sorted(twot),
+                }
+            )
+    unknown = wanted - {e["id"] for e in result}
+    if unknown:
+        raise BuildError(f"links to entries that don't exist: {sorted(unknown)}")
+    return result
+
+
+def resolved(
+    fixed: dict[str, list[str]], entries: list[dict[str, Any]]
+) -> dict[str, list[str]]:
+    """Corrections with Sefaria's references (`BDB, כְּרוּב`, for entries
+    without an Open Scriptures id) replaced by the entries' ids."""
+    ids = {e["ref"]: e["id"] for e in entries}
+    result = {}
+    for key, targets in fixed.items():
+        result[key] = []
+        for t in targets:
+            if ", " in t and t not in ids:
+                raise BuildError(f"corrections.yaml: no entry {t}")
+            result[key].append(ids.get(t, t))
+    return result
 
 
 def _number(strong: str) -> tuple[int, str]:
@@ -352,7 +461,8 @@ def build(
         verses.update(link.read_oshb(paths[f"{b}.xml"]))
 
     allEntries, figures = entries(client, ours, index, progress)
-    linked = links(api, verses, aug, index, corrections())
+    linked = links(api, verses, aug, index, resolved(corrections(), allEntries))
+    allEntries += missing(ours, allEntries, linked, index)
     figures.update(check(api, allEntries, linked))
     for e in allEntries:
         del e["unknownRefs"]

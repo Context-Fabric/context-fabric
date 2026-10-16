@@ -102,6 +102,13 @@ def test_clean_closes_what_is_open():
     )
 
 
+def test_clean_keeps_bdbs_less_than():
+    raw = "for his error; <Th We Dr; but < Qr <em>x</em>"
+    assert bdb.clean(raw).html == (
+        "for his error; &lt;Th We Dr; but &lt; Qr <em>x</em>"
+    )
+
+
 def test_clean_refuses_unknown_tags():
     with pytest.raises(bdb.CleanError):
         bdb.clean('<img src="x.png">')
@@ -207,7 +214,7 @@ def test_entries_join_and_cross_references(tmp_path: Path):
     path.write_text(BDB_XML, encoding="utf8")
     ours = bdb.read_entries(path)
     client = sefaria.Client(tmp_path / "cache", pause=0, download=fake_sefaria([]))
-    entries, figures = build.entries(client, ours, {})
+    entries, figures = build.entries(client, ours, {}, byHand={})
     byHead = {e["headword"]: e for e in entries}
     # א has no entry in the Open Scriptures file of this test
     assert byHead["א"]["id"] == "s.0"
@@ -217,8 +224,77 @@ def test_entries_join_and_cross_references(tmp_path: Path):
     assert byHead["אָב"]["lexicon"] == "arc"
     # the reference to אֹבֵד became its id
     assert '<a data-entry="a.ac.ab">' in byHead["אָבַד"]["html"]
-    assert figures["BDB"] == {"sefaria": 3, "openscriptures": 2, "joined": 2}
+    assert figures["BDB"] == {
+        "sefaria": 3,
+        "openscriptures": 2,
+        "joined": 2,
+        "joined by hand": 0,
+        "incomplete at Sefaria": [],
+    }
     assert figures["unresolved cross references"] == 0
+
+
+def test_entries_joined_by_hand(tmp_path: Path):
+    # an entry spelled otherwise than Sefaria's and in another place, so the
+    # join leaves it out
+    path = tmp_path / "bdb.xml"
+    path.write_text(
+        BDB_XML.replace(
+            "  </part>\n  <part",
+            '  <section id="a.aa"><entry id="a.aa.aa"><w>אָלֶף</w></entry></section>'
+            "\n  </part>\n  <part",
+            1,
+        ),
+        encoding="utf8",
+    )
+    ours = bdb.read_entries(path)
+    client = sefaria.Client(tmp_path / "cache", pause=0, download=fake_sefaria([]))
+    entries, figures = build.entries(client, ours, {}, byHand={"BDB, א": "a.aa.aa"})
+    assert entries[0]["id"] == "a.aa.aa" and entries[0]["headword"] == "א"
+    assert figures["BDB"]["joined by hand"] == 1
+    # a join by hand replaces the join's for both sides
+    entries, _ = build.entries(client, ours, {}, byHand={"BDB, א": "a.ac.aa"})
+    assert [e["id"] for e in entries[:3]] == ["a.ac.aa", "s.1", "a.ac.ab"]
+    with pytest.raises(build.BuildError):
+        build.entries(client, ours, {}, byHand={"BDB, אַיִן": "a.aa.aa"})
+    with pytest.raises(build.BuildError):
+        build.entries(
+            client, ours, {}, byHand={"BDB, א": "a.aa.aa", "BDB, אָבַד": "a.aa.aa"}
+        )
+
+
+def test_cut_texts():
+    assert build._cut("† [<span>אֶ֫שֶׁר</span>] <strong>n.</strong>[<strong>m.</strong>")
+    assert build._cut("† II. [גְּדוּד] n.[m. or f.")
+    assert not build._cut("† [אָבַד] vb. perish.")
+
+
+def test_corrections_by_sefaria_reference():
+    entries = [{"id": "s.4", "ref": "BDB, כְּרוּב"}, {"id": "k.da.ac", "ref": "x"}]
+    fixed = {"Hebrew KRWB=/": ["BDB, כְּרוּב"], "Hebrew KRWB/": ["k.da.ac"]}
+    assert build.resolved(fixed, entries) == {
+        "Hebrew KRWB=/": ["s.4"],
+        "Hebrew KRWB/": ["k.da.ac"],
+    }
+    with pytest.raises(build.BuildError):
+        build.resolved({"Hebrew X/": ["BDB, אַיִן"]}, entries)
+
+
+def test_missing_entries_come_from_open_scriptures(tmp_path: Path):
+    path = tmp_path / "bdb.xml"
+    path.write_text(BDB_XML, encoding="utf8")
+    ours = bdb.read_entries(path)
+    have = [{"id": "a.ac.aa"}]
+    linked = {"Hebrew >BD[": {"entries": ["a.ac.aa", "a.ac.ab"]}}
+    [extra] = build.missing(ours, have, linked, {})
+    assert extra["id"] == "a.ac.ab" and extra["html"] == "" and extra["incomplete"]
+    assert extra["defs"] == ["destruction"]
+    with pytest.raises(build.BuildError):
+        build.missing(ours, have, {"Hebrew X/": {"entries": ["z.zz.zz"]}}, {})
+
+
+def test_joins_are_read():
+    assert build.joins()["BDB, אֶלְקֹשִׁי"] == "a.du.ac"
 
 
 def test_corrections_are_read():
