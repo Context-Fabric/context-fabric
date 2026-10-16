@@ -1,4 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { decodeAsked, encodeAsked } from "../shared/asked";
+import { AskedLine, ProposalCard } from "../shared/Proposals";
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "../api";
 import { Cite, citeSearch } from "../Cite";
@@ -85,9 +87,11 @@ interface StatusProps {
   tab: Tab;
   /** Without it, the line offers no switch between results and statistics. */
   onTab?: (tab: Tab) => void;
+  /** where the search came from, if a model proposed it, for the citation */
+  ask?: string | null;
 }
 
-export function StatusLine({ status, onCancel, onDownload, corpus, tab, onTab }: StatusProps) {
+export function StatusLine({ status, onCancel, onDownload, corpus, tab, onTab, ask = null }: StatusProps) {
   const seconds = status.elapsed < 10 ? status.elapsed.toFixed(2) : status.elapsed.toFixed(1);
   const results = `${formatCount(status.count)} ${status.count === 1 ? "result" : "results"}`;
   let text: string;
@@ -147,7 +151,7 @@ export function StatusLine({ status, onCancel, onDownload, corpus, tab, onTab }:
         <div className="ms-auto">
           <Cite
             text={(software, date) =>
-              citeSearch(corpus, status.template, status.count, status.truncated, software, date)
+              citeSearch(corpus, status.template, status.count, status.truncated, software, date, decodeAsked(ask))
             }
           />
         </div>
@@ -188,6 +192,10 @@ interface Props {
   settings: ViewSettings;
   onTemplate: (template: string) => void;
   onSearch: (id: string | null) => void;
+  /** where the search came from, if a model proposed it (`shared/asked.ts`) */
+  ask?: string | null;
+  /** a proposal taken: its template, and where it came from */
+  onProposal?: (template: string, ask: string | null) => void;
   onExpand: (index: number | null) => void;
   onOpenPassage: (ref: string) => void;
   /** Other open corpora, which "Search all corpora" also searches. */
@@ -241,6 +249,7 @@ function OtherCount({
               search: status.id,
               result: null,
               lex: null,
+              ask: null,
             })
           }
           className="shrink-0 text-[13px] text-woad hover:underline"
@@ -265,6 +274,8 @@ export function SearchView({
   otherCorpora = [],
   onOpenPane,
   compact = false,
+  ask = null,
+  onProposal,
 }: Props) {
   const status = useSearchStatus(searchId);
   const gone = useSearchGone(searchId);
@@ -279,13 +290,15 @@ export function SearchView({
     queryFn: () => api.features(corpus.name),
   });
 
-  const run = useCallback(async () => {
-    if (!template.trim()) return;
+  // `given`: a template to run instead of the editor's (a proposal)
+  const run = useCallback(async (given?: string) => {
+    const query = typeof given === "string" ? given : template;
+    if (!query.trim()) return;
     setStarting(true);
     setProblems([]);
     try {
-      const started = await api.search(corpus.name, template);
-      setHistory(remember(corpus.name, template));
+      const started = await api.search(corpus.name, query);
+      setHistory(remember(corpus.name, query));
       onSearch(started.id);
     } catch (e) {
       if (e instanceof ApiError && e.problems.length) setProblems(e.problems);
@@ -339,7 +352,18 @@ export function SearchView({
           compact ? "max-h-[45vh] border-b" : "md:border-e"
         }`}
       >
+        {onProposal ? (
+          <ProposalCard
+            corpora={[corpus.name]}
+            onRun={(p, asked) => {
+              onProposal(p.template, encodeAsked(asked));
+              void run(p.template);
+            }}
+            onEdit={(p, asked) => onProposal(p.template, encodeAsked(asked))}
+          />
+        ) : null}
         <h2 className="text-[13px] text-stone">Search template</h2>
+        <AskedLine asked={decodeAsked(ask)} template={template} />
         <QueryEditor
           corpus={corpus.name}
           value={template}
@@ -347,12 +371,12 @@ export function SearchView({
           typeCounts={Object.fromEntries(corpus.nodeTypes.map((t) => [t.type, t.count]))}
           features={features?.features ?? []}
           onChange={onTemplate}
-          onRun={run}
+          onRun={() => void run()}
         />
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={run}
+            onClick={() => void run()}
             disabled={starting || running || !template.trim()}
             className="rounded bg-woad px-4 py-1.5 text-[14px] font-semibold text-vellum disabled:opacity-50"
           >
@@ -416,6 +440,7 @@ export function SearchView({
               corpus={corpus}
               tab={tab}
               onTab={setTab}
+              ask={ask}
             />
             <div className="min-h-0 flex-1">
               {status.count > 0 && tab === "stats" ? (

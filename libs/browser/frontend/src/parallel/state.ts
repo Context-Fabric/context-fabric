@@ -20,9 +20,11 @@ export interface Parallel {
   sc: string | null;
   q: string;
   s: string | null;
+  /** Where the search came from, if a model proposed it (`shared/asked.ts`). */
+  ask: string | null;
 }
 
-export type SearchState = Pick<Parallel, "searching" | "sc" | "q" | "s">;
+export type SearchState = Pick<Parallel, "searching" | "sc" | "q" | "s" | "ask">;
 
 export function parseParallel(location: Location = window.location): Parallel {
   const parts = location.pathname
@@ -48,6 +50,7 @@ export function parseParallel(location: Location = window.location): Parallel {
     sc: p.get("sc"),
     q: p.get("q") ?? "",
     s: p.get("s"),
+    ask: p.get("ask"),
   };
 }
 
@@ -71,6 +74,7 @@ export function serializeParallel(state: Parallel): string {
   if (state.sc) p.set("sc", state.sc);
   if (state.q) p.set("q", state.q);
   if (state.s) p.set("s", state.s);
+  if (state.ask) p.set("ask", state.ask);
   // keep the commas readable
   const search = p.toString().replace(/%2C/g, ",");
   // at `/`, the query string tells the parallel interface from the classic one

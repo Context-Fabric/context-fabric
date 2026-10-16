@@ -20,7 +20,7 @@ export interface Common {
   ref: string | null;
   verse: number | null;
   /** The search, and whether it is what is shown. */
-  search: { corpus: string; q: string; s: string | null } | null;
+  search: { corpus: string; q: string; s: string | null; ask?: string | null } | null;
   searching: boolean;
   /** The lexicon shown (corpus, lexeme), if it is. */
   lexicon: { corpus: string; lex: number | null } | null;
@@ -71,7 +71,9 @@ export function workspaceToCommon(ws: Workspace, aligned: string | null): Partia
     ref: where?.chapter,
     verse: where ? where.verse : undefined,
     // likewise without a search pane: the search kept from before stays, though not shown
-    search: search ? { corpus: search.corpus!, q: search.query, s: search.search } : undefined,
+    search: search
+      ? { corpus: search.corpus!, q: search.query, s: search.search, ...(search.ask ? { ask: search.ask } : {}) }
+      : undefined,
     searching: search !== undefined,
     lexicon: lexicon ? { corpus: lexicon.corpus!, lex: lexicon.lex } : null,
     diff: ws.diff,
@@ -108,6 +110,7 @@ export function commonToWorkspace(c: Common, refs: Record<string, string | null>
       view: "search",
       query: c.search.q,
       search: c.search.s,
+      ask: c.search.ask ?? null,
     });
   }
   // the passage stays with a reading pane when its pane became a search or the lexicon
@@ -130,7 +133,7 @@ export function parallelToCommon(p: Parallel): Partial<Common> {
     corpora: p.texts ?? undefined,
     ref: p.ref,
     verse: p.verse,
-    search: p.sc ? { corpus: p.sc, q: p.q, s: p.s } : undefined,
+    search: p.sc ? { corpus: p.sc, q: p.q, s: p.s, ...(p.ask ? { ask: p.ask } : {}) } : undefined,
     searching: p.searching,
     lexicon: p.lexicon ? { corpus: p.lexicon, lex: p.lex } : null,
     diff: p.diff,
@@ -149,6 +152,7 @@ export function commonToParallel(c: Common): Parallel {
     sc: c.search?.corpus ?? null,
     q: c.search?.q ?? "",
     s: c.search?.s ?? null,
+    ask: c.search?.ask ?? null,
   };
 }
 
@@ -224,7 +228,7 @@ export function concordanceToCommon(s: Concordance, open: string[] = []): Partia
   const corpora = s.corpus ? [s.corpus, ...(s.texts ?? open)] : [];
   return {
     corpora: corpora.length ? [...new Set(corpora)] : undefined,
-    search: s.corpus ? { corpus: s.corpus, q: s.q, s: s.s } : undefined,
+    search: s.corpus ? { corpus: s.corpus, q: s.q, s: s.s, ...(s.ask ? { ask: s.ask } : {}) } : undefined,
     // an empty concordance doesn't open the search elsewhere
     searching: s.corpus !== null && s.q.trim() !== "",
   };
@@ -237,6 +241,7 @@ export function commonToConcordance(c: Common, corpus: string | null): Concordan
     corpus: searchCorpus,
     q: c.search?.q ?? "",
     s: c.search?.s ?? null,
+    ask: c.search?.ask ?? null,
     sort: null,
     filters: [],
     per: "result",

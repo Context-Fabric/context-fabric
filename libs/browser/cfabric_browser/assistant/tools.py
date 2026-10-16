@@ -18,6 +18,7 @@ from cfabric.display import section_ref_for
 from cfabric_mcp import tools as shared
 
 from cfabric_browser import formats
+from cfabric_browser.assistant.proposals import ProposalStore
 from cfabric_browser.corpora import CorpusService
 from cfabric_browser.queries import check_template
 from cfabric_browser.workers import DONE, FINISHED, SearchPool
@@ -40,9 +41,15 @@ class ToolError(Exception):
 
 
 class Tools:
-    def __init__(self, service: CorpusService, pool: SearchPool) -> None:
+    def __init__(
+        self,
+        service: CorpusService,
+        pool: SearchPool,
+        proposals: ProposalStore | None = None,
+    ) -> None:
         self.service = service
         self.pool = pool
+        self.proposals = proposals if proposals is not None else ProposalStore()
         # per (corpus, feature) the values it has
         self._values: dict[tuple[str, str], set[str]] = {}
 
@@ -182,4 +189,43 @@ class Tools:
                 }
                 for n in nodes
             ],
+        }
+
+    # proposing: the only tool that changes what the user sees
+
+    def propose_search(
+        self,
+        corpus: str,
+        template: str,
+        request: str,
+        explanation: str,
+        model: str | None = None,
+    ) -> dict[str, Any]:
+        """Show a search in the browser, for the user to run, edit or dismiss:
+        the template, the user's request in their words, and an explanation
+        of the template. A template with problems is not shown; they come
+        back to be fixed. Nothing runs until the user presses *Run*."""
+        corpus = self._corpus(corpus)
+        trial = self.try_search(corpus, template, examples=0)
+        if trial.get("problems") or trial.get("state") not in (DONE, None):
+            return {
+                "ok": False,
+                "problems": trial.get("problems"),
+                "state": trial.get("state"),
+            }
+        proposal = self.proposals.add(
+            corpus,
+            template,
+            request.strip(),
+            explanation.strip(),
+            model,
+            count=trial["count"],
+            atLeast=trial["atLeast"],
+        )
+        return {
+            "ok": True,
+            "proposal": proposal["id"],
+            "count": trial["count"],
+            "atLeast": trial["atLeast"],
+            "note": "Shown in the browser; the user runs it with Run.",
         }

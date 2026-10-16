@@ -16,6 +16,7 @@ export interface Pane {
   search: string | null; // id of the current search
   result: number | null; // expanded result
   lex: number | null; // lexeme shown in the lexicon
+  ask: string | null; // where the search came from, if a model proposed it (shared/asked.ts)
 }
 
 export interface Workspace {
@@ -27,7 +28,7 @@ export interface Workspace {
 export const MAX_PANES = 4;
 
 export function emptyPane(corpus: string | null = null): Pane {
-  return { corpus, view: "read", ref: null, by: "sections", query: "", search: null, result: null, lex: null };
+  return { corpus, view: "read", ref: null, by: "sections", query: "", search: null, result: null, lex: null, ask: null };
 }
 
 // URL keys per pane: c0, v0, ref0, ... ; links without an index are pane 0.
@@ -47,6 +48,7 @@ function parsePane(p: URLSearchParams, i: number): Pane | null {
     search: key("s"),
     result: result === null ? null : Number(result),
     lex: lex === null ? null : Number(lex),
+    ask: key("a"),
   };
 }
 
@@ -72,6 +74,7 @@ export function serialize(ws: Workspace): string {
     if (pane.search) p.set(`s${i}`, pane.search);
     if (pane.result !== null) p.set(`r${i}`, String(pane.result));
     if (pane.lex !== null) p.set(`lx${i}`, String(pane.lex));
+    if (pane.ask) p.set(`a${i}`, pane.ask);
   });
   if (ws.sync) p.set("sync", "1");
   if (ws.diff) p.set("diff", "1");

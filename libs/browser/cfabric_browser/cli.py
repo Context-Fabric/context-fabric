@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import atexit
 import logging
 import sys
 import threading
@@ -332,6 +333,10 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as e:
         print(f"cfabric-browser: {e} (ui: in browser.yaml)", file=sys.stderr)
         return 2
+    from cfabric_browser.assistant import running
+
+    # what a language model's tools send to propose a search (assistant/)
+    secret = running.new_secret()
     app = create_app(
         service,
         pool,
@@ -339,6 +344,7 @@ def main(argv: list[str] | None = None) -> int:
         ui=ui,
         hidden_uis=hidden,
         ask_downloads=args.ask_downloads,
+        secret=secret,
     )
 
     host = args.host
@@ -357,6 +363,13 @@ def main(argv: list[str] | None = None) -> int:
             "Warning: the browser is reachable from other machines on this network.",
             file=sys.stderr,
         )
+    # for the stdio helper of a language model's app (cfabric-browser mcp)
+    local = f"http://127.0.0.1:{port}/" if host in ("127.0.0.1", "0.0.0.0") else url
+    try:
+        running.announce(local, secret)
+        atexit.register(running.withdraw, local)
+    except OSError as e:
+        print(f"Note: could not write {running.RUNNING}: {e}", file=sys.stderr)
     if args.window:
         from cfabric_browser.window import run_window
 

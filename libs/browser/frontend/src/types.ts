@@ -510,3 +510,20 @@ export interface DictionaryInfo {
   } | null;
   abbreviations?: Record<string, string>;
 }
+
+/** A search proposed by a language model (`/api/proposals`). */
+export interface Proposal {
+  id: string;
+  corpus: string;
+  template: string;
+  /** the user's request in their own words */
+  request: string;
+  explanation: string;
+  /** which model proposed it, as its app says */
+  model: string | null;
+  created: string;
+  /** the model's trial: how many results, and whether more */
+  count: number | null;
+  atLeast: boolean;
+  state: "new" | "run" | "dismissed";
+}

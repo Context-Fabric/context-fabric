@@ -6,6 +6,7 @@ const state: Concordance = {
   corpus: "bhsa",
   q: "word lex=HLK[",
   s: "abc",
+  ask: '["all cases of HLK[","Claude","2026-10-16T12:00:00+00:00","word lex=HLK["]',
   sort: "L1.text",
   filters: [
     ["vs", "hif"],
@@ -31,6 +32,7 @@ describe("the Concordance's URL", () => {
     const plain = {
       ...state,
       s: null,
+      ask: null,
       sort: null,
       filters: [],
       per: "result" as const,
@@ -81,7 +83,7 @@ describe("switching to and from the Concordance", () => {
   it("describes its search", () => {
     expect(concordanceToCommon(state)).toEqual({
       corpora: ["bhsa", "sp"],
-      search: { corpus: "bhsa", q: "word lex=HLK[", s: "abc" },
+      search: { corpus: "bhsa", q: "word lex=HLK[", s: "abc", ask: state.ask },
       searching: true,
     });
   });

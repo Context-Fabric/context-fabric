@@ -1,4 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
+import { decodeAsked, encodeAsked } from "../shared/asked";
+import { AskedLine, ProposalCard } from "../shared/Proposals";
 import { useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../api";
 import { splitRef } from "../common";
@@ -308,7 +310,8 @@ export function ConcordanceApp() {
   });
   const featureNames = new Set((features?.features ?? []).map((f) => f.name));
 
-  const run = async (template = state.q) => {
+  // `ask`: where the template came from, when a model proposed it
+  const run = async (template = state.q, ask: string | null = state.ask) => {
     if (!corpus || !template.trim()) return;
     setStarting(true);
     setProblems([]);
@@ -316,7 +319,7 @@ export function ConcordanceApp() {
       const started = await api.search(corpus, template);
       setHistory(remember(corpus, template));
       setPage(0);
-      actions.set({ q: template, s: started.id, filters: [], sample: null }, true);
+      actions.set({ q: template, s: started.id, ask, filters: [], sample: null }, true);
     } catch (e) {
       if (e instanceof ApiError && e.problems.length) setProblems(e.problems);
       else setProblems([{ kind: "error", line: null, message: String(e instanceof Error ? e.message : e) }]);
@@ -479,7 +482,17 @@ export function ConcordanceApp() {
         <p className="p-10 text-stone">Opening…</p>
       ) : (
         <>
+          {corpus ? (
+            <div className="max-w-[48rem] px-4 pt-3 empty:hidden">
+              <ProposalCard
+                corpora={[corpus]}
+                onRun={(p, asked) => void run(p.template, encodeAsked(asked))}
+                onEdit={(p, asked) => actions.set({ q: p.template, ask: encodeAsked(asked) })}
+              />
+            </div>
+          ) : null}
           <section className="border-b border-rule bg-raised/50 px-4 py-3">
+            <AskedLine asked={decodeAsked(state.ask)} template={state.q} />
             <div className="flex flex-wrap items-start gap-3">
               <div className="min-w-[18rem] max-w-[40rem] flex-1">
                 <QueryEditor
@@ -559,6 +572,7 @@ export function ConcordanceApp() {
               onDownload={download}
               corpus={card}
               tab="results"
+              ask={state.ask}
             />
           ) : null}
 
@@ -824,7 +838,7 @@ export function ConcordanceApp() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => run(example)}
+                    onClick={() => run(example, null)}
                     className="rounded border border-rule-strong px-3 py-1 font-mono text-[13px] hover:border-woad"
                   >
                     Try “{example}”

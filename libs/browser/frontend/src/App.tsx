@@ -200,6 +200,8 @@ function PaneView({
                 settings={paneSettings}
                 onTemplate={(query) => onChange({ query })}
                 onSearch={(search) => onChange({ search, result: null }, true)}
+                ask={pane.ask}
+                onProposal={(query, ask) => onChange({ query, ask })}
                 onExpand={(result) => onChange({ result })}
                 onOpenPassage={(ref) => onChange({ view: "read", ref }, true)}
                 otherCorpora={corpora.filter((c) => c !== card.name)}

@@ -21,6 +21,7 @@ import type {
   ParallelChapter,
   Translation,
   BdbArticle,
+  Proposal,
   DictionaryInfo,
   CorpusDownload,
 } from "./types";
@@ -315,6 +316,15 @@ export const api = {
   },
 
   events: (id: string) => new EventSource(`/api/searches/${id}/events`),
+  /** Searches proposed by a language model, the newest first. */
+  proposals: () => request<{ version: number; proposals: Proposal[] }>("/api/proposals"),
+  proposalEvents: () => new EventSource("/api/proposals/events"),
+  /** The user ran or dismissed a proposal. */
+  setProposal: (id: string, state: Proposal["state"]) =>
+    request<Proposal>(`/api/proposals/${encodeURIComponent(id)}`, {
+      method: "POST",
+      body: JSON.stringify({ state }),
+    }),
 
   lexicon: (corpus: string) =>
     request<{ features: Record<string, string>; entries: LexiconEntry[] }>(`${corpusPath(corpus)}/lexicon`),
