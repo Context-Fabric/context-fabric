@@ -81,8 +81,8 @@ jobs:
           npm ci
           npm test
           npm run build
-      - name: Install core package
-        run: pip install -e ../core
+      - name: Install core and MCP packages (the browser shares the MCP tools)
+        run: pip install -e ../core -e ../mcp
       - name: Install browser package with dev dependencies
         run: pip install -e ".[dev]"
       - name: Run tests

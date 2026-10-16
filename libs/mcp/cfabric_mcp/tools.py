@@ -8,6 +8,9 @@ from __future__ import annotations
 import logging
 import re
 from collections import defaultdict
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any
 
 from cfabric.results import NodeInfo, FeatureInfo, CorpusInfo
@@ -19,7 +22,34 @@ from cfabric.describe import (
 )
 
 from cfabric_mcp.cache import CachedSearchResult, get_cache
-from cfabric_mcp.corpus_manager import corpus_manager
+from cfabric_mcp.corpus_manager import corpus_manager as _corpus_manager
+
+if TYPE_CHECKING:
+    from cfabric.registry import CorpusRegistry
+
+# The corpora the tools work on: this server's own, unless a caller (the
+# browser) binds its registry for the duration of a call with `using`.
+_registry: ContextVar[CorpusRegistry] = ContextVar("registry", default=_corpus_manager)
+
+
+@contextmanager
+def using(registry: CorpusRegistry) -> Iterator[None]:
+    """Run the tools in this block on `registry` instead of the server's."""
+    token = _registry.set(registry)
+    try:
+        yield
+    finally:
+        _registry.reset(token)
+
+
+class _Current:
+    """`corpus_manager` as the tools see it: the registry bound now."""
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(_registry.get(), name)
+
+
+corpus_manager = _Current()
 
 if TYPE_CHECKING:
     from cfabric.core.api import Api

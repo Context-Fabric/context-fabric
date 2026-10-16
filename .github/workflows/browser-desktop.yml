@@ -55,7 +55,7 @@ jobs:
           npm ci
           npm run build
       - name: Install (not editable, PyInstaller does not see editable installs)
-        run: pip install ../core ".[desktop]"
+        run: pip install ../core ../mcp ".[desktop]"
       - name: Build the program
         run: pyinstaller packaging/cfabric-browser.spec --noconfirm
       - name: Smoke test
