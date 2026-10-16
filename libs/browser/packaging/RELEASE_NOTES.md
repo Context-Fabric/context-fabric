@@ -12,6 +12,8 @@ This test is about three corpora, all under the licence CC BY-NC 4.0:
 
 **New in this version: you don't need them on your computer first.** When they are missing, the program offers to download them the first time it starts, from their own releases on GitHub (the same files [Text-Fabric](https://annotation.github.io/text-fabric/) uses). It puts them where Text-Fabric keeps its downloads (`text-fabric-data/github` in your home folder), so if you have used Text-Fabric with these corpora, the program finds them there and downloads nothing. Other corpora on your computer are not offered in this test.
 
+**New since test.9: faster searching.** The program now runs on the new core of Context-Fabric, written in Rust: searches take a fraction of the time they took. The first time you open a corpus after updating, the program prepares it once more (about a minute for the BHSA); the files the earlier versions prepared (`.cfm` folders next to the corpora) are no longer used, and you may delete them.
+
 **New since test.7: asking in your own words.** With your own AI app (Claude Desktop or Claude Code, with your own subscription) you can ask for a search in plain language, such as *all cases of >LHJM/ in the BHSA*; the search appears in the program for you to run. See *Asking Claude for a search*.
 
 **New since test.6: the BDB dictionary.** The lexicon can show *A Hebrew and English Lexicon of the Old Testament* by Brown, Driver and Briggs (1906), with every lexeme of the BHSA linked to its entry; see *Use*. And the BHSA's text can be shown with or without vowels and accents (*Display → Text*).

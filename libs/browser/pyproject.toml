@@ -24,6 +24,9 @@ dependencies = [
     "cfabric-mcp>=0.1.7",
     "fastapi>=0.115",
     "uvicorn>=0.32.0",
+    # app configurations, display overrides, browser.yaml; the Rust core
+    # doesn't bring it along, as the Python one did
+    "pyyaml>=6.0",
 ]
 
 [project.urls]

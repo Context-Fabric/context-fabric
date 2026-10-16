@@ -54,8 +54,12 @@ jobs:
         run: |
           npm ci
           npm run build
-      - name: Install (not editable, PyInstaller does not see editable installs)
-        run: pip install ../core ../mcp ".[desktop]"
+      # the Rust core from PyPI (searches several times faster), not editable:
+      # PyInstaller does not see editable installs
+      - name: Install
+        run: |
+          pip install "context-fabric==0.6.0rc1" ../mcp ".[desktop]"
+          python -c "import importlib.metadata as m; print('context-fabric', m.version('context-fabric'))"
       - name: Build the program
         run: pyinstaller packaging/cfabric-browser.spec --noconfirm
       - name: Smoke test
