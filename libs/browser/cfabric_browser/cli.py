@@ -269,6 +269,11 @@ def main(argv: list[str] | None = None) -> int:
         return translation_command(argv)
     if argv and argv[0] == "download":
         return download_command(argv[1:])
+    if argv and argv[0] == "mcp":
+        # for an AI app (Claude Desktop): MCP over stdio, to the running browser
+        from cfabric_browser.assistant.stdio import serve
+
+        return serve()
     args = parse_args(argv)
     if not args.corpora and args.no_library:
         # nothing to show and no way to open anything
