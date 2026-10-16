@@ -12,7 +12,7 @@ This test is about three corpora, all under the licence CC BY-NC 4.0:
 
 **New in this version: you don't need them on your computer first.** When they are missing, the program offers to download them the first time it starts, from their own releases on GitHub (the same files [Text-Fabric](https://annotation.github.io/text-fabric/) uses). It puts them where Text-Fabric keeps its downloads (`text-fabric-data/github` in your home folder), so if you have used Text-Fabric with these corpora, the program finds them there and downloads nothing. Other corpora on your computer are not offered in this test.
 
-**New since test.7: asking in your own words.** With your own AI app (Claude Desktop or Claude Code, with your own subscription) you can ask for a search in plain language, such as *all cases of >LHJM/ in the BHSA*; the search appears in the program for you to run. See *Use*.
+**New since test.7: asking in your own words.** With your own AI app (Claude Desktop or Claude Code, with your own subscription) you can ask for a search in plain language, such as *all cases of >LHJM/ in the BHSA*; the search appears in the program for you to run. See *Asking Claude for a search*.
 
 **New since test.6: the BDB dictionary.** The lexicon can show *A Hebrew and English Lexicon of the Old Testament* by Brown, Driver and Briggs (1906), with every lexeme of the BHSA linked to its entry; see *Use*. And the BHSA's text can be shown with or without vowels and accents (*Display → Text*).
 
@@ -51,7 +51,7 @@ The program opens in **Parallel**, laid out after [Parabible](https://parabible.
 - **The JPS 1917 translation:** in *Texts → Add a text…*, under *Translations*, click *Add*. The program downloads it from Sefaria (about 5 MB, once), prepares it in a few seconds and shows it as a column next to the Hebrew. Its verses are numbered as in the Hebrew Bible, so they line up with the BHSA. In the Interlinear, choose it under *Under* for a line of English under each verse; in the Concordance, search it in English, for instance `word lower=lord`. It is in the public domain in the United States; elsewhere that depends on the translators' dates. *Remove* deletes it again.
 
 - **BDB:** in *Texts → Add a text…*, under *Dictionaries*, click *Add* (about 5 MB, once). A lexeme's page in the *Lexicon* then has a tab *BDB* with its entry: its verses open the passage, its references open other entries, BDB's abbreviations are explained when you hover over them, long entries have their stems folded, and the root family links to the other lexemes of the root. The lexicon's *Find* also searches BDB's definitions (*perish* finds אבד), and it can be ordered *By root (BDB)*. Hovering over a word shows its BDB entry, also for words in the Dead Sea Scrolls (through the BHSA); the Interlinear offers a line *BDB*. The text is from Sefaria, the ids and short definitions from Open Scriptures; the file is CC BY-NC 4.0 ([Context-Fabric/bdb](https://github.com/Context-Fabric/bdb)).
-- **Asking in your own words:** keep the program running. In **Claude Desktop**, open `Context-Fabric.mcpb` (below the downloads of this release) to install the extension, or add it under *Settings → Extensions*. In **Claude Code**: `claude mcp add --transport http context-fabric http://127.0.0.1:8107/mcp`. Then ask Claude, for instance, *find all cases of >LHJM/ in the BHSA* or *clauses where the object comes before the verb*. Claude writes a search template, tries it, and sends it to the program: it appears above the search form (in Parallel under *Search*), with your request, the template, Claude's explanation and how many results its trial found. *Run* runs it, *Edit* lets you change it first, *Dismiss* drops it. Nothing runs by itself, and the results come from the program's own search, never from Claude's text. The search keeps where it came from, also in a saved workspace and when you cite it. What you ask goes to Anthropic, as anything you ask Claude; the texts stay on your computer, apart from the few results Claude sees when it tries its template.
+- **Asking in your own words:** see the section *Asking Claude for a search* below.
 - **Vocalized or unvocalized:** *Display → Text* chooses for the BHSA between *Vocalized* (vowels and accents, and the qere where it differs) and *Unvocalized* (the consonants of the ketiv). The other corpora have one text, so the choice isn't shown for them.
 - **The first time:** if the corpora are not on your computer, the program shows *Getting the corpora*: click *Download (68 MB)*. Each corpus is downloaded, unpacked and prepared once, which takes a few minutes in all (the download itself less than a minute on a fast connection); you see the progress of each. Then Parallel opens with the three. *Not now* skips this; the corpora can then be downloaded later in *Texts → Add a text…*, under *Can be downloaded*. Without an internet connection the program says so and offers *Try again*.
 - If the corpora are there already, the BHSA opens by itself, and *Open a corpus* offers the others. Opening a corpus the first time takes a little longer, because it is prepared once; after that it opens in a few seconds.
@@ -64,6 +64,67 @@ The program opens in **Parallel**, laid out after [Parabible](https://parabible.
 - **Notes** in the Reader stay on your computer. They go along when you export a workspace.
 - *Display*, *Workspaces* (save and reopen what you are looking at) and *Cite* are in the top bar. Settings and saved workspaces are kept between sessions.
 - If the program doesn't start, look in `.cfabric/logs/cfabric-browser.log` in your home folder and send that file to [martijn.naaijer@uzh.ch](mailto:martijn.naaijer@uzh.ch).
+
+## Asking Claude for a search
+
+You can ask Claude, in your own words, for a search: for instance *find all cases of >LHJM/ in the BHSA*, or *clauses where the object comes before the verb*. Claude writes a search template, tries it, and sends it to the program. You decide whether it runs. This uses your own Claude subscription, in Claude Desktop or Claude Code.
+
+**Always first:** start Context-Fabric and keep it running. Claude talks to the running program.
+
+### In Claude Desktop
+
+1. Download `Context-Fabric.mcpb` from this release (in the list of files below).
+2. Install it, in one of these ways:
+   - double-click the downloaded file: Claude Desktop opens it and offers to install it; click *Install*;
+   - or, in Claude Desktop, go to *Settings → Extensions*, and choose *Install Extension…* (under *Advanced settings*), then the file;
+   - or drag the file into the *Settings → Extensions* window.
+3. Check that *Context-Fabric browser* is switched on under *Settings → Extensions*.
+4. Start a new chat. The tools menu (the button below the message box) now lists *Context-Fabric browser*.
+
+You need a recent Claude Desktop. The extension needs nothing else: no Python and no Node.js of your own. If your Claude Desktop names its menus differently, look under *Extensions* for the button that installs one.
+
+**Without the extension** (if installing it doesn't work): in Claude Desktop, *Settings → Developer → Edit Config* opens `claude_desktop_config.json`. Add the program, with its path on your computer, and restart Claude Desktop:
+
+```json
+{
+  "mcpServers": {
+    "context-fabric": {
+      "command": "C:\\path\\to\\cfabric-browser\\cfabric-browser.exe",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+On a Mac the command is `/Applications/Context-Fabric.app/Contents/MacOS/cfabric-browser`; on Linux, the path of `cfabric-browser/cfabric-browser`.
+
+### In Claude Code
+
+In a terminal, once:
+
+```
+claude mcp add --transport http context-fabric http://127.0.0.1:8107/mcp
+```
+
+(8107 is the program's usual port. If another program had taken it, the address in the program's log, `.cfabric/logs/cfabric-browser.log` in your home folder, gives the port.)
+
+### Asking
+
+Ask Claude, for instance:
+
+- *Find all cases of >LHJM/ in the BHSA.*
+- *All infinitives construct of HLK[.*
+- *Clauses in Genesis where the subject comes before the verb.*
+
+The first time Claude uses a tool, it asks your permission. Claude reads a guide to the BHSA, checks its template and tries it, and tells you it has sent a search. In the program, it appears above the search form (in Parallel: click *Search* in the top bar), with your request, the template, Claude's explanation and how many results its trial found:
+
+- *Run* runs it, as if you had typed it;
+- *Edit* puts it in the editor, to change it first;
+- *Dismiss* drops it.
+
+Nothing runs by itself, and the results always come from the program's own search, never from Claude's text, so they are the same as a search you would have typed. The search keeps where it came from (*Proposed by Claude, … for: …*), in its link, in a saved workspace and when you cite it.
+
+What you ask goes to Anthropic, as anything you ask Claude. The texts stay on your computer, apart from the few results Claude sees when it tries a template.
 
 ## Known limitations
 
