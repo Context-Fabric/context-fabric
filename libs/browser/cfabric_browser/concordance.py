@@ -24,6 +24,7 @@ from bisect import bisect_right
 from collections import Counter
 from typing import Any
 
+from cfabric_browser import formats
 from cfabric_browser.compare import consonants, word_type
 
 MAX_SIDE = 15
@@ -206,7 +207,7 @@ class Concordance:
     ) -> dict[str, Any]:
         api = self.api
         hit = self.hits[i]
-        fmt = fmt if fmt in self.config.text_formats else self.config.default_format
+        fmt = formats.chosen(self.config, fmt) or formats.default(self.config)
 
         def word(w: int) -> dict[str, Any]:
             values = {f: self.value(w, f) for f in features}

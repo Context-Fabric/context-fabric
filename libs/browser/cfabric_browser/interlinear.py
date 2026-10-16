@@ -16,6 +16,7 @@ from typing import Any
 
 from cfabric.display import RenderOptions, section_ref_for
 
+from cfabric_browser import formats
 from cfabric_browser.compare import align_words, diff_words, verse_words, word_type
 from cfabric_browser.summary import summary
 
@@ -85,7 +86,7 @@ def interlinear_verse(
     """A verse word by word; see the module."""
     api = service.api(corpus)
     config = service.config(corpus)
-    fmt = opts.fmt if opts.fmt in config.text_formats else config.default_format
+    fmt = formats.chosen(config, opts.fmt) or formats.default(config)
     empty = {str(v) for v in config.none_values if v is not None}
     glosses = service.glosses(corpus)
     wType = word_type(api, config)
@@ -157,7 +158,7 @@ def under_verse(
             "corpus": other,
             "ref": aligned["ref"],
             "translation": True,
-            "text": oApi.T.text(node, fmt=oConfig.default_format).strip(),
+            "text": oApi.T.text(node, fmt=formats.default(oConfig)).strip(),
             "note": noteFeature.v(node) if noteFeature else None,
             "words": [],
             "under": [],
@@ -166,7 +167,7 @@ def under_verse(
         }
     a = verse_words(service.api(corpus), service.config(corpus), verse)
     b = verse_words(oApi, oConfig, aligned["node"])
-    fmt = opts.fmt if opts.fmt in oConfig.text_formats else oConfig.default_format
+    fmt = formats.chosen(oConfig, opts.fmt) or formats.default(oConfig)
     (marksA, marksB) = diff_words(a, b)
     return {
         "corpus": other,

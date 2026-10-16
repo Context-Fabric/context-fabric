@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { FORMAT_NOTE, formatOptions, shownFormat } from "./formats";
 import type { ViewSettings } from "./types";
 
-/** The display menu: text format and what render trees show, kept per browser. */
+/** The display menu: vocalized or unvocalized text (when the corpus offers
+ * both, as the BHSA does) and what render trees show, kept per browser. */
 export function DisplayOptions({
   settings,
   formats,
@@ -30,6 +32,7 @@ export function DisplayOptions({
     };
   }, [open]);
 
+  const options = formatOptions(formats);
   const toggles: [keyof ViewSettings, string][] = [
     ["showTypes", "Show object types"],
     ["standardFeatures", "Show each corpus' standard features"],
@@ -49,20 +52,22 @@ export function DisplayOptions({
       </button>
       {open ? (
         <div className="absolute end-0 z-20 mt-1 flex w-72 flex-col gap-3 rounded border border-rule-strong bg-raised p-4 text-[14px] shadow-[0_8px_24px_-12px_rgba(31,43,77,0.35)]">
-          {formats.length ? (
+          {options.length ? (
             <label className="flex flex-col gap-1">
-              <span className="text-[13px] text-stone">Text format</span>
+              <span className="text-[13px] text-stone">Text</span>
               <select
-                value={settings.fmt ?? defaultFormat ?? ""}
+                value={shownFormat(settings.fmt, formats, defaultFormat) ?? ""}
                 onChange={(e) => onChange({ fmt: e.target.value === defaultFormat ? null : e.target.value })}
+                title={FORMAT_NOTE}
                 className="rounded border border-rule-strong bg-vellum px-2 py-1"
               >
-                {formats.map((f) => (
-                  <option key={f} value={f}>
-                    {f}
+                {options.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
                   </option>
                 ))}
               </select>
+              <span className="text-[12px] leading-snug text-stone">{FORMAT_NOTE}</span>
             </label>
           ) : null}
           {toggles.map(([key, label]) => (
