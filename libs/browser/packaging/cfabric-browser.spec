@@ -27,6 +27,9 @@ if not (package / "static" / "index.html").exists():
 hiddenimports = [
     *collect_submodules("cfabric"),
     *collect_submodules("cfabric_browser"),
+    # searching in plain language: the MCP tools and server (not mcp's own CLI)
+    *collect_submodules("cfabric_mcp"),
+    *collect_submodules("mcp", filter=lambda name: not name.startswith("mcp.cli")),
     *collect_submodules("uvicorn"),
     *collect_submodules("webview"),
 ]
