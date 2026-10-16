@@ -31,6 +31,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
+from cfabric_browser import formats
 from cfabric_browser.compare import (
     compare_passages,
     compare_three,
@@ -543,6 +544,7 @@ def build_router(
         (book, chapter, verse) = parsed
         api = corpus_api(corpus)
         config = service.config(corpus)
+        opts = formats.options(config, opts)
         chapterVerses = index.books[book][chapter]
         verses = []
         for v in [verse] if verse is not None else list(chapterVerses):
@@ -589,6 +591,7 @@ def build_router(
         if under:
             corpus_api(under)
         config = service.config(corpus)
+        opts = formats.options(config, opts)
         try:
             node = node_from_section_ref(
                 api, ref, config.section_sep1, config.section_sep2, opts.lang
@@ -654,11 +657,7 @@ def build_router(
         for name in names:
             api = service.api(name)
             config = service.config(name)
-            own = (
-                opts
-                if opts.fmt in (None, *config.text_formats)
-                else replace(opts, fmt=None)
-            )
+            own = formats.options(config, opts)
             index = service.book_index(name)
             if index is not None:
                 aligned = service.align(lead, chapterRef, name, opts.lang, "books")
@@ -759,6 +758,7 @@ def build_router(
     ) -> dict[str, Any]:
         api = corpus_api(corpus)
         config = service.config(corpus)
+        opts = formats.options(config, opts)
         try:
             node = node_from_section_ref(
                 api, ref, config.section_sep1, config.section_sep2, opts.lang
@@ -813,8 +813,9 @@ def build_router(
     ) -> dict[str, Any]:
         api = corpus_api(corpus)
         check_node(api, node)
+        config = service.config(corpus)
         tree: dict[str, Any] = render_node(
-            api, service.config(corpus), node, mode, opts
+            api, config, node, mode, formats.options(config, opts)
         ).to_dict()
         return tree
 
@@ -992,7 +993,7 @@ def build_router(
         api = corpus_api(job.corpus)
         config = service.config(job.corpus)
         F = api.F
-        opts = RenderOptions(fmt=fmt or None, lang=lang)
+        opts = RenderOptions(fmt=formats.chosen(config, fmt), lang=lang)
         rows = []
         for i, tup in enumerate(job.page(offset, limit)):
             row: dict[str, Any] = {
@@ -1022,7 +1023,8 @@ def build_router(
         if not page:
             raise HTTPException(404, f"No result {index}")
         api = corpus_api(job.corpus)
-        trees = render_tuple(api, service.config(job.corpus), page[0], mode, opts)
+        config = service.config(job.corpus)
+        trees = render_tuple(api, config, page[0], mode, formats.options(config, opts))
         return {
             "index": index,
             "nodes": list(page[0]),
@@ -1113,11 +1115,7 @@ def build_router(
         interface, or None when `target` does not have it."""
         api = service.api(target)
         config = service.config(target)
-        own = (
-            opts
-            if opts.fmt in (None, *config.text_formats)
-            else replace(opts, fmt=None)
-        )
+        own = formats.options(config, opts)
         own = replace(own, highlights=None)
         index = service.book_index(target)
         if index is not None:
@@ -1204,6 +1202,7 @@ def build_router(
             raise HTTPException(400, str(e)) from None
         api = conc.api
         config = service.config(job.corpus)
+        fmt = formats.chosen(config, fmt)
         names = _items(features) or []
         lines = []
         for i in selection[offset : offset + limit]:
@@ -1432,6 +1431,7 @@ def build_router(
         if job.state not in FINISHED:
             raise HTTPException(409, "The search has not finished yet")
         api = corpus_api(job.corpus)
+        fmt = formats.chosen(service.config(job.corpus), fmt)
         F, T, Fs = api.F, api.T, api.Fs
         sectionTypes = list(T.sectionTypes or ())
         rows = job.page(0, job.count)
@@ -1531,6 +1531,7 @@ def build_router(
         lexeme(lexicon, node)
         api = corpus_api(corpus)
         config = service.config(corpus)
+        fmt = formats.chosen(config, fmt)
         verses = lexicon.verses(node, book=book, lang=lang)
         return {
             "total": len(verses),
@@ -1558,6 +1559,7 @@ def build_router(
         lexicon = corpus_lexicon(corpus)
         entry = lexeme(lexicon, node)
         api = corpus_api(corpus)
+        fmt = formats.chosen(service.config(corpus), fmt)
         T = api.T
         sectionTypes = list(T.sectionTypes or ())
         header = [*(t.upper() for t in sectionTypes), "WORD", "TEXT", "VERSE_TEXT"]

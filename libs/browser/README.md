@@ -126,7 +126,7 @@ Hovering over a word shows the same card as in *Panes*; clicking it opens the wo
 
 Results are rows: the passage, then the verse the result lies in, in the searched text with the result's innermost nodes highlighted, and the same verse in the other texts (the DSS: per scroll); 25 per page. *Statistics*, *Download…* and *Cite* are as in *Panes*; clicking a passage opens its chapter at that verse. A shared link to a search the server no longer has runs it again.
 
-The top bar also has *Display* (text format and what is shown, shared with *Panes*), *Workspaces* (a saved workspace remembers its interface: loading a parallel one from *Panes* switches over, and the other way round), *Cite* next to the chapter (a citation per shown text), and light or dark colours. On a phone the texts of a verse are shown below each other, each with its name.
+The top bar also has *Display* (for the BHSA *Vocalized* or *Unvocalized* text, and what is shown; shared with *Panes*), *Workspaces* (a saved workspace remembers its interface: loading a parallel one from *Panes* switches over, and the other way round), *Cite* next to the chapter (a citation per shown text), and light or dark colours. On a phone the texts of a verse are shown below each other, each with its name.
 
 
 ### Interlinear
@@ -244,7 +244,7 @@ All functions of the interface are available as a JSON API; interactive document
 | `GET /api/searches/{id}/export.tsv` | All results, one row per result; features in the template become columns (write `sp*` to add one without narrowing the search); `extra=3:lex,gloss` adds columns for the third node; `excel=true` for Excel |
 | `DELETE /api/searches/{id}` | Stop a search |
 
-Display options are query parameters: `mode` (`pretty`/`plain`), `fmt`, `full`, `hide_types`, `hidden_types`, `base_types`, `condense_type`, `extra_features`, `lang`.
+Display options are query parameters: `mode` (`pretty`/`plain`), `fmt` (only `text-orig-full` and, where the corpus has it, `text-orig-plain`; another format gives the default), `full`, `hide_types`, `hidden_types`, `base_types`, `condense_type`, `extra_features`, `lang`.
 
 ## How it works
 

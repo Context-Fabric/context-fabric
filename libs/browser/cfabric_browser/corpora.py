@@ -31,6 +31,7 @@ from cfabric.display.config import read_app_config
 from cfabric.registry import CorpusRegistry
 from cfabric.utils.helpers import versionSort
 
+from cfabric_browser import formats
 from cfabric_browser.books import book_index, canonical_book
 from cfabric_browser.lexicon import Lexicon, has_lexicon
 from cfabric_browser.witnesses import BookIndex, format_ref, parse_ref
@@ -597,5 +598,6 @@ class CorpusService:
             "lexicon": has_lexicon(api),
             # a translation (JPS 1917): licence, source, how to cite it
             "translation": self.translation(name),
-            "display": config.to_dict(),
+            # only the text formats the browser offers (formats.py)
+            "display": formats.display(config),
         }

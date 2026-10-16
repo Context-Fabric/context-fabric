@@ -227,10 +227,18 @@ class TestPassages:
         ).json()
         tree = data["trees"][0]
         assert tree["mode"] == "plain"
-        assert tree["direction"] == "ltr"
+        # the browser doesn't offer transliterations (formats.py): the
+        # default format, in the original script, right to left
+        assert tree["direction"] == "rtl"
         clause = tree["fragments"][0]["children"][0]
         assert clause["children"][0]["type"] == "word"
-        assert clause["children"][0]["text"] == "a "
+        assert clause["children"][0]["text"] == "α "
+
+    def test_card_offers_only_the_browsers_formats(self, client):
+        card = client.get("/api/corpora/alpha").json()
+        # the corpus also has text-trans-plain
+        assert card["display"]["textFormats"] == ["text-orig-full"]
+        assert card["display"]["defaultFormat"] == "text-orig-full"
 
     def test_node_render_and_info(self, client):
         tree = client.get(
