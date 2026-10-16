@@ -598,7 +598,14 @@ def build(
         "short": "BDB",
         "authors": "Francis Brown, S. R. Driver, Charles A. Briggs",
         "edition": "Oxford, 1906",
-        "licence": "Public domain",
+        "licence": "CC BY-NC 4.0",
+        "licenceNote": (
+            "The file is licensed under CC BY-NC 4.0. The text of BDB (1906) is in "
+            "the public domain, and Open Scriptures' data in it (ids, short "
+            "definitions, Strong's and TWOT numbers) remains available under "
+            "CC BY 4.0. The links to the BHSA's lexemes derive from the BHSA "
+            "(CC BY-NC 4.0)."
+        ),
         "sources": [
             {
                 "what": "the text of the entries",

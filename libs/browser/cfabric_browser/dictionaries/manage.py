@@ -42,11 +42,12 @@ DICTIONARIES: dict[str, Catalogued] = {
         short="BDB",
         title="Brown–Driver–Briggs",
         name="BDB (Brown–Driver–Briggs, 1906)",
-        licence="Public domain",
+        licence="CC BY-NC 4.0",
         licenceNote=(
-            "A Hebrew and English Lexicon of the Old Testament (Oxford, 1906), "
-            "public domain. Text from Sefaria; ids and short definitions from "
-            "Open Scriptures (CC BY 4.0)."
+            "A Hebrew and English Lexicon of the Old Testament (Oxford, 1906). "
+            "The file is CC BY-NC 4.0: BDB's text, from Sefaria, is public domain; "
+            "Open Scriptures' ids and short definitions remain CC BY 4.0; the "
+            "links derive from the BHSA (CC BY-NC 4.0)."
         ),
         sources="Sefaria; Open Scriptures HebrewLexicon and OSHB (CC BY 4.0)",
         corpus="ETCBC/bhsa",

@@ -112,7 +112,7 @@ cfabric-browser remove bdb
 python -m cfabric_browser.dictionaries.build OUT   # build it (walks Sefaria's API once, about 12,000 requests)
 ```
 
-The text is public domain; Sefaria's is from a scan in the National Library of Israel. Ids, short definitions and the lemmas come from Open Scriptures (CC BY 4.0).
+The file is licensed under CC BY-NC 4.0, like the BHSA, the SP and the DSS. The text of BDB (1906) is in the public domain (Sefaria's is from a scan in the National Library of Israel), and Open Scriptures' data in it (ids, short definitions, Strong's and TWOT numbers, from its CC BY 4.0 lexicon) remains available under CC BY 4.0. The links to the BHSA's lexemes derive from the BHSA (CC BY-NC 4.0).
 
 ## Interfaces
 
