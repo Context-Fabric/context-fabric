@@ -11,7 +11,20 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from cfabric.core.api import Api
-    from cfabric.display.config import DisplayConfig
+
+    from cfabric_browser.display.config import DisplayConfig
+
+
+def section_feature_types(api: Api) -> list[str]:
+    """The value type (`int` or `str`) of each section feature: the Python
+    core has them as `T.sectionFeatureTypes`, the Rust core per feature."""
+    found = getattr(api.T, "sectionFeatureTypes", None)
+    if found:
+        return list(found)
+    return [
+        "int" if getattr(api.Fs(name), "valueType", None) == "int" else "str"
+        for name in api.T.sectionFeatures
+    ]
 
 
 def section_ref(
@@ -113,7 +126,7 @@ def node_from_section_ref(
     candidates.append([ref])
 
     error = f'Not a valid passage: "{ref}"'
-    dataTypes = T.sectionFeatureTypes
+    dataTypes = section_feature_types(api)
     for parts in candidates:
         if len(parts) > len(sectionTypes):
             continue

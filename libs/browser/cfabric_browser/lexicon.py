@@ -13,7 +13,12 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-from cfabric.display import DisplayConfig, RenderOptions, render_node, section_ref_for
+from cfabric_browser.display import (
+    DisplayConfig,
+    RenderOptions,
+    render_node,
+    section_ref_for,
+)
 
 LEXEME_TYPE = "lex"
 VERSE_CACHE = 32  # lexemes whose verses are kept

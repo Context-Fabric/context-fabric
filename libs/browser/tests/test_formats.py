@@ -3,19 +3,11 @@
 from dataclasses import replace
 from pathlib import Path
 
-from cfabric.display import RenderOptions
 from cfabric_browser import formats
 from cfabric_browser.corpora import CorpusService, CorpusSpec
+from cfabric_browser.display import RenderOptions
 
-DATA = (
-    Path(__file__).resolve().parents[2]
-    / "core"
-    / "tests"
-    / "fixtures"
-    / "display_corpus"
-    / "tf"
-    / "1.0"
-)
+DATA = Path(__file__).resolve().parent / "fixtures" / "display_corpus" / "tf" / "1.0"
 
 
 def config(text_formats, default="text-orig-full"):

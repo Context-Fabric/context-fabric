@@ -14,12 +14,12 @@ import time
 from importlib import resources
 from typing import Any
 
-from cfabric.display import section_ref_for
 from cfabric_mcp import tools as shared
 
 from cfabric_browser import formats
 from cfabric_browser.assistant.proposals import ProposalStore
 from cfabric_browser.corpora import CorpusService
+from cfabric_browser.display import section_ref_for
 from cfabric_browser.queries import check_template
 from cfabric_browser.workers import DONE, FINISHED, SearchPool
 

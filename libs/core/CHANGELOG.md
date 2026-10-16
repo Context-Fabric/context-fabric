@@ -7,15 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- `cfabric.display`: structured (HTML-free) displays, groundwork for the Context-Fabric browser
-  - `DisplayConfig` reads a corpus' Text-Fabric app `config.yaml` (found next to the data) and computes TF's display defaults
-  - `render_node` / `render_tuple` build JSON-ready render trees (plain and pretty), a port of TF's unravel algorithm, verified identical to TF on six corpora
-  - `section_ref` / `node_from_section_ref` for references like `Genesis 1:1`, using the corpus' own separators
-- `cfabric.registry.CorpusRegistry`: thread-safe registry of named corpora with lazy loading and per-corpus search locks
-- `DisplayConfig` knows English (`writing: eng`, left to right)
-- Search cancellation and timeouts: `S.search(..., cancel=CancelToken())` or `S.search(..., timeout=10)` raise `SearchCancelled` / `SearchTimeout`
-
 ### Fixed
 - `T.sectionFeatureTypes` was `str` for every level on the first load of a corpus (from `.tf` files, before the `.cfm` cache exists), so numeric chapters and verses could not be looked up from references like `Genesis 1:1` in that session
 - `S.search` / `S.fetch` docstrings had the generator-vs-tuple behaviour of `limit` the wrong way round

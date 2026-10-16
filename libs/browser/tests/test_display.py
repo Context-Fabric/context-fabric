@@ -1,4 +1,4 @@
-"""Integration tests for cfabric.display: configuration, sections, render trees.
+"""Integration tests for the browser's displays (`cfabric_browser.display`): configuration, sections, render trees.
 
 The display_corpus fixture has 12 words in one book of two chapters and three
 verses. Clause 19 has a gap (slots 1-2 and 7-8); clause 20 (slots 3-6) and
@@ -10,7 +10,7 @@ chapter/verse separator, and the Hebrew writing system (right-to-left).
 import json
 
 import pytest
-from cfabric.display import (
+from cfabric_browser.display import (
     DisplayConfig,
     RenderOptions,
     find_app_config,
@@ -22,6 +22,7 @@ from cfabric.display import (
     tuple_containers,
     unravel,
 )
+from cfabric_browser.display.sections import section_feature_types
 
 
 @pytest.fixture(scope="module")
@@ -31,7 +32,7 @@ def corpus_path(fixtures_dir):
 
 @pytest.fixture(scope="module")
 def api(corpus_path):
-    from cfabric.core.fabric import Fabric
+    from cfabric import Fabric
 
     api = Fabric(locations=str(corpus_path), silent="deep").loadAll(silent="deep")
     assert api
@@ -156,13 +157,15 @@ class TestSections:
         # value types must be right then too, or "Alpha Book 1.2" won't resolve.
         import shutil
 
-        from cfabric.core.fabric import Fabric
+        from cfabric import Fabric
 
         fresh = tmp_path / "corpus"
-        shutil.copytree(corpus_path, fresh, ignore=shutil.ignore_patterns(".cfm"))
+        shutil.copytree(
+            corpus_path, fresh, ignore=shutil.ignore_patterns(".cfm", ".cfr")
+        )
         for attempt in ("from .tf", "from .cfm"):
             api = Fabric(locations=str(fresh), silent="deep").loadAll(silent="deep")
-            assert api.T.sectionFeatureTypes == ["str", "int", "int"], attempt
+            assert section_feature_types(api) == ["str", "int", "int"], attempt
             assert node_from_section_ref(api, "Alpha Book 1.2", sep2=".") == 17
 
     def test_two_section_levels(self, loaded_api):

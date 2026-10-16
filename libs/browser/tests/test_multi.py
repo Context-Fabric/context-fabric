@@ -17,13 +17,7 @@ from cfabric_browser.corpora import CorpusService, discover, resolve_corpus
 from cfabric_browser.workers import SearchPool
 from fastapi.testclient import TestClient
 
-FIXTURE = (
-    Path(__file__).resolve().parents[2]
-    / "core"
-    / "tests"
-    / "fixtures"
-    / "display_corpus"
-)
+FIXTURE = Path(__file__).resolve().parent / "fixtures" / "display_corpus"
 
 
 def make_corpus(

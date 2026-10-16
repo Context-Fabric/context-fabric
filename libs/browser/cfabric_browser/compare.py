@@ -25,10 +25,9 @@ from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from typing import Any
 
-from cfabric.display import DisplayConfig, node_from_section_ref
-
 from cfabric_browser.books import canonical_book
 from cfabric_browser.corpora import CorpusService
+from cfabric_browser.display import DisplayConfig, node_from_section_ref
 from cfabric_browser.witnesses import (
     PLACEHOLDER_TYPES,
     RECONSTRUCTED,

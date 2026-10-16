@@ -14,8 +14,11 @@ Protocol, per worker, over two one-way pipes:
     `("done", job_id, count, truncated)`, `("failed", job_id, problems)`,
     `("stopped", job_id, reason, count)` with reason `timeout` or `cancelled`
 
-Cancellation is cooperative (the search checks its `CancelToken`); a watchdog
-kills and replaces workers that do not stop in time.
+Cancellation is cooperative: the worker checks its `CancelToken` (cancelled,
+or past its timeout) between results. A search that doesn't get to its
+results in time (its engine is still matching) is stopped by the watchdog,
+which kills the worker and starts another. Searches use only the core's
+public `S.search`, so this works with the Python core and the Rust one.
 """
 
 from __future__ import annotations
@@ -45,6 +48,8 @@ FINISHED = frozenset({DONE, FAILED, TIMEOUT, CANCELLED})
 BATCH_SIZE = 2000
 BATCH_INTERVAL = 0.15
 GRACE = 3.0
+# results between checks of the cancel token (cheap, but not for every one)
+CHECK_EVERY = 256
 
 
 @dataclass
@@ -131,15 +136,13 @@ def _worker_main(
     batchInterval: float,
 ) -> None:
     """Entry point of a worker process."""
-    from cfabric.registry import CorpusRegistry
-    from cfabric.search.cancel import CancelToken, SearchCancelled, SearchTimeout
-    from cfabric.search.searchexe import SearchExe
-
+    from cfabric_browser.cancel import CancelToken, SearchCancelled, SearchTimeout
     from cfabric_browser.queries import (
         capture_engine_messages,
-        problems_of,
+        check_template,
         quantifier_problems,
     )
+    from cfabric_browser.registry import CorpusRegistry
 
     registry = CorpusRegistry()
     for name, path in specs:
@@ -196,39 +199,39 @@ def _worker_main(
 
         try:
             api = registry.get_api(corpus)
+            problems = check_template(api, template, sets)
+            if problems:
+                output.send(("failed", jobId, problems))
+                continue
+            token.check()
+            nested: list[dict[str, Any]] = []
+            truncated = False
             with capture_engine_messages() as messages:
-                exe = SearchExe(
-                    api,
-                    template,
-                    outerTemplate=template,
-                    quKind=None,
-                    offset=0,
-                    sets=sets,
-                    shallow=False,
-                    silent="deep",
-                    setInfo={},
-                    cancel=token,
-                )
-                exe.study()
-                if not exe.good:
-                    output.send(("failed", jobId, problems_of(exe, messages)))
-                    continue
-                nested = quantifier_problems(messages)
-                if nested:
-                    output.send(("failed", jobId, nested))
-                    continue
-                truncated = False
-                for result in exe.fetch(limit=None):
+                results = api.S.search(template, sets=sets, silent="deep")
+                for result in results or ():
+                    if count == 0:
+                        # the Python engine only logs problems inside
+                        # quantifiers, once it has studied the template
+                        nested = quantifier_problems(messages)
+                        if nested:
+                            break
                     if count >= limit:
                         truncated = True
                         break
                     batch.append(tuple(int(n) for n in result))
                     count += 1
+                    if count % CHECK_EVERY == 0:
+                        token.check()
                     if (
                         len(batch) >= batchSize
                         or time.monotonic() - lastSend > batchInterval
                     ):
                         flush(jobId)
+                if count == 0 and not nested:
+                    nested = quantifier_problems(messages)
+            if nested:
+                output.send(("failed", jobId, nested))
+                continue
             flush(jobId)
             output.send(("done", jobId, count, truncated))
         except SearchTimeout:

@@ -3,7 +3,7 @@
 # small corpus, and check that the interface is served and that a search runs in
 # its worker processes. Needs only bash and curl, not Python.
 #
-#     packaging/smoke-test.sh dist/cfabric-browser/cfabric-browser ../core/tests/fixtures/display_corpus
+#     packaging/smoke-test.sh dist/cfabric-browser/cfabric-browser tests/fixtures/display_corpus
 
 set -u
 program=$1

@@ -62,7 +62,7 @@ jobs:
         run: |
           program=dist/cfabric-browser/cfabric-browser
           [ -f "$program.exe" ] && program=$program.exe
-          bash packaging/smoke-test.sh "$program" ../core/tests/fixtures/display_corpus
+          bash packaging/smoke-test.sh "$program" tests/fixtures/display_corpus
       - name: Add a translation (downloads the JPS 1917 from Sefaria)
         run: |
           program=dist/cfabric-browser/cfabric-browser
@@ -117,7 +117,7 @@ jobs:
         with:
           sparse-checkout: |
             libs/browser/packaging
-            libs/core/tests/fixtures
+            libs/browser/tests/fixtures
       - uses: actions/download-artifact@v4
         with:
           name: cfabric-browser-windows
@@ -140,7 +140,7 @@ jobs:
           fi
           bash libs/browser/packaging/smoke-test.sh \
             program/cfabric-browser/cfabric-browser.exe \
-            libs/core/tests/fixtures/display_corpus
+            libs/browser/tests/fixtures/display_corpus
 
   release:
     name: Publish a pre-release

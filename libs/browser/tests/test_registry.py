@@ -1,10 +1,10 @@
-"""Integration tests for cfabric.registry.CorpusRegistry."""
+"""Integration tests for `cfabric_browser.registry.CorpusRegistry`."""
 
 import threading
 from unittest import mock
 
 import pytest
-from cfabric.registry import CorpusRegistry
+from cfabric_browser.registry import CorpusRegistry
 
 
 @pytest.fixture
@@ -78,7 +78,7 @@ class TestLoading:
             registry.get("unknown")
 
     def test_concurrent_get_loads_once(self, registry, mini_corpus_path):
-        from cfabric.core.fabric import Fabric
+        from cfabric import Fabric
 
         registry.register(mini_corpus_path, "mini")
         original = Fabric.loadAll

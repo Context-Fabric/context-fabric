@@ -24,16 +24,15 @@ from cfabric.describe import (
 from cfabric_mcp.cache import CachedSearchResult, get_cache
 from cfabric_mcp.corpus_manager import corpus_manager as _corpus_manager
 
-if TYPE_CHECKING:
-    from cfabric.registry import CorpusRegistry
-
 # The corpora the tools work on: this server's own, unless a caller (the
-# browser) binds its registry for the duration of a call with `using`.
-_registry: ContextVar[CorpusRegistry] = ContextVar("registry", default=_corpus_manager)
+# browser) binds its registry for the duration of a call with `using`. A
+# registry is anything with `get`, `get_api`, `list_corpora` and `current`, as
+# `CorpusManager` has.
+_registry: ContextVar[Any] = ContextVar("registry", default=_corpus_manager)
 
 
 @contextmanager
-def using(registry: CorpusRegistry) -> Iterator[None]:
+def using(registry: Any) -> Iterator[None]:
     """Run the tools in this block on `registry` instead of the server's."""
     token = _registry.set(registry)
     try:

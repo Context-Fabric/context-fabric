@@ -3,15 +3,13 @@
 
 Cooperative cancellation and timeouts for searches.
 
-A `CancelToken` is passed to `cfabric.search.search.Search.search` (or `study`).
-The search engine checks the token at safe points: between the phases of
-studying a template, while spinning edges, and before each candidate of the
-outermost loop of result stitching. When the token has been cancelled, or its
-deadline has passed, the search raises `SearchCancelled` (or `SearchTimeout`).
-
-Checks are cheap, but they are not instantaneous: a single very expensive step
-between two checks will run to completion. Callers that need a hard guarantee
-should run searches in a separate process and terminate it.
+The browser's search workers (`workers.py`) check a `CancelToken` between the
+results they get from the core's `S.search`; when it has been cancelled, or
+its deadline has passed, `check()` raises `SearchCancelled` (or
+`SearchTimeout`). Neither core checks it while it is still matching, so a
+search that doesn't get to its results in time is stopped by ending its
+worker process (the pool's watchdog). Moved here from the core (it was only
+on the browser's branches), so that the browser works with any core.
 """
 
 from __future__ import annotations

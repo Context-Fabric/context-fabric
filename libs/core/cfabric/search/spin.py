@@ -230,7 +230,6 @@ def _doQuantifier(
             showQuantifiers=showQuantifiers,
             silent=silent,
             setInfo=searchExe.setInfo,
-            cancel=searchExe.cancel,
         )
         if showQuantifiers:
             logger.info(f"{quKind}\n{queryN}\n{QEND}")
@@ -254,7 +253,6 @@ def _doQuantifier(
             showQuantifiers=showQuantifiers,
             silent=silent,
             setInfo=searchExe.setInfo,
-            cancel=searchExe.cancel,
         )
         if showQuantifiers:
             logger.info(f"{quKind}\n{queryA}")
@@ -282,7 +280,6 @@ def _doQuantifier(
                 showQuantifiers=showQuantifiers,
                 silent=silent,
                 setInfo=searchExe.setInfo,
-                cancel=searchExe.cancel,
             )
             if showQuantifiers:
                 logger.info(f"{QHAVE}\n{queryAH}\n{QEND}")
@@ -318,7 +315,6 @@ def _doQuantifier(
                 showQuantifiers=showQuantifiers,
                 silent=silent,
                 setInfo=searchExe.setInfo,
-                cancel=searchExe.cancel,
             )
             offset += len(alt.split("\n")) + 1
             if showQuantifiers:
@@ -341,7 +337,6 @@ def _doQuantifier(
 def spinAtoms(searchExe: SearchExe) -> None:
     qnodes = searchExe.qnodes
     for q in range(len(qnodes)):
-        searchExe.checkCancel()
         _spinAtom(searchExe, q)
 
 
@@ -526,7 +521,6 @@ def spinEdges(searchExe: SearchExe) -> None:
             break
         if all(uptodate[e] for e in range(len(qedges))):
             break
-        searchExe.checkCancel()
         e = _chooseEdge(searchExe)
         (f, rela, t) = qedges[e]
         affected = _spinEdge(searchExe, e)

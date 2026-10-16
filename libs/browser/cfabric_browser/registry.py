@@ -1,8 +1,9 @@
 """Thread-safe registry of named corpora.
 
 A `CorpusRegistry` holds several corpora at once, each under a short name
-(e.g. `bhsa`, `dss`). It is shared by long-running services such as the MCP
-server and the Context-Fabric browser.
+(e.g. `bhsa`, `dss`), for the browser's server and its search workers. Moved
+here from the core (it was only on the browser's branches), so that the
+browser works with any core: the Python one and the Rust one (0.6).
 
 Corpora can be loaded eagerly with `load()` or registered with `register()`
 and loaded on first use. Loading happens at most once per corpus, also when
@@ -19,10 +20,13 @@ import logging
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from cfabric.core.api import Api
-from cfabric.core.fabric import Fabric
+from cfabric import Fabric
 from cfabric.results import CorpusInfo
+
+if TYPE_CHECKING:
+    from cfabric.core.api import Api
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +183,8 @@ class CorpusRegistry:
                 api = fabric.load(entry.features, silent="deep")
             else:
                 api = fabric.loadAll(silent="deep")
-            if isinstance(api, Api):
+            # the Python core gives False for a corpus it could not load
+            if api is not None and api is not False:
                 entry.fabric = fabric
                 entry.api = api
                 return entry
