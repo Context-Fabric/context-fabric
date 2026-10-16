@@ -20,17 +20,34 @@ from typing import Any
 SUMMARY = ("id", "lexicon", "headword", "pos", "defs", "incomplete", "ref")
 
 
+# the letter of each part of BDB, by the first letter of Open Scriptures' ids
+# (`b.cw.aa` is in ב; the Aramaic part's ids have `x` before it)
+PARTS = dict(zip("abcdefghijklmnopqrstuvw", "אבגדהוזחטיכלמנסעפצקרששת"))
+
+
 class DictionaryError(Exception):
     """The file is not a dictionary this browser can read."""
 
 
+# BDB's grammatical abbreviations, which start its bold words (`n.pr.m.`,
+# `prep. in, with`)
+GRAMMAR = re.compile(
+    r"^(?:(?:n|pr|m|f|pl|du|sg|adj|gent|loc|terr|div|mont|fl|vb|prep|adv|conj"
+    r"|interj|pron|subst|denom|coll|abstr|id|abs|cstr|intens)\.\s*)+"
+)
+
+
 def short(entry: dict[str, Any]) -> str:
     """A short definition: Open Scriptures' definitions, else the first words
-    BDB sets in bold (its glosses)."""
+    BDB sets in bold (its glosses) once its grammatical abbreviations are
+    left out; empty when only those are there (most names)."""
     if entry.get("defs"):
         return ", ".join(entry["defs"])
-    found = re.search(r"<strong>([^<]+)</strong>", entry.get("html") or "")
-    return found.group(1).strip(" ,;:") if found else ""
+    for bold in re.findall(r"<strong>([^<]+)</strong>", entry.get("html") or "")[:3]:
+        words = GRAMMAR.sub("", bold.strip()).strip(" ,;:()")
+        if re.search(r"[a-z]{2}", words):
+            return words
+    return ""
 
 
 @dataclass
@@ -86,6 +103,33 @@ class Dictionary:
             ],
             "how": link.get("how"),
             "share": link.get("share"),
+        }
+
+    def letter(self, eid: str) -> str | None:
+        """The letter of the part of BDB an entry is in (its root's letter);
+        for an entry without an Open Scriptures id, that of the one before."""
+        i = self.byId.get(eid)
+        while i is not None and i >= 0:
+            part = self.entries[i]["id"].split(".")[0].removeprefix("x")
+            if part in PARTS:
+                return PARTS[part]
+            i -= 1
+        return None
+
+    def for_list(self, language: str | None, lex: str | None) -> dict[str, Any]:
+        """What the lexicon's list shows of a lexeme's main entry: its short
+        definition, its place in BDB (for ordering by root), the letter of
+        its part, and whether it is a root; empty without a link."""
+        link = self.links.get(f"{language} {lex}")
+        if not link or link["entries"][0] not in self.byId:
+            return {}
+        eid = link["entries"][0]
+        i = self.byId[eid]
+        return {
+            "bdbShort": short(self.entries[i]),
+            "bdbOrder": i,
+            "bdbLetter": self.letter(eid),
+            "bdbRoot": bool(self.entries[i].get("root")),
         }
 
     def article(self, eid: str) -> dict[str, Any] | None:

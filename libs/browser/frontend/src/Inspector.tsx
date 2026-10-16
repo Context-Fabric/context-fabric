@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
+import { showBdbNext } from "./lexicon/tab";
 import { displayRef, scriptClass } from "./display/Display";
 import { borrowedFrom, type CorpusCard, type NodeInfo } from "./types";
 
@@ -136,14 +137,41 @@ export function Inspector({ corpus, node, onInspect, onClose, onOpenPassage, onL
               Add as search term
             </button>
           ) : null}
+          {data.bdb?.entries.length ? (
+            <div className="mb-2 text-[13px]">
+              <span className="text-stone">BDB</span>{" "}
+              {data.bdb.entries.map((e, i) => (
+                <span key={e.id}>
+                  {i ? "; " : ""}
+                  <span dir="rtl" className={scriptClass(corpus.display, "rtl")}>
+                    {e.headword}
+                  </span>{" "}
+                  {e.short}
+                </span>
+              ))}
+              {data.bdb.corpus !== corpus.name ? (
+                <span className="text-stone"> · by its lexeme in {data.bdb.corpus}</span>
+              ) : null}
+            </div>
+          ) : null}
           {lexeme !== undefined && onLexicon ? (
-            <button
-              type="button"
-              onClick={() => onLexicon(lexeme.node)}
-              className="mb-3 block text-[13px] text-woad hover:underline"
-            >
-              Lexicon entry
-            </button>
+            <div className="mb-3 flex gap-4 text-[13px]">
+              <button type="button" onClick={() => onLexicon(lexeme.node)} className="text-woad hover:underline">
+                Lexicon entry
+              </button>
+              {data.bdb?.entries.length ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    showBdbNext();
+                    onLexicon(lexeme.node);
+                  }}
+                  className="text-woad hover:underline"
+                >
+                  BDB entry
+                </button>
+              ) : null}
+            </div>
           ) : null}
 
           {summary.length ? (

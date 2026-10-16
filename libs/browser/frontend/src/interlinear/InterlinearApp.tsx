@@ -238,7 +238,9 @@ function Block({
               ? `${script} text-[0.95em] text-stone`
               : line === "gloss"
                 ? "text-[13px]"
-                : "text-[11px] leading-tight text-stone";
+                : line === "bdb"
+                  ? "max-w-[9rem] text-[11px] leading-tight"
+                  : "text-[11px] leading-tight text-stone";
         return (
           <span key={line} dir={line === "lexeme" ? card.display.direction : "ltr"} className={style}>
             {text ?? " "}

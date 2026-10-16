@@ -3,13 +3,14 @@
 // The passage is a chapter of the corpus shown, in its own numbering.
 
 /** The lines under each word: built-in ones, and `f:<feature>` for any feature. */
-export type Line = "word" | "translit" | "lexeme" | "gloss" | "pos" | "morph" | `f:${string}`;
+export type Line = "word" | "translit" | "lexeme" | "gloss" | "bdb" | "pos" | "morph" | `f:${string}`;
 
 export const BUILT_IN: { line: Line; name: string }[] = [
   { line: "word", name: "Word" },
   { line: "translit", name: "Transliteration (of the lexeme)" },
   { line: "lexeme", name: "Lexeme" },
   { line: "gloss", name: "Gloss" },
+  { line: "bdb", name: "BDB (its short definition)" },
   { line: "pos", name: "Part of speech" },
   { line: "morph", name: "Morphology" },
 ];

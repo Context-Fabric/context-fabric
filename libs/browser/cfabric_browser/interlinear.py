@@ -12,6 +12,7 @@ word: the words that correspond, found as in the comparison
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from cfabric.display import RenderOptions, section_ref_for
@@ -82,8 +83,10 @@ def interlinear_verse(
     opts: RenderOptions,
     features: list[str],
     other: str | None,
+    bdb_for: Callable[[int], str | None] | None = None,
 ) -> dict[str, Any]:
-    """A verse word by word; see the module."""
+    """A verse word by word; see the module. `bdb_for(word)` gives BDB's
+    short definition of a word, for the line `bdb`."""
     api = service.api(corpus)
     config = service.config(corpus)
     fmt = formats.chosen(config, opts.fmt) or formats.default(config)
@@ -109,11 +112,15 @@ def interlinear_verse(
             value = feature.v(w)
             if value is not None and str(value) not in empty:
                 values[name] = str(value)
+        lines = word_lines(items)
+        definition = bdb_for(w) if bdb_for else None
+        if definition:
+            lines["bdb"] = definition
         rows.append(
             {
                 "node": w,
                 "text": api.T.text(w, fmt=fmt).strip(),
-                "lines": word_lines(items),
+                "lines": lines,
                 "features": values,
             }
         )

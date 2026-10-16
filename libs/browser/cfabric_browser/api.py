@@ -57,7 +57,7 @@ from cfabric_browser.queries import (
     template_constraints,
     template_features,
 )
-from cfabric_browser.summary import summary
+from cfabric_browser.summary import lexeme_of, summary
 from cfabric_browser.translations import TRANSLATIONS, Translation
 from cfabric_browser.translations.manage import (
     Jobs,
@@ -746,7 +746,15 @@ def build_router(
             **section_neighbours(api, config, node, opts.lang),
             "truncated": len(verses) > MAX_PASSAGE,
             "verses": [
-                interlinear_verse(service, corpus, v, opts, names, under)
+                interlinear_verse(
+                    service,
+                    corpus,
+                    v,
+                    opts,
+                    names,
+                    under,
+                    lambda w: word_short(corpus, w),
+                )
                 for v in verses[:MAX_PASSAGE]
             ],
         }
@@ -967,6 +975,49 @@ def build_router(
         (gloss_for, source) = glosses
         return summary(api, node, empty, gloss_for, f"gloss in {source}")
 
+    def word_bdb(corpus: str, node: int) -> dict[str, Any] | None:
+        """A word's entries in BDB, with its lexeme in the corpus whose
+        lexicon has it (the BHSA, also for the DSS): `{corpus, node, lex,
+        entries}`; None without BDB or a lexeme."""
+        bdb = store.get("bdb") if allowed(DICTIONARIES["bdb"].corpus) else None
+        if bdb is None:
+            return None
+        api = corpus_api(corpus)
+        own = service.lexicon(corpus)
+        entry = None
+        if own is not None:
+            # the lexeme node the word is in
+            up = api.L.u(node, "lex") if "lex" in api.F.otype.all else ()
+            entry = own.entry(int(up[0])) if len(up) else None
+            source = corpus
+        else:
+            # by its ETCBC lexeme, in the corpus it borrows glosses from (DSS)
+            glosses = service.glosses(corpus)
+            source = glosses[1] if glosses else None
+            config = service.config(corpus)
+            empty = {str(v) for v in config.none_values if v}
+            found = lexeme_of(api, node, empty)
+            lexicon = service.lexicon(source) if source else None
+            entry = lexicon.lookup(*found) if lexicon and found else None
+        if entry is None:
+            return None
+        link = bdb.for_lexeme(entry.get("language"), entry.get("lex"))
+        if not link["entries"]:
+            return None
+        return {
+            "corpus": source,
+            "node": entry["node"],
+            "lex": entry.get("lex"),
+            **link,
+        }
+
+    def word_short(corpus: str, node: int) -> str | None:
+        """BDB's short definition of a word (its main entry), or None."""
+        found = word_bdb(corpus, node)
+        if found is None:
+            return None
+        return found["entries"][0]["short"] or None
+
     @router.get("/corpora/{corpus}/nodes/{node}/summary")
     def node_summary(corpus: str, node: int, lang: str = "en") -> dict[str, Any]:
         """The essentials of a node, for the card shown when hovering over a
@@ -982,6 +1033,7 @@ def build_router(
             "ref": section_ref_for(api, config, node, lang=lang),
             "text": api.T.text(node) if len(slots) <= 200 else None,
             "summary": word_summary(corpus, node),
+            "bdb": word_bdb(corpus, node),
         }
 
     @router.get("/corpora/{corpus}/nodes/{node}/info")
@@ -1031,6 +1083,7 @@ def build_router(
             "slotCount": len(slots),
             "text": text,
             "summary": word_summary(corpus, node),
+            "bdb": word_bdb(corpus, node),
             "features": features,
             "edges": edges,
             "up": up,
@@ -1636,9 +1689,22 @@ def build_router(
         `cons` (consonants), `letter` (the first one), `gloss`, `sp` (part of
         speech), `language`, `freq`, `rank` and `nametype`, as far as the
         corpus has them; `features` names the corpus feature behind each.
+        With BDB, a linked lexeme also has `bdbShort` (its main entry's short
+        definition), `bdbOrder` (that entry's place in BDB), `bdbLetter` (the
+        letter of its part, its root's) and `bdbRoot` (whether it is a root).
         """
         lexicon = corpus_lexicon(corpus)
-        return {"features": lexicon.features, "entries": lexicon.entries}
+        bdb = store.get("bdb") if allowed(DICTIONARIES["bdb"].corpus) else None
+        if bdb is None:
+            return {"features": lexicon.features, "entries": lexicon.entries}
+        return {
+            "features": lexicon.features,
+            "entries": [
+                {**e, **bdb.for_list(e.get("language"), e.get("lex"))}
+                for e in lexicon.entries
+            ],
+            "bdb": True,
+        }
 
     @router.get("/corpora/{corpus}/lexicon/{node}")
     def lexicon_entry(corpus: str, node: int, lang: str = "en") -> dict[str, Any]:

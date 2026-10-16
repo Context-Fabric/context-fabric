@@ -113,6 +113,12 @@ export interface LexiconEntry {
   freq: number;
   rank?: number | null;
   nametype?: string | null;
+  /** with BDB: its main entry's short definition, place in BDB, the letter
+   * of its root's part, and whether it is a root */
+  bdbShort?: string;
+  bdbOrder?: number;
+  bdbLetter?: string | null;
+  bdbRoot?: boolean;
 }
 
 export interface Lexeme extends LexiconEntry {
@@ -184,6 +190,8 @@ export interface NodeInfo {
   text: string | null;
   /** The essentials: gloss, lexeme, part of speech, morphology, in words. */
   summary: SummaryItem[];
+  /** a word's entries in BDB (see NodeSummary) */
+  bdb?: WordBdb | null;
   features: Record<string, string | number>;
   edges: Record<string, { from: { node: number; value?: unknown }[]; to: { node: number; value?: unknown }[] }>;
   up: { node: number; type: string }[];
@@ -210,6 +218,15 @@ export interface NodeSummary {
   ref: string;
   text: string | null;
   summary: SummaryItem[];
+  /** a word's entries in BDB, with its lexeme in the corpus whose lexicon
+   * has it (the BHSA, also for the DSS) */
+  bdb?: WordBdb | null;
+}
+
+export interface WordBdb extends BdbLink {
+  corpus: string;
+  node: number;
+  lex: string;
 }
 
 export interface FeatureEntry {

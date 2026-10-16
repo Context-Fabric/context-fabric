@@ -149,6 +149,7 @@ function Lexemes({ card, words, onLexicon }: { card: CorpusCard; words: number[]
                   {e.freq.toLocaleString("en-US")}× in the corpus
                 </span>
               ) : null}
+              {e?.bdbShort ? <span className="block">BDB: {e.bdbShort}</span> : null}
             </span>
             <button
               type="button"
