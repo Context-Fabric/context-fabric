@@ -8,6 +8,7 @@ lexeme nodes with glosses; the DSS has lexeme nodes, but no glosses.
 
 from __future__ import annotations
 
+from bisect import bisect_right
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
@@ -74,6 +75,10 @@ class Lexicon:
         default_factory=dict
     )
     _byLex: dict[tuple[Any, Any], dict[str, Any]] = field(default_factory=dict)
+    # per language of book names: the first slot of each book, and its name
+    _books: dict[str, tuple[list[int], list[int], list[str]]] = field(
+        default_factory=dict
+    )
 
     @classmethod
     def build(cls, api: Any) -> Lexicon | None:
@@ -141,10 +146,9 @@ class Lexicon:
             return self._verses[key]
         api = self.api
         verseType = api.T.sectionTypes[-1]
-        bookType = api.T.sectionTypes[0]
         verses: dict[int, list[int]] = {}
         for w in self.words(node):
-            if book is not None and book_name(api, w, bookType, lang) != book:
+            if book is not None and self.book_of(w, lang) != book:
                 continue
             up = api.L.u(w, verseType)
             if up:
@@ -156,14 +160,31 @@ class Lexicon:
         self._verses[key] = result
         return result
 
+    def book_of(self, word: int, lang: str = "en") -> str:
+        """The name of the book a word is in; by its slot among the books'
+        slot ranges (asking `L.u` for each word is slow for frequent
+        lexemes)."""
+        api = self.api
+        if lang not in self._books:
+            starts, ends, names = [], [], []
+            for b in api.F.otype.s(api.T.sectionTypes[0]):
+                slots = api.E.oslots.s(int(b))
+                starts.append(int(slots[0]))
+                ends.append(int(slots[-1]))
+                names.append(str(api.T.sectionFromNode(int(b), lang=lang)[0]))
+            self._books[lang] = (starts, ends, names)
+        starts, ends, names = self._books[lang]
+        i = bisect_right(starts, word) - 1
+        if i >= 0 and word <= ends[i] and api.F.otype.v(word) == api.F.otype.slotType:
+            return names[i]
+        return book_name(api, word, api.T.sectionTypes[0], lang)
+
     def distribution(self, node: int, lang: str = "en") -> list[dict[str, Any]]:
         """How often a lexeme occurs per book, in the order of the books."""
-        api = self.api
-        bookType = api.T.sectionTypes[0]
         counts: Counter[str] = Counter()
         order: list[str] = []
         for w in self.words(node):
-            name = book_name(api, w, bookType, lang)
+            name = self.book_of(w, lang)
             if name not in counts:
                 order.append(name)
             counts[name] += 1

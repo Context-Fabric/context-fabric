@@ -3,7 +3,7 @@ import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { api } from "../api";
 import { displayRef } from "../display/Display";
 import type { BdbLink, CorpusCard } from "../types";
-import { abbreviationPattern, linkNote, sefariaUrl, splitAbbreviations } from "./bdbText";
+import { abbreviationPattern, LONG, linkNote, preview, sefariaUrl, splitAbbreviations, stems } from "./bdbText";
 
 // BDB on the lexeme page: the entries a lexeme is linked to, and the text of
 // one of them, with its verses as links that open the passage, its references
@@ -96,20 +96,24 @@ function Article({ id, corpus, script, onEntry, onOpenPassage, onLex }: ArticleP
   });
   const abbreviations = useMemo(() => dictionary?.abbreviations ?? {}, [dictionary]);
   const pattern = useMemo(() => abbreviationPattern(abbreviations), [abbreviations]);
-  const body = useMemo(
-    () =>
-      article
-        ? render(article.html, {
-            script,
-            passages: article.passages,
-            abbreviations,
-            pattern,
-            onOpenPassage,
-            onEntry,
-          })
-        : null,
-    [article, script, abbreviations, pattern, onOpenPassage, onEntry],
-  );
+  const body = useMemo(() => {
+    if (!article) return null;
+    const ctx = { script, passages: article.passages, abbreviations, pattern, onOpenPassage, onEntry };
+    const parts = stems(article.html);
+    if (article.html.length <= LONG || parts.length < 2) return render(article.html, ctx);
+    // a long entry (הלך, דבר): the head open, each stem folded under its first words
+    return (
+      <>
+        <div>{render(parts[0], ctx)}</div>
+        {parts.slice(1).map((part, i) => (
+          <details key={i} className="mt-1 border-t border-rule pt-1">
+            <summary className="cursor-pointer text-[14px] text-stone hover:text-ink">{preview(part)}</summary>
+            <div className="mt-1">{render(part, ctx)}</div>
+          </details>
+        ))}
+      </>
+    );
+  }, [article, script, abbreviations, pattern, onOpenPassage, onEntry]);
   if (error) return <p className="text-madder">Could not load the entry: {String((error as Error).message)}</p>;
   if (!article) return <p className="text-stone">Loading…</p>;
 

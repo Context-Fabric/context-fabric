@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { abbreviationPattern, linkNote, sefariaUrl, splitAbbreviations } from "./bdbText";
+import { abbreviationPattern, linkNote, preview, sefariaUrl, splitAbbreviations, stems } from "./bdbText";
 
 describe("sefariaUrl", () => {
   it("links to the entry", () => {
@@ -38,5 +38,17 @@ describe("linkNote", () => {
     expect(linkNote({ entries: [], how: "cited" })).toMatch(/verses BDB cites/);
     expect(linkNote({ entries: [], how: "oshb", share: 0.75 })).toMatch(/75%/);
     expect(linkNote({ entries: [], how: "oshb", share: 0.99 })).toBeNull();
+  });
+});
+
+describe("stems", () => {
+  it("divides an entry where its stems begin", () => {
+    expect(stems("vb. go<br><strong>Qal</strong> Pf.<br/>Hiph. <br>")).toEqual(["vb. go", "<strong>Qal</strong> Pf.", "Hiph. "]);
+  });
+
+  it("previews a part by its first words", () => {
+    expect(preview("<strong>Qal</strong>  Pf. הָלַךְ Gn 2:14")).toBe("Qal Pf. הָלַךְ Gn 2:14");
+    expect(preview("a".repeat(100), 10)).toBe("aaaaaaaaaa…");
+    expect(preview("Pi. (chiefly poet. &amp; late) &lt;Th")).toBe("Pi. (chiefly poet. & late) <Th");
   });
 });
