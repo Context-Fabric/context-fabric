@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - The browser works with either core, the Python one (`context-fabric` 0.5) and the Rust one (0.6.0rc1), and uses only their public API; CI tests it with both. Its displays (`cfabric_browser.display`), corpus registry (`cfabric_browser.registry`) and search cancel token (`cfabric_browser.cancel`) moved here from the core, where they were only on the browser's branches, with their tests and fixtures (`tests/fixtures`). Searches run through `S.search`: the worker checks the cancel token and the timeout between results, and ends a worker that doesn't stop in time. Templates are checked by the Python engine's cheap phases, or by `S.study` on the Rust core; the features per atom (export columns, statistics) come from a small parser of templates of the browser's own (`queries.template_atoms`), identical to the Python engine's on 81 templates.
+- The standalone program is built on the Rust core (`context-fabric` 0.6.0rc1 from PyPI): searches are several times faster, and the first opening of a corpus prepares it in less time (the BHSA in 73 s instead of 186 s, here). It prepares a `.cfr` cache next to the corpus; a `.cfm` cache of the Python core is left alone.
+
+### Fixed
+- `pyyaml` is a dependency of the browser's own: it was only there because the Python core brought it along, and the Rust core doesn't.
 
 ### Added
 - Searching in plain language, the BHSA guide (`assistant/guides/bhsa.md`, given by `corpus_guide`): object types, the main features and their values in plain words, conventions (ETCBC transliteration, `[` and `/` endings, `=` for homonyms, Latin book names), templates in short, 42 worked examples with their counts, and common mistakes. A question set of 30 requests with correct templates and counts (`tests/data/bhsa-questions.yaml`); `tests/test_assistant_questions.py` checks both against the real BHSA with `CFABRIC_REAL_CORPORA=1`.
