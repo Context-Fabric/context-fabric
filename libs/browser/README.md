@@ -90,6 +90,25 @@ In the interfaces:
 - The card shown when hovering over a word stays away for English words, which have no gloss or morphology; a search term made from one uses `lower`.
 - *Cite* names the 1917 edition and Sefaria's export.
 
+## Dictionaries
+
+**BDB**, *A Hebrew and English Lexicon of the Old Testament* by Brown, Driver and Briggs (Oxford, 1906), can be added to the lexicon. A lexeme's page (BHSA) then has a tab *BDB* next to *Occurrences* with its entry:
+
+- the text as Sefaria has it, its verses as links that open the passage, its references to other entries as links to them, and BDB's abbreviations explained when the mouse is on them;
+- the neighbouring entries, the root family (the root and the words BDB derives from it, with links to their lexemes), Strong's and TWOT numbers, and a link to the entry on Sefaria;
+- when a lexeme is linked to more than one entry, all of them, the main one first, and a note when the link is less sure.
+
+The links from the BHSA's lexemes to the entries are made when the file is built: the words of each verse are aligned with the Open Scriptures Hebrew Bible, whose lemmas lead to BDB's entries, and checked against the verses BDB cites. The file is built once and published (about 5 MB, in `~/.cfabric/dictionaries/bdb`); in *Open a corpus*, under *Dictionaries*, *Add* downloads it and *Remove* deletes it. From the command line:
+
+```bash
+cfabric-browser add bdb            # download it
+cfabric-browser add bdb FILE       # a file built on this computer
+cfabric-browser remove bdb
+python -m cfabric_browser.dictionaries.build OUT   # build it (walks Sefaria's API once, about 12,000 requests)
+```
+
+The text is public domain; Sefaria's is from a scan in the National Library of Israel. Ids, short definitions and the lemmas come from Open Scriptures (CC BY 4.0).
+
 ## Interfaces
 
 The browser has several interfaces, chosen in the menu at the right of the top bar (it shows the name of the one in use). Switching keeps the passage, the corpora, the search, the lexicon and the settings; what an interface cannot show is kept for the next one. The interface used last is remembered by the web browser (or the window); `--ui` only sets the one for a first start. *Choose which to offer…* in the menu leaves interfaces out of it, though never the one in use, nor both *Panes* and *Parallel*.
@@ -224,13 +243,16 @@ All functions of the interface are available as a JSON API; interactive document
 | `GET /api/searches/{id}/collocations?feature=&window=&filter=&per=&min=&top=` | The values of a feature near the hits, with count, corpus frequency and logDice |
 | `GET /api/parallel?lead=&ref=&texts=` | A chapter of `lead` (`Genesis 1`) in the corpora `texts`, as rows of verses with a cell per corpus (the DSS: per scroll), for the parallel interface |
 | `GET /api/corpora/{c}/lexicon` | All lexemes of a corpus with a lexicon (BHSA), in alphabetical order per language |
-| `GET /api/corpora/{c}/lexicon/{n}` | One lexeme, with its number of verses and how often it occurs per book |
+| `GET /api/corpora/{c}/lexicon/{n}` | One lexeme, with its number of verses, how often it occurs per book, and its entries in BDB (`bdb`, null when BDB hasn't been added) |
 | `GET /api/corpora/{c}/lexicon/{n}/occurrences?offset=&limit=&book=` | A page of the verses it occurs in, as plain render trees with its words highlighted |
 | `GET /api/corpora/{c}/lexicon/{n}/occurrences.tsv` | Every occurrence: section, word and verse text; `excel=true` for Excel |
 | `GET /api/library`, `POST /api/corpora` | Corpora found on this computer; open one by its id (e.g. `ETCBC/dss`) |
 | `GET /api/downloads[/{org}/{repo}]`, `POST`/`DELETE /api/downloads/{org}/{repo}` | Corpora that can be downloaded, whether they are here, and the progress of a download (`job`: download, unpack, prepare); start or cancel one |
 | `GET /api/translations[/{t}]` | Translations that can be added, whether they are, and the progress of adding one (`job`) |
 | `POST /api/translations/{t}`, `DELETE /api/translations/{t}` | Add a translation (download and build it, in the background), or remove it |
+| `GET /api/dictionaries[/{d}]` | Dictionaries that can be added (BDB), whether they are, and the progress of adding one; one of them with its metadata and abbreviations |
+| `POST /api/dictionaries/{d}`, `DELETE /api/dictionaries/{d}` | Download a dictionary (in the background), or remove it |
+| `GET /api/dictionaries/{d}/entries/{id}?corpus=` | An entry: its text, neighbours and root family, with the lexemes of `corpus` linked to them and its verses as references there |
 | `GET /api/corpora/{c}/nodes/{n}[/info]` | Render tree of a node; all its features, edges and surroundings |
 | `GET /api/corpora/{c}/nodes/{n}/summary` | The essentials of a word, as on the card shown when hovering over it |
 | `POST /api/corpora/{c}/check` | Check a template without searching |

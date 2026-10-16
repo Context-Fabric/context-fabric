@@ -118,6 +118,9 @@ export interface LexiconEntry {
 export interface Lexeme extends LexiconEntry {
   verses: number;
   books: { book: string; count: number }[];
+  /** Its entries in BDB, the main one first; null when BDB hasn't been added
+   * (missing from servers of before BDB). */
+  bdb?: BdbLink | null;
 }
 
 /** A verse a lexeme occurs in, as running text with its words marked. */
@@ -415,4 +418,78 @@ export interface CorpusDownload {
     total: number;
     error: string | null;
   } | null;
+}
+
+/** An entry of BDB in a list: the lexeme page, the root family. */
+export interface BdbSummary {
+  id: string;
+  lexicon: "heb" | "arc";
+  headword: string;
+  pos: string | null;
+  /** Open Scriptures' short definitions */
+  defs: string[];
+  /** a short definition: `defs`, else the first gloss in the text */
+  short: string;
+  /** Sefaria's text stops short, or Sefaria lacks the entry */
+  incomplete: boolean;
+  /** Sefaria's reference (`BDB, בָּרָא`), null for an entry Sefaria lacks */
+  ref: string | null;
+}
+
+/** How a lexeme is linked to BDB. */
+export interface BdbLink {
+  entries: BdbSummary[];
+  /** oshb: through the OSHB's lemmas; cited: BDB cites its verses; manual: by hand */
+  how: "oshb" | "cited" | "manual" | null;
+  /** the share of its occurrences that lead to the main entry */
+  share?: number | null;
+}
+
+/** A lexeme of the corpus linked to an entry. */
+export interface BdbLexeme {
+  node: number;
+  lex: string;
+  form: string | null;
+  gloss: string | null;
+  language: string | null;
+}
+
+/** An entry of BDB with its text (`/api/dictionaries/bdb/entries/{id}`). */
+export interface BdbArticle extends BdbSummary {
+  /** cleaned HTML: big, sub, sup, strong, em, br, span[dir], a[data-osis], a[data-entry] */
+  html: string;
+  root: boolean;
+  strong: string[];
+  twot: string[];
+  previous: { id: string; headword: string } | null;
+  next: { id: string; headword: string } | null;
+  /** the root and the words BDB derives from it, with their lexemes */
+  family: (BdbSummary & { lexemes: BdbLexeme[] })[];
+  lexemes: BdbLexeme[];
+  /** the cited verses (`Gen.1.1`) as references in the corpus (`Genesis 1:1`) */
+  passages: Record<string, string>;
+}
+
+/** A dictionary that can be added (`/api/dictionaries`). */
+export interface DictionaryInfo {
+  id: string;
+  title: string;
+  name: string;
+  licence: string;
+  licenceNote: string;
+  sources: string;
+  corpus: string;
+  size: number;
+  /** can be downloaded (not before it has been published) */
+  available: boolean;
+  added: boolean;
+  built: string | null;
+  job: {
+    state: "running" | "done" | "failed" | "cancelled";
+    step: string;
+    done: number;
+    total: number;
+    error: string | null;
+  } | null;
+  abbreviations?: Record<string, string>;
 }

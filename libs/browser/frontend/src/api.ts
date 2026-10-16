@@ -20,6 +20,8 @@ import type {
   KwicLine,
   ParallelChapter,
   Translation,
+  BdbArticle,
+  DictionaryInfo,
   CorpusDownload,
 } from "./types";
 
@@ -113,6 +115,16 @@ export const api = {
 
   removeTranslation: (id: string) =>
     request<Translation>(`/api/translations/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  dictionaries: () => request<{ enabled: boolean; dictionaries: DictionaryInfo[] }>("/api/dictionaries"),
+  /** A dictionary with its abbreviations, once added. */
+  dictionary: (id: string) => request<DictionaryInfo>(`/api/dictionaries/${encodeURIComponent(id)}`),
+  addDictionary: (id: string) =>
+    request<DictionaryInfo>(`/api/dictionaries/${encodeURIComponent(id)}`, { method: "POST" }),
+  removeDictionary: (id: string) =>
+    request<DictionaryInfo>(`/api/dictionaries/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  /** An entry of BDB, with the lexemes and references of `corpus`. */
+  bdbEntry: (id: string, corpus: string) =>
+    request<BdbArticle>(`/api/dictionaries/bdb/entries/${encodeURIComponent(id)}${query({ corpus })}`),
 
   openCorpus: (id: string) =>
     request<{ name: string; opened: boolean }>("/api/corpora", {

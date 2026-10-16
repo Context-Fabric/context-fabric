@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from cfabric_browser import __version__
 from cfabric_browser.api import build_router
 from cfabric_browser.corpora import CorpusService
+from cfabric_browser.dictionaries.manage import DictionaryJobs
 from cfabric_browser.downloads import DownloadJobs
 from cfabric_browser.translations.manage import Jobs
 from cfabric_browser.workers import SearchPool
@@ -42,6 +43,7 @@ def create_app(
     translations: Jobs | None = None,
     downloads: DownloadJobs | None = None,
     ask_downloads: bool = False,
+    dictionaries: DictionaryJobs | None = None,
 ) -> FastAPI:
     """Build the application.
 
@@ -73,6 +75,9 @@ def create_app(
     ask_downloads: bool
         At the start, offer to download the corpora that can be downloaded and
         are missing (the standalone program).
+    dictionaries: DictionaryJobs | None
+        Where dictionaries (BDB) are kept (`cfabric_browser.dictionaries`); by
+        default `~/.cfabric/dictionaries`.
     """
 
     @asynccontextmanager
@@ -97,6 +102,7 @@ def create_app(
             library=library,
             translations=translations,
             downloads=downloads,
+            dictionaries=dictionaries,
         )
     )
 

@@ -120,6 +120,12 @@ class Lexicon:
         )
         return entry.get("gloss") if entry else None
 
+    def find(self, lex: str, language: str) -> dict[str, Any] | None:
+        """The lexeme with this transliteration in this language."""
+        if not self._byLex:
+            self.gloss(lex)
+        return self._byLex.get((lex, language))
+
     def words(self, node: int) -> list[int]:
         """The words of a lexeme, in canonical order."""
         return [int(w) for w in self.api.L.d(node, self.api.F.otype.slotType)]

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import threading
 from collections import Counter
 from dataclasses import replace
@@ -39,6 +40,14 @@ from cfabric_browser.compare import (
 )
 from cfabric_browser.concordance import MAX_SIDE, Concordance, parse_filters
 from cfabric_browser.corpora import CorpusService, discover, resolve_corpus
+from cfabric_browser.dictionaries.manage import (
+    DICTIONARIES,
+    Catalogued,
+    DictionaryJobs,
+    is_added,
+)
+from cfabric_browser.dictionaries.manage import remove as remove_dictionary
+from cfabric_browser.dictionaries.store import Dictionaries
 from cfabric_browser.downloads import DOWNLOADS, Download, DownloadJobs, is_present
 from cfabric_browser.interlinear import interlinear_verse
 from cfabric_browser.lexicon import Lexicon, render_verse
@@ -120,8 +129,13 @@ def build_router(
     library: bool = True,
     translations: Jobs | None = None,
     downloads: DownloadJobs | None = None,
+    dictionaries: DictionaryJobs | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api")
+    # dictionaries (BDB): downloaded into ~/.cfabric/dictionaries, read when
+    # first needed
+    lookups = dictionaries if dictionaries is not None else DictionaryJobs()
+    store = Dictionaries(lookups.root)
     # translations are built, and corpora downloaded, into the first place the
     # library looks
     jobs = translations if translations is not None else Jobs(service.roots[0])
@@ -281,6 +295,128 @@ def build_router(
             except OSError as e:
                 raise HTTPException(409, f"Could not remove it: {e}") from None
         return translation_entry(translation)
+
+    # dictionaries: one file each, built once and published, from the library
+
+    def dictionary_of(did: str) -> Catalogued:
+        catalogued = DICTIONARIES.get(did)
+        if catalogued is None or not allowed(catalogued.corpus):
+            raise HTTPException(404, f"Unknown dictionary: {did}")
+        return catalogued
+
+    def dictionary_entry(catalogued: Catalogued) -> dict[str, Any]:
+        found = store.get(catalogued.id)
+        return {
+            "id": catalogued.id,
+            "title": catalogued.title,
+            "name": catalogued.name,
+            "licence": catalogued.licence,
+            "licenceNote": catalogued.licenceNote,
+            "sources": catalogued.sources,
+            "corpus": catalogued.corpus,
+            "size": catalogued.size,
+            # can be downloaded (not before it is published)
+            "available": catalogued.url is not None,
+            "added": found is not None,
+            "built": found.meta.get("built") if found else None,
+            "job": lookups.status(catalogued.id),
+        }
+
+    @router.get("/dictionaries")
+    def list_dictionaries() -> dict[str, Any]:
+        return {
+            "enabled": library,
+            "dictionaries": [
+                dictionary_entry(d) for d in DICTIONARIES.values() if allowed(d.corpus)
+            ],
+        }
+
+    @router.get("/dictionaries/{did}")
+    def describe_dictionary(did: str) -> dict[str, Any]:
+        """A dictionary, and when it has been added its metadata (title,
+        edition, sources, figures of the build) and abbreviations."""
+        catalogued = dictionary_of(did)
+        result = dictionary_entry(catalogued)
+        found = store.get(did)
+        if found is not None:
+            result["meta"] = found.meta
+            result["abbreviations"] = found.abbreviations
+        return result
+
+    @router.post("/dictionaries/{did}", status_code=202)
+    def add_dictionary(did: str) -> dict[str, Any]:
+        """Download a dictionary; `job` shows the progress."""
+        if not library:
+            raise HTTPException(403, "Adding is switched off on this server")
+        catalogued = dictionary_of(did)
+        if catalogued.url is None:
+            raise HTTPException(409, f"{catalogued.name} has not been published yet")
+        if not is_added(catalogued, lookups.root):
+            lookups.start(catalogued)
+        return dictionary_entry(catalogued)
+
+    @router.delete("/dictionaries/{did}")
+    def remove_dictionary_route(did: str) -> dict[str, Any]:
+        if not library:
+            raise HTTPException(403, "Removing is switched off on this server")
+        catalogued = dictionary_of(did)
+        if not remove_dictionary(catalogued, lookups.root):
+            raise HTTPException(404, f"{catalogued.name} has not been added")
+        return dictionary_entry(catalogued)
+
+    def linked_lexemes(keys: list[str], corpus: str | None) -> list[dict[str, Any]]:
+        """Lexeme keys (`Hebrew BR>[`) as lexemes of a corpus: node, form,
+        gloss; those the corpus doesn't have are left out."""
+        lexicon = service.lexicon(corpus) if corpus and service.has(corpus) else None
+        if lexicon is None:
+            return []
+        found = []
+        for key in keys:
+            language, _, lex = key.partition(" ")
+            e = lexicon.find(lex, language)
+            if e is not None:
+                found.append(
+                    {k: e.get(k) for k in ("node", "lex", "form", "gloss", "language")}
+                )
+        return found
+
+    def passages(text: str, corpus: str | None) -> dict[str, str]:
+        """The verses an article cites (`Gen.1.1`) as references in `corpus`
+        (`Genesis 1:1`), for those of its books the corpus has."""
+        if not corpus or not service.has(corpus):
+            return {}
+        books = service.books(corpus)
+        found = {}
+        for osis in set(re.findall(r'data-osis="([^"]+)"', text)):
+            book, _, place = osis.partition(".")
+            if book in books and place:
+                chapter, _, verse = place.partition(".")
+                found[osis] = f"{books[book]} {chapter}" + (
+                    f":{verse}" if verse else ""
+                )
+        return found
+
+    @router.get("/dictionaries/{did}/entries/{eid}")
+    def dictionary_article(
+        did: str, eid: str, corpus: str | None = None
+    ) -> dict[str, Any]:
+        """An entry: its text (HTML with `<a data-osis="Gen.1.1">` for verses
+        and `<a data-entry="id">` for other entries), its neighbours, its root
+        family, and the lexemes of `corpus` linked to it and to its family."""
+        dictionary_of(did)
+        found = store.get(did)
+        if found is None:
+            raise HTTPException(404, f"{did} has not been added")
+        article = found.article(eid)
+        if article is None:
+            raise HTTPException(404, f"No entry {eid}")
+        article["lexemes"] = linked_lexemes(article["lexemes"], corpus)
+        article["passages"] = passages(article["html"], corpus)
+        for member in article["family"]:
+            member["lexemes"] = linked_lexemes(
+                found.lexemes.get(member["id"], []), corpus
+            )
+        return article
 
     # corpora that can be downloaded: the BHSA, the SP and the DSS, from their
     # own releases (cfabric_browser.downloads)
@@ -1506,13 +1642,18 @@ def build_router(
 
     @router.get("/corpora/{corpus}/lexicon/{node}")
     def lexicon_entry(corpus: str, node: int, lang: str = "en") -> dict[str, Any]:
-        """One lexeme, how often it occurs per book, and in how many verses."""
+        """One lexeme, how often it occurs per book, and in how many verses;
+        `bdb`: its entries in BDB when that has been added, else None."""
         lexicon = corpus_lexicon(corpus)
         entry = lexeme(lexicon, node)
+        bdb = store.get("bdb") if allowed(DICTIONARIES["bdb"].corpus) else None
         return {
             **entry,
             "verses": len(lexicon.verses(node)),
             "books": lexicon.distribution(node, lang=lang),
+            "bdb": bdb.for_lexeme(entry.get("language"), entry.get("lex"))
+            if bdb
+            else None,
         }
 
     @router.get("/corpora/{corpus}/lexicon/{node}/occurrences")
