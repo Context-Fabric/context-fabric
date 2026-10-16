@@ -228,6 +228,10 @@ function Dictionaries() {
     await client.invalidateQueries({ queryKey: ["lexeme"] });
     await client.invalidateQueries({ queryKey: ["dictionary"] });
     await client.invalidateQueries({ queryKey: ["bdb-entry"] });
+    // the list's definitions, and words' entries on the card and in the inspector
+    await client.invalidateQueries({ queryKey: ["lexicon"] });
+    await client.invalidateQueries({ queryKey: ["summary"] });
+    await client.invalidateQueries({ queryKey: ["node"] });
   };
   const add = useMutation({
     mutationFn: (id: string) => api.addDictionary(id),

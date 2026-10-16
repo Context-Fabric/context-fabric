@@ -5,6 +5,8 @@ import { api } from "../api";
 import { displayRef, Plain, scriptClass } from "../display/Display";
 import type { CorpusCard, Lexeme, LexiconEntry, ViewSettings } from "../types";
 import { BdbSection } from "./Bdb";
+import { letterOf, shownLexemes, type Order } from "./list";
+import { keepTab, keptTab, type Tab } from "./tab";
 
 // The lexicon of a corpus with lexeme nodes (BHSA), after SHEBANQ's Words page:
 // per language and first letter a list of lexemes with their glosses; a lexeme
@@ -32,9 +34,6 @@ const PARTS: Record<string, string> = {
 };
 
 const part = (sp: string | null | undefined) => (sp ? (PARTS[sp] ?? sp) : "");
-
-/** Hebrew without vowels and accents, so that ברא also finds בָּרָא. */
-const bare = (text: string | null | undefined) => (text ?? "").normalize("NFD").replace(/[֑-ׇ]/g, "");
 
 function formatCount(n: number): string {
   return n.toLocaleString("en-US");
@@ -100,7 +99,8 @@ function Intro({ corpus, count }: { corpus: CorpusCard; count: number }) {
         word marked.
       </p>
       <p className="text-stone">
-        Find a lexeme in all letters at once by its Hebrew, its transliteration or its gloss: <em>create</em> finds ברא.
+        Find a lexeme in all letters at once by its Hebrew, its transliteration, its gloss or, when BDB has been added,
+        BDB's definition: <em>create</em> finds ברא.
       </p>
     </div>
   );
@@ -125,28 +125,22 @@ function LexiconList({ corpus, entries, selected, onSelect }: ListProps) {
   const [letter, setLetter] = useState(selectedEntry?.letter ?? "א");
   const [filter, setFilter] = useState("");
   const [sp, setSp] = useState("");
-  const [byFrequency, setByFrequency] = useState(false);
+  const [order, setOrder] = useState<Order>("alpha");
+  // ordering by root needs BDB
+  const hasBdb = useMemo(() => entries.some((e) => e.bdbOrder !== undefined), [entries]);
+  const shownOrder: Order = order === "root" && !hasBdb ? "alpha" : order;
 
-  const inLanguage = useMemo(() => entries.filter((e) => (e.language ?? "") === language), [entries, language]);
-  const letters = useMemo(() => new Set(inLanguage.map((e) => e.letter)), [inLanguage]);
+  const letters = useMemo(
+    () => new Set(entries.filter((e) => (e.language ?? "") === language).map((e) => letterOf(e, shownOrder))),
+    [entries, language, shownOrder],
+  );
   const parts = useMemo(() => [...new Set(entries.map((e) => e.sp).filter(Boolean))] as string[], [entries]);
 
   const needle = filter.trim().toLowerCase();
-  const shown = useMemo(() => {
-    const hebrew = bare(needle);
-    let list = inLanguage.filter((e) => {
-      if (sp && e.sp !== sp) return false;
-      // a filter looks in all letters at once
-      if (!needle) return e.letter === letter;
-      return (
-        (e.gloss ?? "").toLowerCase().includes(needle) ||
-        e.lex.toLowerCase().includes(needle) ||
-        (hebrew !== "" && (bare(e.form).includes(hebrew) || bare(e.cons).includes(hebrew)))
-      );
-    });
-    if (byFrequency) list = [...list].sort((a, b) => b.freq - a.freq);
-    return list;
-  }, [inLanguage, sp, needle, letter, byFrequency]);
+  const shown = useMemo(
+    () => shownLexemes(entries, { language, letter, sp, find: filter, order: shownOrder }),
+    [entries, language, letter, sp, filter, shownOrder],
+  );
 
   const script = scriptClass(corpus.display, "rtl");
   return (
@@ -206,19 +200,20 @@ function LexiconList({ corpus, entries, selected, onSelect }: ListProps) {
               </option>
             ))}
           </select>
-          <label className="flex items-center gap-1 text-[13px]">
-            <input
-              type="checkbox"
-              checked={byFrequency}
-              onChange={(e) => setByFrequency(e.target.checked)}
-              className="accent-[var(--woad)]"
-            />
-            Most frequent first
-          </label>
+          <select
+            value={shownOrder}
+            onChange={(e) => setOrder(e.target.value as Order)}
+            aria-label="Order"
+            className="rounded border border-rule-strong bg-vellum px-1.5 py-1 text-[13px]"
+          >
+            <option value="alpha">Alphabetical</option>
+            <option value="frequency">Most frequent first</option>
+            {hasBdb ? <option value="root">By root (BDB)</option> : null}
+          </select>
         </div>
         <p className="text-[12px] text-stone" role="status">
           {formatCount(shown.length)} {shown.length === 1 ? "lexeme" : "lexemes"}
-          {needle ? ` matching “${filter.trim()}”` : ` starting with ${letter}`}
+          {needle ? ` matching “${filter.trim()}”` : shownOrder === "root" ? ` with a root in ${letter}` : ` starting with ${letter}`}
         </p>
       </div>
       <ul className="min-h-0 flex-1 overflow-y-auto" aria-label="Lexemes">
@@ -231,13 +226,14 @@ function LexiconList({ corpus, entries, selected, onSelect }: ListProps) {
               className="grid w-full grid-cols-[minmax(5rem,auto)_1fr_auto] items-baseline gap-3 border-b border-rule px-3 py-1.5 text-left hover:bg-woad-soft aria-[current=true]:bg-gold-leaf"
             >
               {/* the script class scales the size: 1.45 × 14px */}
-              <span dir="rtl" className="text-[14px] leading-snug">
+              <span dir="rtl" className={`text-[14px] leading-snug ${shownOrder === "root" && e.bdbRoot === false ? "pe-4" : ""}`}>
                 <span className={script}>{e.form || e.cons || e.lex}</span>
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-[14px]">{e.gloss}</span>
                 <span className="block truncate text-[12px] text-stone">
                   <span className="font-mono">{e.lex}</span> · {part(e.sp)}
+                  {e.bdbShort && e.bdbShort !== e.gloss ? <> · BDB: {e.bdbShort}</> : null}
                 </span>
               </span>
               <span className="text-[12px] tabular-nums text-stone" title="Occurrences">
@@ -259,27 +255,6 @@ interface DetailProps {
   onLex: (node: number) => void;
   onOpenPassage: (ref: string) => void;
   onSearch: (template: string) => void;
-}
-
-type Tab = "occurrences" | "bdb";
-
-// the tab last chosen, kept for the session (opening a verse and coming back)
-const TAB_KEY = "cfabric-browser/lexeme-tab";
-
-function keptTab(): Tab {
-  try {
-    return window.sessionStorage.getItem(TAB_KEY) === "bdb" ? "bdb" : "occurrences";
-  } catch {
-    return "occurrences";
-  }
-}
-
-function keepTab(tab: Tab): void {
-  try {
-    window.sessionStorage.setItem(TAB_KEY, tab);
-  } catch {
-    // no storage: the tab is not kept
-  }
 }
 
 function LexemeDetail({ corpus, node, settings, onBack, onLex, onOpenPassage, onSearch }: DetailProps) {

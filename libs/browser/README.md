@@ -98,6 +98,11 @@ In the interfaces:
 - the neighbouring entries, the root family (the root and the words BDB derives from it, with links to their lexemes), Strong's and TWOT numbers, and a link to the entry on Sefaria;
 - when a lexeme is linked to more than one entry, all of them, the main one first, and a note when the link is less sure.
 
+Elsewhere:
+- *Lexicon* list: *Find* also searches BDB's short definitions (*perish* finds אבד), each lexeme shows BDB's definition where it differs from the gloss, and the order *By root (BDB)* lists the lexemes under their root's letter in BDB's order, the words derived from a root indented under it.
+- The card shown when hovering over a word and the inspector give BDB's entry of its lexeme; the inspector has *BDB entry*, which opens the lexicon at it. DSS words get it through the BHSA's lexeme, as they get their gloss.
+- The Reader's *Lexicon* tab shows BDB's definitions; the Interlinear offers the line *BDB (its short definition)*.
+
 The links from the BHSA's lexemes to the entries are made when the file is built: the words of each verse are aligned with the Open Scriptures Hebrew Bible, whose lemmas lead to BDB's entries, and checked against the verses BDB cites. The file is built once and published (about 5 MB, in `~/.cfabric/dictionaries/bdb`); in *Open a corpus*, under *Dictionaries*, *Add* downloads it and *Remove* deletes it. From the command line:
 
 ```bash
@@ -242,7 +247,7 @@ All functions of the interface are available as a JSON API; interactive document
 | `GET /api/searches/{id}/kwic/facets?feature=&filter=&per=` | How often each value of a feature of the hit occurs in the filtered results (`book`: in book order) |
 | `GET /api/searches/{id}/collocations?feature=&window=&filter=&per=&min=&top=` | The values of a feature near the hits, with count, corpus frequency and logDice |
 | `GET /api/parallel?lead=&ref=&texts=` | A chapter of `lead` (`Genesis 1`) in the corpora `texts`, as rows of verses with a cell per corpus (the DSS: per scroll), for the parallel interface |
-| `GET /api/corpora/{c}/lexicon` | All lexemes of a corpus with a lexicon (BHSA), in alphabetical order per language |
+| `GET /api/corpora/{c}/lexicon` | All lexemes of a corpus with a lexicon (BHSA), in alphabetical order per language; with BDB, `bdbShort`, `bdbOrder`, `bdbLetter`, `bdbRoot` per lexeme |
 | `GET /api/corpora/{c}/lexicon/{n}` | One lexeme, with its number of verses, how often it occurs per book, and its entries in BDB (`bdb`, null when BDB hasn't been added) |
 | `GET /api/corpora/{c}/lexicon/{n}/occurrences?offset=&limit=&book=` | A page of the verses it occurs in, as plain render trees with its words highlighted |
 | `GET /api/corpora/{c}/lexicon/{n}/occurrences.tsv` | Every occurrence: section, word and verse text; `excel=true` for Excel |
@@ -254,7 +259,7 @@ All functions of the interface are available as a JSON API; interactive document
 | `POST /api/dictionaries/{d}`, `DELETE /api/dictionaries/{d}` | Download a dictionary (in the background), or remove it |
 | `GET /api/dictionaries/{d}/entries/{id}?corpus=` | An entry: its text, neighbours and root family, with the lexemes of `corpus` linked to them and its verses as references there |
 | `GET /api/corpora/{c}/nodes/{n}[/info]` | Render tree of a node; all its features, edges and surroundings |
-| `GET /api/corpora/{c}/nodes/{n}/summary` | The essentials of a word, as on the card shown when hovering over it |
+| `GET /api/corpora/{c}/nodes/{n}/summary` | The essentials of a word, as on the card shown when hovering over it; `bdb`: its entries in BDB, by its lexeme (in the BHSA, also for the DSS) |
 | `POST /api/corpora/{c}/check` | Check a template without searching |
 | `POST /api/corpora/{c}/search` | Start a search (`{"template": …, "limit": …, "timeout": …}`) |
 | `GET /api/searches/{id}[/events]` | Status, or a live event stream of it |

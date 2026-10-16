@@ -75,6 +75,10 @@ class TestStore:
         assert short(ENTRIES[0]) == "beginning"
         assert short(ENTRIES[1]) == "shape, create"
         assert short(entry("x", "x", None)) == ""
+        prep = "I. בְּ <strong>prep. in, with, through</strong>, etc."
+        assert short(entry("x", "x", None, prep)) == "in, with, through"
+        name = "<strong>n.pr.m.</strong> son of Gad"
+        assert short(entry("x", "x", None, name)) == ""
 
     def test_lexeme_and_article(self, tmp_path):
         found = Dictionary.load(write_dictionary(tmp_path / "bdb.json.gz"))
@@ -202,3 +206,43 @@ class TestRoutes:
         # removed: gone from the lexicon at once
         assert client.delete("/api/dictionaries/bdb").json()["added"] is False
         assert client.get(f"/api/corpora/bible/lexicon/{node}").json()["bdb"] is None
+
+
+class TestWords:
+    def test_word_gets_its_entry(self, setup):
+        client, tmp_path = setup
+        # word 3 is בָּרָא, lexeme BR>[
+        assert client.get("/api/corpora/bible/nodes/3/summary").json()["bdb"] is None
+        write_dictionary(tmp_path / "dictionaries" / "bdb" / "bdb.json.gz")
+        bdb = client.get("/api/corpora/bible/nodes/3/summary").json()["bdb"]
+        assert bdb["corpus"] == "bible" and bdb["lex"] == "BR>["
+        assert bdb["node"] == node_of(client, "BR>[")
+        assert bdb["entries"][0]["short"] == "shape, create"
+        info = client.get("/api/corpora/bible/nodes/3/info").json()
+        assert info["bdb"]["entries"][0]["id"] == "b.aa.aa"
+        # a word whose lexeme isn't linked, and a node that isn't a word
+        assert client.get("/api/corpora/bible/nodes/1/summary").json()["bdb"] is None
+        assert client.get("/api/corpora/bible/nodes/13/summary").json()["bdb"] is None
+
+
+def test_lexicon_list_with_bdb(setup):
+    client, tmp_path = setup
+    plain = client.get("/api/corpora/bible/lexicon").json()
+    assert "bdb" not in plain and "bdb" not in plain["entries"][0]
+    write_dictionary(tmp_path / "dictionaries" / "bdb" / "bdb.json.gz")
+    found = client.get("/api/corpora/bible/lexicon").json()
+    assert found["bdb"] is True
+    byLex = {e["lex"]: e for e in found["entries"]}
+    assert byLex["BR>["]["bdbShort"] == "shape, create"
+    assert byLex["BR>["]["bdbOrder"] == 1 and byLex["BR>["]["bdbLetter"] == "ב"
+    assert byLex[">RQ/"]["bdbLetter"] == "א"  # the Aramaic part
+    assert "bdbShort" not in byLex["B"]
+
+
+def test_interlinear_line(setup):
+    client, tmp_path = setup
+    write_dictionary(tmp_path / "dictionaries" / "bdb" / "bdb.json.gz")
+    found = client.get("/api/corpora/bible/interlinear", params={"ref": "Genesis 1"})
+    words = {w["node"]: w["lines"] for v in found.json()["verses"] for w in v["words"]}
+    assert words[3]["bdb"] == "shape, create"
+    assert "bdb" not in words[1]

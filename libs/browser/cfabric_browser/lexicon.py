@@ -111,19 +111,20 @@ class Lexicon:
         (without one, Hebrew); if the lexeme is not in that language, as in
         another one (the DSS marks some words Aramaic whose lexeme the BHSA only
         has in Hebrew)."""
+        entry = self.lookup(lex, language)
+        return entry.get("gloss") if entry else None
+
+    def lookup(self, lex: str, language: str | None = None) -> dict[str, Any] | None:
+        """The lexeme by its transliteration and language (without one,
+        Hebrew), else in another language, as `gloss` does."""
+        return self.find(lex, language or "Hebrew") or self.find(lex, None)
+
+    def find(self, lex: str, language: str | None) -> dict[str, Any] | None:
+        """The lexeme with this transliteration in this language (None: any)."""
         if not self._byLex:
             for e in self.entries:
                 self._byLex.setdefault((e.get("lex"), e.get("language")), e)
                 self._byLex.setdefault((e.get("lex"), None), e)
-        entry = self._byLex.get((lex, language or "Hebrew")) or self._byLex.get(
-            (lex, None)
-        )
-        return entry.get("gloss") if entry else None
-
-    def find(self, lex: str, language: str) -> dict[str, Any] | None:
-        """The lexeme with this transliteration in this language."""
-        if not self._byLex:
-            self.gloss(lex)
         return self._byLex.get((lex, language))
 
     def words(self, node: int) -> list[int]:

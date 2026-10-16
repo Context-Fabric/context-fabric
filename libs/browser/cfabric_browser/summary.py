@@ -132,6 +132,18 @@ def _first(
     return None
 
 
+def lexeme_of(
+    api: Any, node: int, empty: set[str] | None = None
+) -> tuple[str, str | None] | None:
+    """A word's ETCBC lexeme (`BR>[`) and language, as in the BHSA, or None."""
+    empty = EMPTY | (empty or set())
+    lex = _first(api, node, LEXEME, empty)
+    if not lex or not lex[1].isascii():
+        return None
+    language = _first(api, node, LANGUAGE, empty)
+    return (lex[1], language[1] if language else None)
+
+
 def summary(
     api: Any,
     node: int,

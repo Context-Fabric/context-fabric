@@ -103,6 +103,15 @@ export function HoverCard({ corpus, hovered, note }: Props) {
           ) : (
             <p className="text-stone">{data.type}</p>
           )}
+          {data.bdb?.entries.length ? (
+            <p className="mt-1 border-t border-rule pt-1">
+              <span className="text-stone">BDB</span>{" "}
+              <span dir="rtl" className={script}>
+                {data.bdb.entries[0].headword}
+              </span>{" "}
+              {data.bdb.entries[0].short}
+            </p>
+          ) : null}
           {note ? <p className="mt-1.5 border-t border-rule pt-1.5 text-madder">{note}</p> : null}
           <p className="mt-1.5 text-[11px] text-stone">Click for all features</p>
         </>
