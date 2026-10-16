@@ -72,7 +72,7 @@ The program opens in **Parallel**, laid out after [Parabible](https://parabible.
 - New since test.4: the JPS 1917 translation.
 - New since test.5: downloading the three corpora from the program.
 - New since test.6: BDB, and the choice between vocalized and unvocalized text; the page of a frequent lexeme (הלך) opens at once instead of after about 20 seconds.
-- New since test.7: asking for a search in your own words, through Claude Desktop or Claude Code. It has been tried with test clients; you are the first to try it with Claude itself. If the extension doesn't connect, the program must be running first.
+- New since test.7 (test.8 was not published: its macOS test needed a command macOS lacks): asking for a search in your own words, through Claude Desktop or Claude Code. It has been tried with test clients; you are the first to try it with Claude itself. If the extension doesn't connect, the program must be running first.
 
 - On macOS and Linux, the window hasn't been tried by anyone yet. You're the first.
 - In three places the 1917 print joins verses that the BHSA divides (the Ten Commandments in Exodus 20 and Deuteronomy 5, and Numbers 25:19 with 26:1). The program divides them as the BHSA does and shows the print's number next to those verses.

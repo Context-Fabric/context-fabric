@@ -60,13 +60,22 @@ code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$port/mc
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}')
 [ "$code" -ge 400 ] || fail "/mcp answered a web page ($code)"
 
-# as an AI app starts it: the program with `mcp`, over stdio
-out=$(printf '%s\n' \
+# as an AI app starts it: the program with `mcp`, over stdio (there is no
+# `timeout` command on macOS: the helper runs in the background, waited for)
+printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"0"}}}' \
   '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
   '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_corpora","arguments":{}}}' \
-  | timeout 120 "$program" mcp)
+  > "$home/in.jsonl"
+"$program" mcp < "$home/in.jsonl" > "$home/out.jsonl" &
+helper=$!
+start=$(date +%s)
+while kill -0 "$helper" 2>/dev/null; do
+  [ $(($(date +%s) - start)) -gt 120 ] && { kill "$helper"; fail "the helper did not finish in 120 s"; }
+  sleep 1
+done
+out=$(cat "$home/out.jsonl")
 echo "$out" | grep -q '"serverInfo"' || fail "no answer to initialize over stdio: ${out:0:300}"
 echo "$out" | grep -q '"try_search"' || fail "no tools over stdio: ${out:0:300}"
 echo "$out" | grep -q '"id":3' || fail "list_corpora gave no answer: ${out:0:300}"
