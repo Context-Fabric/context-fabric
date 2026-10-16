@@ -76,6 +76,12 @@ jobs:
           [ -f "$program.exe" ] && program=$program.exe
           [ -d dist/Context-Fabric.app ] && program=dist/Context-Fabric.app/Contents/MacOS/cfabric-browser
           bash packaging/download-test.sh "$program"
+      - name: Add a dictionary (BDB, from the release of Context-Fabric/bdb)
+        run: |
+          program=dist/cfabric-browser/cfabric-browser
+          [ -f "$program.exe" ] && program=$program.exe
+          [ -d dist/Context-Fabric.app ] && program=dist/Context-Fabric.app/Contents/MacOS/cfabric-browser
+          bash packaging/dictionary-test.sh "$program"
       - name: Size
         run: du -sh dist/*
       - name: Pack (keeps file permissions)
