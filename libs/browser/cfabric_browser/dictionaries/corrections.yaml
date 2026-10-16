@@ -1,0 +1,16 @@
+# Links from lexemes to BDB entries made by hand, where the alignment with the
+# OSHB gives the wrong entry. Key: language and lex as in the BHSA; entries:
+# Open Scriptures ids of BDB entries, the main one first.
+
+# The OSHB's prefix lemmas (b, c, k, l, i) are Hebrew only, so in the
+# Aramaic parts they led to the Hebrew entries.
+Aramaic W:
+  entries: [xf.aa.aa]  # וְ
+Aramaic L:
+  entries: [xl.aa.aa]  # ל
+Aramaic B:
+  entries: [xb.aa.aa]  # בְּ
+Aramaic K:
+  entries: [xk.aa.aa]  # כְּ
+Aramaic H:
+  entries: [xe.aa.aa]  # הֲ interrogative
