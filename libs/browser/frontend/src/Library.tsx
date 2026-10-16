@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
-import type { CorpusDownload, Translation } from "./types";
+import type { CorpusDownload, DictionaryInfo, Translation } from "./types";
 
 interface Props {
   onOpen: (corpus: string) => void;
@@ -107,6 +107,7 @@ export function Library({ onOpen, onClose }: Props) {
               ) : null}
               <Downloads onDone={(corpus) => open.mutate(corpus)} />
               <Translations onAdded={(corpus) => open.mutate(corpus)} />
+              <Dictionaries />
             </>
           ) : null}
         </div>
@@ -210,6 +211,107 @@ function Translations({ onAdded }: { onAdded: (corpus: string) => void }) {
 }
 
 const BUTTON = "shrink-0 rounded border border-rule-strong px-3 py-1 text-[13px] hover:border-woad disabled:opacity-50";
+
+/** Dictionaries that can be added (BDB): one file, shown on the pages of the
+ * lexicon. */
+function Dictionaries() {
+  const client = useQueryClient();
+  const [removing, setRemoving] = useState<string | null>(null);
+  const { data } = useQuery({
+    queryKey: ["dictionaries"],
+    queryFn: api.dictionaries,
+    refetchInterval: (q) => (q.state.data?.dictionaries.some((d) => d.job?.state === "running") ? 500 : false),
+  });
+  const refresh = async () => {
+    await client.invalidateQueries({ queryKey: ["dictionaries"] });
+    // the lexeme pages show it, or no longer
+    await client.invalidateQueries({ queryKey: ["lexeme"] });
+    await client.invalidateQueries({ queryKey: ["dictionary"] });
+    await client.invalidateQueries({ queryKey: ["bdb-entry"] });
+  };
+  const add = useMutation({
+    mutationFn: (id: string) => api.addDictionary(id),
+    onSuccess: (entry) => {
+      client.setQueryData(["dictionaries"], (old: { enabled: boolean; dictionaries: DictionaryInfo[] } | undefined) =>
+        old ? { ...old, dictionaries: old.dictionaries.map((d) => (d.id === entry.id ? entry : d)) } : old,
+      );
+    },
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => api.removeDictionary(id),
+    onSuccess: () => {
+      setRemoving(null);
+      void refresh();
+    },
+  });
+  const dictionaries = data?.enabled ? data.dictionaries : [];
+  const finished = dictionaries.filter((d) => d.job?.state === "done").map((d) => d.id).join(",");
+  useEffect(() => {
+    if (finished) void refresh();
+  }, [finished]);
+
+  if (dictionaries.length === 0) return null;
+  const error = add.error ?? remove.error;
+  return (
+    <section className="flex flex-col gap-2 border-t border-rule pt-3">
+      <h3 className="text-[15px] font-semibold">Dictionaries</h3>
+      <p className="text-[13px] text-stone">Shown on the pages of the lexicon, linked to its lexemes.</p>
+      {error ? (
+        <p className="text-[13px] text-madder" role="alert">
+          {String((error as Error).message)}
+        </p>
+      ) : null}
+      <ul className="flex flex-col">
+        {dictionaries.map((d) => (
+          <li key={d.id} className="flex items-start gap-3 border-b border-rule py-2 last:border-b-0">
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">{d.name}</p>
+              <p className="text-[12px] text-stone">
+                {d.licenceNote} About {Math.round(d.size / 1_000_000)} MB.
+              </p>
+              {!d.added && !d.available ? (
+                <p className="text-[13px] text-stone">
+                  Not published yet. A file built on this computer can be added with{" "}
+                  <code className="font-mono">cfabric-browser add {d.id} FILE</code>.
+                </p>
+              ) : null}
+              {d.job?.state === "failed" ? (
+                <p className="text-[13px] text-madder" role="alert">
+                  Could not add it: {d.job.error}
+                </p>
+              ) : null}
+            </div>
+            {d.job?.state === "running" ? (
+              <span className="shrink-0 text-[13px] text-stone" role="status">
+                Downloading {Math.round(d.job.done / 1000).toLocaleString("en-US")} kB…
+              </span>
+            ) : !d.added ? (
+              d.available ? (
+                <button type="button" disabled={add.isPending} onClick={() => add.mutate(d.id)} className={BUTTON}>
+                  {d.job?.state === "failed" ? "Try again" : "Add"}
+                </button>
+              ) : null
+            ) : removing === d.id ? (
+              <span className="flex shrink-0 items-baseline gap-2 text-[13px]">
+                Remove it?
+                <button type="button" disabled={remove.isPending} onClick={() => remove.mutate(d.id)} className={`${BUTTON} text-madder`}>
+                  Remove
+                </button>
+                <button type="button" onClick={() => setRemoving(null)} className={BUTTON}>
+                  No
+                </button>
+              </span>
+            ) : (
+              <button type="button" onClick={() => setRemoving(d.id)} className={BUTTON}>
+                Remove
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 function TranslationButton(props: {
   t: Translation;

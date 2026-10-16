@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { displayRef, Plain, scriptClass } from "../display/Display";
 import type { CorpusCard, Lexeme, LexiconEntry, ViewSettings } from "../types";
+import { BdbSection } from "./Bdb";
 
 // The lexicon of a corpus with lexeme nodes (BHSA), after SHEBANQ's Words page:
 // per language and first letter a list of lexemes with their glosses; a lexeme
@@ -68,6 +69,7 @@ export function LexiconView({ corpus, lex, settings, onLex, onOpenPassage, onSea
         node={lex}
         settings={settings}
         onBack={compact ? () => onLex(null) : undefined}
+        onLex={onLex}
         onOpenPassage={onOpenPassage}
         onSearch={onSearch}
       />
@@ -254,12 +256,39 @@ interface DetailProps {
   node: number;
   settings: ViewSettings;
   onBack?: () => void;
+  onLex: (node: number) => void;
   onOpenPassage: (ref: string) => void;
   onSearch: (template: string) => void;
 }
 
-function LexemeDetail({ corpus, node, settings, onBack, onOpenPassage, onSearch }: DetailProps) {
+type Tab = "occurrences" | "bdb";
+
+// the tab last chosen, kept for the session (opening a verse and coming back)
+const TAB_KEY = "cfabric-browser/lexeme-tab";
+
+function keptTab(): Tab {
+  try {
+    return window.sessionStorage.getItem(TAB_KEY) === "bdb" ? "bdb" : "occurrences";
+  } catch {
+    return "occurrences";
+  }
+}
+
+function keepTab(tab: Tab): void {
+  try {
+    window.sessionStorage.setItem(TAB_KEY, tab);
+  } catch {
+    // no storage: the tab is not kept
+  }
+}
+
+function LexemeDetail({ corpus, node, settings, onBack, onLex, onOpenPassage, onSearch }: DetailProps) {
   const [book, setBook] = useState<string | null>(null);
+  const [tab, setTabState] = useState<Tab>(keptTab);
+  const setTab = (t: Tab) => {
+    keepTab(t);
+    setTabState(t);
+  };
   const [shownNode, setShownNode] = useState(node);
   if (shownNode !== node) {
     // another lexeme: start again with all books
@@ -322,8 +351,37 @@ function LexemeDetail({ corpus, node, settings, onBack, onOpenPassage, onSearch 
             Download for Excel
           </a>
         </div>
+        {lexeme.bdb !== undefined ? (
+          <div role="tablist" className="-mb-3 flex gap-4 text-[14px]">
+            {(["occurrences", "bdb"] as Tab[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                role="tab"
+                aria-selected={tab === t}
+                onClick={() => setTab(t)}
+                className="border-b-2 border-transparent pb-1.5 text-stone hover:text-ink aria-selected:border-woad aria-selected:text-ink"
+              >
+                {t === "occurrences" ? "Occurrences" : "BDB"}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </header>
-      <Occurrences key={`${node}-${book}`} corpus={corpus} node={node} book={book} total={total} settings={settings} onOpenPassage={onOpenPassage} />
+      {tab === "bdb" && lexeme.bdb !== undefined ? (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <BdbSection
+            key={node}
+            corpus={corpus}
+            link={lexeme.bdb}
+            script={script}
+            onOpenPassage={onOpenPassage}
+            onLex={onLex}
+          />
+        </div>
+      ) : (
+        <Occurrences key={`${node}-${book}`} corpus={corpus} node={node} book={book} total={total} settings={settings} onOpenPassage={onOpenPassage} />
+      )}
     </div>
   );
 }

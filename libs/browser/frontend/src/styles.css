@@ -178,3 +178,9 @@ body {
 .tone-4 { color: var(--tone-4); }
 .tone-5 { color: var(--tone-5); }
 .tone-6 { color: var(--tone-6); }
+
+/* BDB's entries: Hebrew in the running English text without stretching its lines */
+.bdb .script-hbo {
+  font-size: 1.25em;
+  line-height: 1;
+}

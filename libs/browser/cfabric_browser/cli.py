@@ -8,8 +8,12 @@ import sys
 import threading
 import time
 import webbrowser
+from typing import TYPE_CHECKING
 
 from cfabric_browser import __version__
+
+if TYPE_CHECKING:
+    from cfabric_browser.dictionaries.manage import Catalogued
 
 DEFAULT_PORT = 8107
 
@@ -160,10 +164,44 @@ def download_command(names: list[str]) -> int:
     return status
 
 
+def dictionary_command(command: str, catalogued: Catalogued, rest: list[str]) -> int:
+    """`cfabric-browser add bdb [FILE]` and `cfabric-browser remove bdb`: add a
+    dictionary (downloaded, or from a file on this computer) or remove it."""
+    from cfabric_browser.dictionaries.manage import add, add_file, remove
+    from cfabric_browser.dictionaries.store import DictionaryError
+    from cfabric_browser.downloads import DownloadError
+
+    if command == "remove":
+        if not remove(catalogued):
+            print(f"{catalogued.name} has not been added.")
+        else:
+            print(f"Removed {catalogued.name}.")
+        return 0
+    print(f"Adding {catalogued.name}")
+    print(f"  {catalogued.licenceNote}")
+
+    def progress(step: str, done: int, total: int) -> None:
+        print(f"\r  downloading {done // 1000}/{total // 1000} kB", end="", flush=True)
+
+    try:
+        place = (
+            add_file(catalogued, rest[0])
+            if rest
+            else add(catalogued, progress=progress)
+        )
+    except (DictionaryError, DownloadError, OSError) as e:
+        print(f"\ncfabric-browser: {e}", file=sys.stderr)
+        return 1
+    print(f"\n  done: {place}")
+    print("It is shown on the pages of the lexicon (BHSA).")
+    return 0
+
+
 def translation_command(argv: list[str]) -> int:
     """`cfabric-browser add [ID]` and `cfabric-browser remove ID`: add or
     remove a translation without starting the browser."""
     from cfabric_browser.corpora import SEARCH_ROOTS
+    from cfabric_browser.dictionaries.manage import DICTIONARIES, is_added
     from cfabric_browser.translations import TRANSLATIONS, BuildError, build
     from cfabric_browser.translations.manage import is_built, remove
 
@@ -178,7 +216,14 @@ def translation_command(argv: list[str]) -> int:
             state = "added" if is_built(t, root) else "not added"
             print(f"  {t.id:<10} {t.name} ({state})")
             print(f"  {'':<10} {t.licence_note}")
+        print("Dictionaries that can be added (cfabric-browser add ID [FILE]):")
+        for d in DICTIONARIES.values():
+            state = "added" if is_added(d) else "not added"
+            print(f"  {d.id:<10} {d.name} ({state})")
+            print(f"  {'':<10} {d.licenceNote}")
         return 0
+    if rest[0].lower() in DICTIONARIES:
+        return dictionary_command(command, DICTIONARIES[rest[0].lower()], rest[1:])
     translation = TRANSLATIONS.get(rest[0].lower())
     if translation is None:
         known = ", ".join(TRANSLATIONS)
