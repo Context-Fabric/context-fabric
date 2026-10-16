@@ -2,6 +2,8 @@
 
 A graphical browser for [Context-Fabric](https://context-fabric.ai) corpora, the successor of the Text-Fabric browser. It runs on your own computer and works offline.
 
+It works with either Context-Fabric core: the Python one (`context-fabric` 0.5) and the Rust one (0.6), which searches several times faster. It uses only their public API.
+
 > **Status: pre-alpha.** Reading, searching and inspecting work, also with several corpora side by side.
 
 ## Usage
@@ -294,7 +296,7 @@ Display options are query parameters: `mode` (`pretty`/`plain`), `fmt` (only `te
 
 - Searches run in worker processes, so the interface stays responsive and searches can run in parallel. Because corpora are memory-mapped, the workers share most of their memory. A search that ignores its time limit or a stop request is ended by restarting its worker.
 - Results stream in while the search runs. Once it has finished, they are put in canonical order.
-- Displays are built by `cfabric.display` as structured render trees, which the interface draws. The corpus' Text-Fabric app configuration (`app/config.yaml`) is used as it is.
+- Displays are built by `cfabric_browser.display` (a port of Text-Fabric's displays without HTML) as structured render trees, which the interface draws. The corpus' Text-Fabric app configuration (`app/config.yaml`) is used as it is.
 
 ## Development
 

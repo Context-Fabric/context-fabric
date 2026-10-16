@@ -17,8 +17,7 @@ classifiers = [
 ]
 
 dependencies = [
-    # Needs cfabric.display, cfabric.registry and search cancellation, which are
-    # unreleased: raise this to the first core release that contains them.
+    # only its public API: the Python core (0.5) or the Rust one (0.6)
     "context-fabric>=0.5.7",
     # the tools a language model gets (searching in plain language) share
     # cfabric-mcp's; needs its `tools.using`, unreleased

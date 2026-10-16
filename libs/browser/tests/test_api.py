@@ -1,6 +1,6 @@
 """Tests for the browser API, with real search workers on a tiny corpus.
 
-The corpus is the `display_corpus` fixture of the core package: 12 words in one
+The corpus is the `display_corpus` fixture (`tests/fixtures`, from the core package): 12 words in one
 book ("Alpha Book") of two chapters and three verses, a clause with a gap
 (node 19) and a clause that crosses a verse boundary (node 20).
 """
@@ -15,13 +15,7 @@ from cfabric_browser.corpora import CorpusService, CorpusSpec, resolve_corpus
 from cfabric_browser.workers import SearchPool
 from fastapi.testclient import TestClient
 
-FIXTURE = (
-    Path(__file__).resolve().parents[2]
-    / "core"
-    / "tests"
-    / "fixtures"
-    / "display_corpus"
-)
+FIXTURE = Path(__file__).resolve().parent / "fixtures" / "display_corpus"
 DATA = FIXTURE / "tf" / "1.0"
 
 
@@ -433,16 +427,22 @@ class TestSearch:
         )
         assert response.status_code == 422
 
-    def test_problems_inside_quantifiers_come_from_the_worker(self, client):
+    def test_problems_inside_quantifiers(self, client):
         response = client.post(
             "/api/corpora/alpha/search",
             json={"template": "phrase\n/without/\n  word spp=verb\n/-/\n"},
         )
-        assert response.status_code == 202
-        status = wait_for(client, response.json()["id"])
-        # the engine itself only logs this and returns every phrase
-        assert status["state"] == "failed"
-        assert status["problems"] == [
+        if response.status_code == 400:
+            # the Rust core finds them when checking the template
+            problems = response.json()["detail"]["problems"]
+        else:
+            # the Python engine only logs them while searching, and would
+            # return every phrase: the worker reports them
+            assert response.status_code == 202
+            status = wait_for(client, response.json()["id"])
+            assert status["state"] == "failed"
+            problems = status["problems"]
+        assert problems == [
             {
                 "kind": "semantics",
                 "line": 2,

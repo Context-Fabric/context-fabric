@@ -16,8 +16,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from cfabric.display.config import read_app_config
-
+from cfabric_browser.display.config import read_app_config
 from cfabric_browser.jobs import BackgroundJobs
 from cfabric_browser.translations.build import CACHE, BuildError, build
 from cfabric_browser.translations.catalog import TRANSLATIONS, Translation

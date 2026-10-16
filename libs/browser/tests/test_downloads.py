@@ -37,13 +37,7 @@ def sha(data: bytes) -> str:
 
 # a real corpus (the display test corpus of the core package), so that it can
 # also be opened after downloading
-FIXTURE = (
-    Path(__file__).resolve().parents[2]
-    / "core"
-    / "tests"
-    / "fixtures"
-    / "display_corpus"
-)
+FIXTURE = Path(__file__).resolve().parent / "fixtures" / "display_corpus"
 COMPLETE = make_zip(
     {
         "Org/corpus/app/config.yaml": (FIXTURE / "app" / "config.yaml").read_bytes(),

@@ -20,14 +20,6 @@ from dataclasses import replace
 from typing import Annotated, Any, Literal
 
 from anyio import to_thread
-from cfabric.display import (
-    RenderOptions,
-    node_from_section_ref,
-    render_node,
-    render_tuple,
-    section_ref_for,
-)
-from cfabric.utils.helpers import tsvEsc
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
@@ -49,7 +41,15 @@ from cfabric_browser.dictionaries.manage import (
 )
 from cfabric_browser.dictionaries.manage import remove as remove_dictionary
 from cfabric_browser.dictionaries.store import Dictionaries
+from cfabric_browser.display import (
+    RenderOptions,
+    node_from_section_ref,
+    render_node,
+    render_tuple,
+    section_ref_for,
+)
 from cfabric_browser.downloads import DOWNLOADS, Download, DownloadJobs, is_present
+from cfabric_browser.helpers import tsvEsc
 from cfabric_browser.interlinear import interlinear_verse
 from cfabric_browser.lexicon import Lexicon, render_verse
 from cfabric_browser.queries import (
@@ -125,7 +125,7 @@ def render_options(
     ),
     lang: str = "en",
 ) -> RenderOptions:
-    """Display options as query parameters; see `cfabric.display.RenderOptions`."""
+    """Display options as query parameters; see `cfabric_browser.display.RenderOptions`."""
     return RenderOptions(
         fmt=fmt or None,
         full=full,

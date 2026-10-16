@@ -15,10 +15,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from cfabric.display import RenderOptions, section_ref_for
-
 from cfabric_browser import formats
 from cfabric_browser.compare import align_words, diff_words, verse_words, word_type
+from cfabric_browser.display import RenderOptions, section_ref_for
 from cfabric_browser.summary import summary
 
 # the lines built from the summary, by its labels

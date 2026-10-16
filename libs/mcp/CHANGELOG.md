@@ -8,10 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `tools.using(registry)`: run the tools on another `CorpusRegistry` for the duration of a block (a context variable, safe across threads), so that the browser can offer the same tools on its own corpora; without it they work on the server's own corpora, as before
-
-### Changed
-- `CorpusManager` is now a subclass of `cfabric.registry.CorpusRegistry` (requires a context-fabric version with `cfabric.registry`); behaviour is unchanged
+- `tools.using(registry)`: run the tools on another registry of corpora (anything with `get`, `get_api`, `list_corpora` and `current`, like `CorpusManager`) for the duration of a block (a context variable, safe across threads), so that the browser can offer the same tools on its own corpora; without it they work on the server's own corpora, as before
 
 ## [0.1.7] - 2026-01-15
 

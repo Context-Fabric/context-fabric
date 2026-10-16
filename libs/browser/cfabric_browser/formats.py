@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any
 
-from cfabric.display import DisplayConfig, RenderOptions
+from cfabric_browser.display import DisplayConfig, RenderOptions
 
 # vocalized (vowels, accents, the qere) and unvocalized (consonants, the ketiv)
 FORMATS = ("text-orig-full", "text-orig-plain")

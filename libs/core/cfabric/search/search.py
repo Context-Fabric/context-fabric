@@ -12,7 +12,6 @@ if TYPE_CHECKING:
 import logging
 
 from cfabric.utils.helpers import console, wrapMessages
-from cfabric.search.cancel import CancelToken
 from cfabric.search.searchexe import SearchExe
 from cfabric.utils.logging import SILENT_D, AUTO, silentConvert
 
@@ -220,8 +219,6 @@ class Search:
         silent: str = SILENT_D,
         here: bool = True,
         _msgCache: bool | list[Any] = False,
-        cancel: CancelToken | None = None,
-        timeout: float | None = None,
     ) -> (
         tuple[tuple[int, ...], ...] |
         set[int] |
@@ -261,13 +258,6 @@ class Search:
                 If this *fail limit* is exceeded in cases where no positive `limit`
                 has been passed, you get a warning message.
 
-        cancel: CancelToken, optional None
-            A `cfabric.search.cancel.CancelToken` that can stop the search from
-            another thread, or after its own timeout.
-        timeout: float, optional None
-            Shorthand for passing `CancelToken(timeout=timeout)`.
-            Ignored when `cancel` is given.
-
         Returns
         -------
         generator | tuple
@@ -280,15 +270,6 @@ class Search:
             Otherwise, the results will be fetched up till `limit`
             and delivered as a tuple.
 
-        Raises
-        ------
-        SearchCancelled
-            If the search is cancelled through `cancel`.
-            When results are delivered as a generator, this can also be raised
-            while iterating over it.
-        SearchTimeout
-            If the search exceeds its timeout (a subclass of `SearchCancelled`).
-
         Notes
         -----
         !!! hint "More info on the search plan"
@@ -296,8 +277,6 @@ class Search:
             and translated into a search plan. See `tf.search.search.Search.study`.
         """
 
-        if cancel is None and timeout is not None:
-            cancel = CancelToken(timeout=timeout)
         exe = SearchExe(
             self.api,
             searchTemplate,
@@ -309,7 +288,6 @@ class Search:
             silent=silent,
             _msgCache=_msgCache,
             setInfo={},
-            cancel=cancel,
         )
         if here:
             self.exe = exe
@@ -332,8 +310,6 @@ class Search:
         shallow: bool | int = False,
         here: bool = True,
         silent: str = SILENT_D,
-        cancel: CancelToken | None = None,
-        timeout: float | None = None,
     ) -> None:
         """Studies a template to prepare for searching with it.
 
@@ -377,11 +353,6 @@ class Search:
 
         silent: string, optional cfabric.timestamp.SILENT_D
             See `cfabric.timestamp.Timestamp`
-        cancel: CancelToken, optional None
-            Stops studying when cancelled. The token stays attached, so a later
-            `fetch()` is also stopped by it.
-        timeout: float, optional None
-            Shorthand for passing `CancelToken(timeout=timeout)`.
 
         See Also
         --------
@@ -390,8 +361,6 @@ class Search:
 
         if silent is False:
             silent = AUTO
-        if cancel is None and timeout is not None:
-            cancel = CancelToken(timeout=timeout)
 
         exe = SearchExe(
             self.api,
@@ -404,7 +373,6 @@ class Search:
             silent=SILENT_D,
             showQuantifiers=True,
             setInfo={},
-            cancel=cancel,
         )
         if here:
             self.exe = exe

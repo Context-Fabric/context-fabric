@@ -1,10 +1,10 @@
-"""Unit tests for cfabric.search.cancel."""
+"""Unit tests for the search workers' cancel token (`cfabric_browser.cancel`)."""
 
 import threading
 import time
 
 import pytest
-from cfabric.search.cancel import CancelToken, SearchCancelled, SearchTimeout
+from cfabric_browser.cancel import CancelToken, SearchCancelled, SearchTimeout
 
 
 class TestCancelToken:

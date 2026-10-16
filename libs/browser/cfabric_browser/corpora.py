@@ -21,19 +21,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from cfabric.display import (
+from cfabric_browser import formats
+from cfabric_browser.books import book_index, canonical_book
+from cfabric_browser.display import (
     DisplayConfig,
     find_app_config,
     node_from_section_ref,
     section_ref_for,
 )
-from cfabric.display.config import read_app_config
-from cfabric.registry import CorpusRegistry
-from cfabric.utils.helpers import versionSort
-
-from cfabric_browser import formats
-from cfabric_browser.books import book_index, canonical_book
+from cfabric_browser.display.config import read_app_config
+from cfabric_browser.helpers import versionSort
 from cfabric_browser.lexicon import Lexicon, has_lexicon
+from cfabric_browser.registry import CorpusRegistry
 from cfabric_browser.witnesses import BookIndex, format_ref, parse_ref
 
 logger = logging.getLogger(__name__)

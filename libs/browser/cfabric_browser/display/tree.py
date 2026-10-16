@@ -22,12 +22,13 @@ from dataclasses import dataclass, field
 from itertools import chain
 from typing import TYPE_CHECKING, Any
 
-from cfabric.display.sections import section_ref, structure_ref
-from cfabric.utils.helpers import rangesFromList
+from cfabric_browser.display.sections import section_ref, structure_ref
+from cfabric_browser.helpers import rangesFromList
 
 if TYPE_CHECKING:
     from cfabric.core.api import Api
-    from cfabric.display.config import DisplayConfig
+
+    from cfabric_browser.display.config import DisplayConfig
 
 PRETTY = "pretty"
 PLAIN = "plain"
@@ -497,7 +498,7 @@ class _Dresser:
         return value
 
     def _fill(self, n: int, nType: str, tpl: str) -> str:
-        from cfabric.display.config import VAR_PATTERN
+        from cfabric_browser.display.config import VAR_PATTERN
 
         # As in TF, templates show values like `NA` that feature lists suppress.
         def replace(match):

@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Any, Callable, Generator
 
 if TYPE_CHECKING:
     from cfabric.core.api import Api
-    from cfabric.search.cancel import CancelToken
 
 from cfabric.search.relations import basicRelations
 from cfabric.search.syntax import syntax
@@ -52,7 +51,6 @@ class SearchExe:
         showQuantifiers: bool = False,
         _msgCache: bool | list[Any] = False,
         setInfo: dict[str, bool | None] | None = None,
-        cancel: CancelToken | None = None,
     ) -> None:
         if setInfo is None:
             setInfo = {}
@@ -71,7 +69,6 @@ class SearchExe:
         )
         self.good: bool = True
         self.setInfo: dict[str, bool | None] = setInfo
-        self.cancel: CancelToken | None = cancel
         basicRelations(self, api)
 
     # API METHODS ###
@@ -187,11 +184,6 @@ class SearchExe:
             logger.info(f"Done: {i + 1} results")
         else:
             logger.error(f"cut off at {failLimit} results. There are more ...")
-
-    def checkCancel(self) -> None:
-        """Raise `SearchCancelled` if the cancel token says so."""
-        if self.cancel is not None:
-            self.cancel.check()
 
     # SHOWING WITH THE SEARCH GRAPH ###
 
