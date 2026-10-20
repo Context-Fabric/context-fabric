@@ -70,7 +70,7 @@ jobs:
         core: [python, rust]
     defaults:
       run:
-        working-directory: libs/browser
+        working-directory: libs/explorer
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -80,9 +80,9 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: libs/browser/frontend/package-lock.json
+          cache-dependency-path: libs/explorer/frontend/package-lock.json
       - name: Type-check, test and build the interface
-        working-directory: libs/browser/frontend
+        working-directory: libs/explorer/frontend
         run: |
           npm ci
           npm test

@@ -4,7 +4,7 @@ name: Browser desktop program
 # Windows, macOS and Linux, smoke-tests each build, and tests the Windows build
 # once more on a runner where Python is out of reach. A tag desktop-v* (such as
 # desktop-v0.1.0-test.1) also publishes the builds as a GitHub pre-release, with
-# libs/browser/packaging/RELEASE_NOTES.md as its text. Not browser-v*: that tag
+# libs/explorer/packaging/RELEASE_NOTES.md as its text. Not browser-v*: that tag
 # publishes the package on PyPI (publish.yml).
 
 on:
@@ -12,13 +12,13 @@ on:
     branches: [master, main, 'browser-*', 'desktop-*']
     tags: ['desktop-v*']
     paths:
-      - 'libs/browser/**'
+      - 'libs/explorer/**'
       - 'libs/core/cfabric/**'
       - '.github/workflows/browser-desktop.yml'
   pull_request:
     branches: [master, main]
     paths:
-      - 'libs/browser/**'
+      - 'libs/explorer/**'
       - 'libs/core/cfabric/**'
       - '.github/workflows/browser-desktop.yml'
   workflow_dispatch:
@@ -38,7 +38,7 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: libs/browser
+        working-directory: libs/explorer
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -48,9 +48,9 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: libs/browser/frontend/package-lock.json
+          cache-dependency-path: libs/explorer/frontend/package-lock.json
       - name: Build the interface
-        working-directory: libs/browser/frontend
+        working-directory: libs/explorer/frontend
         run: |
           npm ci
           npm run build
@@ -72,25 +72,25 @@ jobs:
           program=dist/cfabric-browser/cfabric-browser
           [ -f "$program.exe" ] && program=$program.exe
           # on macOS the program as people start it, inside the app
-          [ -d dist/Context-Fabric.app ] && program=dist/Context-Fabric.app/Contents/MacOS/cfabric-browser
+          [ -d "dist/CACCHT Explorer.app" ] && program="dist/CACCHT Explorer.app/Contents/MacOS/cfabric-browser"
           bash packaging/translation-test.sh "$program"
       - name: Download a corpus (the SP, from its GitHub release)
         run: |
           program=dist/cfabric-browser/cfabric-browser
           [ -f "$program.exe" ] && program=$program.exe
-          [ -d dist/Context-Fabric.app ] && program=dist/Context-Fabric.app/Contents/MacOS/cfabric-browser
+          [ -d "dist/CACCHT Explorer.app" ] && program="dist/CACCHT Explorer.app/Contents/MacOS/cfabric-browser"
           bash packaging/download-test.sh "$program"
       - name: Add a dictionary (BDB, from the release of Context-Fabric/bdb)
         run: |
           program=dist/cfabric-browser/cfabric-browser
           [ -f "$program.exe" ] && program=$program.exe
-          [ -d dist/Context-Fabric.app ] && program=dist/Context-Fabric.app/Contents/MacOS/cfabric-browser
+          [ -d "dist/CACCHT Explorer.app" ] && program="dist/CACCHT Explorer.app/Contents/MacOS/cfabric-browser"
           bash packaging/dictionary-test.sh "$program"
       - name: Serve an AI app (MCP over HTTP and over stdio)
         run: |
           program=dist/cfabric-browser/cfabric-browser
           [ -f "$program.exe" ] && program=$program.exe
-          [ -d dist/Context-Fabric.app ] && program=dist/Context-Fabric.app/Contents/MacOS/cfabric-browser
+          [ -d "dist/CACCHT Explorer.app" ] && program="dist/CACCHT Explorer.app/Contents/MacOS/cfabric-browser"
           bash packaging/mcp-test.sh "$program"
       - name: Size
         run: du -sh dist/*
@@ -98,9 +98,9 @@ jobs:
         run: |
           mkdir -p ../../out
           case "${{ matrix.name }}" in
-            windows) 7z a -tzip ../../out/cfabric-browser-windows.zip ./dist/cfabric-browser > /dev/null ;;
-            macos-*) ditto -c -k --keepParent dist/Context-Fabric.app ../../out/Context-Fabric-${{ matrix.name }}.zip ;;
-            linux) tar -czf ../../out/cfabric-browser-linux.tar.gz -C dist cfabric-browser ;;
+            windows) 7z a -tzip ../../out/CACCHT-Explorer-windows.zip ./dist/cfabric-browser > /dev/null ;;
+            macos-*) ditto -c -k --keepParent "dist/CACCHT Explorer.app" ../../out/CACCHT-Explorer-${{ matrix.name }}.zip ;;
+            linux) tar -czf ../../out/CACCHT-Explorer-linux.tar.gz -C dist cfabric-browser ;;
           esac
           ls -l ../../out
       - uses: actions/upload-artifact@v4
@@ -120,13 +120,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           sparse-checkout: |
-            libs/browser/packaging
-            libs/browser/tests/fixtures
+            libs/explorer/packaging
+            libs/explorer/tests/fixtures
       - uses: actions/download-artifact@v4
         with:
           name: cfabric-browser-windows
       - name: Unpack
-        run: 7z x cfabric-browser-windows.zip -oprogram > /dev/null
+        run: 7z x CACCHT-Explorer-windows.zip -oprogram > /dev/null
       - name: Smoke test with Python out of reach
         run: |
           # take every folder with a Python off the path (the py launcher lives
@@ -142,9 +142,9 @@ jobs:
           if command -v python python3 py; then
             echo "::error title=Clean Windows::a Python is still reachable"; exit 1
           fi
-          bash libs/browser/packaging/smoke-test.sh \
+          bash libs/explorer/packaging/smoke-test.sh \
             program/cfabric-browser/cfabric-browser.exe \
-            libs/browser/tests/fixtures/display_corpus
+            libs/explorer/tests/fixtures/display_corpus
 
   release:
     name: Publish a pre-release
@@ -157,22 +157,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           sparse-checkout: |
-            libs/browser/packaging/RELEASE_NOTES.md
-            libs/browser/packaging/mcpb
+            libs/explorer/packaging/RELEASE_NOTES.md
+            libs/explorer/packaging/mcpb
           sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@v4
         with:
           path: out
           merge-multiple: true
       # the Claude Desktop extension, which reaches the running program
-      - run: python3 libs/browser/packaging/mcpb/pack.py out/Context-Fabric.mcpb
+      - run: python3 libs/explorer/packaging/mcpb/pack.py out/CACCHT-Explorer.mcpb
       - run: ls -l out
-      # desktop-v0.1.0-test.2 is released as "Context-Fabric 0.1.0-test.2"
+      # desktop-v0.1.0-test.2 is released as "CACCHT Explorer 0.1.0-test.2"
       - id: version
         run: echo "version=${GITHUB_REF_NAME#desktop-v}" >> "$GITHUB_OUTPUT"
       - uses: softprops/action-gh-release@v2
         with:
-          name: Context-Fabric ${{ steps.version.outputs.version }}
-          body_path: libs/browser/packaging/RELEASE_NOTES.md
+          name: CACCHT Explorer ${{ steps.version.outputs.version }}
+          body_path: libs/explorer/packaging/RELEASE_NOTES.md
           prerelease: true
           files: out/*
