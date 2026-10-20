@@ -8,7 +8,7 @@ from importlib import metadata
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from mcp.server.fastmcp.server import StreamableHTTPASGIApp
 from starlette.routing import Route
@@ -160,12 +160,15 @@ def create_app(
         if path.startswith("api/"):
             raise HTTPException(404, "Not found")
         candidate = (static_dir / path).resolve()
-        if (
-            path
-            and candidate.is_file()
-            and candidate.is_relative_to(static_dir.resolve())
-        ):
+        inside = bool(path) and candidate.is_relative_to(static_dir.resolve())
+        if inside and candidate.is_file():
             return FileResponse(candidate)
+        # a folder of pages (the guide, /guide/): its index.html, at an address
+        # ending in / so that the pages' relative links work
+        if inside and (candidate / "index.html").is_file():
+            if not path.endswith("/"):
+                return RedirectResponse(f"/{path}/")
+            return FileResponse(candidate / "index.html")
         if index.is_file():
             return FileResponse(index)
         return HTMLResponse(NOT_BUILT)

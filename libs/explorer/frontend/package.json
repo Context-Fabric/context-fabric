@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/guide.mjs",
+    "guide": "node scripts/guide.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "vitest run"
@@ -34,6 +35,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "4.7.0",
+    "marked": "18.0.14",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3",
     "vite": "6.4.4",

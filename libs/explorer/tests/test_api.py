@@ -490,3 +490,32 @@ class TestInterface:
 
     def test_unknown_api_route(self, client):
         assert client.get("/api/does-not-exist").status_code == 404
+
+
+class TestGuide:
+    @pytest.fixture
+    def guide_client(self, tmp_path):
+        (tmp_path / "index.html").write_text("the interface", encoding="utf-8")
+        guide = tmp_path / "guide"
+        guide.mkdir()
+        (guide / "index.html").write_text("the guide", encoding="utf-8")
+        (guide / "words.html").write_text("words", encoding="utf-8")
+        service = CorpusService([CorpusSpec(name="alpha", path=DATA)])
+        app = create_app(
+            service, SearchPool([]), static_dir=tmp_path, manage_pool=False
+        )
+        with TestClient(app) as c:
+            yield c
+
+    def test_guide_pages(self, guide_client):
+        assert guide_client.get("/guide/").text == "the guide"
+        assert guide_client.get("/guide/words.html").text == "words"
+
+    def test_guide_without_slash(self, guide_client):
+        response = guide_client.get("/guide", follow_redirects=False)
+        assert response.status_code == 307
+        assert response.headers["location"] == "/guide/"
+
+    def test_other_paths_get_the_interface(self, guide_client):
+        assert guide_client.get("/read/bhsa/Genesis/1").text == "the interface"
+        assert guide_client.get("/guide/../index.html").text == "the interface"

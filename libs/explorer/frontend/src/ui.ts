@@ -34,7 +34,7 @@ export const INTERFACES: UiInfo[] = [
   {
     id: "parallel",
     name: "Parallel",
-    about: "A column per corpus and a row per verse, after Parabible",
+    about: "A column per corpus and a row per verse",
     prefix: null,
     ready: true,
   },

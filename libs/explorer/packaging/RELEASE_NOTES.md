@@ -12,6 +12,8 @@ This test is about three corpora, all under the licence CC BY-NC 4.0:
 
 **New in this version: you don't need them on your computer first.** When they are missing, the program offers to download them the first time it starts, from their own releases on GitHub (the same files [Text-Fabric](https://annotation.github.io/text-fabric/) uses). It puts them where Text-Fabric keeps its downloads (`text-fabric-data/github` in your home folder), so if you have used Text-Fabric with these corpora, the program finds them there and downloads nothing. Other corpora on your computer are not offered in this test.
 
+**New since test.13: a guide, being written.** *Guide to …* at the bottom of the menu at the top right opens a guide to the program, inside the program (it works offline). Its chapters are still being written.
+
 **New since test.12: a new name.** The program is now called CACCHT Explorer; Context-Fabric remains the name of the engine underneath. On a Mac, the app is `CACCHT Explorer.app`: you may delete the old `Context-Fabric.app`. In Claude Desktop, install `CACCHT-Explorer.mcpb` as before; it takes the place of the old extension.
 
 **New since test.11:** in the Samaritan Pentateuch, hovering over a word shows the word, not a single letter.

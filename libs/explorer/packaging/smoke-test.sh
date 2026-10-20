@@ -43,6 +43,7 @@ echo "server answers after $(($(date +%s) - start)) s"
 
 curl -s "$api/corpora" | grep -q '"name":"test"' || fail "corpus not loaded"
 curl -s "http://127.0.0.1:$port/" | grep -q '<div id="root">' || fail "no interface"
+curl -s "http://127.0.0.1:$port/guide/" | grep -q 'Guide to CACCHT Explorer' || fail "no guide"
 
 job=$(curl -s -X POST "$api/corpora/test/search" \
   -H 'content-type: application/json' -d '{"template":"word"}' |
