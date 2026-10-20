@@ -43,12 +43,12 @@ The program isn't signed yet, so your computer warns about it the first time.
 
 ## Use
 
-The program opens in **Parallel**, laid out after [Parabible](https://parabible.com): a column per corpus and a row per verse, so the BHSA, the SP and the scrolls line up verse by verse. The menu at the top right offers four other ways of working, and takes the passage, the texts and the search along when you switch:
+The program opens in **Parallel**: a column per corpus and a row per verse, so the BHSA, the SP and the scrolls line up verse by verse. The menu at the top right offers four other ways of working, and takes the passage, the texts and the search along when you switch:
 
 - **Panes:** corpora side by side, each with its own passage and view.
-- **Reader** (after [Sefaria](https://www.sefaria.org)): one text in a quiet column, verse by verse or as running text, chapter after chapter as you scroll. Click a verse for a panel with its parallels, words, lexicon entries, a search and your own notes.
-- **Interlinear** (after STEPBible): each word with lines under it (transliteration, lexeme, gloss, morphology, or any feature), another text word by word under it, phrases and clauses, colours, and a practice mode that hides a line.
-- **Concordance** (after Sketch Engine): search results as lines with the hit in the middle, sorted by the words before or after it, filtered by book, stem or tense, with the words most typical near the hit (*Collocations*) and a download of the lines.
+- **Reader:** one text in a quiet column, verse by verse or as running text, chapter after chapter as you scroll. Click a verse for a panel with its parallels, words, lexicon entries, a search and your own notes.
+- **Interlinear:** each word with lines under it (transliteration, lexeme, gloss, morphology, or any feature), another text word by word under it, phrases and clauses, colours, and a practice mode that hides a line.
+- **Concordance:** search results as lines with the hit in the middle, sorted by the words before or after it, filtered by book, stem or tense, with the words most typical near the hit (*Collocations*) and a download of the lines.
 
 *Choose which to offer…* in that menu hides the ones you don't use. The program remembers the one you used last.
 
