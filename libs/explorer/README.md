@@ -317,6 +317,10 @@ Fonts are bundled from npm (`@fontsource`), so the browser needs no internet. Fo
 
 Tests: `pytest tests/` in `libs/explorer` (they start real search workers on a small fixture corpus).
 
+### The user guide
+
+The guide for users is written in Markdown in `guide/`, one file per chapter (the order is `PAGES` in `frontend/scripts/guide.mjs`). `npm run build` makes it into pages in `cfabric_browser/static/guide/`, which the program serves at `/guide/`, so it works offline; *Guide to …* in the interface menu opens the page for the interface in use (`frontend/src/guide.ts`). `node scripts/guide.mjs --site DIR` also writes the pages for caccht.github.io into `DIR/explorer/`, in the style of that site's own pages. Links between chapters are written to the Markdown files (`words.md#bdb`); `npm test` checks that every link and every interface's page exist. The plan: `../make_browser_context_fabric/documentation-plan.md` (outside the repository).
+
 
 ### Standalone program
 

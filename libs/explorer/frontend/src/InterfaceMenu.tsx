@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import type { Common } from "./common";
+import { guideUrl } from "./guide";
 import { switchInterface } from "./switch";
 import { canHide, hiddenUis, INTERFACES, rememberHiddenUis, type Ui } from "./ui";
 
@@ -126,6 +127,11 @@ export function InterfaceMenu({ current, describe }: Props) {
                 Choose which to offer…
               </button>
             )}
+          </div>
+          <div className="mt-1.5 border-t border-rule px-3 pt-1.5">
+            <a href={guideUrl(current)} role="menuitem" className="text-[13px] text-woad hover:underline">
+              Guide to {name}
+            </a>
           </div>
         </div>
       ) : null}
