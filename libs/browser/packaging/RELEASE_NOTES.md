@@ -12,6 +12,8 @@ This test is about three corpora, all under the licence CC BY-NC 4.0:
 
 **New in this version: you don't need them on your computer first.** When they are missing, the program offers to download them the first time it starts, from their own releases on GitHub (the same files [Text-Fabric](https://annotation.github.io/text-fabric/) uses). It puts them where Text-Fabric keeps its downloads (`text-fabric-data/github` in your home folder), so if you have used Text-Fabric with these corpora, the program finds them there and downloads nothing. Other corpora on your computer are not offered in this test.
 
+**New since test.10:** *Search* opens on *Template* instead of *Search terms*.
+
 **New since test.9: faster searching.** The program now runs on the new core of Context-Fabric, written in Rust: searches take a fraction of the time they took. The first time you open a corpus after updating, the program prepares it once more (about a minute for the BHSA); the files the earlier versions prepared (`.cfm` folders next to the corpora) are no longer used, and you may delete them.
 
 **New since test.7: asking in your own words.** With your own AI app (Claude Desktop or Claude Code, with your own subscription) you can ask for a search in plain language, such as *all cases of >LHJM/ in the BHSA*; the search appears in the program for you to run. See *Asking Claude for a search*.
@@ -60,7 +62,7 @@ The program opens in **Parallel**, laid out after [Parabible](https://parabible.
 - **Reading:** click the chapter name at the top for the books and chapters; `‹` and `›` (or the arrow keys) go to the previous and next chapter. *Texts* turns corpora on and off and changes their order. The Dead Sea Scrolls show, per verse, the text of every scroll that has it; dimmed letters are reconstructed by the editors.
 - **Differences** marks the words where the texts differ from the first column. With the BHSA, the SP and the DSS shown, the DSS column also says which scrolls side with the BHSA and which with the SP.
 - **Words:** hover over a word to see its gloss, lexeme, part of speech and morphology. Click it for all its features, in a panel on the left. Words in the Dead Sea Scrolls get their gloss from the BHSA.
-- **Search:** click a word, then *Add as search term*, and tick the features that should count. Add more terms, choose whether they must be in one verse, clause or phrase, and choose books if you like. Or write a search template under *Template*. The results show each verse in all the texts, with statistics and a download as a spreadsheet.
+- **Search:** write a search template under *Template* (where *Search* now opens). Or click a word, then *Add as search term*, and tick the features that should count; add more terms, choose whether they must be in one verse, clause or phrase, and choose books if you like. The results show each verse in all the texts, with statistics and a download as a spreadsheet.
 - **Lexicon** (BHSA): all lexemes of the Hebrew Bible, by language and first letter, with gloss, part of speech and frequency. Choose a lexeme to see every verse it occurs in; click a verse to read it in all the texts.
 - **Panes:** each pane has its own corpus, passage and view (*Read*, *Search*, *Lexicon*). *Sync passages* keeps them at the same passage.
 - **Notes** in the Reader stay on your computer. They go along when you export a workspace.

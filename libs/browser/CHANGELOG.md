@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Parallel's *Search* opens on *Template*, which now comes first, instead of *Search terms*; adding a search term from the word panel still switches to the terms.
 - The browser works with either core, the Python one (`context-fabric` 0.5) and the Rust one (0.6.0rc1), and uses only their public API; CI tests it with both. Its displays (`cfabric_browser.display`), corpus registry (`cfabric_browser.registry`) and search cancel token (`cfabric_browser.cancel`) moved here from the core, where they were only on the browser's branches, with their tests and fixtures (`tests/fixtures`). Searches run through `S.search`: the worker checks the cancel token and the timeout between results, and ends a worker that doesn't stop in time. Templates are checked by the Python engine's cheap phases, or by `S.study` on the Rust core; the features per atom (export columns, statistics) come from a small parser of templates of the browser's own (`queries.template_atoms`), identical to the Python engine's on 81 templates.
 - The standalone program is built on the Rust core (`context-fabric` 0.6.0rc1 from PyPI): searches are several times faster, and the first opening of a corpus prepares it in less time (the BHSA in 73 s instead of 186 s, here). It prepares a `.cfr` cache next to the corpus; a `.cfm` cache of the Python core is left alone.
 
