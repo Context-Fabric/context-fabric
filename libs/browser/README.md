@@ -242,6 +242,8 @@ typeDisplay:
     hidden: true
 ```
 
+The browser comes with such files of its own, in `cfabric_browser/display_settings/`, for corpora whose app configuration lacks something it needs: for the SP, that words are the units to show, hover over and click (its slots are signs). Your own files in `~/.cfabric/display` are layered over those.
+
 ## API
 
 All functions of the interface are available as a JSON API; interactive documentation is at `/docs` while the browser runs. Where they overlap, the endpoints mirror the tools of `cfabric-mcp`, so that people and language models use the same operations.
