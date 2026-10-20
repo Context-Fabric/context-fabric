@@ -70,6 +70,10 @@ passage=$(curl -s "$api/corpora/sp/passage?ref=Genesis+1&mode=plain")
 echo "$passage" | grep -q '"trees"' || fail "Genesis 1 not shown: ${passage:0:300}"
 [ -f "$home/text-fabric-data/github/DT-UCPH/sp/tf/7.2.4/__checkout__.txt" ] || fail "no __checkout__.txt"
 
+# the SP's slots are signs: words must be the units to hover over and click,
+# from the program's own display settings (an empty home has no local ones)
+curl -s "$api/corpora/sp" | grep -q '"baseTypes":\["word"\]' || fail "the SP's words are not its units (hovering shows letters)"
+
 stop
 rm -rf "$home"
 echo "OK"
