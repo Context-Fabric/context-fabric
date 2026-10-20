@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The standalone program is built on the Rust core (`context-fabric` 0.6.0rc1 from PyPI): searches are several times faster, and the first opening of a corpus prepares it in less time (the BHSA in 73 s instead of 186 s, here). It prepares a `.cfr` cache next to the corpus; a `.cfm` cache of the Python core is left alone.
 
 ### Fixed
+- Hovering over a word of the SP showed a single letter (`sign`) unless the user had a local display file saying that words are its base type. The browser now has display settings of its own (`cfabric_browser/display_settings/`), layered under the local ones in `~/.cfabric/display`: for the SP, words as units, and for 7.2.4 the phrase labels and hidden atoms.
 - `pyyaml` is a dependency of the browser's own: it was only there because the Python core brought it along, and the Rust core doesn't.
 
 ### Added

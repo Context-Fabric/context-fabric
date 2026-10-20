@@ -1,0 +1,7 @@
+# Display settings for the Samaritan Pentateuch (DT-UCPH/sp), all versions.
+# Its slots are signs, and its app config does not say that words are the
+# units to show, hover over and click; without this, those are single letters.
+# These lines can move into the corpus' app config; then this file can go.
+typeDisplay:
+  word:
+    base: true

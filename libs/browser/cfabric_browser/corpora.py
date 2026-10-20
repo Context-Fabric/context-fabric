@@ -39,6 +39,9 @@ logger = logging.getLogger(__name__)
 
 SEARCH_ROOTS = ("~/text-fabric-data/github", "~/github")
 OVERRIDES = "~/.cfabric/display"
+# display settings that come with the browser, for corpora whose app config
+# lacks them; local ones (OVERRIDES) win
+BUILT_IN = Path(__file__).parent / "display_settings"
 
 
 @dataclass(frozen=True)
@@ -306,30 +309,32 @@ def _merge(base: dict[str, Any], extra: dict[str, Any]) -> dict[str, Any]:
 
 
 def display_overrides(
-    path: Path, overrides: str | Path = OVERRIDES
+    path: Path, overrides: str | Path = OVERRIDES, built_in: Path = BUILT_IN
 ) -> tuple[dict[str, Any], list[Path]]:
-    """Local display settings for a corpus, layered over its app config.
+    """Display settings for a corpus, layered over its app config.
 
     For data in `<org>/<repo>/tf/<version>`, these files are read, later ones
-    winning: `<overrides>/<org>/<repo>.yaml`, then
-    `<overrides>/<org>/<repo>@<version>.yaml`. They use the format of a
-    Text-Fabric app `config.yaml` (`typeDisplay`, `dataDisplay`, ...) and need
-    only contain what differs. This is the place for settings that a corpus'
-    own app config does not (yet) have, without editing downloaded files.
+    winning: `<built_in>/<org>/<repo>.yaml`, `<built_in>/<org>/<repo>@<version>.yaml`
+    (those that come with the browser), then the same two in `<overrides>`
+    (local ones). They use the format of a Text-Fabric app `config.yaml`
+    (`typeDisplay`, `dataDisplay`, ...) and need only contain what differs.
+    This is the place for settings that a corpus' own app config does not
+    (yet) have, without editing downloaded files.
     """
     if path.parent.name != "tf":
         return ({}, [])
     repo = path.parent.parent
-    base = Path(overrides).expanduser() / repo.parent.name
     merged: dict[str, Any] = {}
     used: list[Path] = []
-    for candidate in (
-        base / f"{repo.name}.yaml",
-        base / f"{repo.name}@{path.name}.yaml",
-    ):
-        if candidate.is_file():
-            merged = _merge(merged, read_app_config(candidate))
-            used.append(candidate)
+    for root in (built_in, Path(overrides).expanduser()):
+        base = root / repo.parent.name
+        for candidate in (
+            base / f"{repo.name}.yaml",
+            base / f"{repo.name}@{path.name}.yaml",
+        ):
+            if candidate.is_file():
+                merged = _merge(merged, read_app_config(candidate))
+                used.append(candidate)
     return (merged, used)
 
 

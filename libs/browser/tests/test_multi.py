@@ -13,7 +13,12 @@ import pytest
 from cfabric_browser.app import create_app
 from cfabric_browser.books import book_index, canonical_book
 from cfabric_browser.cli import main, parse_args
-from cfabric_browser.corpora import CorpusService, discover, resolve_corpus
+from cfabric_browser.corpora import (
+    CorpusService,
+    discover,
+    display_overrides,
+    resolve_corpus,
+)
 from cfabric_browser.workers import SearchPool
 from fastapi.testclient import TestClient
 
@@ -192,6 +197,36 @@ class TestDisplayOverrides:
         # the rest of the app config still applies
         assert config.types["word"].features == ("sp",)
         assert config.section_sep2 == "."
+
+    def test_built_in_under_local(self, tmp_path):
+        data = tmp_path / "corpora" / "Hebrew" / "heb" / "tf" / "1.0"
+        built_in = tmp_path / "built_in" / "Hebrew"
+        local = tmp_path / "display" / "Hebrew"
+        for folder in (built_in, local):
+            folder.mkdir(parents=True)
+        (built_in / "heb.yaml").write_text(
+            "typeDisplay:\n  word:\n    base: true\n  clause:\n    label: x\n",
+            encoding="utf-8",
+        )
+        (local / "heb.yaml").write_text(
+            "typeDisplay:\n  clause:\n    label: y\n", encoding="utf-8"
+        )
+        (merged, used) = display_overrides(
+            data, tmp_path / "display", built_in=tmp_path / "built_in"
+        )
+        assert merged["typeDisplay"] == {
+            "word": {"base": True},
+            "clause": {"label": "y"},
+        }
+        assert used == [built_in / "heb.yaml", local / "heb.yaml"]
+
+    def test_sp_words_are_units(self, tmp_path):
+        # without them, hovering over the SP shows single letters
+        data = tmp_path / "DT-UCPH" / "sp" / "tf" / "7.2.4"
+        (merged, used) = display_overrides(data, tmp_path / "none")
+        assert merged["typeDisplay"]["word"]["base"] is True
+        assert merged["typeDisplay"]["phrase"]["label"] == "{typ} {function}"
+        assert [p.name for p in used] == ["sp.yaml", "sp@7.2.4.yaml"]
 
     def test_no_overrides(self, roots, tmp_path):
         spec = resolve_corpus("heb", roots)
