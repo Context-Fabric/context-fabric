@@ -95,7 +95,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: libs/browser
+        working-directory: libs/explorer
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -105,7 +105,7 @@ jobs:
         with:
           node-version: '22'
       - name: Build the interface into the package
-        working-directory: libs/browser/frontend
+        working-directory: libs/explorer/frontend
         run: |
           npm ci
           npm run build

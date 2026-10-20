@@ -83,5 +83,5 @@ htmlcov/
 CLAUDE.md
 desktop-app-notes.md
 
-# Built interface (npm run build in libs/browser/frontend)
-libs/browser/cfabric_browser/static/
+# Built interface (npm run build in libs/explorer/frontend)
+libs/explorer/cfabric_browser/static/
