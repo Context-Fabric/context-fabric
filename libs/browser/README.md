@@ -147,8 +147,8 @@ Hovering over a word shows the same card as in *Panes*; clicking it opens the wo
 
 *Search* in the top bar searches one of the shown texts (`&search=1&sc=bhsa&q=…&s=…`), in either of two ways:
 
-- *Search terms*, as on Parabible: click a word, then *Add as search term* in the word panel. A term finds words with the features you tick (its transliterated lexeme, or else its lexeme, to start with; also part of speech, stem, tense, person, gender, number, state). Choose whether all terms must be in one verse, sentence, clause or phrase, and, for corpora with books, which books (by the book feature's own values: the BHSA's `book` says `Jesaia` where the list says Isaiah). The search template this makes is shown below.
-- *Template*: the query editor of *Panes*, starting from the template the terms make.
+- *Template* (the default): the query editor of *Panes*, starting from the template the terms make, if there are any.
+- *Search terms*, as on Parabible: click a word, then *Add as search term* in the word panel (adding one switches to *Search terms*). A term finds words with the features you tick (its transliterated lexeme, or else its lexeme, to start with; also part of speech, stem, tense, person, gender, number, state). Choose whether all terms must be in one verse, sentence, clause or phrase, and, for corpora with books, which books (by the book feature's own values: the BHSA's `book` says `Jesaia` where the list says Isaiah). The search template this makes is shown below.
 
 Results are rows: the passage, then the verse the result lies in, in the searched text with the result's innermost nodes highlighted, and the same verse in the other texts (the DSS: per scroll); 25 per page. *Statistics*, *Download…* and *Cite* are as in *Panes*; clicking a passage opens its chapter at that verse. A shared link to a search the server no longer has runs it again.
 

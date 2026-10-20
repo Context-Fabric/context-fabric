@@ -211,8 +211,15 @@ export function ParallelSearch({
     queryFn: () => api.sections(corpus!),
     enabled: card !== undefined && hasBooks(card),
   });
-  // a template written (or edited) by hand, instead of the terms
-  const [byHand, setByHand] = useState(() => search.q !== "" && !terms.length);
+  // a template written (or edited) by hand, instead of the terms; the template
+  // comes first, unless there are terms to search with
+  const [byHand, setByHand] = useState(() => !ownTerms.length);
+  // a term just added from the word panel shows the terms
+  const [termCount, setTermCount] = useState(ownTerms.length);
+  if (ownTerms.length !== termCount) {
+    setTermCount(ownTerms.length);
+    if (ownTerms.length > termCount) setByHand(false);
+  }
   // books are chosen by their labels; the template needs the book feature's own values
   const bookItems = (bookList.data?.children ?? []).filter((b) => books.includes(b.ref));
   const bookValues = bookItems.length
@@ -307,8 +314,8 @@ export function ParallelSearch({
         <div className="flex rounded border border-rule-strong text-[13px]" role="group" aria-label="Search with">
           {(
             [
-              [false, "Search terms"],
               [true, "Template"],
+              [false, "Search terms"],
             ] as const
           ).map(([hand, name]) => (
             <button
@@ -487,13 +494,12 @@ export function ParallelSearch({
           <div className="max-w-[36rem] p-8 text-[15px] leading-relaxed">
             <h1 className="mb-3 text-[20px] font-semibold">Search {card.name}</h1>
             <p className="mb-3">
-              Build a search from words: click a word in the text and choose <em>Add as search term</em>. Tick the
-              features that should count, choose whether the terms must be in one verse, clause or phrase, and limit the
-              search to some books if you like.
+              Write a search template, as in the Text-Fabric browser. The results show each verse in all the texts.
             </p>
             <p className="text-stone">
-              Or write a search template by hand, as in the Text-Fabric browser. The results show each verse in all the
-              texts.
+              Or build a search from words: click a word in the text and choose <em>Add as search term</em>. Tick the
+              features that should count, choose whether the terms must be in one verse, clause or phrase, and limit the
+              search to some books if you like.
             </p>
           </div>
         )}
