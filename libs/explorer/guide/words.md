@@ -31,7 +31,7 @@ From the top:
 - the same summary as on the card;
 - *Add as search term*: a search for words like this one, where you choose which of its features count; see [Searching](searching.md) (in Parallel, the Reader and the Concordance);
 - *Lexicon entry*, and *BDB entry* once BDB has been added: the lexeme's page in the lexicon (BHSA; in the Reader and the Interlinear this switches to Parallel);
-- *All features*, folded: every feature of the word with its value. *Also the g_ features* adds the text in other spellings;
+- *All features*, folded: every feature of the word with its value. *Also the … g_ features* adds the text in other spellings;
 - *Relations*, *Lies in* and *Contains*: how the word fits in the corpus' structure (its phrase, clause, verse …). Click one to inspect it.
 
 *Close*, or *Esc*, closes the panel.

@@ -8,12 +8,16 @@ It works with either Context-Fabric core: the Python one (`context-fabric` 0.5) 
 
 > **Status: pre-alpha.** Reading, searching and inspecting work, also with several corpora side by side.
 
+**Using the program** is explained in the user guide: [Guide to CACCHT Explorer](https://caccht.github.io/explorer/) on caccht.github.io, also built into the program at `/guide/` (written in `guide/`; see *The user guide* below). Most users have the standalone program from the [desktop pre-releases](https://github.com/Context-Fabric/context-fabric/releases). This README is for installing it with pip, its options, the API and development; [context-fabric.ai](https://context-fabric.ai/docs/explorer) has an overview for programmers.
+
 ## Usage
 
 ```bash
 pip install cfabric-browser
 cfabric-browser bhsa
 ```
+
+`cfabric-browser` is not on PyPI yet; until it is, install it from this repository: `pip install "context-fabric==0.6.0rc1" ./libs/mcp "./libs/explorer[desktop]"`.
 
 This opens the browser at <http://localhost:8107/>. Give several corpora to compare them, e.g. `cfabric-browser bhsa CenterBLC/LXX ETCBC/peshitta`; others can be opened from the browser with *Open a corpus*. Without corpora (`cfabric-browser`), the browser starts empty and shows that list straight away. You can give a corpus in several ways:
 
@@ -319,7 +323,15 @@ Tests: `pytest tests/` in `libs/explorer` (they start real search workers on a s
 
 ### The user guide
 
-The guide for users is written in Markdown in `guide/`, one file per chapter (the order is `PAGES` in `frontend/scripts/guide.mjs`). `npm run build` makes it into pages in `cfabric_browser/static/guide/`, which the program serves at `/guide/`, so it works offline; *Guide to …* in the interface menu opens the page for the interface in use (`frontend/src/guide.ts`). `node scripts/guide.mjs --site DIR` also writes the pages for caccht.github.io into `DIR/explorer/`, in the style of that site's own pages. Links between chapters are written to the Markdown files (`words.md#bdb`); `npm test` checks that every link and every interface's page exist. The screenshots in `guide/images/` are made by `npm run screenshots -- http://127.0.0.1:8799` (`frontend/scripts/screenshots.mjs`, with playwright-core and the Chrome installed on the computer) from a running browser on the real corpora, started with a home folder that has only the corpora and BDB, so that they show what users see; the list of shots is `SHOTS` in that script, and `npm test` checks that the guide uses each of them. The plan: `../make_browser_context_fabric/documentation-plan.md` (outside the repository).
+The guide for users is written in Markdown in `guide/`, one file per chapter (the order is `PAGES` in `frontend/scripts/guide.mjs`). `npm run build` makes it into pages in `cfabric_browser/static/guide/`, which the program serves at `/guide/`, so it works offline; *Guide to …* in the interface menu opens the page for the interface in use (`frontend/src/guide.ts`). `node scripts/guide.mjs --site DIR` also writes the pages for caccht.github.io into `DIR/explorer/`, in the style of that site's own pages. Links between chapters are written to the Markdown files (`words.md#bdb`); `npm test` checks that every link and every interface's page exist. The screenshots in `guide/images/` are made by `npm run screenshots -- http://127.0.0.1:8799` (`frontend/scripts/screenshots.mjs`, with playwright-core and the Chrome installed on the computer) from a running browser on the real corpora, started with a home folder that has only the corpora and BDB, so that they show what users see; the list of shots is `SHOTS` in that script, and `npm test` checks that the guide uses each of them. `npm test` also checks the guide's names of things in the program: every phrase in italics must be a text of the frontend, the guide's own pages or the server's messages (`…` stands for a value, `→` separates a menu from its item), unless it is in `NOT_LABELS` in `frontend/scripts/guide.test.mjs` (other programs' buttons, examples, glosses); so a renamed button fails the test until the guide follows. The plan: `../make_browser_context_fabric/documentation-plan.md` (outside the repository).
+
+**Before each desktop release** (a `desktop-v*` tag):
+
+1. **The guide.** For every change users notice, update its chapter in `guide/` (a new button, a changed default, a new corpus or text), and `npm test` (names in the program, links, pictures).
+2. **The screenshots**, when the interface changed: start the browser on the real corpora with a home folder that holds only the corpora and BDB (a junction or link to `text-fabric-data`, and `.cfabric/dictionaries`), with `--only` for the corpora of `CORPORA` in `packaging/cfabric-browser.py`, then `CFABRIC_SECRET=<secret from its .cfabric/running.json> npm run screenshots -- http://127.0.0.1:<port>`. Look at each picture before committing.
+3. **The release notes** (`packaging/RELEASE_NOTES.md`): what is new since the last release at the top, the downloads and how to start; the rest belongs in the guide.
+4. **caccht.github.io:** `node scripts/guide.mjs --site <clone of CACCHT/caccht.github.io>`, a pull request with the changed pages (and new chapters in its `sitemap.xml`), merged before the release, because the release notes link to it.
+5. **The checks of `browser-desktop.yml`** on all four builds, then the tag.
 
 
 ### Standalone program

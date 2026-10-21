@@ -1,0 +1,65 @@
+# CACCHT Explorer
+
+CACCHT Explorer is a graphical program for reading, searching and comparing Context-Fabric corpora, the successor of the Text-Fabric browser. It runs on your own computer and works offline. It is made for the corpora of [CACCHT](https://caccht.github.io/): the Hebrew Bible (BHSA), the Samaritan Pentateuch and the Dead Sea Scrolls, side by side.
+
+It has five ways of working: *Parallel* (a column per text and a row per verse), *Panes*, a *Reader*, an *Interlinear* and a *Concordance*. It adds the BDB dictionary to the BHSA's lexicon and the JPS 1917 as an English translation. Through MCP, Claude can propose search templates that the user runs in the program.
+
+## Using it
+
+**The user guide is on caccht.github.io: [Guide to CACCHT Explorer](https://caccht.github.io/explorer/).** It covers downloading and starting the program, the datasets, the interfaces, searching, the Concordance and asking Claude. The same guide is built into the program, at `/guide/`.
+
+Most people use the standalone program, which needs no Python: it is a test version, published as a pre-release on [GitHub](https://github.com/Context-Fabric/context-fabric/releases) for Windows, macOS (Apple silicon and Intel) and Linux. See [Getting started](https://caccht.github.io/explorer/getting-started.html).
+
+## Installing with pip
+
+The program is the Python package `cfabric-browser` (module `cfabric_browser`, command `cfabric-browser`). It works with either core: the Python one (`context-fabric` 0.5) and the Rust one (0.6), which searches several times faster.
+
+`cfabric-browser` is not on PyPI yet. When it is, it will come with the core as an extra:
+
+```bash
+pip install "context-fabric[desktop,mcp]"
+```
+
+Until then, install it from the repository (branch `browser-rust`):
+
+```bash
+git clone -b browser-rust https://github.com/Context-Fabric/context-fabric
+cd context-fabric
+pip install "context-fabric==0.6.0rc1" ./libs/mcp "./libs/explorer[desktop]"
+```
+
+The `desktop` extra adds a window of its own (pywebview); without it, the program opens in your web browser.
+
+## Running it
+
+```bash
+cfabric-browser download bhsa sp dss      # get the corpora, once
+cfabric-browser bhsa "sp=DT-UCPH/sp@7.2.4" "dss=ETCBC/dss@2.0.1"
+```
+
+This opens the program at `http://localhost:8107/`. Corpora are found where Text-Fabric keeps them (`~/text-fabric-data/github`); `name=` sets the name shown and `@version` picks a version. Without corpora, the program starts empty and offers its library.
+
+Some options:
+
+| Option | Meaning |
+|---|---|
+| `--window` | a window of its own instead of a web browser |
+| `--ui NAME` | the interface to start in: `parallel`, `panes`, `reader`, `interlinear` or `concordance` |
+| `--port`, `--no-open` | the port (default 8107), and not opening a web browser |
+| `--timeout`, `--max-results`, `--workers` | limits of searches (60 s, 500,000 results, 2 at a time) |
+| `--only ORG/REPO` | offer only these corpora in the library |
+
+`cfabric-browser add jps1917` adds the JPS 1917 translation, `cfabric-browser add bdb` the BDB dictionary.
+
+## MCP
+
+The program is also an MCP server, so that an AI app can find corpora, check and try search templates, and propose a search that the user then runs:
+
+- at `http://127.0.0.1:8107/mcp` (Streamable HTTP), for Claude Code: `claude mcp add --transport http context-fabric http://127.0.0.1:8107/mcp`;
+- as `cfabric-browser mcp` (stdio), for apps that start their own servers, such as Claude Desktop; it passes the messages on to the running program.
+
+The tools are `list_corpora`, `corpus_guide`, `describe_corpus`, `list_features`, `describe_feature`, `search_syntax_guide`, `check_template`, `try_search` and `propose_search`. Unlike the [MCP server](/docs/mcp), they work on the corpora open in the program, and the results of a search always come from the program, not from the model. See [Asking Claude](https://caccht.github.io/explorer/asking-claude.html) in the guide.
+
+## The API
+
+The program's interface talks to its server through a JSON API under `/api` (corpora, passages, searches with progress as server-sent events, statistics, downloads, the lexicon, differences between texts). The endpoints mirror the MCP tools where they overlap. They are listed in the [README](https://github.com/Context-Fabric/context-fabric/tree/browser-rust/libs/explorer#api).
