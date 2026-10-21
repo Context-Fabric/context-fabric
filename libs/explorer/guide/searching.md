@@ -26,7 +26,9 @@ A line is an object type and its features: `word` and then what the word must be
 
 The values are the BHSA's codes, not English words:
 
-- **Lexemes** are written in the ETCBC's transliteration: `>` א, `B` ב, `G` ג, `D` ד, `H` ה, `W` ו, `Z` ז, `X` ח, `V` ט, `J` י, `K` כ, `L` ל, `M` מ, `N` נ, `S` ס, `<` ע, `P` פ, `Y` צ, `Q` ק, `R` ר, `F` שׂ, `C` שׁ, `T` ת. A verb ends in `[` (`HLK[`), a noun or adjective in `/` (`MLK/`), a particle in neither (`KJ`). `=` tells homonyms apart: `DBR[` *speak*, `DBR/` *word*.
+- **Lexemes** are written in the ETCBC's transliteration: `>` א, `B` ב, `G` ג, `D` ד, `H` ה, `W` ו, `Z` ז, `X` ח, `V` ט, `J` י, `K` כ, `L` ל, `M` מ, `N` נ, `S` ס, `<` ע, `P` פ, `Y` צ, `Q` ק, `R` ר, `F` שׂ, `C` שׁ, `T` ת. A verb ends in `[` (`HLK[`), a noun or adjective in `/` (`MLK/`), a particle in neither (`KJ`), so the ending already separates the verb `DBR[` *speak* from the noun `DBR/` *word*. Homonyms that would otherwise be written the same get one or more `=` before the ending: `BR>[` *create* and `BR>==[` *cut down*, `H` the article and `H=` the interrogative he.
+
+  To find how a lexeme is written, look it up in the [lexicon](words.md#the-lexicon): *Find* takes the Hebrew or an English gloss (*create*), and each lexeme in the list shows its transliteration, `=` included. The hover card and the word panel show it too, as *transliteration*.
 - **Part of speech** (`sp`): `subs` noun, `verb`, `adjv` adjective, `nmpr` proper noun, `prep` preposition, `conj` conjunction, `art` article, `nega` negation, …
 - **Stem** (`vs`): `qal`, `nif`, `piel`, `pual`, `hit`, `hif`, `hof`, …
 - **Tense** (`vt`): `perf`, `impf`, `wayq` wayyiqtol, `impv`, `infc`, `infa`, `ptca` active participle, `ptcp` passive participle.
