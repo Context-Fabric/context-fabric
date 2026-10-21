@@ -3,7 +3,9 @@
 # the BHSA 2021. Not the guide's examples (assistant/guides/bhsa.md).
 # tests/test_assistant_questions.py checks the counts when the BHSA is
 # on this computer. Drafted 2026-10-16; to be corrected and added to by
-# the user.
+# the user. `also`: other readings of the request that count as right too,
+# each with its template, count and why (added 2026-10-21 after a run with
+# Claude; for the user to confirm).
 - level: easy
   request: Where does the word for king, MLK/, occur?
   template: word lex=MLK/
@@ -68,6 +70,10 @@
   request: personal names
   template: word sp=nmpr nametype=pers
   count: 21516
+  also:
+  - template: word sp=nmpr nametype~pers
+    count: 26354
+    why: with the names that are also of a people or a place (pers,gens and the like)
 - level: medium
   request: words in Isaiah 53
   template: |-
@@ -132,13 +138,25 @@
       p2:phrase function=Pred
     p1 < p2
   count: 2906
+  also:
+  - template: |-
+      clause
+        p1:phrase function=Objc
+        p2:phrase function=Pred|PreO|PreS|PtcO
+      p1 < p2
+    count: 3007
+    why: with predicates that carry a suffix (PreO, PreS) and participles with an object (PtcO)
 - level: hard
   request: verses in which the verb >HB[ (love) occurs together with JHWH/
   template: |-
     verse
+    /with/
       word lex=>HB[
+    /-/
+    /with/
       word lex=JHWH/
-  count: 90
+    /-/
+  count: 60
 - level: hard
   request: clauses without a predicate
   template: |-
@@ -147,16 +165,20 @@
       phrase function=Pred|PreC|PreO|PreS
     /-/
   count: 7641
+  also:
+  - template: clause kind=WP
+    count: 6744
+    why: the ETCBC's own kind of clause without predicate (WP)
 - level: hard
   request: noun phrases that consist only of nouns
   template: |-
     phrase typ=NP
     /where/
-      word
+      w:word
     /have/
-      word sp=subs
+      w sp=subs
     /-/
-  count: 38403
+  count: 22447
 - level: hard
   request: the article followed directly by a proper name
   template: |-

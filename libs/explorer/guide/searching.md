@@ -114,7 +114,7 @@ w1 <: w2
 
 ### Without, and for all
 
-`/without/` … `/-/` finds objects without something inside; `/where/` … `/have/` … `/-/` finds objects all of whose parts have something.
+`/without/` … `/-/` finds objects without something inside; `/where/` … `/have/` … `/-/` finds objects all of whose parts of one kind have something.
 
 **Verses without a verb** (1,607 in the BHSA):
 
@@ -125,14 +125,23 @@ verse
 /-/
 ```
 
-**Subjects that are only proper names** (10,484 in the BHSA):
+**Subjects that are only proper names** (5,893 in the BHSA): every word of the subject is a proper name. Give the word a name, here `w`, and say under `/have/` what is true of it:
 
 ```
 phrase function=Subj
 /where/
-  word
+  w:word
 /have/
-  word sp=nmpr
+  w sp=nmpr
+/-/
+```
+
+Without the name, `word sp=nmpr` under `/have/` would be another word, and the template would find subjects with at least one proper name (10,484). The same as above, shorter: subjects *without* a word that is not a proper name (`#` means "not"):
+
+```
+phrase function=Subj
+/without/
+  word sp#nmpr
 /-/
 ```
 

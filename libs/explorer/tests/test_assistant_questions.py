@@ -39,6 +39,8 @@ def test_the_question_set_is_complete():
     for q in questions:
         assert {"level", "request", "template", "count"} <= set(q)
         assert isinstance(q["count"], int)
+        for other in q.get("also", []):
+            assert {"template", "count", "why"} <= set(other)
 
 
 real = pytest.mark.skipif(
@@ -73,8 +75,9 @@ def test_guide_counts(bhsa):
 def test_question_counts(bhsa):
     questions = yaml.safe_load(QUESTIONS.read_text(encoding="utf-8"))
     wrong = [
-        (q["request"], q["count"], found)
+        (q["request"], answer["count"], found)
         for q in questions
-        if (found := count(bhsa, q["template"])) != q["count"]
+        for answer in [q, *q.get("also", [])]
+        if (found := count(bhsa, answer["template"])) != answer["count"]
     ]
     assert wrong == []

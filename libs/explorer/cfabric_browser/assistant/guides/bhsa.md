@@ -55,7 +55,7 @@ Also: `sentence_atom`, `clause_atom`, `phrase_atom`, `subphrase` (finer division
 - One object per line; an indented line lies inside the object above it.
 - Features after the type: `word sp=verb vs=hif`.
 - Two objects at the same level in no particular order, unless related: name them and add a relation on a line of its own: `p1:phrase function=Pred`, `p2:phrase function=Subj`, then `p1 < p2` (p1 before p2). `<:` means "right before" (adjacent).
-- Quantifiers: `/without/` (none of these inside), `/where/ … /have/` (all of these have that), each closed with `/-/`.
+- Quantifiers, each closed with `/-/`: `/with/` (has this inside), `/without/` (none of these inside), `/where/ … /have/` (every object of the `/where/` part also fits the `/have/` part). In `/have/`, name the object of `/where/` and refer to it: `w:word` under `/where/`, `w sp=nmpr` under `/have/`. A new line such as `word sp=nmpr` under `/have/` is another object, so it only asks that there is one. `/where/` also lets through what has no such object at all; "only proper names" is shorter as `/without/` with `word sp#nmpr`.
 - Results are tuples, one node per line of the template; the count is the number of tuples. Ask for the object the user wants counted at the top, or as the only line.
 
 ## Worked examples (with their number of results in the BHSA)
@@ -104,7 +104,10 @@ Also: `sentence_atom`, `clause_atom`, `phrase_atom`, `subphrase` (finer division
 | >MR[ followed in its clause by L with a suffix | `clause` / `  w1:word lex=>MR[` / `  w2:word lex=L prs#absent` / `w1 < w2` | 347 |
 | verses with both >LHJM/ and BR>[ (21 combinations of a verse and the two words, in 12 verses) | `verse` / `  word lex=>LHJM/` / `  word lex=BR>[` | 21 |
 | verses without a verb | `verse` / `/without/` / `  word sp=verb` / `/-/` | 1,607 |
-| subjects that are only proper names | `phrase function=Subj` / `/where/` / `  word` / `/have/` / `  word sp=nmpr` / `/-/` | 10,484 |
+| subjects that are only proper names | `phrase function=Subj` / `/where/` / `  w:word` / `/have/` / `  w sp=nmpr` / `/-/` | 5,893 |
+| the same, shorter | `phrase function=Subj` / `/without/` / `  word sp#nmpr` / `/-/` | 5,893 |
+| subjects with at least one proper name | `phrase function=Subj` / `/with/` / `  word sp=nmpr` / `/-/` | 10,484 |
+| verses with both >HB[ and JHWH/, each verse once | `verse` / `/with/` / `  word lex=>HB[` / `/-/` / `/with/` / `  word lex=JHWH/` / `/-/` | 60 |
 
 (`/` separates the lines of a template here; write each on its own line, with the indentation shown.)
 
@@ -116,4 +119,5 @@ Also: `sentence_atom`, `clause_atom`, `phrase_atom`, `subphrase` (finer division
 - `gloss` on a word: it is on `lex` nodes (`lex gloss=create`, with `word` under it).
 - `function` on a word or a clause: it is a feature of phrases.
 - The article `H` for the interrogative `H=`, `DBR[` (speak) for `DBR/` (word).
+- `/where/` with a new object under `/have/` (`/where/` / `  word` / `/have/` / `  word sp=nmpr`): that finds subjects with at least one proper name (10,484), not subjects of proper names only (5,893). Name the object and refer to it, or use `/without/`.
 - Counting: `verse` with two words under it gives a result for every pair of matching words in the verse, not one per verse. To count verses, keep the verse alone with its conditions inside a quantifier, or tell the user that the count is of combinations.
