@@ -165,6 +165,30 @@ export const SHOTS = [
     },
   },
   {
+    name: "library",
+    url: "/Genesis/1?texts=bhsa,sp,dss",
+    ready: "text=4Q2",
+    act: async (page) => {
+      await page.getByRole("button", { name: "Texts", exact: true }).click();
+      await page.getByText("Add a text…").click();
+      await page.waitForSelector("text=Dictionaries");
+      await page.waitForLoadState("networkidle");
+    },
+    size: { width: 1280, height: 1100 },
+  },
+  {
+    name: "workspaces",
+    url: "/read/bhsa/Genesis/1?v=3&panel=notes",
+    ready: "text=Running text",
+    act: async (page) => {
+      await page.getByRole("button", { name: "Workspaces", exact: true }).click();
+      await page.getByPlaceholder("Name this workspace").fill("Genesis 1, with notes");
+      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await page.waitForSelector("text=Export to a file");
+    },
+    clip: { x: 640, y: 0, width: 640, height: 420 },
+  },
+  {
     // needs the browser's secret, from ~/.cfabric/running.json of its home folder
     name: "proposal",
     url: "/Genesis/1?texts=bhsa,sp&search=1&sc=bhsa",
@@ -228,7 +252,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         await take(browser, base, shot);
       } catch (e) {
         failed += 1;
-        console.error(`screenshot ${shot.name} failed: ${e.message.split("\n")[0]}`);
+        console.error(`screenshot ${shot.name} failed: ${e.message.split("\n").slice(0, 8).join("\n")}`);
       }
     }
   } finally {
