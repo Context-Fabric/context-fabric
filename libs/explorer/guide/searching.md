@@ -57,7 +57,7 @@ book book=Genesis
     word lex=>LHJM/
 ```
 
-**Clauses with הָיָה as predicate** (3,521 in the BHSA):
+**Clauses with היה as predicate** (3,521 in the BHSA):
 
 ```
 clause

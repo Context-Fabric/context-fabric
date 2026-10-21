@@ -40,7 +40,7 @@ From the top:
 
 The lexicon of the BHSA lists all its lexemes, Hebrew and Aramaic, with every verse each one occurs in. Open it with *Lexicon* in the top bar of Parallel, the *Lexicon* view of a pane in Panes, or *Lexicon entry* in the word panel. In Parallel, *← Back to …* returns to the chapter.
 
-![The lexicon: בָּרָא, create, with its occurrences](images/lexicon.png)
+![The lexicon: ברא, create, with its occurrences](images/lexicon.png)
 
 **Finding a lexeme.** On the left:
 
@@ -65,7 +65,7 @@ Each line gives the lexeme, its gloss, its transliteration and part of speech, B
 
 A lexeme's page then has a tab *BDB* with its entry:
 
-![BDB's entry for בָּרָא](images/bdb.png)
+![BDB's entry for ברא](images/bdb.png)
 
 - verse references open the verse; references to other entries show that entry;
 - BDB's abbreviations are explained when you hover over them;
