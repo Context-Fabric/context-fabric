@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The guide's setup for ChatGPT (since test.15) asked for the program's path and `mcp` as an argument in the desktop app, whose form may have no field for arguments, and on a Mac the path has a space. It now gives the address (*Streamable HTTP*, `http://127.0.0.1:8107/mcp`) for the desktop app and `codex mcp add --url` for the terminal; the full `config.toml` block (`command`, `args`, `tool_timeout_sec`) for letting ChatGPT start the Explorer, with the Mac path and how to open the hidden `~/.codex`; and that the desktop app may offer it only when working with Codex.
+
 - In the Reader, the *Workspaces*, *Display* and *Cite* menus opened behind the panel on wide screens.
 - Hovering over a word of the SP showed a single letter (`sign`) unless the user had a local display file saying that words are its base type. The browser now has display settings of its own (`cfabric_browser/display_settings/`), layered under the local ones in `~/.cfabric/display`: for the SP, words as units, and for 7.2.4 the phrase labels and hidden atoms.
 - `pyyaml` is a dependency of the browser's own: it was only there because the Python core brought it along, and the Rust core doesn't.
