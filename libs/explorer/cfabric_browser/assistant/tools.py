@@ -30,6 +30,13 @@ TRIAL_TIMEOUT = 20.0
 EXAMPLES = 5
 # the text shown of a node in an example
 EXAMPLE_TEXT = 120
+# for a trial that ran out of time: what to do, rather than the app cutting
+# off a tool that seems to hang (Codex does after 60 seconds)
+TOO_SLOW = (
+    f"The trial stopped after {TRIAL_TIMEOUT:.0f} seconds: the template is "
+    "too slow to try. Narrow it: put the most selective feature on the first "
+    "object, or add a condition, and try again."
+)
 
 
 # `feature=value` in a template (not `feature~regex`, `feature<n` and the like)
@@ -157,6 +164,8 @@ class Tools:
         }
         if found["state"] == DONE and not found["count"]:
             result["hints"] = self.unknown_values(corpus, template)
+        elif found["state"] != DONE and not found["problems"]:
+            result["note"] = TOO_SLOW
         return result
 
     def unknown_values(self, corpus: str, template: str) -> list[str]:
@@ -208,11 +217,14 @@ class Tools:
         corpus = self._corpus(corpus)
         trial = self.try_search(corpus, template, examples=0)
         if trial.get("problems") or trial.get("state") not in (DONE, None):
-            return {
+            refused = {
                 "ok": False,
                 "problems": trial.get("problems"),
                 "state": trial.get("state"),
             }
+            if "note" in trial:
+                refused["note"] = trial["note"]
+            return refused
         proposal = self.proposals.add(
             corpus,
             template,

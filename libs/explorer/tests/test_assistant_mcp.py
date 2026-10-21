@@ -6,7 +6,7 @@ import json
 
 import pytest
 from cfabric_browser.app import create_app
-from cfabric_browser.assistant import stdio
+from cfabric_browser.assistant import mcp, stdio
 from cfabric_browser.corpora import CorpusService, resolve_corpus
 from cfabric_browser.workers import SearchPool
 from fastapi.testclient import TestClient
@@ -73,6 +73,46 @@ def test_initialize_and_tools(client):
     }
 
 
+def test_only_proposing_changes_something(client):
+    tools = rpc(client, "tools/list").json()["result"]["tools"]
+    reads = {t["name"]: t["annotations"]["readOnlyHint"] for t in tools}
+    assert [name for name, read in reads.items() if not read] == ["propose_search"]
+    [propose] = [t for t in tools if t["name"] == "propose_search"]
+    assert propose["annotations"]["destructiveHint"] is False
+    # the context is the server's, not an argument for the model
+    assert "ctx" not in propose["inputSchema"]["properties"]
+
+
+def test_the_app_names_a_proposal_without_model(client):
+    def propose(**headers):
+        message = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "propose_search",
+                "arguments": {
+                    "corpus": "bible",
+                    "template": "word",
+                    "request": "all words",
+                    "explanation": "",
+                },
+            },
+        }
+        client.post("/mcp", json=message, headers={**HEADERS, **headers})
+        return client.get("/api/proposals").json()["proposals"][0]["model"]
+
+    assert propose(**{"X-Cfabric-Client": "codex-mcp-client"}) == "Codex"
+    assert propose(**{"User-Agent": "claude-code/2.1"}) == "Claude"
+    assert propose() is None
+
+
+def test_readable():
+    assert mcp.readable("claude-ai") == "Claude"
+    assert mcp.readable("ChatGPT desktop") == "ChatGPT"
+    assert mcp.readable("python-httpx/0.28") is None
+
+
 def test_tools_through_mcp(client):
     assert call(client, "list_corpora")["corpora"][0]["name"] == "bible"
     found = call(client, "try_search", corpus="bible", template="word")
@@ -118,7 +158,7 @@ class TestStdio:
             stdio, "find_browser", lambda path: "http://127.0.0.1:8107/"
         )
 
-        def forward(url, message):
+        def forward(url, message, app=None):
             answer = client.post(
                 "/mcp",
                 content=message,
@@ -154,18 +194,89 @@ class TestStdio:
             self.messages(
                 {"jsonrpc": "2.0", "id": 7, "method": "tools/list"},
                 {"jsonrpc": "2.0", "method": "notifications/initialized"},
+                {
+                    "jsonrpc": "2.0",
+                    "id": 8,
+                    "method": "tools/call",
+                    "params": {"name": "list_corpora", "arguments": {}},
+                },
             ),
             out,
             start=False,
         )
-        [line] = [json.loads(x) for x in out.getvalue().splitlines()]
-        assert line["id"] == 7 and "not running" in line["error"]["message"]
+        listed, called = [json.loads(x) for x in out.getvalue().splitlines()]
+        # the list needs no browser; a tool does
+        assert listed["id"] == 7 and len(listed["result"]["tools"]) == 9
+        assert called["id"] == 8 and "not running" in called["error"]["message"]
+
+    def test_answers_as_the_browser_does(self, client, monkeypatch):
+        """What the helper answers itself is what /mcp would answer."""
+        monkeypatch.setattr(stdio, "find_browser", lambda path: None)
+        asked = [
+            (
+                "initialize",
+                {
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {},
+                    "clientInfo": {"name": "codex-mcp-client", "version": "0"},
+                },
+            ),
+            ("ping", {}),
+            ("tools/list", {}),
+            ("prompts/list", {}),
+            ("resources/list", {}),
+            ("resources/templates/list", {}),
+        ]
+        out = io.BytesIO()
+        stdio.serve(
+            self.messages(
+                *(
+                    {"jsonrpc": "2.0", "id": i, "method": m, "params": p}
+                    for i, (m, p) in enumerate(asked)
+                )
+            ),
+            out,
+            start=False,
+        )
+        here = [json.loads(x)["result"] for x in out.getvalue().splitlines()]
+        there = [rpc(client, m, p).json()["result"] for (m, p) in asked]
+        assert here == there
+
+    def test_a_version_it_does_not_know(self):
+        answer = stdio.Local().answer(
+            {"id": 1, "method": "initialize", "params": {"protocolVersion": "1999"}}
+        )
+        assert answer["protocolVersion"] == stdio.LATEST_PROTOCOL_VERSION
+
+    def test_passes_on_the_app(self, monkeypatch):
+        monkeypatch.setattr(stdio, "find_browser", lambda path: "http://x/")
+        seen = []
+
+        def forward(url, message, app=None):
+            seen.append(app)
+            return b'{"jsonrpc":"2.0","id":2,"result":{}}'
+
+        monkeypatch.setattr(stdio, "forward", forward)
+        stdio.serve(
+            self.messages(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {"clientInfo": {"name": "codex-mcp-client"}},
+                },
+                {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {}},
+            ),
+            io.BytesIO(),
+            start=False,
+        )
+        assert seen == ["codex-mcp-client"]
 
     def test_finds_it_again_after_a_restart(self, monkeypatch):
         urls = iter(["http://127.0.0.1:1/", "http://127.0.0.1:2/"])
         monkeypatch.setattr(stdio, "find_browser", lambda path: next(urls))
 
-        def forward(url, message):
+        def forward(url, message, app=None):
             if url.endswith(":1/"):
                 raise OSError("refused")
             return b'{"jsonrpc":"2.0","id":1,"result":{}}'
@@ -173,7 +284,7 @@ class TestStdio:
         monkeypatch.setattr(stdio, "forward", forward)
         out = io.BytesIO()
         stdio.serve(
-            self.messages({"jsonrpc": "2.0", "id": 1, "method": "ping"}),
+            self.messages({"jsonrpc": "2.0", "id": 1, "method": "tools/call"}),
             out,
             start=False,
         )
