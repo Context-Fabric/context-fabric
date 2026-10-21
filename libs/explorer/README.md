@@ -214,10 +214,13 @@ The browser serves its tools over MCP; the app connects to it while the browser 
 - **Claude Code:** `claude mcp add --transport http context-fabric http://127.0.0.1:8107/mcp` (8107 is the browser's usual port; with `--port`, use that one). Or, whatever the port: `claude mcp add context-fabric -- cfabric-browser mcp`.
 - **Claude Desktop:** install the extension `CACCHT-Explorer.mcpb` (from the release, or `python packaging/mcpb/pack.py`) by opening it, or in *Settings → Extensions*. Or add to `claude_desktop_config.json`: `"mcpServers": {"context-fabric": {"command": "cfabric-browser", "args": ["mcp"]}}` (the standalone program works too: its path, with `mcp`).
 - **Antigravity CLI** (Google's successor of Gemini CLI): in `~/.gemini/config/mcp_config.json`, `"mcpServers": {"context-fabric": {"command": "cfabric-browser", "args": ["mcp"]}}`.
+- **The ChatGPT desktop app and Codex** (CLI and IDE extension; they share `~/.codex/config.toml`): in the desktop app *Settings → MCP servers → Add server*, STDIO, command `cfabric-browser` with the argument `mcp`; or `codex mcp add context-fabric -- cfabric-browser mcp`. Give it time for the first tool call, which waits for the browser to start and open its corpora: in `config.toml`, under `[mcp_servers.context-fabric]`, `startup_timeout_sec = 120` and `tool_timeout_sec = 300`. ChatGPT on the web and on phones can't reach a program on your computer.
 
 `cfabric-browser mcp` passes each message on to the running browser (found in `~/.cfabric/running.json`, which the browser writes when it starts) and starts one if none runs. The tools: `list_corpora`, `corpus_guide`, `describe_corpus`, `list_features`, `describe_feature`, `search_syntax_guide`, `check_template`, `try_search` (the count up to 10,000 within 20 s and a few examples, with hints when there are none) and `propose_search`. `/mcp` only answers on 127.0.0.1 and refuses requests from web pages, so other sites in your web browser can't use it.
 
 What you ask goes to the AI company of your app; the corpora stay on your computer, apart from the few examples the model sees in its trial searches.
+
+How well an app does is measured with the 30 requests of `tests/data/bhsa-questions.yaml`: `python scripts/ask_questions.py claude` (or `codex`) sends each to the app without its interactive screen (`claude -p`, `codex exec`, on your own subscription), connected to a running browser with the BHSA open (`--url`, default port 8107), runs each proposal in full and compares its count with the question's. It prints a summary (proposed, right count, trials per request) and writes the rows as JSON lines. `--only 1,5` asks a few, `--model` chooses the model. Not in CI.
 
 ## Words
 

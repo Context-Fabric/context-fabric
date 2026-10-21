@@ -245,13 +245,31 @@ phrase
 ```
 Returns phrases that don't contain any verbs.
 
-### /where/ + /have/ - Required Conditions (AND)
-Find nodes containing ALL specified patterns:
+### /where/ + /have/ - For All
+Find nodes in which EVERY match of the /where/ part also matches the
+/have/ part. Name the atom in /where/ and refer to it in /have/:
+```
+phrase function=Subj
+/where/
+  w:word
+/have/
+  w sp=nmpr
+/-/
+```
+Returns subject phrases whose words are all proper names. Without the
+name, an atom under /have/ is a new one (`word sp=nmpr`): that only asks
+that some proper name exists, as `/with/` does. Nodes without any match of
+/where/ pass too. The same with /without/: `phrase function=Subj` /
+`/without/` / `  word sp#nmpr` / `/-/`.
+
+### /with/ - Required (AND)
+Find nodes that contain a pattern; several /with/ blocks all apply:
 ```
 clause
-/where/
+/with/
   word sp=verb
-/have/
+/-/
+/with/
   word sp=subs
 /-/
 ```
