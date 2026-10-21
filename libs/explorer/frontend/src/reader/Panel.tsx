@@ -278,7 +278,7 @@ export function ReaderPanel(props: PanelProps) {
   return (
     <aside
       aria-label="About the verse"
-      className="fixed inset-x-0 bottom-0 z-20 flex h-[55vh] flex-col border-t border-rule-strong bg-raised shadow-lg md:static md:h-full md:w-[26rem] md:border-s md:border-t-0 md:shadow-none"
+      className="fixed inset-x-0 bottom-0 z-20 flex h-[55vh] flex-col border-t border-rule-strong bg-raised shadow-lg md:static md:z-auto md:h-full md:w-[26rem] md:border-s md:border-t-0 md:shadow-none"
     >
       <header className="flex items-center gap-1 border-b border-rule px-2 py-1.5">
         <nav className="flex min-w-0 flex-1 flex-wrap gap-0.5" aria-label="Panel">

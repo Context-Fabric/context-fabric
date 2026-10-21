@@ -1,32 +1,16 @@
 **A test version.** CACCHT Explorer, a program of its own for reading, searching and comparing the Hebrew Bible (BHSA), the Samaritan Pentateuch and the Dead Sea Scrolls side by side. You don't need to install Python. Please report what goes wrong, and what you would like to see, in an [issue](https://github.com/Context-Fabric/context-fabric/issues) or by email to [martijn.naaijer@uzh.ch](mailto:martijn.naaijer@uzh.ch).
 
-## The corpora
+**How to use it** is in the [guide to CACCHT Explorer](https://caccht.github.io/explorer/), also inside the program: *Guide to …* at the bottom of the menu at the top right. Start with [Getting started](https://caccht.github.io/explorer/getting-started.html).
 
-This test is about three corpora, all under the licence CC BY-NC 4.0:
+## What is new
 
-| Corpus | Version | Download |
-|---|---|---|
-| BHSA (Hebrew Bible) | 2021 | 34 MB |
-| Samaritan Pentateuch | 7.2.4 | 4 MB |
-| Dead Sea Scrolls | 2.0.1 | 30 MB |
+- **Since test.13: the guide is written**, with screenshots: getting started, the datasets, the five ways of working, reading and comparing, words, searching (with a short course in search templates), the Concordance, asking Claude, adding texts, notes, workspaces and citing, and questions and problems. The instructions for asking Claude moved from these notes to the guide.
+- Since test.12: a new name. The program is now called CACCHT Explorer; Context-Fabric remains the name of the engine underneath. On a Mac, the app is `CACCHT Explorer.app`: you may delete the old `Context-Fabric.app`. In Claude Desktop, install `CACCHT-Explorer.mcpb`; it takes the place of the old extension.
+- Since test.11: in the Samaritan Pentateuch, hovering over a word shows the word, not a single letter.
+- Since test.10: *Search* opens on *Template* instead of *Search terms*.
+- Since test.9: faster searching, on the new core of Context-Fabric, written in Rust. The first time you open a corpus after updating from test.9 or earlier, the program prepares it once more; the `.cfm` folders next to the corpora are no longer used, and you may delete them.
 
-**New in this version: you don't need them on your computer first.** When they are missing, the program offers to download them the first time it starts, from their own releases on GitHub (the same files [Text-Fabric](https://annotation.github.io/text-fabric/) uses). It puts them where Text-Fabric keeps its downloads (`text-fabric-data/github` in your home folder), so if you have used Text-Fabric with these corpora, the program finds them there and downloads nothing. Other corpora on your computer are not offered in this test.
-
-**New since test.13: a guide.** *Guide to …* at the bottom of the menu at the top right opens the [guide to the program](https://caccht.github.io/explorer/), inside the program (it works offline). Chapters 1 to 8 are written: getting started, the datasets, the five ways of working, reading and comparing, words, searching, the Concordance and asking Claude.
-
-**New since test.12: a new name.** The program is now called CACCHT Explorer; Context-Fabric remains the name of the engine underneath. On a Mac, the app is `CACCHT Explorer.app`: you may delete the old `Context-Fabric.app`. In Claude Desktop, install `CACCHT-Explorer.mcpb` as before; it takes the place of the old extension.
-
-**New since test.11:** in the Samaritan Pentateuch, hovering over a word shows the word, not a single letter.
-
-**New since test.10:** *Search* opens on *Template* instead of *Search terms*.
-
-**New since test.9: faster searching.** The program now runs on the new core of Context-Fabric, written in Rust: searches take a fraction of the time they took. The first time you open a corpus after updating, the program prepares it once more (about a minute for the BHSA); the files the earlier versions prepared (`.cfm` folders next to the corpora) are no longer used, and you may delete them.
-
-**New since test.7: asking in your own words.** With your own AI app (Claude Desktop or Claude Code, with your own subscription) you can ask for a search in plain language, such as *all cases of >LHJM/ in the BHSA*; the search appears in the program for you to run. See *Asking Claude for a search*.
-
-**New since test.6: the BDB dictionary.** The lexicon can show *A Hebrew and English Lexicon of the Old Testament* by Brown, Driver and Briggs (1906), with every lexeme of the BHSA linked to its entry; see *Use*. And the BHSA's text can be shown with or without vowels and accents (*Display → Text*).
-
-**Also new since test.4: an English translation.** The program can add the JPS 1917 (*The Holy Scriptures: A New Translation*, Jewish Publication Society, 1917) itself; see *Use*.
+Earlier: asking Claude for a search in your own words (test.9), the BDB dictionary and the choice between vocalized and unvocalized text (test.7), downloading the corpora in the program (test.6), the JPS 1917 translation (test.5), and the five ways of working (test.3).
 
 ## Download
 
@@ -37,56 +21,22 @@ This test is about three corpora, all under the licence CC BY-NC 4.0:
 | Mac with Intel processor | `CACCHT-Explorer-macos-x64.zip` |
 | Linux | `CACCHT-Explorer-linux.tar.gz` |
 
+`CACCHT-Explorer.mcpb` is for [asking Claude](https://caccht.github.io/explorer/asking-claude.html) in Claude Desktop.
+
 ## Start
 
 The program isn't signed yet, so your computer warns about it the first time.
 
-**Windows:** unpack the zip, open the folder `cfabric-browser` and double-click `cfabric-browser.exe`. If Windows says "Windows protected your PC", click *More info* and then *Run anyway*. Keep the folder together: the program needs the `_internal` folder next to it. If the window doesn't open, right-click the downloaded zip before unpacking it, choose *Properties*, tick *Unblock*, and unpack it again.
+- **Windows:** unpack the zip, open the folder `cfabric-browser` and double-click `cfabric-browser.exe`. If Windows says "Windows protected your PC", click *More info* and then *Run anyway*.
+- **macOS:** unpack the zip and move `CACCHT Explorer.app` to *Applications*. The first time, right-click it, choose *Open*, and then *Open* again. If macOS only offers to move it to the bin, go to *System Settings → Privacy & Security* and click *Open Anyway*.
+- **Linux:** unpack it (`tar -xzf CACCHT-Explorer-linux.tar.gz`) and start `cfabric-browser/cfabric-browser`.
 
-**macOS:** unpack the zip and move `CACCHT Explorer.app` to *Applications*. The first time, right-click it, choose *Open*, and then *Open* again. If macOS only offers to move it to the bin, go to *System Settings → Privacy & Security* and click *Open Anyway*.
+The first time, the program offers to download the three corpora (68 MB, all under CC BY-NC 4.0) and prepares them, which takes a few minutes. If you have used Text-Fabric with them, it finds them and downloads nothing.
 
-**Linux:** unpack (`tar -xzf CACCHT-Explorer-linux.tar.gz`) and start `cfabric-browser/cfabric-browser`. The window needs GTK with WebKit2GTK, or Qt with WebEngine. Without them, the program opens your web browser instead.
-
-## Use
-
-The program opens in **Parallel**: a column per corpus and a row per verse, so the BHSA, the SP and the scrolls line up verse by verse. The menu at the top right offers four other ways of working, and takes the passage, the texts and the search along when you switch:
-
-- **Panes:** corpora side by side, each with its own passage and view.
-- **Reader:** one text in a quiet column, verse by verse or as running text, chapter after chapter as you scroll. Click a verse for a panel with its parallels, words, lexicon entries, a search and your own notes.
-- **Interlinear:** each word with lines under it (transliteration, lexeme, gloss, morphology, or any feature), another text word by word under it, phrases and clauses, colours, and a practice mode that hides a line.
-- **Concordance:** search results as lines with the hit in the middle, sorted by the words before or after it, filtered by book, stem or tense, with the words most typical near the hit (*Collocations*) and a download of the lines.
-
-*Choose which to offer…* in that menu hides the ones you don't use. The program remembers the one you used last.
-
-- **The JPS 1917 translation:** in *Texts → Add a text…*, under *Translations*, click *Add*. The program downloads it from Sefaria (about 5 MB, once), prepares it in a few seconds and shows it as a column next to the Hebrew. Its verses are numbered as in the Hebrew Bible, so they line up with the BHSA. In the Interlinear, choose it under *Under* for a line of English under each verse; in the Concordance, search it in English, for instance `word lower=lord`. It is in the public domain in the United States; elsewhere that depends on the translators' dates. *Remove* deletes it again.
-
-- **BDB:** in *Texts → Add a text…*, under *Dictionaries*, click *Add* (about 5 MB, once). A lexeme's page in the *Lexicon* then has a tab *BDB* with its entry: its verses open the passage, its references open other entries, BDB's abbreviations are explained when you hover over them, long entries have their stems folded, and the root family links to the other lexemes of the root. The lexicon's *Find* also searches BDB's definitions (*perish* finds אבד), and it can be ordered *By root (BDB)*. Hovering over a word shows its BDB entry, also for words in the Dead Sea Scrolls (through the BHSA); the Interlinear offers a line *BDB*. The text is from Sefaria, the ids and short definitions from Open Scriptures; the file is CC BY-NC 4.0 ([Context-Fabric/bdb](https://github.com/Context-Fabric/bdb)).
-- **Asking in your own words:** see the section *Asking Claude for a search* below.
-- **Vocalized or unvocalized:** *Display → Text* chooses for the BHSA between *Vocalized* (vowels and accents, and the qere where it differs) and *Unvocalized* (the consonants of the ketiv). The other corpora have one text, so the choice isn't shown for them.
-- **The first time:** if the corpora are not on your computer, the program shows *Getting the corpora*: click *Download (68 MB)*. Each corpus is downloaded, unpacked and prepared once, which takes a few minutes in all (the download itself less than a minute on a fast connection); you see the progress of each. Then Parallel opens with the three. *Not now* skips this; the corpora can then be downloaded later in *Texts → Add a text…*, under *Can be downloaded*. Without an internet connection the program says so and offers *Try again*.
-- If the corpora are there already, the BHSA opens by itself, and *Open a corpus* offers the others. Opening a corpus the first time takes a little longer, because it is prepared once; after that it opens in a few seconds.
-- **Reading:** click the chapter name at the top for the books and chapters; `‹` and `›` (or the arrow keys) go to the previous and next chapter. *Texts* turns corpora on and off and changes their order. The Dead Sea Scrolls show, per verse, the text of every scroll that has it; dimmed letters are reconstructed by the editors.
-- **Differences** marks the words where the texts differ from the first column. With the BHSA, the SP and the DSS shown, the DSS column also says which scrolls side with the BHSA and which with the SP.
-- **Words:** hover over a word to see its gloss, lexeme, part of speech and morphology. Click it for all its features, in a panel on the left. Words in the Dead Sea Scrolls get their gloss from the BHSA.
-- **Search:** write a search template under *Template* (where *Search* now opens). Or click a word, then *Add as search term*, and tick the features that should count; add more terms, choose whether they must be in one verse, clause or phrase, and choose books if you like. The results show each verse in all the texts, with statistics and a download as a spreadsheet.
-- **Lexicon** (BHSA): all lexemes of the Hebrew Bible, by language and first letter, with gloss, part of speech and frequency. Choose a lexeme to see every verse it occurs in; click a verse to read it in all the texts.
-- **Panes:** each pane has its own corpus, passage and view (*Read*, *Search*, *Lexicon*). *Sync passages* keeps them at the same passage.
-- **Notes** in the Reader stay on your computer. They go along when you export a workspace.
-- *Display*, *Workspaces* (save and reopen what you are looking at) and *Cite* are in the top bar. Settings and saved workspaces are kept between sessions.
-- If the program doesn't start, look in `.cfabric/logs/cfabric-browser.log` in your home folder and send that file to [martijn.naaijer@uzh.ch](mailto:martijn.naaijer@uzh.ch).
-
-## Asking Claude for a search
-
-You can ask Claude, in your own words, for a search: for instance *find all cases of >LHJM/ in the BHSA*. Claude writes a search template, tries it, and sends it to the program; you decide whether it runs. This uses your own Claude subscription, in Claude Desktop (with `CACCHT-Explorer.mcpb` from this release) or Claude Code. How to set it up, step by step, is in the guide: [Asking Claude](https://caccht.github.io/explorer/asking-claude.html) (also in the program: *Guide to …* at the bottom of the menu at the top right).
+If the program doesn't start, see [Questions and problems](https://caccht.github.io/explorer/problems.html), and send the log (`.cfabric/logs/cfabric-browser.log` in your home folder) to [martijn.naaijer@uzh.ch](mailto:martijn.naaijer@uzh.ch).
 
 ## Known limitations
 
-- Fixed since test.2: switching from *Panes* to *Parallel* could give an empty page.
-- Fixed since test.3: on Windows, the program could fail to start when its zip was unpacked with Explorer.
-- New since test.4: the JPS 1917 translation.
-- New since test.5: downloading the three corpora from the program.
-- New since test.6: BDB, and the choice between vocalized and unvocalized text; the page of a frequent lexeme (הלך) opens at once instead of after about 20 seconds.
-- New since test.7 (test.8 was not published: its macOS test needed a command macOS lacks): asking for a search in your own words, through Claude Desktop or Claude Code. It has been tried with test clients; you are the first to try it with Claude itself. If the extension doesn't connect, the program must be running first.
-
-- On macOS and Linux, the window hasn't been tried by anyone yet. You're the first.
-- In three places the 1917 print joins verses that the BHSA divides (the Ten Commandments in Exodus 20 and Deuteronomy 5, and Numbers 25:19 with 26:1). The program divides them as the BHSA does and shows the print's number next to those verses.
+- On macOS and Linux, the window hasn't been tried by many people yet.
+- Only the BHSA, the Samaritan Pentateuch and the Dead Sea Scrolls are offered; other corpora on your computer are not.
+- Asking Claude has been tried with test clients and by few people with Claude itself.
