@@ -7,6 +7,9 @@
 //         "jps1917=Context-Fabric/jps1917" --port 8799 --no-open
 //     node scripts/screenshots.mjs http://127.0.0.1:8799 [name ...]
 //
+// The shot of a proposed search needs the browser's secret (in
+// .cfabric/running.json of its home folder) in CFABRIC_SECRET.
+//
 // Uses the Chrome installed on this computer (playwright-core downloads no
 // browser of its own).
 
@@ -111,7 +114,86 @@ export const SHOTS = [
       await page.waitForSelector("text=Root family");
     },
   },
+  {
+    name: "search",
+    url: `/Genesis/1?texts=bhsa,sp,jps1917&search=1&sc=bhsa&q=${encodeURIComponent("word lex=HLK[ vt=infc")}`,
+    ready: "text=Search in",
+    act: async (page) => {
+      await runSearch(page);
+    },
+  },
+  {
+    name: "search-terms",
+    url: "/Genesis/12?texts=bhsa,sp",
+    ready: ".plain-word",
+    act: async (page) => {
+      // לֶךְ in Genesis 12:1, an imperative of HLK[: its stem counts too
+      await page.locator(".plain-word").nth(5).click();
+      await page.getByText("Add as search term").click();
+      await page.getByRole("checkbox", { name: /qal/ }).check();
+      await page.mouse.move(1270, 750);
+    },
+  },
+  {
+    name: "statistics",
+    url: `/Genesis/1?texts=bhsa,sp&search=1&sc=bhsa&q=${encodeURIComponent("word lex=HLK[ vt*")}`,
+    ready: "text=Search in",
+    act: async (page) => {
+      await runSearch(page);
+      await page.getByRole("button", { name: "Statistics", exact: true }).click();
+      await page.waitForSelector("text=Values of");
+      await page.waitForLoadState("networkidle");
+    },
+  },
+  {
+    name: "concordance",
+    url: `/concordance/bhsa?q=${encodeURIComponent("word lex=HLK[ vt=infc")}&sort=L1.text`,
+    ready: "text=Concordance",
+    act: async (page) => {
+      await runSearch(page);
+      await page.waitForSelector("text=per 10,000 words");
+    },
+  },
+  {
+    name: "collocations",
+    url: `/concordance/bhsa?q=${encodeURIComponent("word lex=HLK[ vt=infc")}&tab=collocations`,
+    ready: "text=Concordance",
+    act: async (page) => {
+      await runSearch(page);
+      await page.waitForSelector("text=logDice");
+      await page.waitForLoadState("networkidle");
+    },
+  },
+  {
+    // needs the browser's secret, from ~/.cfabric/running.json of its home folder
+    name: "proposal",
+    url: "/Genesis/1?texts=bhsa,sp&search=1&sc=bhsa",
+    prepare: (base) =>
+      fetch(`${base}/api/proposals`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-cfabric-secret": process.env.CFABRIC_SECRET ?? "" },
+        body: JSON.stringify({
+          corpus: "bhsa",
+          template: "clause\n  p1:phrase function=Subj\n  p2:phrase function=Pred\np1 < p2",
+          request: "clauses where the subject comes before the verb",
+          explanation:
+            "Clauses with a subject phrase and a predicate phrase, the subject first. The predicate phrase holds the verb (or, in a nominal clause, the predicate).",
+          model: "Claude",
+        }),
+      }).then((r) => {
+        if (!r.ok) throw new Error(`proposing: ${r.status} (set CFABRIC_SECRET)`);
+      }),
+    ready: "text=Proposed by Claude",
+    // so that it doesn't show in the other shots
+    after: (page) => page.getByRole("button", { name: "Dismiss", exact: true }).click(),
+  },
 ];
+
+/** Clicks *Search* in the search form (not the top bar's) and waits for the results. */
+async function runSearch(page) {
+  await page.getByRole("button", { name: "Search", exact: true }).last().click();
+  await page.waitForSelector("text=/results in /", { timeout: 60_000 });
+}
 
 async function take(browser, base, shot) {
   const context = await browser.newContext({ viewport: shot.size ?? SIZE, deviceScaleFactor: 1 });
@@ -120,6 +202,7 @@ async function take(browser, base, shot) {
       localStorage.setItem("cfabric-browser/theme", theme);
     } catch {}
   }, shot.theme ?? "light");
+  if (shot.prepare) await shot.prepare(base);
   const page = await context.newPage();
   await page.goto(base + shot.url);
   if (shot.ready) await page.waitForSelector(shot.ready, { timeout: 30_000 });
@@ -128,6 +211,7 @@ async function take(browser, base, shot) {
   await page.waitForTimeout(400);
   const file = join(OUT, `${shot.name}.png`);
   await page.screenshot({ path: file, clip: shot.clip });
+  if (shot.after) await shot.after(page);
   await context.close();
   console.log(`screenshot: ${file}`);
 }
