@@ -2,7 +2,7 @@
 
 CACCHT Explorer is a program for reading, searching and comparing the Hebrew Bible (BHSA), the Samaritan Pentateuch and the Dead Sea Scrolls, side by side and offline.
 
-This guide is being written; its chapters are listed below.
+This guide is being written: the first two chapters are ready, the others will follow.
 
 1. [Getting started](getting-started.md)
 2. [The datasets](datasets.md)
