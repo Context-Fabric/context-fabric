@@ -1,9 +1,10 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { guideUrl } from "../src/guide";
 import { INTERFACES } from "../src/ui";
 import { appPage, pageLink, PAGES, render, sitePage, slug, SOURCE } from "./guide.mjs";
+import { SHOTS } from "./screenshots.mjs";
 
 const pages = PAGES.map((name) => ({ name, ...render(readFileSync(join(SOURCE, `${name}.md`), "utf8")) }));
 
@@ -20,6 +21,18 @@ describe("the guide's pages", () => {
         if (anchor) expect(target.ids, `${p.name} links to ${page}.html#${anchor}`).toContain(anchor);
       }
     }
+  });
+
+  it("shows only pictures that exist, and uses every one", () => {
+    const used = new Set();
+    for (const p of pages) {
+      for (const [, file] of p.html.matchAll(/<img src="images\/([^"]+)"/g)) {
+        expect(existsSync(join(SOURCE, "images", file)), `${p.name} shows ${file}`).toBe(true);
+        used.add(file);
+      }
+    }
+    for (const file of readdirSync(join(SOURCE, "images"))) expect(used, file).toContain(file);
+    for (const shot of SHOTS) expect(used, shot.name).toContain(`${shot.name}.png`);
   });
 
   it("has a page and heading for every interface's Help", () => {

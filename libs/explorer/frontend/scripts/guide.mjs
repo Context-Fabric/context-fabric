@@ -7,7 +7,7 @@
 //     node scripts/guide.mjs                  # the app's pages
 //     node scripts/guide.mjs --site ../site   # also the website's pages
 
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Marked } from "marked";
@@ -71,6 +71,10 @@ export function render(markdown) {
         const external = /^https?:/.test(target) ? ' rel="noopener"' : "";
         return `<a href="${escape(target)}"${title ? ` title="${escape(title)}"` : ""}${external}>${inner}</a>`;
       },
+      // screenshots open at full size when clicked
+      image({ href, text }) {
+        return `<a href="${escape(href)}"><img src="${escape(href)}" alt="${escape(text)}" loading="lazy"></a>`;
+      },
     },
   });
   const tokens = marked.lexer(markdown);
@@ -120,7 +124,7 @@ pre{background:var(--raised);border:1px solid var(--rule);padding:.8rem 1rem;ove
 pre code{background:none;padding:0}
 table{border-collapse:collapse;margin:1rem 0;font-size:15px}
 th,td{border:1px solid var(--rule);padding:.35rem .6rem;text-align:start;vertical-align:top}
-img{max-width:100%}
+img{max-width:100%;height:auto;border:1px solid var(--rule);border-radius:4px}
 .guide-pn{display:flex;justify-content:space-between;gap:1rem;margin-top:3rem;padding-top:1rem;border-top:1px solid var(--rule);font-size:15px}
 .guide-pn span{color:var(--stone)}
 @media (max-width:760px){.layout{grid-template-columns:minmax(0,1fr);gap:1rem}.toc ol{position:static}}
@@ -193,7 +197,7 @@ export function sitePage(pages, i) {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@85..112,400..800&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="../assets/css/site.css">
-<style>main table{display:block;overflow-x:auto;border-collapse:collapse;margin:1.25rem 0}main th,main td{text-align:left;vertical-align:top;padding:.35rem 1rem .35rem 0;border-bottom:1px solid color-mix(in srgb,currentColor 18%,transparent)}main th{font-weight:600}</style>
+<style>main table{display:block;overflow-x:auto;border-collapse:collapse;margin:1.25rem 0}main th,main td{text-align:left;vertical-align:top;padding:.35rem 1rem .35rem 0;border-bottom:1px solid color-mix(in srgb,currentColor 18%,transparent)}main th{font-weight:600}main .prose img{max-width:100%;height:auto;border:1px solid color-mix(in srgb,currentColor 18%,transparent);border-radius:4px}</style>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -263,6 +267,9 @@ function write(dir, pages, page) {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   pages.forEach((p, i) => writeFileSync(join(dir, `${p.name}.html`), page(pages, i)));
+  // the screenshots (made by scripts/screenshots.mjs)
+  const images = join(SOURCE, "images");
+  if (existsSync(images)) cpSync(images, join(dir, "images"), { recursive: true });
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
