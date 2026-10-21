@@ -12,7 +12,7 @@ This test is about three corpora, all under the licence CC BY-NC 4.0:
 
 **New in this version: you don't need them on your computer first.** When they are missing, the program offers to download them the first time it starts, from their own releases on GitHub (the same files [Text-Fabric](https://annotation.github.io/text-fabric/) uses). It puts them where Text-Fabric keeps its downloads (`text-fabric-data/github` in your home folder), so if you have used Text-Fabric with these corpora, the program finds them there and downloads nothing. Other corpora on your computer are not offered in this test.
 
-**New since test.13: a guide, being written.** *Guide to …* at the bottom of the menu at the top right opens a guide to the program, inside the program (it works offline). Its chapters are still being written.
+**New since test.13: a guide.** *Guide to …* at the bottom of the menu at the top right opens the [guide to the program](https://caccht.github.io/explorer/), inside the program (it works offline). Chapters 1 to 8 are written: getting started, the datasets, the five ways of working, reading and comparing, words, searching, the Concordance and asking Claude.
 
 **New since test.12: a new name.** The program is now called CACCHT Explorer; Context-Fabric remains the name of the engine underneath. On a Mac, the app is `CACCHT Explorer.app`: you may delete the old `Context-Fabric.app`. In Claude Desktop, install `CACCHT-Explorer.mcpb` as before; it takes the place of the old extension.
 
@@ -77,64 +77,7 @@ The program opens in **Parallel**: a column per corpus and a row per verse, so t
 
 ## Asking Claude for a search
 
-You can ask Claude, in your own words, for a search: for instance *find all cases of >LHJM/ in the BHSA*, or *clauses where the object comes before the verb*. Claude writes a search template, tries it, and sends it to the program. You decide whether it runs. This uses your own Claude subscription, in Claude Desktop or Claude Code.
-
-**Always first:** start CACCHT Explorer and keep it running. Claude talks to the running program.
-
-### In Claude Desktop
-
-1. Download `CACCHT-Explorer.mcpb` from this release (in the list of files below).
-2. Install it, in one of these ways:
-   - double-click the downloaded file: Claude Desktop opens it and offers to install it; click *Install*;
-   - or, in Claude Desktop, go to *Settings → Extensions*, and choose *Install Extension…* (under *Advanced settings*), then the file;
-   - or drag the file into the *Settings → Extensions* window.
-3. Check that *CACCHT Explorer* is switched on under *Settings → Extensions*.
-4. Start a new chat. The tools menu (the button below the message box) now lists *CACCHT Explorer*.
-
-You need a recent Claude Desktop. The extension needs nothing else: no Python and no Node.js of your own. If your Claude Desktop names its menus differently, look under *Extensions* for the button that installs one.
-
-**Without the extension** (if installing it doesn't work): in Claude Desktop, *Settings → Developer → Edit Config* opens `claude_desktop_config.json`. Add the program, with its path on your computer, and restart Claude Desktop:
-
-```json
-{
-  "mcpServers": {
-    "context-fabric": {
-      "command": "C:\\path\\to\\cfabric-browser\\cfabric-browser.exe",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
-On a Mac the command is `/Applications/CACCHT Explorer.app/Contents/MacOS/cfabric-browser`; on Linux, the path of `cfabric-browser/cfabric-browser`.
-
-### In Claude Code
-
-In a terminal, once:
-
-```
-claude mcp add --transport http context-fabric http://127.0.0.1:8107/mcp
-```
-
-(8107 is the program's usual port. If another program had taken it, the address in the program's log, `.cfabric/logs/cfabric-browser.log` in your home folder, gives the port.)
-
-### Asking
-
-Ask Claude, for instance:
-
-- *Find all cases of >LHJM/ in the BHSA.*
-- *All infinitives construct of HLK[.*
-- *Clauses in Genesis where the subject comes before the verb.*
-
-The first time Claude uses a tool, it asks your permission. Claude reads a guide to the BHSA, checks its template and tries it, and tells you it has sent a search. In the program, it appears above the search form (in Parallel: click *Search* in the top bar), with your request, the template, Claude's explanation and how many results its trial found:
-
-- *Run* runs it, as if you had typed it;
-- *Edit* puts it in the editor, to change it first;
-- *Dismiss* drops it.
-
-Nothing runs by itself, and the results always come from the program's own search, never from Claude's text, so they are the same as a search you would have typed. The search keeps where it came from (*Proposed by Claude, … for: …*), in its link, in a saved workspace and when you cite it.
-
-What you ask goes to Anthropic, as anything you ask Claude. The texts stay on your computer, apart from the few results Claude sees when it tries a template.
+You can ask Claude, in your own words, for a search: for instance *find all cases of >LHJM/ in the BHSA*. Claude writes a search template, tries it, and sends it to the program; you decide whether it runs. This uses your own Claude subscription, in Claude Desktop (with `CACCHT-Explorer.mcpb` from this release) or Claude Code. How to set it up, step by step, is in the guide: [Asking Claude](https://caccht.github.io/explorer/asking-claude.html) (also in the program: *Guide to …* at the bottom of the menu at the top right).
 
 ## Known limitations
 
