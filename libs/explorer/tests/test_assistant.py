@@ -99,6 +99,37 @@ def test_propose_search(tools):
     )
 
 
+class SlowJob:
+    """A trial that ran out of time, as the pool reports it."""
+
+    id = "slow"
+    state = "timeout"
+
+    def wait_change(self, version, timeout):
+        return version
+
+    def snapshot(self):
+        return {
+            "state": "timeout",
+            "count": 3,
+            "truncated": False,
+            "elapsed": 20.0,
+            "problems": [],
+        }
+
+    def page(self, start, size):
+        return []
+
+
+def test_too_slow(tools, monkeypatch):
+    monkeypatch.setattr(tools.pool, "submit", lambda *args, **kwargs: SlowJob())
+    found = tools.try_search("bible", "word")
+    assert not found["ok"] and found["atLeast"] and found["count"] == 3
+    assert "too slow" in found["note"] and "Narrow it" in found["note"]
+    refused = tools.propose_search("bible", "word", "all words", "")
+    assert not refused["ok"] and "too slow" in refused["note"]
+
+
 def test_proposal_routes(tmp_path):
     from cfabric_browser.app import create_app
     from fastapi.testclient import TestClient

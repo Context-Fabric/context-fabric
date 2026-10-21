@@ -13,13 +13,13 @@ const readline = require("readline");
 
 const RUNNING = path.join(os.homedir(), ".cfabric", "running.json");
 
-function post(url, body, timeout) {
+function post(url, body, timeout, extra = {}) {
   return new Promise((resolve, reject) => {
     const request = http.request(
       url,
       {
         method: body === null ? "GET" : "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+        headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", ...extra },
         timeout,
       },
       (response) => {
@@ -60,6 +60,9 @@ function error(message, text) {
 }
 
 let url = null;
+// the app's name from its initialize, passed on (the browser's /mcp is
+// stateless) to name proposals without a model; as in stdio.py
+let client = null;
 
 async function handle(line) {
   let message;
@@ -68,13 +71,14 @@ async function handle(line) {
   } catch {
     return null;
   }
+  if (message.method === "initialize") client = message.params?.clientInfo?.name || null;
   for (let attempt = 0; attempt < 2; attempt++) {
     if (url === null) url = await findBrowser();
     if (url === null) {
       return error(message, "CACCHT Explorer is not running. Start it, then ask again.");
     }
     try {
-      const answer = await post(url + "mcp", line, 180000);
+      const answer = await post(url + "mcp", line, 180000, client ? { "X-Cfabric-Client": client } : {});
       if (answer.status >= 400) return error(message, `The browser answered ${answer.status}`);
       return answer.body.trim() ? answer.body.trim() : null;
     } catch {
