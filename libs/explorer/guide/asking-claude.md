@@ -59,23 +59,38 @@ claude mcp add --transport http context-fabric http://127.0.0.1:8107/mcp
 
 **New, and not yet tried with ChatGPT itself.** Please tell us how it goes (see [Questions and problems](problems.md)).
 
-The ChatGPT desktop app (Windows and Mac) and Codex, OpenAI's program for the terminal and code editors, share their settings: what you add in one, the other has too.
+This works through Codex, OpenAI's assistant for working on a computer: in the ChatGPT desktop app, in Codex's own app, and in a terminal. The ChatGPT desktop app may offer it only when you work with Codex there, not in an ordinary chat. All of these share their settings: what you add in one, the others have too.
 
-- **In the ChatGPT desktop app:** open *Settings → MCP servers*, choose *Add server*, give it the name `caccht-explorer`, choose *STDIO*, enter the program's path as the command (as for Claude Desktop above) and `mcp` as its argument. Save it, then choose *Restart*.
-- **In Codex,** in a terminal, once (with the program's path on your computer):
+**In the ChatGPT desktop app:** open *Settings → MCP servers* and choose *Add server*. Give it the name `caccht-explorer`, choose *Streamable HTTP*, and enter the address
 
-  ```
-  codex mcp add caccht-explorer -- "C:\path\to\cfabric-browser\cfabric-browser.exe" mcp
-  ```
+```
+http://127.0.0.1:8107/mcp
+```
 
-The first question can take longer than ChatGPT waits by default, because the Explorer starts and opens its corpora first. If ChatGPT says the tool took too long, ask again; or let it wait longer, in `config.toml` in the folder `.codex` in your home folder:
+Save it, then choose *Restart*. 8107 is the Explorer's usual port; see [In Claude Code](#in-claude-code) if it uses another.
+
+**In a terminal**, once:
+
+```
+codex mcp add caccht-explorer --url http://127.0.0.1:8107/mcp
+```
+
+Both ways need the Explorer to be running when you ask.
+
+**Or let ChatGPT start the Explorer itself**, as Claude Desktop does: add these lines to the file `config.toml` in the folder `.codex` in your home folder (make the file if it isn't there), with the program's path on your computer:
 
 ```toml
 [mcp_servers.caccht-explorer]
+command = "/Applications/CACCHT Explorer.app/Contents/MacOS/cfabric-browser"
+args = ["mcp"]
 tool_timeout_sec = 300
 ```
 
-ChatGPT on the web and on a phone can't reach a program on your computer, so this works only in the desktop app and in Codex.
+That is the path on a Mac. On Windows, write the path with single quotes, such as `command = 'C:\path\to\cfabric-browser\cfabric-browser.exe'`; on Linux, the path of `cfabric-browser/cfabric-browser`. On a Mac the folder `.codex` is hidden: in the Finder, choose *Go → Go to Folder…* and type `~/.codex`. On Windows it is `C:\Users\<your name>\.codex`.
+
+The first question can take longer than ChatGPT waits for a tool by default (a minute), because the Explorer may still have to open its corpora. If ChatGPT reports that the tool timed out, ask again. To make it wait longer, add the line `tool_timeout_sec = 300` under `[mcp_servers.caccht-explorer]` in `config.toml`, as above.
+
+ChatGPT on the web and on a phone can't reach a program on your computer, so none of this works there.
 
 ## Asking
 
