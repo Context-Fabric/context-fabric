@@ -1,6 +1,8 @@
-# Asking Claude
+# Asking Claude or ChatGPT
 
 You can ask Claude, in your own words, for a search: *find all cases of >LHJM/ in the BHSA*, or *clauses where the object comes before the verb*. Claude writes a search template, tries it, and sends it to the Explorer. You decide whether it runs. This uses your own Claude subscription, in Claude Desktop or Claude Code.
+
+ChatGPT can do the same, in the ChatGPT desktop app and in Codex, with your own ChatGPT subscription; see [In ChatGPT or Codex](#in-chatgpt-or-codex). What this chapter says about Claude holds for ChatGPT too.
 
 ## What Claude does, and what it doesn't
 
@@ -53,6 +55,28 @@ claude mcp add --transport http context-fabric http://127.0.0.1:8107/mcp
 
 8107 is the program's usual port. If another program had taken it, the log (`.cfabric/logs/cfabric-browser.log` in your home folder) gives the address with the port the Explorer uses.
 
+### In ChatGPT or Codex
+
+**New, and not yet tried with ChatGPT itself.** Please tell us how it goes (see [Questions and problems](problems.md)).
+
+The ChatGPT desktop app (Windows and Mac) and Codex, OpenAI's program for the terminal and code editors, share their settings: what you add in one, the other has too.
+
+- **In the ChatGPT desktop app:** open *Settings → MCP servers*, choose *Add server*, give it the name `caccht-explorer`, choose *STDIO*, enter the program's path as the command (as for Claude Desktop above) and `mcp` as its argument. Save it, then choose *Restart*.
+- **In Codex,** in a terminal, once (with the program's path on your computer):
+
+  ```
+  codex mcp add caccht-explorer -- "C:\path\to\cfabric-browser\cfabric-browser.exe" mcp
+  ```
+
+The first question can take longer than ChatGPT waits by default, because the Explorer starts and opens its corpora first. If ChatGPT says the tool took too long, ask again; or let it wait longer, in `config.toml` in the folder `.codex` in your home folder:
+
+```toml
+[mcp_servers.caccht-explorer]
+tool_timeout_sec = 300
+```
+
+ChatGPT on the web and on a phone can't reach a program on your computer, so this works only in the desktop app and in Codex.
+
 ## Asking
 
 Ask Claude, for instance:
@@ -75,4 +99,4 @@ So far Claude knows the BHSA best: its guide to searching covers the BHSA's feat
 
 ## Privacy
 
-What you ask goes to Anthropic, as anything you ask Claude. The texts stay on your computer, apart from the few results Claude sees when it tries a template. The Explorer answers only programs on your own computer, not other web pages or other computers.
+What you ask goes to Anthropic, as anything you ask Claude (or to OpenAI, when you ask ChatGPT). The texts stay on your computer, apart from the few results Claude sees when it tries a template. The Explorer answers only programs on your own computer, not other web pages or other computers.

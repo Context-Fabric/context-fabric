@@ -11,7 +11,7 @@ The chapters:
 5. [Words](words.md)
 6. [Searching](searching.md)
 7. [The Concordance](concordance.md)
-8. [Asking Claude](asking-claude.md)
+8. [Asking Claude or ChatGPT](asking-claude.md)
 9. [Adding texts](adding-texts.md)
 10. [Notes, workspaces and citing](notes-and-citing.md)
 11. [Questions and problems](problems.md)

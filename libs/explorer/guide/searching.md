@@ -1,6 +1,6 @@
 # Searching
 
-The Explorer searches with **search templates**, the search language of Text-Fabric. A template describes what you look for, one object per line: a word with certain features, a phrase with a certain function, a clause that contains both. You can write one yourself, have one made from words you click (*Search terms*), or [ask Claude](asking-claude.md) for one.
+The Explorer searches with **search templates**, the search language of Text-Fabric. A template describes what you look for, one object per line: a word with certain features, a phrase with a certain function, a clause that contains both. You can write one yourself, have one made from words you click (*Search terms*), or [ask Claude or ChatGPT](asking-claude.md) for one.
 
 In Parallel, *Search* in the top bar opens the search, which shows each result as a verse in all the texts. Panes have a *Search* view, and the [Concordance](concordance.md) shows results as lines with the hit in the middle. A search goes along when you switch between them.
 

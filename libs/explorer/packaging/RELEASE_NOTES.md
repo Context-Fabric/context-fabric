@@ -4,7 +4,10 @@
 
 ## What is new
 
-- **Since test.13: the guide is written**, with screenshots: getting started, the datasets, the five ways of working, reading and comparing, words, searching (with a short course in search templates), the Concordance, asking Claude, adding texts, notes, workspaces and citing, and questions and problems. The instructions for asking Claude moved from these notes to the guide.
+- **Since test.14: asking ChatGPT.** Besides Claude, you can now ask ChatGPT for a search, in the ChatGPT desktop app or in Codex, with your own ChatGPT subscription: see [In ChatGPT or Codex](https://caccht.github.io/explorer/asking-claude.html#in-chatgpt-or-codex). Not yet tried with ChatGPT itself, so please tell us how it goes. A search shows which app proposed it, also when the model doesn't say.
+- Since test.14: the guide's example of "only proper names" in [Searching](https://caccht.github.io/explorer/searching.html#without-and-for-all) was wrong (it found subjects with at least one proper name); corrected, and the same in what Claude and ChatGPT are told about searching.
+- Since test.14: asking from Claude Desktop and ChatGPT no longer fails when the Explorer still has to start; a trial search that takes too long says how to make it faster.
+- Since test.13: the guide is written, with screenshots: getting started, the datasets, the five ways of working, reading and comparing, words, searching (with a short course in search templates), the Concordance, asking Claude, adding texts, notes, workspaces and citing, and questions and problems. The instructions for asking Claude moved from these notes to the guide.
 - Since test.12: a new name. The program is now called CACCHT Explorer; Context-Fabric remains the name of the engine underneath. On a Mac, the app is `CACCHT Explorer.app`: you may delete the old `Context-Fabric.app`. In Claude Desktop, install `CACCHT-Explorer.mcpb`; it takes the place of the old extension.
 - Since test.11: in the Samaritan Pentateuch, hovering over a word shows the word, not a single letter.
 - Since test.10: *Search* opens on *Template* instead of *Search terms*.
@@ -39,4 +42,4 @@ If the program doesn't start, see [Questions and problems](https://caccht.github
 
 - On macOS and Linux, the window hasn't been tried by many people yet.
 - Only the BHSA, the Samaritan Pentateuch and the Dead Sea Scrolls are offered; other corpora on your computer are not.
-- Asking Claude has been tried with test clients and by few people with Claude itself.
+- Asking Claude has been tried with test clients and by few people with Claude itself; asking ChatGPT not yet with ChatGPT itself.
