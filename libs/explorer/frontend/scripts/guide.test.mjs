@@ -61,6 +61,8 @@ const NOT_LABELS = new Set([
   "Chip Apple M…", "Applications", "System Settings → Privacy & Security", "Open Anyway", "Cmd+Shift+.",
   "View → Show → Hidden items", "Assets", "Settings → Extensions", "Install Extension…", "Advanced settings",
   "Extensions", "Settings → Developer → Edit Config", "Install", "Open",
+  // the ChatGPT desktop app
+  "Settings → MCP servers", "Add server", "STDIO", "Restart",
   // a release's name, requests to Claude, glosses and other examples
   "0.1.0-test.13", "find all cases of >LHJM/ in the BHSA", "clauses where the object comes before the verb",
   "Find all cases of >LHJM/ in the BHSA.", "All infinitives construct of HLK[.",

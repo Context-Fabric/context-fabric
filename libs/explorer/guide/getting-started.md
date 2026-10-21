@@ -17,7 +17,7 @@ The program is on the [releases page](https://github.com/Context-Fabric/context-
 
 On a Mac, *About This Mac* in the Apple menu says which processor you have: *Chip Apple M…* is Apple silicon.
 
-The release also has `CACCHT-Explorer.mcpb`, which you need only for [asking Claude](asking-claude.md).
+The release also has `CACCHT-Explorer.mcpb`, which you need only for [asking Claude](asking-claude.md) in Claude Desktop.
 
 ## Starting the program
 

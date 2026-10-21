@@ -18,7 +18,7 @@
 - **A download fails** (*Could not download it: …*). Check the internet connection and click *Try again*; what was downloaded already is kept.
 - **The page says *The browser server cannot be reached*.** The program has stopped, or was closed while the page was still open in a web browser. Start the program again and reload the page.
 - **Hovering over a word shows a single letter**, or the text looks otherwise wrong. If you have your own display settings in `.cfabric/display` in your home folder, move them away and start the program again: they take precedence over the program's.
-- **Claude can't reach the program.** The program must be running first. See [Asking Claude](asking-claude.md#setting-it-up).
+- **Claude or ChatGPT can't reach the program.** The program must be running first. See [Asking Claude or ChatGPT](asking-claude.md#setting-it-up).
 
 ## The log
 
