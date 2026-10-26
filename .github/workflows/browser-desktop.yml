@@ -58,7 +58,7 @@ jobs:
       # PyInstaller does not see editable installs
       - name: Install
         run: |
-          pip install "context-fabric==0.6.0rc1" ../mcp ".[desktop]"
+          pip install "context-fabric==0.6.0rc1" ../mcp ".[build]"
           python -c "import importlib.metadata as m; print('context-fabric', m.version('context-fabric'))"
       - name: Build the program
         run: pyinstaller packaging/cfabric-browser.spec --noconfirm

@@ -2,7 +2,7 @@
 #
 # Build from libs/explorer, after building the interface (frontend: npm run build),
 # in a virtual environment with normal (not editable) installs of libs/core and
-# libs/explorer[desktop], made with a python.org Python (not the Microsoft Store one):
+# libs/explorer[build], made with a python.org Python (not the Microsoft Store one):
 #
 #     pyinstaller packaging/cfabric-browser.spec
 #

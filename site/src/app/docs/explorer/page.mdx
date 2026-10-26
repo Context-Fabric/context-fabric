@@ -17,7 +17,7 @@ The program is the Python package `cfabric-browser` (module `cfabric_browser`, c
 `cfabric-browser` is not on PyPI yet. When it is, it will come with the core as an extra:
 
 ```bash
-pip install "context-fabric[desktop,mcp]"
+pip install "context-fabric[explorer,mcp]"
 ```
 
 Until then, install it from the repository (branch `browser-rust`):
@@ -25,10 +25,10 @@ Until then, install it from the repository (branch `browser-rust`):
 ```bash
 git clone -b browser-rust https://github.com/Context-Fabric/context-fabric
 cd context-fabric
-pip install "context-fabric==0.6.0rc1" ./libs/mcp "./libs/explorer[desktop]"
+pip install "context-fabric==0.6.0rc1" ./libs/mcp "./libs/explorer[window]"
 ```
 
-The `desktop` extra adds a window of its own (pywebview); without it, the program opens in your web browser.
+The `window` extra adds a window of its own (pywebview); without it, the program opens in your web browser.
 
 ## Running it
 
@@ -37,7 +37,7 @@ cfabric-browser download bhsa sp dss      # get the corpora, once
 cfabric-browser bhsa "sp=DT-UCPH/sp@7.2.4" "dss=ETCBC/dss@2.0.1"
 ```
 
-This opens the program at `http://localhost:8107/`. Corpora are found where Text-Fabric keeps them (`~/text-fabric-data/github`); `name=` sets the name shown and `@version` picks a version. Without corpora, the program starts empty and offers its library.
+This opens the program at `http://localhost:8107/`. `caccht-explorer` is the same command under the app's name. Corpora are found where Text-Fabric keeps them (`~/text-fabric-data/github`); `name=` sets the name shown and `@version` picks a version. Without corpora, the program starts empty and offers its library.
 
 Some options:
 
