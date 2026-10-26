@@ -25,10 +25,7 @@ Unpacking is careful:
 
 from __future__ import annotations
 
-import hashlib
-import http.client
 import shutil
-import urllib.request
 import uuid
 import zipfile
 from collections.abc import Callable
@@ -36,23 +33,22 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from cfabric_browser import __version__
 from cfabric_browser.jobs import BackgroundJobs
-from cfabric_browser.translations.build import _ssl_context
+from cfabric_browser.net import (
+    CHUNK,
+    CORPUS_ROOT,
+    DownloadError,
+    Fetch,
+    download_file,
+    fetch_to,
+)
 
-ROOT = "~/text-fabric-data/github"
+ROOT = CORPUS_ROOT
 CACHE = "~/.cfabric/downloads"
 CHECKOUT = "__checkout__.txt"
-CHUNK = 1 << 16
 
 # called with a step ("download", "unpack"), the amount done and the total
 Progress = Callable[[str, int, int], None]
-# fetch a URL into a file, reporting (bytes done, bytes in all)
-Fetch = Callable[[str, Path, Callable[[int, int], None]], None]
-
-
-class DownloadError(Exception):
-    """A download that failed or is not what was expected; the message says why."""
 
 
 @dataclass(frozen=True)
@@ -175,70 +171,11 @@ def is_present(download: Download, root: str | Path = ROOT) -> bool:
     return (data / "otype.tf").is_file() or (data / ".cfm").is_dir()
 
 
-def _fetch(url: str, target: Path, report: Callable[[int, int], None]) -> None:
-    request = urllib.request.Request(
-        url, headers={"User-Agent": f"cfabric-browser/{__version__}"}
-    )
-    with urllib.request.urlopen(
-        request, timeout=60, context=_ssl_context()
-    ) as response:
-        total = int(response.headers.get("Content-Length") or 0)
-        done = 0
-        with open(target, "wb") as out:
-            while chunk := response.read(CHUNK):
-                out.write(chunk)
-                done += len(chunk)
-                report(done, total)
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with open(path, "rb") as f:
-        while chunk := f.read(1 << 20):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _get(
-    url: str,
-    target: Path,
-    sha256: str,
-    fetch: Fetch,
-    report: Callable[[int, int], None],
-) -> None:
-    """Download into `target`, unless a file with the right checksum is there;
-    tried twice, then the error is passed on."""
-    if target.is_file() and _sha256(target) == sha256:
-        return
-    partial = target.with_name(target.name + ".part")
-    try:
-        for attempt in (1, 2):
-            try:
-                fetch(url, partial, report)
-                break
-            # IncompleteRead (a connection cut off) is no OSError
-            except (OSError, http.client.HTTPException) as e:
-                if attempt == 2:
-                    raise DownloadError(f"Could not download {url}: {e}") from e
-    except BaseException:
-        # failed or cancelled: no half file left behind
-        partial.unlink(missing_ok=True)
-        raise
-    found = _sha256(partial)
-    if found != sha256:
-        partial.unlink(missing_ok=True)
-        raise DownloadError(
-            f"The download of {url} is not the expected file "
-            f"(checksum {found[:12]}…, expected {sha256[:12]}…)"
-        )
-    partial.replace(target)
-
-
 def fetch(
     download: Download,
     cache: str | Path = CACHE,
     progress: Progress | None = None,
-    fetcher: Fetch = _fetch,
+    fetcher: Fetch = fetch_to,
 ) -> tuple[Path, dict[str, Path]]:
     """The release zip and the extra files, downloaded into `cache` (or taken
     from there when their checksums match)."""
@@ -251,11 +188,13 @@ def fetch(
         else (lambda done, total: None)
     )
     archive = folder / f"{stem}-{download.asset}"
-    _get(download.url, archive, download.sha256, fetcher, report)
+    download_file(download.url, archive, download.sha256, fetcher, report)
     extras = {}
     for extra in download.extras:
         target = folder / f"{stem}-{extra.path.replace('/', '-')}"
-        _get(extra.url, target, extra.sha256, fetcher, lambda done, total: None)
+        download_file(
+            extra.url, target, extra.sha256, fetcher, lambda done, total: None
+        )
         extras[extra.path] = target
     return (archive, extras)
 
@@ -358,7 +297,7 @@ def get(
     root: str | Path = ROOT,
     cache: str | Path = CACHE,
     progress: Progress | None = None,
-    fetcher: Fetch = _fetch,
+    fetcher: Fetch = fetch_to,
     keep: bool = False,
 ) -> Path:
     """Download and unpack a corpus, unless it is there already; returns its

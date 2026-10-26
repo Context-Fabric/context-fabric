@@ -15,8 +15,8 @@ from pathlib import Path
 from typing import Any
 
 from cfabric_browser.dictionaries.store import Dictionary, DictionaryError
-from cfabric_browser.downloads import DownloadError, Fetch, _fetch, _get
 from cfabric_browser.jobs import BackgroundJobs, Progress
+from cfabric_browser.net import DownloadError, Fetch, download_file, fetch_to
 
 ROOT = "~/.cfabric/dictionaries"
 
@@ -77,7 +77,7 @@ def add(
     catalogued: Catalogued,
     root: str | Path = ROOT,
     progress: Progress | None = None,
-    fetcher: Fetch = _fetch,
+    fetcher: Fetch = fetch_to,
 ) -> Path:
     """Download the published file into its place."""
     if catalogued.url is None or catalogued.sha256 is None:
@@ -90,7 +90,7 @@ def add(
         else (lambda done, total: None)
     )
     partial = place.with_name(place.name + ".new")
-    _get(catalogued.url, partial, catalogued.sha256, fetcher, report)
+    download_file(catalogued.url, partial, catalogued.sha256, fetcher, report)
     check(catalogued, partial)
     partial.replace(place)
     return place
@@ -122,7 +122,7 @@ def remove(catalogued: Catalogued, root: str | Path = ROOT) -> bool:
 class DictionaryJobs(BackgroundJobs):
     """Downloads of dictionaries in the background, for the library."""
 
-    def __init__(self, root: str | Path = ROOT, fetcher: Fetch = _fetch) -> None:
+    def __init__(self, root: str | Path = ROOT, fetcher: Fetch = fetch_to) -> None:
         super().__init__(expected=(DownloadError, DictionaryError))
         self.root = root
         self.fetcher = fetcher

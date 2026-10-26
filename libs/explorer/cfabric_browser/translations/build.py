@@ -22,12 +22,10 @@ written (`@dateWritten`) differs between builds.
 
 from __future__ import annotations
 
-import hashlib
 import html
 import json
 import re
 import shutil
-import ssl
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
@@ -40,13 +38,14 @@ import yaml
 
 from cfabric_browser import __version__
 from cfabric_browser.display.config import read_app_config
+from cfabric_browser.jobs import Progress
+from cfabric_browser.net import CORPUS_ROOT, read_url, sha256_bytes
 from cfabric_browser.translations.catalog import Split, Translation
 
 CACHE = "~/.cfabric/translations"
-ROOT = "~/text-fabric-data/github"
+ROOT = CORPUS_ROOT
 
 # called with a step ("download", "build"), the number done and the total
-Progress = Callable[[str, int, int], None]
 Fetch = Callable[[str], bytes]
 
 
@@ -72,35 +71,11 @@ def hebrew_verses() -> dict[str, list[int]]:
     return json.loads(data.read_text(encoding="utf-8"))
 
 
-def _ssl_context() -> ssl.SSLContext:
-    """The system's certificates, or certifi's where it is installed: the
-    standalone program on macOS has none of its own."""
-    try:
-        import certifi
-    except ImportError:
-        return ssl.create_default_context()
-    return ssl.create_default_context(cafile=certifi.where())
-
-
-def _download(url: str) -> bytes:
-    request = urllib.request.Request(
-        url, headers={"User-Agent": f"cfabric-browser/{__version__}"}
-    )
-    with urllib.request.urlopen(
-        request, timeout=60, context=_ssl_context()
-    ) as response:
-        return response.read()
-
-
-def _sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
-
-
 def fetch(
     translation: Translation,
     cache: str | Path = CACHE,
     progress: Progress | None = None,
-    download: Fetch = _download,
+    download: Fetch = read_url,
 ) -> dict[str, bytes]:
     """The source file of every book, keyed by the BHSA's book name.
 
@@ -123,7 +98,7 @@ def fetch(
         data: bytes | None = None
         if target.is_file() and name in sums:
             data = target.read_bytes()
-            if _sha256(data) != sums[name]:
+            if sha256_bytes(data) != sums[name]:
                 data = None
         if data is None:
             url = translation.url.format(path=urllib.parse.quote(path))
@@ -132,7 +107,7 @@ def fetch(
             except OSError as e:
                 raise BuildError(f"Could not download {name} from {url}: {e}") from e
             target.write_bytes(data)
-            sums[name] = _sha256(data)
+            sums[name] = sha256_bytes(data)
             sums_file.write_text(json.dumps(sums, indent=1), encoding="utf-8")
         files[name] = data
         if progress is not None:
@@ -482,7 +457,7 @@ def build(
     root: str | Path = ROOT,
     cache: str | Path = CACHE,
     progress: Progress | None = None,
-    download: Fetch = _download,
+    download: Fetch = read_url,
 ) -> Path:
     """Download, check and build a translation; returns its data directory.
 
@@ -493,9 +468,9 @@ def build(
     books = prepare(translation, files)
     if progress is not None:
         progress("build", 0, 1)
-    checksum = _sha256(
+    checksum = sha256_bytes(
         "".join(
-            f"{name}:{_sha256(files[name])}\n" for name, _ in translation.books
+            f"{name}:{sha256_bytes(files[name])}\n" for name, _ in translation.books
         ).encode()
     )
 

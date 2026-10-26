@@ -20,12 +20,13 @@ import math
 import random
 import re
 import threading
-from bisect import bisect_left, bisect_right
+from bisect import bisect_left
 from collections import Counter
 from typing import Any
 
 from cfabric_browser import formats
-from cfabric_browser.compare import consonants, word_type
+from cfabric_browser.compare import consonants
+from cfabric_browser.words import BookSpans, orig_format, word_type, words_of
 
 MAX_SIDE = 15
 POSITION = re.compile(r"^(hit|[LR][1-9][0-9]?)$")
@@ -103,26 +104,10 @@ class Concordance:
         types = list(api.T.sectionTypes or ())
         self.bookType = types[0] if types else None
         self.verseType = types[-1] if types else None
-        self.fmt = next(
-            (f for f in config.text_formats if f.startswith("text-orig")),
-            config.default_format,
-        )
+        self.fmt = orig_format(config)
         # values that mean "no value" (NA, absent, ...) count as missing
         self.empty = {str(v) for v in config.none_values if v is not None}
-        # books are runs of words: where each starts, to find a word's book quickly
-        self._starts: list[int] = []
-        self._startBooks: list[int] = []
-        self._ends: list[int] = []
-        if self.bookType:
-            spans = []
-            for b in api.F.otype.s(self.bookType):
-                ws = api.L.d(int(b), otype=self.wType)
-                if len(ws):
-                    spans.append((int(ws[0]), int(ws[-1]), int(b)))
-            for first, last, b in sorted(spans):
-                self._starts.append(first)
-                self._ends.append(last)
-                self._startBooks.append(b)
+        self.books = BookSpans(api, self.wType)
         self._bookNames: dict[int, str | None] = {}
         self._values: dict[tuple[int, str], str | None] = {}
         self.spans = Spans(api)
@@ -137,28 +122,14 @@ class Concordance:
 
     # words
 
-    def _words_of(self, node: int) -> list[int]:
-        api = self.api
-        nType = api.F.otype.v(node)
-        if nType == self.wType:
-            return [node]
-        down = [int(w) for w in api.L.d(node, otype=self.wType)]
-        if down:
-            return down
-        up = api.L.u(node, otype=self.wType)
-        return [int(up[0])] if up else []
-
     def _hit(self, tup: tuple[int, ...]) -> list[int]:
         """The words of the result's innermost nodes, in order."""
         inner = self.spans.innermost([int(n) for n in tup])
-        words = sorted({w for n in inner for w in self._words_of(n)})
+        words = sorted({w for n in inner for w in words_of(self.api, self.wType, n)})
         return words
 
     def book(self, word: int) -> int | None:
-        k = bisect_right(self._starts, word) - 1
-        if k < 0 or word > self._ends[k]:
-            return None
-        return self._startBooks[k]
+        return self.books.book(word)
 
     def neighbour(self, hit: list[int], position: str) -> int | None:
         """The word at a position (`L2`, `R1`) of a hit, if it is in the same book."""

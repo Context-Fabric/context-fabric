@@ -22,12 +22,10 @@ from __future__ import annotations
 
 import datetime
 import gzip
-import hashlib
 import html
 import json
 import re
 from collections import Counter
-from collections.abc import Callable
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -37,6 +35,8 @@ import yaml
 from cfabric_browser import __version__
 from cfabric_browser.books import canonical_book
 from cfabric_browser.dictionaries import bdb, link, sefaria
+from cfabric_browser.jobs import Progress
+from cfabric_browser.net import sha256_bytes
 
 CACHE = "~/.cfabric/dictionaries/cache"
 BHSA = "~/text-fabric-data/github/ETCBC/bhsa/tf/2021"
@@ -123,15 +123,9 @@ def _cut(raw: str) -> bool:
 CITED = 2
 BETTER = 2.0
 
-Progress = Callable[[str, int, int], None]
-
 
 class BuildError(Exception):
     """A source is not what the builder expects; the message says where."""
-
-
-def _sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
 
 
 def fetch_sources(
@@ -149,18 +143,18 @@ def fetch_sources(
     for name, url, commit, sha in wanted:
         target = folder / commit[:7] / name
         data = target.read_bytes() if target.is_file() else None
-        if data is None or (sha is not None and _sha256(data) != sha):
+        if data is None or (sha is not None and sha256_bytes(data) != sha):
             try:
                 data = download(url)
             except OSError as e:
                 raise BuildError(f"Could not download {url}: {e}") from e
-            if sha is not None and _sha256(data) != sha:
+            if sha is not None and sha256_bytes(data) != sha:
                 raise BuildError(f"{url} has another checksum than expected")
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
         paths[name] = target
         if sha is None:
-            sums[name] = _sha256(data)
+            sums[name] = sha256_bytes(data)
     return paths, sums
 
 

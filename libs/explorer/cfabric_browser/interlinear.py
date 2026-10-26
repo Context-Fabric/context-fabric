@@ -16,9 +16,10 @@ from collections.abc import Callable
 from typing import Any
 
 from cfabric_browser import formats
-from cfabric_browser.compare import align_words, diff_words, verse_words, word_type
+from cfabric_browser.compare import align_words, diff_words, verse_words
 from cfabric_browser.display import RenderOptions, section_ref_for
 from cfabric_browser.summary import summary
+from cfabric_browser.words import word_type, words_of
 
 # the lines built from the summary, by its labels
 MORPHOLOGY = ("stem", "tense", "person", "gender", "number", "state")
@@ -92,11 +93,7 @@ def interlinear_verse(
     empty = {str(v) for v in config.none_values if v is not None}
     glosses = service.glosses(corpus)
     wType = word_type(api, config)
-    words = (
-        [int(w) for w in api.L.d(verse, otype=wType)]
-        if api.F.otype.v(verse) != wType
-        else [verse]
-    )
+    words = words_of(api, wType, verse)
     extra = [(f, api.Fs(f)) for f in features if f in api.Fall()]
 
     rows = []
