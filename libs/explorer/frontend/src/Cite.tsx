@@ -1,21 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { displayRef } from "./display/Display";
 import { describeAsked, type Asked } from "./shared/asked";
+import { useHealth } from "./shared/health";
 import type { CorpusCard } from "./types";
+import { useCloseOutside } from "./shared/popover";
 
 // A citation for what you are looking at: the passage, or the search with its
 // template and number of results, plus the corpus (title, version, DOI) and the
 // software that produced it. Copied as plain text.
 
-function useVersions() {
-  return useQuery({
-    queryKey: ["health"],
-    queryFn: async () =>
-      (await fetch("/api/health").then((r) => r.json())) as { version: string; coreVersion: string | null },
-    staleTime: Infinity,
-  });
-}
+const useVersions = () => useHealth();
 
 function corpusLine(corpus: CorpusCard): string {
   // a translation: its edition and where the text came from
@@ -62,20 +56,12 @@ export function Cite({ text, label = "Cite", align = "end" }: Props) {
   const date = new Date().toISOString().slice(0, 10);
   const citation = text(software, date);
 
+  const close = useCallback(() => setOpen(false), []);
   useEffect(() => {
     if (!open) return;
     setCopied(false);
-    const onDown = (e: MouseEvent) => {
-      if (panel.current && !panel.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
   }, [open]);
+  useCloseOutside(open, close, panel);
 
   const copy = async () => {
     try {

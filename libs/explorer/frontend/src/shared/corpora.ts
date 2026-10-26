@@ -1,20 +1,30 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { queryClient } from "../queryClient";
 import type { CorpusCard } from "../types";
 import { REFERENCE_IDS } from "../ui";
 
 // The open corpora, the reference corpus (the BHSA) and where to start reading:
 // shared by the interfaces that follow one passage across corpora.
 
+/** The open corpora, as cached for the page. */
+export const corporaQuery = { queryKey: ["corpora"], queryFn: api.corpora };
+
+/** The card of one corpus, cached once for the page: every view of cards (the
+ * interfaces' lists, the panes, switching) asks for it this way. */
+export function corpusCard(name: string): Promise<CorpusCard> {
+  return queryClient.fetchQuery({ queryKey: ["corpus", name], queryFn: () => api.corpus(name) });
+}
+
 /** The open corpora and their cards. */
 export function useCards() {
-  const corpora = useQuery({ queryKey: ["corpora"], queryFn: api.corpora });
+  const corpora = useQuery(corporaQuery);
   const names = corpora.data?.corpora.map((c) => c.name) ?? [];
   const cards = useQuery({
     queryKey: ["corpus-cards", ...names],
     queryFn: async () => {
-      const entries = await Promise.allSettled(names.map((n) => api.corpus(n)));
+      const entries = await Promise.allSettled(names.map(corpusCard));
       const result: Record<string, CorpusCard> = {};
       entries.forEach((e, i) => {
         if (e.status === "fulfilled") result[names[i]] = e.value;

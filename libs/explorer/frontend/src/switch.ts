@@ -1,4 +1,5 @@
-import { api } from "./api";
+import { queryClient } from "./queryClient";
+import { corporaQuery, corpusCard } from "./shared/corpora";
 import {
   commonToConcordance,
   commonToInterlinear,
@@ -45,8 +46,8 @@ function keep(common: Common): void {
 
 /** The cards of the open corpora, and the reference corpus (the BHSA) among them. */
 async function openCards(): Promise<{ cards: CorpusCard[]; reference: string | null }> {
-  const { corpora } = await api.corpora();
-  const settled = await Promise.allSettled(corpora.map((c) => api.corpus(c.name)));
+  const { corpora } = await queryClient.fetchQuery(corporaQuery);
+  const settled = await Promise.allSettled(corpora.map((c) => corpusCard(c.name)));
   const cards = settled.flatMap((s) => (s.status === "fulfilled" ? [s.value] : []));
   const reference = cards.find((c) => REFERENCE_IDS.includes(c.id?.toLowerCase() ?? ""))?.name ?? null;
   return { cards, reference };

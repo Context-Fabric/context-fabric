@@ -527,3 +527,17 @@ export interface Proposal {
   atLeast: boolean;
   state: "new" | "run" | "dismissed";
 }
+
+/** What the server says about itself (`/api/health`). */
+export interface Health {
+  ok: boolean;
+  searchReady: boolean;
+  version: string;
+  coreVersion: string | null;
+  /** the interface to start in (`--ui`) */
+  ui?: string;
+  /** interfaces left out of the menu until the user chooses otherwise */
+  hiddenUis?: string[];
+  /** the standalone program offers the missing corpora at the start */
+  askDownloads?: boolean;
+}

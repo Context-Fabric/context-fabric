@@ -142,18 +142,6 @@ export function navigate(url: string): void {
 /** The ids (`org/repo`) of the corpus whose verse numbering the rows follow. */
 export const REFERENCE_IDS = ["etcbc/bhsa"];
 
-/** The open corpus whose verse numbering the parallel rows follow (the BHSA), if any. */
-export async function openReference(): Promise<string | null> {
-  const { corpora } = await api.corpora();
-  const cards = await Promise.allSettled(corpora.map((c) => api.corpus(c.name)));
-  for (const card of cards) {
-    if (card.status === "fulfilled" && REFERENCE_IDS.includes(card.value.id?.toLowerCase() ?? "")) {
-      return card.value.name;
-    }
-  }
-  return null;
-}
-
 /** The chapter of a passage: `Genesis 1:3` becomes `Genesis 1`. */
 export function chapterOf(ref: string): string {
   return ref.split(":")[0];

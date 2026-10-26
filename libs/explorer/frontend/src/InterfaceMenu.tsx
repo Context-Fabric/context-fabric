@@ -1,9 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { Common } from "./common";
 import { guideUrl } from "./guide";
+import { useHealth } from "./shared/health";
 import { switchInterface } from "./switch";
-import { canHide, hiddenUis, INTERFACES, rememberHiddenUis, type Ui } from "./ui";
+import { canHide, hiddenUis, INTERFACES, isUi, rememberHiddenUis, type Ui } from "./ui";
+import { useCloseOutside } from "./shared/popover";
 
 interface Props {
   current: Ui;
@@ -20,31 +21,12 @@ export function InterfaceMenu({ current, describe }: Props) {
   const [failed, setFailed] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   // hidden here, or else as the server says (`ui: hide:` in browser.yaml)
-  const { data: health } = useQuery({
-    queryKey: ["health"],
-    queryFn: async () =>
-      (await fetch("/api/health").then((r) => r.json())) as {
-        version: string;
-        coreVersion: string | null;
-        hiddenUis?: Ui[];
-      },
-  });
+  const { data: health } = useHealth();
   const [hidden, setHidden] = useState<Ui[] | null>(() => hiddenUis());
-  const shownHidden = hidden ?? health?.hiddenUis ?? [];
+  const shownHidden = hidden ?? (health?.hiddenUis ?? []).filter(isUi);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (panel.current && !panel.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  const close = useCallback(() => setOpen(false), []);
+  useCloseOutside(open, close, panel);
 
   const ready = INTERFACES.filter((i) => i.ready);
   const offered = ready.filter((i) => i.id === current || !shownHidden.includes(i.id));

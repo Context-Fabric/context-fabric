@@ -24,6 +24,7 @@ import type {
   Proposal,
   DictionaryInfo,
   CorpusDownload,
+  Health,
 } from "./types";
 
 export class ApiError extends Error {
@@ -81,6 +82,8 @@ export interface RenderParams {
 const corpusPath = (corpus: string) => `/api/corpora/${encodeURIComponent(corpus)}`;
 
 export const api = {
+  health: () => request<Health>("/api/health"),
+
   corpora: () => request<{ corpora: { name: string; title: string; translation?: boolean }[] }>("/api/corpora"),
 
   corpus: (corpus: string) => request<CorpusCard>(corpusPath(corpus)),

@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { NotYet } from "./NotYet";
+import { useHealth } from "./shared/health";
 import { StartDownloads } from "./StartDownloads";
 import { INTERFACES, isUi, rememberedUi, rememberUi, uiOfUrl, type Ui } from "./ui";
 
@@ -30,15 +30,10 @@ function Interface() {
   }, []);
 
   // only a built interface counts as remembered or as the server's default
-  const ready = (ui: Ui | null | undefined): ui is Ui => isUi(ui) && INTERFACES.some((i) => i.id === ui && i.ready);
+  const ready = (ui: string | null | undefined): ui is Ui => isUi(ui) && INTERFACES.some((i) => i.id === ui && i.ready);
   const stored = rememberedUi();
   const remembered = ready(stored) ? stored : null;
-  const health = useQuery({
-    queryKey: ["health"],
-    queryFn: async () =>
-      (await fetch("/api/health").then((r) => r.json())) as { version: string; coreVersion: string | null; ui?: Ui },
-    enabled: fromUrl === null && remembered === null,
-  });
+  const health = useHealth(fromUrl === null && remembered === null);
   const ui: Ui | null =
     fromUrl ??
     remembered ??

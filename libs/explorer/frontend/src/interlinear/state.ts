@@ -1,5 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { parseInterlinear, serializeInterlinear, type Interlinear, type Line } from "./url";
+import { useUrlState } from "../shared/urlState";
+
+const readInterlinear = () => parseInterlinear(window.location);
 
 export interface InterlinearActions {
   /** Show a chapter (and a verse in it). */
@@ -11,25 +14,7 @@ export interface InterlinearActions {
 }
 
 export function useInterlinear(): [Interlinear, InterlinearActions] {
-  const [state, setState] = useState<Interlinear>(() => parseInterlinear(window.location));
-
-  useEffect(() => {
-    const onPop = () => setState(parseInterlinear(window.location));
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
-  const commit = useCallback((change: (s: Interlinear) => Interlinear, push: boolean) => {
-    setState((current) => {
-      const next = change(current);
-      const url = serializeInterlinear(next);
-      if (url !== window.location.pathname + window.location.search) {
-        if (push) window.history.pushState(null, "", url);
-        else window.history.replaceState(null, "", url);
-      }
-      return next;
-    });
-  }, []);
+  const [state, commit] = useUrlState(readInterlinear, serializeInterlinear);
 
   const actions = useMemo<InterlinearActions>(
     () => ({

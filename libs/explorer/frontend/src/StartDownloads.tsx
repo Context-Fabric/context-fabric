@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "./api";
+import { useHealth } from "./shared/health";
 import type { CorpusDownload } from "./types";
 
 // The standalone program's first screen when corpora are missing: it asks once
@@ -38,11 +39,7 @@ export function StartDownloads({ children }: { children: ReactNode }) {
   // the ids being fetched from this screen; null before "Download"
   const [fetching, setFetching] = useState<string[] | null>(null);
   const [done, setDone] = useState(false);
-  const health = useQuery({
-    queryKey: ["health"],
-    queryFn: async () => (await fetch("/api/health").then((r) => r.json())) as { askDownloads?: boolean },
-    staleTime: Infinity,
-  });
+  const health = useHealth();
   const ask = health.data?.askDownloads === true && !asked && !done;
   const downloads = useQuery({
     queryKey: ["downloads"],

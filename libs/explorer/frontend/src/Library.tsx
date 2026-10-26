@@ -18,6 +18,8 @@ export function Library({ onOpen, onClose }: Props) {
     mutationFn: (id: string) => api.openCorpus(id),
     onSuccess: async (result) => {
       await client.invalidateQueries({ queryKey: ["corpora"] });
+      // a corpus opened again under the same name may be another one
+      await client.invalidateQueries({ queryKey: ["corpus"] });
       await client.invalidateQueries({ queryKey: ["library"] });
       onOpen(result.name);
     },

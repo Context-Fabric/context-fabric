@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
+import { corpusCard } from "./shared/corpora";
 import { DisplayProvider, displayRef } from "./display/Display";
 import { useDifferences, type PaneDiff } from "./differences";
 import { HoverCard, Hovering, useHover } from "./HoverCard";
@@ -285,7 +286,7 @@ export function App() {
   const cards = useQuery({
     queryKey: ["cards", ...names],
     queryFn: async () => {
-      const entries = await Promise.allSettled(names.map((n) => api.corpus(n)));
+      const entries = await Promise.allSettled(names.map(corpusCard));
       const result: Record<string, { card?: CorpusCard; error?: unknown }> = {};
       entries.forEach((e, i) => {
         result[names[i]] = e.status === "fulfilled" ? { card: e.value } : { error: e.reason };

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { FORMAT_NOTE, formatOptions, shownFormat } from "./formats";
 import type { ViewSettings } from "./types";
+import { useCloseOutside } from "./shared/popover";
 
 /** The display menu: vocalized or unvocalized text (when the corpus offers
  * both, as the BHSA does) and what render trees show, kept per browser. */
@@ -18,19 +19,8 @@ export function DisplayOptions({
   const [open, setOpen] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (panel.current && !panel.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  const close = useCallback(() => setOpen(false), []);
+  useCloseOutside(open, close, panel);
 
   const options = formatOptions(formats);
   const toggles: [keyof ViewSettings, string][] = [

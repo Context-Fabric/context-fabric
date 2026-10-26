@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { importNotes, loadNotes } from "./shared/notes";
 import { navigate, rememberUi, uiOfUrl, type Ui } from "./ui";
+import { useCloseOutside } from "./shared/popover";
 
 // Saved workspaces: named snapshots of the workspace URL (panes, corpora,
 // passages, templates, sync; or the parallel interface's chapter, texts and
@@ -124,20 +125,12 @@ export function Workspaces({ corpora, onLoad, current = "classic" }: Props) {
   const panel = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
+  const close = useCallback(() => setOpen(false), []);
   useEffect(() => {
     if (!open) return;
     setSaved(loadSaved());
-    const onDown = (e: MouseEvent) => {
-      if (panel.current && !panel.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
   }, [open]);
+  useCloseOutside(open, close, panel);
 
   const save = () => {
     const title = name.trim();
