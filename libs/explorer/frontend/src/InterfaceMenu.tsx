@@ -17,6 +17,7 @@ export function InterfaceMenu({ current, describe }: Props) {
   const [open, setOpen] = useState(false);
   const [choosing, setChoosing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   // hidden here, or else as the server says (`ui: hide:` in browser.yaml)
   const { data: health } = useQuery({
@@ -52,8 +53,13 @@ export function InterfaceMenu({ current, describe }: Props) {
   const go = async (target: Ui) => {
     if (target === current) return setOpen(false);
     setBusy(true);
+    setFailed(false);
     try {
       await switchInterface(target, await describe());
+    } catch {
+      // the server didn't answer while finding the passage for the other
+      // interface: say so, instead of a menu that does nothing
+      setFailed(true);
     } finally {
       setBusy(false);
     }
@@ -102,6 +108,11 @@ export function InterfaceMenu({ current, describe }: Props) {
               <span className="text-[12px] leading-snug text-stone">{i.about}</span>
             </button>
           ))}
+          {failed ? (
+            <p role="alert" className="px-3 py-1 text-[13px] text-madder">
+              Could not switch: the program did not answer. Try again.
+            </p>
+          ) : null}
           <div className="mt-1 border-t border-rule px-3 pt-1.5">
             {choosing ? (
               <fieldset className="flex flex-col gap-1 text-[13px]">

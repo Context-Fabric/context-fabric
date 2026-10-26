@@ -235,11 +235,12 @@ def discover(
         if not base.is_dir():
             continue
         for org in sorted(base.iterdir()):
-            if not org.is_dir():
+            if not org.is_dir() or org.name.startswith("."):
                 continue
             for repo in sorted(org.iterdir()):
                 tfDir = repo / "tf"
-                if not tfDir.is_dir():
+                # .jps1917.building: a translation being built (translations/)
+                if repo.name.startswith(".") or not tfDir.is_dir():
                     continue
                 versions = sorted(
                     (d.name for d in tfDir.iterdir() if d.is_dir() and _is_data_dir(d)),
@@ -405,6 +406,24 @@ class CorpusService:
         with self._lock:
             self._configs[name] = config
         return config
+
+    def title(self, name: str) -> str:
+        """The corpus' title, without loading it (that can take minutes the
+        first time)."""
+        with self._lock:
+            config = self._configs.get(name)
+        if config is not None:
+            provenance = config.provenance
+        else:
+            path = self._specs[name].path
+            appConfig = find_app_config(path)
+            try:
+                settings = read_app_config(appConfig) if appConfig else {}
+            except Exception:  # noqa: BLE001 - a broken config only costs the title
+                settings = {}
+            (extra, _) = display_overrides(path, self.overrides)
+            provenance = _merge(settings, extra).get("provenanceSpec") or {}
+        return str(provenance.get("corpus") or name)
 
     def books(self, name: str) -> dict[str, str]:
         """Canonical book ids of a corpus, mapped to its own book names."""

@@ -18,6 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Other web sites could send the server requests (start a download or a build, and with a name pointing at 127.0.0.1 read the API). The server now refuses requests from another origin, and, when it listens only on this computer, requests under other host names (`cfabric_browser/guard.py`, `create_app(hosts=…)`).
+- Searching: the watchdog could give the next queued search to the worker it was about to end (the search then failed with "The search process stopped unexpectedly"), and could mark a search that had just finished as timed out and end a healthy worker. A corpus that a worker couldn't load made the pool start new workers without end; now its searches fail with the reason, and workers that keep dying before they are ready are not started again after three tries.
+- `/api/corpora` waited for a corpus that was still being prepared (minutes for the BHSA) to get its title; the title now comes from its app config.
+- A translation build that failed at its last step lost the earlier translation, and a build could replace a folder of the same name that it hadn't made; the half-built folders (`.jps1917.building`) showed up in the library. Cancelling after the work was put in place reported it as cancelled.
+- A download that was cut off (not retried) or cancelled left its partial file behind.
+- `cfabric-browser mcp` started the Explorer again for every message after a start had failed; it now waits five minutes before trying again (a running Explorer is still found at once).
+- The lexicon's caches are filled under a lock (a gloss could go missing, now and then, when two requests came at once).
+- The Reader showed the wrong chapter after › then ‹ (or the keys, or Back) when a verse had been selected; Reader, Interlinear and Concordance stayed at *Opening…* when the URL named a corpus that isn't open (an old link), and now open the reference corpus; the Interlinear jumped back to the URL's verse whenever a setting changed; the Concordance and Parallel's search results first fetched the old page after a change of order, filter or search; Panes and Parallel's search kept the recent searches and problems of another corpus, and closing a pane gave its state and notes to the next one; a failed switch of interface did nothing visible.
+
 - The guide's setup for ChatGPT (since test.15) asked for the program's path and `mcp` as an argument in the desktop app, whose form may have no field for arguments, and on a Mac the path has a space. It now gives the address (*Streamable HTTP*, `http://127.0.0.1:8107/mcp`) for the desktop app and `codex mcp add --url` for the terminal; the full `config.toml` block (`command`, `args`, `tool_timeout_sec`) for letting ChatGPT start the Explorer, with the Mac path and how to open the hidden `~/.codex`; and that the desktop app may offer it only when working with Codex.
 
 - In the Reader, the *Workspaces*, *Display* and *Cite* menus opened behind the panel on wide screens.

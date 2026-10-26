@@ -40,6 +40,7 @@ from mcp.types import LATEST_PROTOCOL_VERSION
 from cfabric_browser.assistant import mcp, running
 
 START_TIMEOUT = 120.0  # seconds to wait for a browser that was started
+RETRY_START = 300.0  # seconds before trying again to start one that failed
 
 
 def find_browser(path: str | Path = running.RUNNING) -> str | None:
@@ -90,6 +91,9 @@ class Browser:
         self.start = start
         self._url: str | None = None
         self._looking: threading.Thread | None = None
+        # when starting it last failed: not tried again for a while, so that
+        # every message doesn't start (and wait for) another one
+        self._failedStart: float | None = None
 
     def look(self) -> None:
         """Start looking, unless it is found or being looked for."""
@@ -98,9 +102,14 @@ class Browser:
             self._looking.start()
 
     def _find(self) -> None:
-        self._url = find_browser(self.path) or (
-            start_browser(self.path) if self.start else None
-        )
+        self._url = find_browser(self.path)
+        if self._url is not None or not self.start:
+            return
+        failed = self._failedStart
+        if failed is not None and time.monotonic() - failed < RETRY_START:
+            return
+        self._url = start_browser(self.path)
+        self._failedStart = None if self._url else time.monotonic()
 
     def url(self) -> str | None:
         """The address, after waiting for the looking; None if there is no

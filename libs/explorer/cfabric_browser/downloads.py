@@ -26,6 +26,7 @@ Unpacking is careful:
 from __future__ import annotations
 
 import hashlib
+import http.client
 import shutil
 import urllib.request
 import uuid
@@ -210,14 +211,19 @@ def _get(
     if target.is_file() and _sha256(target) == sha256:
         return
     partial = target.with_name(target.name + ".part")
-    for attempt in (1, 2):
-        try:
-            fetch(url, partial, report)
-            break
-        except OSError as e:
-            if attempt == 2:
-                partial.unlink(missing_ok=True)
-                raise DownloadError(f"Could not download {url}: {e}") from e
+    try:
+        for attempt in (1, 2):
+            try:
+                fetch(url, partial, report)
+                break
+            # IncompleteRead (a connection cut off) is no OSError
+            except (OSError, http.client.HTTPException) as e:
+                if attempt == 2:
+                    raise DownloadError(f"Could not download {url}: {e}") from e
+    except BaseException:
+        # failed or cancelled: no half file left behind
+        partial.unlink(missing_ok=True)
+        raise
     found = _sha256(partial)
     if found != sha256:
         partial.unlink(missing_ok=True)

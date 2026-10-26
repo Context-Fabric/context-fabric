@@ -170,9 +170,10 @@ export function ReaderApp() {
   const own = card ? settingsFor(card, settings) : settings;
   const others = (state.texts ?? names.filter((n) => n !== corpus)).filter((n) => n !== corpus && cards[n]);
 
-  // started without a corpus or chapter: the BHSA (or the first corpus), at its first chapter
+  // started without a corpus or chapter, or with a corpus that isn't open (an old link):
+  // the BHSA (or the first corpus), at its first chapter
   useEffect(() => {
-    if (state.corpus || !ready || !reference.settled) return;
+    if ((state.corpus && names.includes(state.corpus)) || !ready || !reference.settled) return;
     const start = reference.name ?? names[0];
     if (start) actions.setCorpus(start, null);
   }, [state.corpus, ready, reference.settled, reference.name, names, actions]);
@@ -188,10 +189,17 @@ export function ReaderApp() {
   // the chapters below each other: from the one opened, more as one scrolls on
   const [chain, setChain] = useState<string[]>([]);
   const [nextOf, setNextOf] = useState<Record<string, string | null>>({});
+  // the chapter last reported to the URL by scrolling or selecting
   const scrolledTo = useRef<string | null>(null);
+  // a chapter change made by scrolling or selecting in the chain, which keeps the chain;
+  // any other change (‹ ›, the keys, Back, a link) starts a new one
+  const keepChain = useRef<string | null>(null);
   useEffect(() => {
     if (!state.ref) return;
-    if (scrolledTo.current === state.ref) return;
+    const keep = keepChain.current === state.ref;
+    keepChain.current = null;
+    if (keep) return;
+    scrolledTo.current = null;
     setChain([state.ref]);
     scrollerRef.current?.scrollTo({ top: 0 });
   }, [state.ref, corpus]);
@@ -229,6 +237,7 @@ export function ReaderApp() {
       for (const h of headings) if (h.getBoundingClientRect().top - top < 80) current = h.dataset.chapter!;
       if (current !== scrolledTo.current && current !== state.ref) {
         scrolledTo.current = current;
+        keepChain.current = current;
         actions.scrolled(current);
       }
     };
@@ -258,6 +267,7 @@ export function ReaderApp() {
     const { chapter, verse } = splitRef(ref);
     // the URL names the chapter of the selected verse
     scrolledTo.current = chapter;
+    if (chapter !== state.ref) keepChain.current = chapter;
     actions.select(verse, chapter);
   };
 
@@ -315,7 +325,6 @@ export function ReaderApp() {
     const aligned = await alignRef(from, ref, corpus);
     if (!aligned) return;
     const { chapter, verse } = splitRef(aligned);
-    scrolledTo.current = null;
     pending.current = aligned;
     actions.open(chapter, true, verse);
   };
@@ -529,7 +538,6 @@ export function ReaderApp() {
           current={state.ref}
           onOpen={(ref) => {
             setNavOpen(false);
-            scrolledTo.current = null;
             actions.open(ref);
           }}
           onClose={closeNav}

@@ -405,9 +405,10 @@ export function InterlinearApp() {
   const card = corpus ? cards[corpus] : undefined;
   const underCard = state.under ? cards[state.under] : undefined;
 
-  // the BHSA by default (or the first corpus), at its first chapter
+  // the BHSA by default (or the first corpus), at its first chapter; also instead of a
+  // corpus that isn't open (an old link)
   useEffect(() => {
-    if (state.corpus || !ready || !reference.settled) return;
+    if ((state.corpus && names.includes(state.corpus)) || !ready || !reference.settled) return;
     const start = reference.name ?? names[0];
     if (start) actions.setCorpus(start, null);
   }, [state.corpus, ready, reference.settled, reference.name, names, actions]);
@@ -438,11 +439,18 @@ export function InterlinearApp() {
 
   useEffect(() => setRevealed(new Set()), [state.ref, state.hide]);
 
-  // a verse in the URL is scrolled to once shown
+  // a verse in the URL is scrolled to once shown; only once, not again when a setting
+  // changes what is shown (the reader may have scrolled on)
+  const scrolledFor = useRef<string | null>(null);
   useEffect(() => {
-    if (state.verse === null || !data) return;
-    scroller.current?.querySelector(`[data-verse="${state.verse}"]`)?.scrollIntoView({ block: "center" });
-  }, [state.verse, data]);
+    if (state.verse === null || !data || passage.isPlaceholderData) return;
+    const key = `${corpus} ${state.ref}:${state.verse}`;
+    if (scrolledFor.current === key) return;
+    const el = scroller.current?.querySelector(`[data-verse="${state.verse}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: "center" });
+    scrolledFor.current = key;
+  }, [corpus, state.ref, state.verse, data, passage.isPlaceholderData]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

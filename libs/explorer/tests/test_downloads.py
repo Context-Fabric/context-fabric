@@ -382,3 +382,28 @@ def test_the_program_asks_at_the_start() -> None:
     assert health(ask_downloads=True)["askDownloads"] is True
     # not where corpora can't be opened
     assert health(ask_downloads=True, library=False)["askDownloads"] is False
+
+
+def test_a_cut_off_or_cancelled_download_leaves_no_half_file(tmp_path: Path) -> None:
+    import http.client
+
+    d = corpus(COMPLETE)
+
+    def cut_off(url: str, target: Path, report) -> None:
+        target.write_bytes(COMPLETE[:10])
+        raise http.client.IncompleteRead(COMPLETE[:10])
+
+    with pytest.raises(DownloadError, match="Could not download"):
+        fetch(d, cache=tmp_path, fetcher=cut_off)
+    assert list(tmp_path.rglob("*.part")) == []
+
+    class Stop(Exception):
+        pass
+
+    def cancelled(url: str, target: Path, report) -> None:
+        target.write_bytes(COMPLETE[:10])
+        raise Stop
+
+    with pytest.raises(Stop):
+        fetch(d, cache=tmp_path, fetcher=cancelled)
+    assert list(tmp_path.rglob("*.part")) == []
