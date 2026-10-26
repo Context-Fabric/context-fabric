@@ -29,7 +29,7 @@ def client(tmp_path_factory):
         timeout=20,
     )
     pool.start(wait=True)
-    app = create_app(service, pool, manage_pool=False, secret="s")
+    app = create_app(service, pool, manage_pool=False)
     with TestClient(app, base_url="http://127.0.0.1:8107") as c:
         yield c
     pool.shutdown()

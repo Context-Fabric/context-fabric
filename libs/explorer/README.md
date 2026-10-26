@@ -283,7 +283,7 @@ All functions of the interface are available as a JSON API; interactive document
 | `GET /api/translations[/{t}]` | Translations that can be added, whether they are, and the progress of adding one (`job`) |
 | `POST /api/translations/{t}`, `DELETE /api/translations/{t}` | Add a translation (download and build it, in the background), or remove it |
 | `GET /api/proposals`, `GET /api/proposals/events` | Searches proposed by a language model, newest first; server-sent events whenever they change |
-| `POST /api/proposals` (needs `X-Cfabric-Secret`), `POST /api/proposals/{id}` | Propose a search; mark one `run` or `dismissed` |
+| `POST /api/proposals`, `POST /api/proposals/{id}` | Propose a search; mark one `run` or `dismissed` |
 | `POST /mcp` | The tools for a language model, as an MCP server (Streamable HTTP, stateless); only on 127.0.0.1, not from web pages |
 | `GET /api/dictionaries[/{d}]` | Dictionaries that can be added (BDB), whether they are, and the progress of adding one; one of them with its metadata and abbreviations |
 | `POST /api/dictionaries/{d}`, `DELETE /api/dictionaries/{d}` | Download a dictionary (in the background), or remove it |
@@ -331,7 +331,7 @@ The guide for users is written in Markdown in `guide/`, one file per chapter (th
 **Before each desktop release** (a `desktop-v*` tag):
 
 1. **The guide.** For every change users notice, update its chapter in `guide/` (a new button, a changed default, a new corpus or text), and `npm test` (names in the program, links, pictures).
-2. **The screenshots**, when the interface changed: start the browser on the real corpora with a home folder that holds only the corpora and BDB (a junction or link to `text-fabric-data`, and `.cfabric/dictionaries`), with `--only` for the corpora of `CORPORA` in `packaging/cfabric-browser.py`, then `CFABRIC_SECRET=<secret from its .cfabric/running.json> npm run screenshots -- http://127.0.0.1:<port>`. Look at each picture before committing.
+2. **The screenshots**, when the interface changed: start the browser on the real corpora with a home folder that holds only the corpora and BDB (a junction or link to `text-fabric-data`, and `.cfabric/dictionaries`), with `--only` for the corpora of `CORPORA` in `packaging/cfabric-browser.py`, then `npm run screenshots -- http://127.0.0.1:<port>`. Look at each picture before committing.
 3. **The release notes** (`packaging/RELEASE_NOTES.md`): what is new since the last release at the top, the downloads and how to start; the rest belongs in the guide.
 4. **caccht.github.io:** `node scripts/guide.mjs --site <clone of CACCHT/caccht.github.io>`, a pull request with the changed pages (and new chapters in its `sitemap.xml`), merged before the release, because the release notes link to it.
 5. **The checks of `browser-desktop.yml`** on all four builds, then the tag.
