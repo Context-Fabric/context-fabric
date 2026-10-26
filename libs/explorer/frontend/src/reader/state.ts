@@ -1,5 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { parseReader, serializeReader, type Mode, type Panel, type Reader } from "./url";
+import { useUrlState } from "../shared/urlState";
+
+const readReader = () => parseReader(window.location);
 
 export interface ReaderActions {
   /** Read a chapter (and select a verse in it). */
@@ -16,25 +19,7 @@ export interface ReaderActions {
 }
 
 export function useReader(): [Reader, ReaderActions] {
-  const [state, setState] = useState<Reader>(() => parseReader(window.location));
-
-  useEffect(() => {
-    const onPop = () => setState(parseReader(window.location));
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
-  const commit = useCallback((change: (s: Reader) => Reader, push: boolean) => {
-    setState((current) => {
-      const next = change(current);
-      const url = serializeReader(next);
-      if (url !== window.location.pathname + window.location.search) {
-        if (push) window.history.pushState(null, "", url);
-        else window.history.replaceState(null, "", url);
-      }
-      return next;
-    });
-  }, []);
+  const [state, commit] = useUrlState(readReader, serializeReader);
 
   const actions = useMemo<ReaderActions>(
     () => ({

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useUrlState } from "../shared/urlState";
 
 // The parallel interface keeps its state in the URL, like Parabible:
 // `/Genesis/1?texts=bhsa,sp,dss&diff=1`. The passage is a chapter in the
@@ -94,25 +95,7 @@ export interface ParallelActions {
 }
 
 export function useParallel(): [Parallel, ParallelActions] {
-  const [state, setState] = useState<Parallel>(() => parseParallel());
-
-  useEffect(() => {
-    const onPop = () => setState(parseParallel());
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
-  const commit = useCallback((change: (s: Parallel) => Parallel, push: boolean) => {
-    setState((current) => {
-      const next = change(current);
-      const url = serializeParallel(next);
-      if (url !== window.location.pathname + window.location.search) {
-        if (push) window.history.pushState(null, "", url);
-        else window.history.replaceState(null, "", url);
-      }
-      return next;
-    });
-  }, []);
+  const [state, commit] = useUrlState(parseParallel, serializeParallel);
 
   const actions = useMemo<ParallelActions>(
     () => ({

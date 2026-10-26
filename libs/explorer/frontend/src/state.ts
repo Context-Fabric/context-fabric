@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReadBy, ViewSettings } from "./types";
+import { useUrlState } from "./shared/urlState";
+
+const searchOnly = () => window.location.search;
 
 // Everything that identifies what you are looking at lives in the URL, so a view
 // can be bookmarked and shared. Display preferences are kept per browser.
@@ -94,25 +97,7 @@ export interface WorkspaceActions {
 }
 
 export function useWorkspace(): [Workspace, WorkspaceActions] {
-  const [ws, setWs] = useState<Workspace>(parse);
-
-  useEffect(() => {
-    const onPop = () => setWs(parse());
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
-  const commit = useCallback((change: (ws: Workspace) => Workspace, push: boolean) => {
-    setWs((current) => {
-      const next = change(current);
-      const url = serialize(next);
-      if (url !== window.location.search) {
-        if (push) window.history.pushState(null, "", url);
-        else window.history.replaceState(null, "", url);
-      }
-      return next;
-    });
-  }, []);
+  const [ws, commit] = useUrlState(parse, serialize, searchOnly);
 
   const actions = useMemo<WorkspaceActions>(
     () => ({

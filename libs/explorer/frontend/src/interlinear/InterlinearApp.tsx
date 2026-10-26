@@ -18,6 +18,7 @@ import { alignRef, navigate } from "../ui";
 import { Workspaces } from "../Workspaces";
 import { useInterlinear } from "./state";
 import { BUILT_IN, runs, type Colour, type Interlinear, type Line } from "./url";
+import { useCloseOutside } from "../shared/popover";
 
 // The Interlinear, after STEPBible, BibleHub and the Logos interlinears: every
 // word as a small block with lines under it, chosen and ordered by the user.
@@ -50,19 +51,8 @@ function Lines({
 }) {
   const [open, setOpen] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (panel.current && !panel.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  const close = useCallback(() => setOpen(false), []);
+  useCloseOutside(open, close, panel);
 
   const listed: Line[] = [...lines, ...BUILT_IN.map((b) => b.line).filter((l) => !lines.includes(l))];
   const move = (line: Line, by: number) => {

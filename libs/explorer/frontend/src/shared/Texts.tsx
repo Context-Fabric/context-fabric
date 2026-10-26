@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { CorpusCard } from "../types";
+import { useCloseOutside } from "../shared/popover";
 
 /** The columns shown: on or off per open corpus, in an order of choice, and more from the library. */
 export function Texts({
@@ -17,19 +18,8 @@ export function Texts({
 }) {
   const [open, setOpen] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (panel.current && !panel.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  const close = useCallback(() => setOpen(false), []);
+  useCloseOutside(open, close, panel);
 
   // the shown texts in their order, then the others
   const listed = [...texts.filter((t) => names.includes(t)), ...names.filter((n) => !texts.includes(n))];

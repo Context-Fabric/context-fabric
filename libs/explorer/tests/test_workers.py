@@ -132,3 +132,39 @@ def test_corpus_that_fails_to_load_fails_its_searches(tmp_path):
         assert good.count > 0
     finally:
         pool.shutdown()
+
+
+def test_a_queued_search_is_cancelled_at_once():
+    pool, spawned = fake_pool()
+    running = pool.submit("alpha", "word")
+    waiting = pool.submit("alpha", "phrase")
+    assert pool.cancel(waiting.id)
+    assert waiting.state == CANCELLED
+    # it never reaches a worker, also not when the first one is done
+    pool._finish(spawned[0], running, state=DONE)
+    assert not any(m[0] == "search" and m[1] == waiting.id for m in spawned[0].sent)
+    assert not pool.cancel("nonexistent")
+
+
+def test_a_running_search_is_asked_to_stop_and_then_ended():
+    pool, spawned = fake_pool()
+    job = pool.submit("alpha", "word")
+    assert pool.cancel(job.id)
+    assert ("cancel", job.id) in spawned[0].sent
+    # it doesn't stop within the grace period: its worker is ended
+    pool._stop_stuck(time.monotonic() + 10)
+    assert job.state == CANCELLED
+    assert spawned[0].killed
+
+
+def test_only_the_last_finished_searches_are_kept():
+    pool, spawned = fake_pool()
+    pool.keep = 3
+    jobs = []
+    for i in range(5):
+        job = pool.submit("alpha", f"word n={i}")
+        pool._finish(spawned[0], job, state=DONE)
+        jobs.append(job)
+    pool.submit("alpha", "phrase")  # adding one evicts the oldest finished
+    kept = [j for j in jobs if pool.get(j.id) is not None]
+    assert kept == jobs[-2:]

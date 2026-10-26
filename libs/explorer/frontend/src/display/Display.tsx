@@ -249,7 +249,3 @@ export function Pretty({ tree }: { tree: RenderTree }) {
     </div>
   );
 }
-
-export function Tree({ tree }: { tree: RenderTree }) {
-  return tree.mode === "plain" ? <Plain tree={tree} /> : <Pretty tree={tree} />;
-}

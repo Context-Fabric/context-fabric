@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Cleaner code (from the code review, round 3), with the same behaviour:
+  - The API is in `cfabric_browser/routes/`, one module per area (`library`, `reading`, `parallel`, `search`, `proposals`, `lexicon`) on a shared `Context`, instead of one function of 1,700 lines in `api.py`; the OpenAPI schema is unchanged.
+  - `net.py` (certificates, requests, checksums, the checked download) and `words.py` (word type, the words of a node, the original-script format, `BookSpans`) replace code that was written two or three times.
+  - `CorpusRegistry` keeps only what the browser and `cfabric-mcp`'s tools use (`register`, `get`, `get_api`, `list_corpora`, `current`).
+  - Interface: one hook for state in the URL (`shared/urlState.ts`, five copies before; the history is no longer written from inside a state update), one for the server's description (`shared/health.ts`, four copies), one for closing menus on a click outside or Escape (`shared/popover.ts`, six copies); corpus cards are fetched once per corpus and shared by all interfaces and by switching (`corpusCard`, one cache in `queryClient.ts`); unused code removed.
+  - More tests of the search pool: cancelling queued and running searches, and which finished searches are kept.
 - Faster (from the code review, round 2):
   - The interface loads Panes and the template editor (CodeMirror) only when they are first shown: the code loaded at the start is 278 kB instead of 792 kB.
   - Hovering over a word no longer draws the whole text again (Reader, Interlinear, Parallel, Panes, Concordance): only the card follows the hovered word (`HoverState`, `Hovering`).
