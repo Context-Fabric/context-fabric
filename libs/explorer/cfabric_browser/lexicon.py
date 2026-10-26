@@ -8,6 +8,7 @@ lexeme nodes with glosses; the DSS has lexeme nodes, but no glosses.
 
 from __future__ import annotations
 
+import threading
 from bisect import bisect_right
 from collections import Counter
 from dataclasses import dataclass, field
@@ -84,6 +85,8 @@ class Lexicon:
     _books: dict[str, tuple[list[int], list[int], list[str]]] = field(
         default_factory=dict
     )
+    # requests come in on several threads
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     @classmethod
     def build(cls, api: Any) -> Lexicon | None:
@@ -131,10 +134,11 @@ class Lexicon:
 
     def find(self, lex: str, language: str | None) -> dict[str, Any] | None:
         """The lexeme with this transliteration in this language (None: any)."""
-        if not self._byLex:
-            for e in self.entries:
-                self._byLex.setdefault((e.get("lex"), e.get("language")), e)
-                self._byLex.setdefault((e.get("lex"), None), e)
+        with self._lock:
+            if not self._byLex:
+                for e in self.entries:
+                    self._byLex.setdefault((e.get("lex"), e.get("language")), e)
+                    self._byLex.setdefault((e.get("lex"), None), e)
         return self._byLex.get((lex, language))
 
     def words(self, node: int) -> list[int]:
@@ -147,8 +151,10 @@ class Lexicon:
         """The verses a lexeme occurs in, each with its words there; with
         `book`, only those in the book of that name (in language `lang`)."""
         key = (node, book, lang)
-        if key in self._verses:
-            return self._verses[key]
+        with self._lock:
+            cached = self._verses.get(key)
+        if cached is not None:
+            return cached
         api = self.api
         verseType = api.T.sectionTypes[-1]
         verses: dict[int, list[int]] = {}
@@ -160,9 +166,10 @@ class Lexicon:
                 verses.setdefault(int(up[0]), []).append(w)
         result = list(verses.items())
         # paging through a frequent lexeme asks for the same list again and again
-        if len(self._verses) >= VERSE_CACHE:
-            self._verses.pop(next(iter(self._verses)))
-        self._verses[key] = result
+        with self._lock:
+            if len(self._verses) >= VERSE_CACHE:
+                self._verses.pop(next(iter(self._verses)))
+            self._verses[key] = result
         return result
 
     def book_of(self, word: int, lang: str = "en") -> str:

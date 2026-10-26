@@ -193,6 +193,8 @@ function PaneView({
               />
             ) : (
               <SearchView
+                // its recent searches, problems and tabs are those of one corpus
+                key={card.name}
                 corpus={card}
                 template={pane.query}
                 searchId={pane.search}
@@ -231,6 +233,27 @@ export function App() {
   const [library, setLibrary] = useState(false);
   const [notes, setNotes] = useState<Record<number, string | null>>({});
   const differences = useDifferences(ws.panes, ws.diff);
+
+  // an identity per pane, for React, so that closing one doesn't hand its neighbour's
+  // props (and state) to it; panes added or taken away by the URL get new ones at the end
+  const paneIds = useRef<number[]>([]);
+  const nextPaneId = useRef(0);
+  while (paneIds.current.length < ws.panes.length) paneIds.current.push(nextPaneId.current++);
+  paneIds.current.length = ws.panes.length;
+  const closePane = (index: number) => {
+    if (ws.panes.length <= 1) return;
+    paneIds.current.splice(index, 1);
+    // the notes of the panes after it move up with them
+    setNotes((n) => {
+      const moved: Record<number, string | null> = {};
+      for (const [k, v] of Object.entries(n)) {
+        const i = Number(k);
+        if (i !== index) moved[i > index ? i - 1 : i] = v;
+      }
+      return moved;
+    });
+    actions.removePane(index);
+  };
 
   const corporaQuery = useQuery({ queryKey: ["corpora"], queryFn: api.corpora });
   const corpora = corporaQuery.data?.corpora.map((c) => c.name) ?? [];
@@ -499,7 +522,7 @@ export function App() {
             const entry = cardOf(pane.corpus);
             return (
               <PaneView
-                key={i}
+                key={paneIds.current[i]}
                 index={i}
                 pane={pane}
                 card={entry?.card}
@@ -513,7 +536,7 @@ export function App() {
                 onOpenPassage={(ref) => openPassage(i, ref)}
                 onBy={(by) => setBy(i, by)}
                 onOpenPane={addPane}
-                onClose={() => actions.removePane(i)}
+                onClose={() => closePane(i)}
                 onInspect={(corpus, node) => setInspected({ corpus, node })}
               />
             );

@@ -50,6 +50,8 @@ BATCH_INTERVAL = 0.15
 GRACE = 3.0
 # results between checks of the cancel token (cheap, but not for every one)
 CHECK_EVERY = 256
+# workers in a row that may die before they are ready, before giving up
+MAX_FAILED_STARTS = 3
 
 
 @dataclass
@@ -147,7 +149,10 @@ def _worker_main(
     registry = CorpusRegistry()
     for name, path in specs:
         registry.register(path, name)
-        registry.get_api(name)
+        try:
+            registry.get_api(name)
+        except Exception:  # its searches report the problem
+            logger.exception("Search worker could not load corpus %s", name)
     output.send(("ready",))
 
     jobs: queue.Queue = queue.Queue()
@@ -276,6 +281,8 @@ class _Worker:
         cmdRecv.close()
         outSend.close()
         self.ready = threading.Event()
+        # ready, or gone before it got there
+        self.settled = threading.Event()
         self.job: SearchJob | None = None
         self.dead = False
 
@@ -342,6 +349,10 @@ class SearchPool:
         self._queue: list[SearchJob] = []
         self._jobs: OrderedDict[str, SearchJob] = OrderedDict()
         self._cancelDeadline: dict[str, float] = {}
+        # jobs being finished (their results sorted), by one thread only
+        self._finishing: set[str] = set()
+        # workers in a row that died before they were ready
+        self._failedStarts = 0
         self._closing = False
         self._size = max(1, workers)
         self._watchdog: threading.Thread | None = None
@@ -360,7 +371,7 @@ class SearchPool:
         if wait:
             deadline = time.monotonic() + timeout
             for worker in list(self._workers):
-                worker.ready.wait(max(0.0, deadline - time.monotonic()))
+                worker.settled.wait(max(0.0, deadline - time.monotonic()))
 
     def shutdown(self) -> None:
         with self._lock:
@@ -396,6 +407,7 @@ class SearchPool:
                 return
             i = self._workers.index(worker)
             self._workers[i] = self._spawn(worker.index)
+        self._dispatch()
 
     # jobs
 
@@ -497,7 +509,21 @@ class SearchPool:
                     self._queue.insert(0, job)
                     return
 
-    def _finish(self, worker: _Worker, job: SearchJob, **changes: Any) -> None:
+    def _claim(self, job: SearchJob) -> bool:
+        """Whether this thread may finish the job (call with the lock held)."""
+        if job.state in FINISHED or job.id in self._finishing:
+            return False
+        self._finishing.add(job.id)
+        return True
+
+    def _finish(
+        self, worker: _Worker, job: SearchJob, claimed: bool = False, **changes: Any
+    ) -> bool:
+        """Finish a job once: the first of the reader and the watchdog wins."""
+        if not claimed:
+            with self._lock:
+                if not self._claim(job):
+                    return False
         if changes.get("state") == DONE and self.sort_key is not None:
             try:
                 key = self.sort_key(job.corpus)
@@ -508,10 +534,12 @@ class SearchPool:
                 logger.exception("Could not sort results of search %s", job.id)
         job.update(finished=time.monotonic(), **changes)
         with self._lock:
+            self._finishing.discard(job.id)
             if worker.job is job:
                 worker.job = None
             self._cancelDeadline.pop(job.id, None)
         self._dispatch()
+        return True
 
     def _read(self, worker: _Worker) -> None:
         """Receive the messages of one worker."""
@@ -522,7 +550,9 @@ class SearchPool:
                 break
             kind = msg[0]
             if kind == "ready":
+                self._failedStarts = 0
                 worker.ready.set()
+                worker.settled.set()
                 self._dispatch()
                 continue
             job = worker.job
@@ -537,9 +567,13 @@ class SearchPool:
             elif kind == "stopped":
                 self._finish(worker, job, state=msg[2])
 
-        # the worker is gone
+        # the worker is gone; no new search may go to it
+        with self._lock:
+            unexpected = not worker.dead
+            worker.dead = True
+        worker.settled.set()
         job = worker.job
-        if job is not None and job.state not in FINISHED:
+        if job is not None:
             self._finish(
                 worker,
                 job,
@@ -552,27 +586,42 @@ class SearchPool:
                     }
                 ],
             )
-        if not worker.dead and not self._closing:
-            logger.warning("Search worker %d died; starting a new one", worker.index)
-            self._replace(worker)
+        if not unexpected or self._closing:
+            return
+        if not worker.ready.is_set():
+            self._failedStarts += 1
+            if self._failedStarts >= MAX_FAILED_STARTS:
+                logger.error("Search workers keep failing to start; searching is off")
+                return
+        logger.warning("Search worker %d died; starting a new one", worker.index)
+        self._replace(worker)
 
     def _watch(self) -> None:
         """Kill workers whose search ignores its timeout or a cancel request."""
         while not self._closing:
             time.sleep(0.5)
-            now = time.monotonic()
-            stuck: list[tuple[_Worker, SearchJob, str]] = []
+            self._stop_stuck(time.monotonic())
+
+    def _stop_stuck(self, now: float) -> None:
+        """One round of the watchdog."""
+        stuck: list[tuple[_Worker, SearchJob, str]] = []
+        with self._lock:
+            for worker in self._workers:
+                job = worker.job
+                if job is None or job.started is None:
+                    continue
+                deadline = self._cancelDeadline.get(job.id)
+                if deadline is not None and now > deadline:
+                    stuck.append((worker, job, CANCELLED))
+                elif now > job.started + job.timeout + GRACE:
+                    stuck.append((worker, job, TIMEOUT))
+        for worker, job, reason in stuck:
             with self._lock:
-                for worker in self._workers:
-                    job = worker.job
-                    if job is None or job.started is None:
-                        continue
-                    deadline = self._cancelDeadline.get(job.id)
-                    if deadline is not None and now > deadline:
-                        stuck.append((worker, job, CANCELLED))
-                    elif now > job.started + job.timeout + GRACE:
-                        stuck.append((worker, job, TIMEOUT))
-            for worker, job, reason in stuck:
-                logger.warning("Search %s did not stop; restarting its worker", job.id)
-                self._finish(worker, job, state=reason)
-                self._replace(worker)
+                # finished meanwhile: the worker is fine
+                if worker.job is not job or not self._claim(job):
+                    continue
+                # so that the job queued next doesn't go to this worker
+                worker.dead = True
+            logger.warning("Search %s did not stop; restarting its worker", job.id)
+            self._finish(worker, job, claimed=True, state=reason)
+            self._replace(worker)

@@ -109,6 +109,14 @@ class TestDescribe:
             ]
         }
 
+    def test_title_does_not_load_the_corpus(self, tmp_path):
+        # listing the corpora must not wait for one that is still compiling
+        service = CorpusService(
+            [CorpusSpec(name="alpha", path=DATA)], overrides=tmp_path
+        )
+        assert service.title("alpha") == "Display test corpus"
+        assert not service.registry._entries["alpha"].loaded
+
     def test_corpus_card(self, client):
         card = client.get("/api/corpora/alpha").json()
         assert card["slotType"] == "word"

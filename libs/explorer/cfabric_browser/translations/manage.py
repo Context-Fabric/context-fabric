@@ -16,9 +16,8 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from cfabric_browser.display.config import read_app_config
 from cfabric_browser.jobs import BackgroundJobs
-from cfabric_browser.translations.build import CACHE, BuildError, build
+from cfabric_browser.translations.build import CACHE, BuildError, build, is_ours
 from cfabric_browser.translations.catalog import TRANSLATIONS, Translation
 
 logger = logging.getLogger(__name__)
@@ -34,18 +33,7 @@ def is_built(translation: Translation, root: str | Path) -> bool:
     """Whether the translation has been built under `root` (by this builder)."""
     repo = repo_of(translation, root)
     data = repo / "tf" / translation.version
-    return (data / "otype.tf").is_file() and _is_ours(repo, translation)
-
-
-def _is_ours(repo: Path, translation: Translation) -> bool:
-    config = repo / "app" / "config.yaml"
-    if not config.is_file():
-        return False
-    try:
-        own = read_app_config(config).get("translation") or {}
-    except Exception:  # noqa: BLE001 - not readable, so not ours to delete
-        return False
-    return own.get("id") == translation.id
+    return (data / "otype.tf").is_file() and is_ours(repo, translation)
 
 
 def _pending(path: str | Path) -> list[str]:
@@ -72,7 +60,7 @@ def is_pending(translation: Translation, pending: str | Path = PENDING) -> bool:
 def remove(translation: Translation, root: str | Path) -> bool:
     """Delete a built translation; False if there is none (made by the builder)."""
     repo = repo_of(translation, root)
-    if not _is_ours(repo, translation):
+    if not is_ours(repo, translation):
         return False
     shutil.rmtree(repo)
     return True

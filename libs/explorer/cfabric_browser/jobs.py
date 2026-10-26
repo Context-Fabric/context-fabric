@@ -77,7 +77,9 @@ class BackgroundJobs:
 
     def _progress(self, key: str, step: str, done: int, total: int) -> None:
         with self._lock:
-            if key in self._cancelled:
+            # a step that has just finished (perhaps the last, after the work
+            # was put in place) is not stopped; the next one is
+            if key in self._cancelled and not (total > 0 and done >= total):
                 raise JobCancelled(key)
             self._status[key].update(step=step, done=done, total=total)
 

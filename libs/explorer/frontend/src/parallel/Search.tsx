@@ -96,8 +96,11 @@ function Results({
   onOpenPassage: (corpus: string, ref: string) => void;
   onInspect: (corpus: string, node: number) => void;
 }) {
-  const [page, setPage] = useState(0);
-  useEffect(() => setPage(0), [status.id]);
+  // back to the first page for another search, in the same render (an effect would
+  // first fetch the old page of the new search)
+  const [paging, setPaging] = useState({ id: status.id, page: 0 });
+  const page = paging.id === status.id ? paging.page : 0;
+  const setPage = (n: number) => setPaging({ id: status.id, page: n });
   const shown = Math.min(status.count, (page + 1) * PAGE);
   const { data, error, isFetching } = useQuery({
     // while running, rows arrive in search order; once sorted they are fetched again
@@ -235,6 +238,13 @@ export function ParallelSearch({
   const [problems, setProblems] = useState<Problem[]>([]);
   const [starting, setStarting] = useState(false);
   const [history, setHistory] = useState<string[]>(() => (corpus ? loadHistory(corpus) : []));
+  // another corpus to search in: its own recent searches, and none of the other's problems
+  const [historyOf, setHistoryOf] = useState(corpus);
+  if (corpus !== historyOf) {
+    setHistoryOf(corpus);
+    setHistory(corpus ? loadHistory(corpus) : []);
+    setProblems([]);
+  }
   const { data: features } = useQuery({
     queryKey: ["features", corpus],
     queryFn: () => api.features(corpus!),

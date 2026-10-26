@@ -511,7 +511,8 @@ def build_router(
             "corpora": [
                 {
                     "name": name,
-                    "title": service.config(name).provenance.get("corpus") or name,
+                    # without loading: a corpus may be compiling for minutes
+                    "title": service.title(name),
                     # translations are not compared with the other texts
                     "translation": service.translation(name) is not None,
                 }

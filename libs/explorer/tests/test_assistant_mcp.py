@@ -209,6 +209,20 @@ class TestStdio:
         assert listed["id"] == 7 and len(listed["result"]["tools"]) == 9
         assert called["id"] == 8 and "not running" in called["error"]["message"]
 
+    def test_a_failed_start_is_not_tried_on_every_message(self, monkeypatch):
+        monkeypatch.setattr(stdio, "find_browser", lambda path: None)
+        starts: list[str] = []
+        monkeypatch.setattr(
+            stdio, "start_browser", lambda path: starts.append(str(path))
+        )
+        browser = stdio.Browser("running.json", start=True)
+        assert browser.url() is None
+        assert browser.url() is None
+        assert len(starts) == 1
+        # found once the user starts it themselves
+        monkeypatch.setattr(stdio, "find_browser", lambda path: "http://127.0.0.1:1/")
+        assert browser.url() == "http://127.0.0.1:1/"
+
     def test_answers_as_the_browser_does(self, client, monkeypatch):
         """What the helper answers itself is what /mcp would answer."""
         monkeypatch.setattr(stdio, "find_browser", lambda path: None)

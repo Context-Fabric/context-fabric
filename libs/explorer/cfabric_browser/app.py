@@ -21,6 +21,7 @@ from cfabric_browser.assistant.tools import Tools
 from cfabric_browser.corpora import CorpusService
 from cfabric_browser.dictionaries.manage import DictionaryJobs
 from cfabric_browser.downloads import DownloadJobs
+from cfabric_browser.guard import Guard
 from cfabric_browser.translations.manage import Jobs
 from cfabric_browser.workers import SearchPool
 
@@ -51,6 +52,7 @@ def create_app(
     dictionaries: DictionaryJobs | None = None,
     assistant: Tools | None = None,
     secret: str | None = None,
+    hosts: list[str] | None = None,
 ) -> FastAPI:
     """Build the application.
 
@@ -91,6 +93,10 @@ def create_app(
     secret: str | None
         What a language model's tools must send to propose a search; without
         one, nothing can propose.
+    hosts: list[str] | None
+        The host names the server answers to (`cfabric_browser.guard`), such
+        as `guard.LOCAL_HOSTS` when it listens only on this computer; `None`
+        for any. Requests from other web sites are refused either way.
     """
 
     # searching in plain language: the tools, also as an MCP server at /mcp
@@ -114,6 +120,7 @@ def create_app(
         version=__version__,
         lifespan=lifespan,
     )
+    app.add_middleware(Guard, hosts=hosts)
     app.include_router(
         build_router(
             service,

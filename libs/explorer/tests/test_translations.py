@@ -383,3 +383,50 @@ def test_an_open_translation_shows_its_notes_and_print_numbers(library) -> None:
     # an English word: no gloss or morphology, but the word to search for
     summary = client.get("/api/corpora/tr/nodes/1/summary").json()["summary"]
     assert summary == [{"label": "word", "value": "in", "feature": "lower"}]
+
+
+def test_build_replaces_only_its_own_folder(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    theirs = root / "Context-Fabric" / "test-translation"
+    (theirs / "tf" / "1917").mkdir(parents=True)
+    (theirs / "notes.txt").write_text("someone's own work", encoding="utf-8")
+    with pytest.raises(BuildError, match="was not built as test"):
+        build(TEST, root=root, cache=tmp_path / "cache", download=Downloads())
+    assert (theirs / "notes.txt").is_file()
+
+
+def test_a_failed_last_step_keeps_the_old_translation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    data = build(TEST, root=root, cache=tmp_path / "cache", download=Downloads())
+    repo = data.parent.parent
+    rename = Path.rename
+
+    def failing(self: Path, target):
+        if self.name.endswith(".building"):
+            raise PermissionError("in use")
+        return rename(self, target)
+
+    monkeypatch.setattr(Path, "rename", failing)
+    with pytest.raises(PermissionError):
+        build(TEST, root=root, cache=tmp_path / "cache", download=Downloads())
+    assert (repo / "tf" / "1917" / "otype.tf").is_file()
+
+    # and a build that stopped between its two renames is recovered
+    monkeypatch.setattr(Path, "rename", rename)
+    aside = repo.with_name(".test-translation.old")
+    repo.rename(aside)
+    build(TEST, root=root, cache=tmp_path / "cache", download=Downloads())
+    assert (repo / "tf" / "1917" / "otype.tf").is_file()
+    assert not aside.exists()
+
+
+def test_the_library_skips_folders_being_built(tmp_path: Path) -> None:
+    from cfabric_browser.corpora import discover
+
+    root = tmp_path / "root"
+    build(TEST, root=root, cache=tmp_path / "cache", download=Downloads())
+    org = root / "Context-Fabric"
+    (org / "test-translation").rename(org / ".test-translation.building")
+    assert discover(roots=(str(root),)) == []

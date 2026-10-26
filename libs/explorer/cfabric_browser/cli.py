@@ -288,6 +288,7 @@ def main(argv: list[str] | None = None) -> int:
 
     from cfabric_browser.app import create_app
     from cfabric_browser.corpora import CorpusService, load_settings, resolve_corpus
+    from cfabric_browser.guard import LOCAL_HOSTS
     from cfabric_browser.interfaces import read_ui_settings, ui_id
     from cfabric_browser.workers import SearchPool
 
@@ -342,6 +343,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # what a language model's tools send to propose a search (assistant/)
     secret = running.new_secret()
+    host = args.host
     app = create_app(
         service,
         pool,
@@ -350,9 +352,10 @@ def main(argv: list[str] | None = None) -> int:
         hidden_uis=hidden,
         ask_downloads=args.ask_downloads,
         secret=secret,
+        # reachable from other machines: under names we can't know
+        hosts=list(LOCAL_HOSTS) if host in ("127.0.0.1", "localhost", "::1") else None,
     )
 
-    host = args.host
     port = args.port
     if port is None:
         if args.window:

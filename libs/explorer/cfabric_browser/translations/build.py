@@ -39,6 +39,7 @@ from typing import Any
 import yaml
 
 from cfabric_browser import __version__
+from cfabric_browser.display.config import read_app_config
 from cfabric_browser.translations.catalog import Split, Translation
 
 CACHE = "~/.cfabric/translations"
@@ -464,6 +465,18 @@ def prepare(
     return books
 
 
+def is_ours(repo: Path, translation: Translation) -> bool:
+    """Whether `repo` was built as this translation (its app config says so)."""
+    config = repo / "app" / "config.yaml"
+    if not config.is_file():
+        return False
+    try:
+        own = read_app_config(config).get("translation") or {}
+    except Exception:  # noqa: BLE001 - not readable, so not ours to replace
+        return False
+    return own.get("id") == translation.id
+
+
 def build(
     translation: Translation,
     root: str | Path = ROOT,
@@ -491,13 +504,25 @@ def build(
     final = org / translation.repo
     building = org / f".{translation.repo}.building"
     old = org / f".{translation.repo}.old"
+    # an earlier build that stopped between its two renames
+    if old.exists() and not final.exists() and is_ours(old, translation):
+        old.rename(final)
+    if final.exists() and not is_ours(final, translation):
+        raise BuildError(
+            f"{final} exists but was not built as {translation.id}; move it away first"
+        )
     for leftover in (building, old):
         if leftover.exists():
             shutil.rmtree(leftover)
     write_corpus(translation, books, building, checksum)
     if final.exists():
         final.rename(old)
-    building.rename(final)
+    try:
+        building.rename(final)
+    except OSError:
+        if old.exists() and not final.exists():
+            old.rename(final)
+        raise
     if old.exists():
         shutil.rmtree(old, ignore_errors=True)
     if progress is not None:

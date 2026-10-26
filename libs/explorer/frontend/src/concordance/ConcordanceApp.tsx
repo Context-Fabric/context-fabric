@@ -279,7 +279,12 @@ export function ConcordanceApp() {
   const reference = useReference(cards, ready);
   const [inspected, setInspected] = useState<{ corpus: string; node: number } | null>(null);
   const [hovered, onHover] = useHover();
-  const [page, setPage] = useState(0);
+  // the page of lines: back to the first for another search, order, filter or sample,
+  // in the same render (an effect would first fetch the old page in the new order)
+  const pageKey = JSON.stringify([state.s, state.sort, state.filters, state.per, state.sample, state.seed]);
+  const [paging, setPaging] = useState({ key: pageKey, page: 0 });
+  const page = paging.key === pageKey ? paging.page : 0;
+  const setPage = (n: number) => setPaging({ key: pageKey, page: n });
   const [terms, setTerms] = useState<Term[]>([]);
   const [range, setRange] = useState<string | null>(null);
   const [problems, setProblems] = useState<Problem[]>([]);
@@ -293,9 +298,9 @@ export function ConcordanceApp() {
   const [history, setHistory] = useState<string[]>([]);
   useEffect(() => setHistory(corpus ? loadHistory(corpus) : []), [corpus]);
 
-  // the BHSA by default (or the first corpus)
+  // the BHSA by default (or the first corpus); also instead of a corpus that isn't open
   useEffect(() => {
-    if (state.corpus || !ready || !reference.settled) return;
+    if ((state.corpus && names.includes(state.corpus)) || !ready || !reference.settled) return;
     const start = reference.name ?? names[0];
     if (start) actions.set({ corpus: start });
   }, [state.corpus, ready, reference.settled, reference.name, names, actions]);
@@ -348,7 +353,6 @@ export function ConcordanceApp() {
     if (own.length) actions.set({ q: buildTemplate(own, currentRange, null) });
   }, [terms, currentRange, corpus, actions]);
 
-  useEffect(() => setPage(0), [state.s, state.sort, state.filters, state.per, state.sample, state.seed]);
 
   const filter = filterParam(state.filters);
   const lines = useQuery({
