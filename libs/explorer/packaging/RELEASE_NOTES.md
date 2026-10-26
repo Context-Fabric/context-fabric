@@ -4,6 +4,10 @@
 
 ## What is new
 
+- **Since test.15: fixes.** The Reader no longer shows the wrong chapter after › and then ‹ when a verse is selected. An old link to a text that isn't open no longer stays at *Opening…*. The Interlinear no longer jumps back to the verse of the link when you change a setting. A search no longer fails now and then with "The search process stopped unexpectedly". Adding a translation that fails keeps the earlier one, and a download that was cut off no longer leaves a partial file.
+- Since test.15: faster. The program starts with less than half the code it loaded before, hovering over words is smoother in long texts, and the Concordance keeps up with a long search.
+- Since test.15: other web sites can no longer send the program requests.
+- Since test.15: the setup for ChatGPT in the guide inside the program is the corrected one from the website: connect the desktop app [by address](https://caccht.github.io/explorer/asking-claude.html#in-chatgpt-or-codex).
 - **Since test.14: asking ChatGPT.** Besides Claude, you can now ask ChatGPT for a search, in the ChatGPT desktop app or in Codex, with your own ChatGPT subscription: see [In ChatGPT or Codex](https://caccht.github.io/explorer/asking-claude.html#in-chatgpt-or-codex). Not yet tried with ChatGPT itself, so please tell us how it goes. A search shows which app proposed it, also when the model doesn't say.
 - Since test.14: the guide's example of "only proper names" in [Searching](https://caccht.github.io/explorer/searching.html#without-and-for-all) was wrong (it found subjects with at least one proper name); corrected, and the same in what Claude and ChatGPT are told about searching.
 - Since test.14: asking from Claude Desktop and ChatGPT no longer fails when the Explorer still has to start; a trial search that takes too long says how to make it faster.
