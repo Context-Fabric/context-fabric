@@ -40,7 +40,7 @@ export function useReference(
 ): { name: string | null; settled: boolean } {
   const client = useQueryClient();
   const open = Object.values(cards).find((c) => REFERENCE_IDS.includes(c.id?.toLowerCase() ?? ""));
-  const library = useQuery({ queryKey: ["library"], queryFn: api.library, enabled: ready && !open });
+  const library = useQuery({ queryKey: ["library"], queryFn: api.library, staleTime: 0, enabled: ready && !open });
   const tried = useRef(false);
   const [failed, setFailed] = useState(false);
   const entry = library.data?.corpora.find((c) => REFERENCE_IDS.includes(c.id.toLowerCase()));

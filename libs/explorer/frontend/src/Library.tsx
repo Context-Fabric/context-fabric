@@ -13,7 +13,7 @@ export function Library({ onOpen, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const client = useQueryClient();
   const [filter, setFilter] = useState("");
-  const { data, error, isLoading } = useQuery({ queryKey: ["library"], queryFn: api.library });
+  const { data, error, isLoading } = useQuery({ queryKey: ["library"], queryFn: api.library, staleTime: 0 });
   const open = useMutation({
     mutationFn: (id: string) => api.openCorpus(id),
     onSuccess: async (result) => {
@@ -126,6 +126,7 @@ function Translations({ onAdded }: { onAdded: (corpus: string) => void }) {
   const { data } = useQuery({
     queryKey: ["translations"],
     queryFn: api.translations,
+    staleTime: 0, // jobs and files change
     refetchInterval: (q) => (q.state.data?.translations.some((t) => t.job?.state === "running") ? 500 : false),
   });
   const refresh = async () => {
@@ -220,6 +221,7 @@ function Dictionaries() {
   const { data } = useQuery({
     queryKey: ["dictionaries"],
     queryFn: api.dictionaries,
+    staleTime: 0, // jobs and files change
     refetchInterval: (q) => (q.state.data?.dictionaries.some((d) => d.job?.state === "running") ? 500 : false),
   });
   const refresh = async () => {
@@ -381,6 +383,7 @@ function Downloads({ onDone }: { onDone: (corpus: string) => void }) {
   const { data } = useQuery({
     queryKey: ["downloads"],
     queryFn: api.downloads,
+    staleTime: 0, // jobs and files change
     refetchInterval: (q) => (q.state.data?.downloads.some((d) => d.job?.state === "running") ? 500 : false),
   });
   const start = useMutation({
@@ -400,6 +403,7 @@ function Downloads({ onDone }: { onDone: (corpus: string) => void }) {
       if (started.includes(d.id) && d.job && d.job.state !== "running") {
         setStarted((ids) => ids.filter((id) => id !== d.id));
         void client.invalidateQueries({ queryKey: ["library"] });
+        void client.invalidateQueries({ queryKey: ["corpora"] });
         if (d.present) onDone(d.id);
       }
     }

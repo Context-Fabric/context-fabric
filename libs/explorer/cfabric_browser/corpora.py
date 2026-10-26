@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -362,6 +363,9 @@ class CorpusService:
         self._lexicons: dict[str, Lexicon | None] = {}
         self._translations: dict[str, dict[str, Any] | None] = {}
         self._lock = threading.Lock()
+        # one build at a time per (cache, corpus): requests that come in together
+        # wait for it instead of building the same thing again
+        self._buildLocks: dict[tuple[int, str], threading.Lock] = {}
         for spec in specs or ():
             self.add(spec)
 
@@ -389,23 +393,35 @@ class CorpusService:
     def api(self, name: str):
         return self.registry.get_api(name)
 
+    def _cached[T](self, cache: dict[str, T], name: str, build: Callable[[], T]) -> T:
+        """What `cache` holds for a corpus, built once by `build`."""
+        with self._lock:
+            if name in cache:
+                return cache[name]
+            lock = self._buildLocks.setdefault((id(cache), name), threading.Lock())
+        with lock:
+            with self._lock:
+                if name in cache:
+                    return cache[name]
+            value = build()
+            with self._lock:
+                cache[name] = value
+            return value
+
     def config(self, name: str) -> DisplayConfig:
-        with self._lock:
-            config = self._configs.get(name)
-        if config is not None:
+        def build() -> DisplayConfig:
+            api = self.api(name)
+            path = self._specs[name].path
+            appConfig = find_app_config(path)
+            settings = read_app_config(appConfig) if appConfig else {}
+            (extra, used) = display_overrides(path, self.overrides)
+            for file in used:
+                logger.info("Display settings for %s from %s", name, file)
+            config = DisplayConfig.from_api(api, config=_merge(settings, extra))
+            config.source = appConfig
             return config
-        api = self.api(name)
-        path = self._specs[name].path
-        appConfig = find_app_config(path)
-        settings = read_app_config(appConfig) if appConfig else {}
-        (extra, used) = display_overrides(path, self.overrides)
-        for file in used:
-            logger.info("Display settings for %s from %s", name, file)
-        config = DisplayConfig.from_api(api, config=_merge(settings, extra))
-        config.source = appConfig
-        with self._lock:
-            self._configs[name] = config
-        return config
+
+        return self._cached(self._configs, name, build)
 
     def title(self, name: str) -> str:
         """The corpus' title, without loading it (that can take minutes the
@@ -427,47 +443,36 @@ class CorpusService:
 
     def books(self, name: str) -> dict[str, str]:
         """Canonical book ids of a corpus, mapped to its own book names."""
-        with self._lock:
-            index = self._books.get(name)
-        if index is not None:
-            return index
-        api = self.api(name)
-        T = api.T
-        names = (
-            [
-                str(T.sectionFromNode(int(n), lang="en")[0])
-                for n in api.F.otype.s(T.sectionTypes[0])
-            ]
-            if T.sectionTypes
-            else []
-        )
-        index = book_index(names)
-        with self._lock:
-            self._books[name] = index
-        return index
+
+        def build() -> dict[str, str]:
+            api = self.api(name)
+            T = api.T
+            names = (
+                [
+                    str(T.sectionFromNode(int(n), lang="en")[0])
+                    for n in api.F.otype.s(T.sectionTypes[0])
+                ]
+                if T.sectionTypes
+                else []
+            )
+            return book_index(names)
+
+        return self._cached(self._books, name, build)
 
     def book_index(self, name: str) -> BookIndex | None:
         """The biblical books in a corpus of manuscripts (DSS), if it has them.
 
         Only for corpora whose own sections are not books: see `witnesses.py`.
         """
-        with self._lock:
-            if name in self._bookIndexes:
-                return self._bookIndexes[name]
-        index = None if self.books(name) else BookIndex.build(self.api(name))
-        with self._lock:
-            self._bookIndexes[name] = index
-        return index
+        return self._cached(
+            self._bookIndexes,
+            name,
+            lambda: None if self.books(name) else BookIndex.build(self.api(name)),
+        )
 
     def lexicon(self, name: str) -> Lexicon | None:
         """The lexicon of a corpus with lexeme nodes (BHSA), if it has one."""
-        with self._lock:
-            if name in self._lexicons:
-                return self._lexicons[name]
-        lexicon = Lexicon.build(self.api(name))
-        with self._lock:
-            self._lexicons[name] = lexicon
-        return lexicon
+        return self._cached(self._lexicons, name, lambda: Lexicon.build(self.api(name)))
 
     def glosses(self, name: str) -> tuple[Any, str] | None:
         """For a corpus without glosses (the DSS): a lookup of glosses by ETCBC

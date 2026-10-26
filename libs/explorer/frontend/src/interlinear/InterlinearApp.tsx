@@ -5,7 +5,7 @@ import { splitRef } from "../common";
 import { Cite, citePassage } from "../Cite";
 import { displayRef, scriptClass } from "../display/Display";
 import { DisplayOptions } from "../DisplayOptions";
-import { HoverCard, useHover } from "../HoverCard";
+import { HoverCard, Hovering, useHover } from "../HoverCard";
 import { Inspector } from "../Inspector";
 import { InterfaceMenu } from "../InterfaceMenu";
 import { firstChapter, useCards, useReference } from "../shared/corpora";
@@ -398,7 +398,7 @@ export function InterlinearApp() {
   const closeNav = useCallback(() => setNavOpen(false), []);
   const [inspected, setInspected] = useState<{ corpus: string; node: number } | null>(null);
   const [revealed, setRevealed] = useState<Set<number>>(new Set());
-  const [hovered, onHover] = useHover();
+  const [hover, onHover] = useHover();
   const scroller = useRef<HTMLElement>(null);
 
   const corpus = state.corpus && cards[state.corpus] ? state.corpus : null;
@@ -708,7 +708,7 @@ export function InterlinearApp() {
               {data.truncated ? <p className="py-3 text-stone">Only the first verses are shown.</p> : null}
             </div>
           )}
-          {hovered && card ? <HoverCard corpus={card} hovered={hovered} /> : null}
+          {card ? <Hovering hover={hover}>{(hovered) => <HoverCard corpus={card} hovered={hovered} />}</Hovering> : null}
         </main>
         {inspected && inspectedCard ? (
           <div className="max-h-[45vh] min-h-0 border-t border-rule md:max-h-none md:border-t-0">

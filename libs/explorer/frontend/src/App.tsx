@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { DisplayProvider, displayRef } from "./display/Display";
 import { useDifferences, type PaneDiff } from "./differences";
-import { HoverCard, useHover } from "./HoverCard";
+import { HoverCard, Hovering, useHover } from "./HoverCard";
 import { Inspector } from "./Inspector";
 import { LexiconView } from "./lexicon/LexiconView";
 import { Library } from "./Library";
@@ -77,7 +77,7 @@ function PaneView({
   const setView = (view: View) => onChange({ view }, true);
   // a corpus without a lexicon (after switching corpus) is read instead
   const view: View = pane.view === "lexicon" && card && !card.lexicon ? "read" : pane.view;
-  const [hovered, onHover] = useHover();
+  const [hover, onHover] = useHover();
   // the word under the card goes when the pane shows something else
   useEffect(() => {
     onHover(null);
@@ -211,13 +211,15 @@ function PaneView({
                 compact={compact}
               />
             )}
-            {hovered ? (
-              <HoverCard
-                corpus={card}
-                hovered={hovered}
-                note={view === "read" ? diff?.titles?.get(hovered.node) : undefined}
-              />
-            ) : null}
+            <Hovering hover={hover}>
+              {(hovered) => (
+                <HoverCard
+                  corpus={card}
+                  hovered={hovered}
+                  note={view === "read" ? diff?.titles?.get(hovered.node) : undefined}
+                />
+              )}
+            </Hovering>
           </DisplayProvider>
         )}
       </div>

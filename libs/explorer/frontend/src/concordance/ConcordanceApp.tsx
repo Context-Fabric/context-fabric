@@ -6,11 +6,11 @@ import { api, ApiError } from "../api";
 import { splitRef } from "../common";
 import { displayRef, scriptClass } from "../display/Display";
 import { DisplayOptions } from "../DisplayOptions";
-import { HoverCard, useHover } from "../HoverCard";
+import { HoverCard, Hovering, useHover } from "../HoverCard";
 import { Inspector } from "../Inspector";
 import { InterfaceMenu } from "../InterfaceMenu";
 import { TermCard } from "../parallel/Search";
-import { QueryEditor } from "../search/QueryEditor";
+import { QueryEditor } from "../search/Editor";
 import { loadHistory, Problems, remember, StatusLine, useSearchGone, useSearchStatus } from "../search/SearchView";
 import { Stats } from "../search/Stats";
 import { useCards, useReference } from "../shared/corpora";
@@ -278,7 +278,7 @@ export function ConcordanceApp() {
   const { corpora, names, cards, ready } = useCards();
   const reference = useReference(cards, ready);
   const [inspected, setInspected] = useState<{ corpus: string; node: number } | null>(null);
-  const [hovered, onHover] = useHover();
+  const [hover, onHover] = useHover();
   // the page of lines: back to the first for another search, order, filter or sample,
   // in the same render (an effect would first fetch the old page in the new order)
   const pageKey = JSON.stringify([state.s, state.sort, state.filters, state.per, state.sample, state.seed]);
@@ -849,7 +849,7 @@ export function ConcordanceApp() {
                   </button>
                 </div>
               ) : null}
-              {hovered && card ? <HoverCard corpus={card} hovered={hovered} /> : null}
+              {card ? <Hovering hover={hover}>{(hovered) => <HoverCard corpus={card} hovered={hovered} />}</Hovering> : null}
             </main>
 
             {inspected && inspectedCard ? (

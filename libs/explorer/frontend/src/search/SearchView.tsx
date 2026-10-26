@@ -6,7 +6,7 @@ import { api, ApiError } from "../api";
 import { Cite, citeSearch } from "../Cite";
 import type { Pane } from "../state";
 import type { CorpusCard, Problem, SearchStatus, ViewSettings } from "../types";
-import { QueryEditor } from "./QueryEditor";
+import { QueryEditor } from "./Editor";
 import { Download } from "./Download";
 import { ResultList } from "./ResultList";
 import { Stats } from "./Stats";
@@ -43,6 +43,8 @@ export function useSearchGone(id: string | null): boolean {
     queryFn: () => api.status(id!),
     enabled: id !== null,
     retry: false,
+    // asked again when shown: the server may have restarted, or the search expired
+    staleTime: 0,
   });
   return error instanceof ApiError && error.status === 404;
 }
@@ -54,6 +56,8 @@ export function useSearchStatus(id: string | null): SearchStatus | null {
     queryFn: () => api.status(id!),
     enabled: id !== null,
     retry: false,
+    // a running search changes; its events may have stopped
+    staleTime: 0,
   });
 
   useEffect(() => {

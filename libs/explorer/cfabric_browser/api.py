@@ -15,7 +15,7 @@ import asyncio
 import json
 import re
 import threading
-from collections import Counter
+from collections import Counter, OrderedDict
 from dataclasses import replace
 from typing import Annotated, Any, Literal
 
@@ -31,7 +31,7 @@ from cfabric_browser.compare import (
     compare_three,
     compare_witnesses,
 )
-from cfabric_browser.concordance import MAX_SIDE, Concordance, parse_filters
+from cfabric_browser.concordance import MAX_SIDE, Concordance, Spans, parse_filters
 from cfabric_browser.corpora import CorpusService, discover, resolve_corpus
 from cfabric_browser.dictionaries.manage import (
     DICTIONARIES,
@@ -1315,18 +1315,14 @@ def build_router(
             corpus_api(name)
         sectionTypes = list(api.T.sectionTypes or ())
         unitType = sectionTypes[-1] if sectionTypes else None
-        oslots = api.E.oslots.s
-        maxSlot = api.F.otype.maxSlot
         rank = api.N.otypeRank
-
-        def slots(n: int) -> set[int]:
-            return {n} if n <= maxSlot else {int(s) for s in oslots(n)}
+        spans = Spans(api)
 
         rows = []
         for i, tup in enumerate(job.page(offset, limit)):
             nodes = [int(n) for n in tup]
             if unitType is None:
-                continue
+                break
             # the first node that lies within a verse: not a book or chapter
             # that the template starts with
             first = next(
@@ -1336,17 +1332,12 @@ def build_router(
             if api.F.otype.v(first) == unitType:
                 unit = first
             else:
-                ups = api.L.u(min(slots(first)), otype=unitType)
+                ups = api.L.u(spans.span(first)[0], otype=unitType)
                 if not ups:
                     continue
                 unit = int(ups[0])
             # highlight the innermost nodes: those that contain no other node of the result
-            sets = {n: slots(n) for n in nodes}
-            inner = [
-                n
-                for n in nodes
-                if n != unit and not any(m != n and sets[m] < sets[n] for m in nodes)
-            ]
+            inner = [n for n in spans.innermost(nodes) if n != unit]
             own = replace(opts, highlights={n: "" for n in inner})
             tree = render_node(api, config, unit, mode, own).to_dict()
             dress_signs(api, tree["fragments"])
@@ -1397,23 +1388,34 @@ def build_router(
 
     # the concordance: results as lines with the hit in context
 
-    concordances: dict[str, tuple[int, Concordance]] = {}
+    concordances: OrderedDict[str, tuple[int, bool, Concordance]] = OrderedDict()
     concordanceLock = threading.Lock()
 
     def concordance(job: SearchJob) -> Concordance:
-        """The concordance of a search's results, rebuilt when they change."""
+        """The concordance of a search's results. While the search runs, new
+        results are added to it; once they are sorted, it is built again."""
         snapshot = job.snapshot()
         with concordanceLock:
             cached = concordances.get(job.id)
+            if cached is not None:
+                concordances.move_to_end(job.id)
             if cached and cached[0] == snapshot["version"]:
-                return cached[1]
-        api = corpus_api(job.corpus)
-        built = Concordance(api, service.config(job.corpus), job.page(0, job.count))
+                return cached[2]
+        if cached and cached[1] == snapshot["sorted"]:
+            # the same order: only results were added
+            built = cached[2]
+            with concordanceLock:
+                built.extend(job.page(len(built.hits), snapshot["count"]))
+        else:
+            api = corpus_api(job.corpus)
+            config = service.config(job.corpus)
+            built = Concordance(api, config, job.page(0, snapshot["count"]))
         with concordanceLock:
-            concordances[job.id] = (snapshot["version"], built)
-            # keep a few: they hold a list of words per result
-            for old in list(concordances)[:-8]:
-                del concordances[old]
+            concordances[job.id] = (snapshot["version"], snapshot["sorted"], built)
+            concordances.move_to_end(job.id)
+            # keep a few, the last used: they hold a list of words per result
+            while len(concordances) > 8:
+                concordances.popitem(last=False)
         return built
 
     def concordance_selection(

@@ -117,6 +117,30 @@ class TestDescribe:
         assert service.title("alpha") == "Display test corpus"
         assert not service.registry._entries["alpha"].loaded
 
+    def test_an_index_is_built_once_for_requests_that_come_together(self, tmp_path):
+        import threading
+
+        service = CorpusService(
+            [CorpusSpec(name="alpha", path=DATA)], overrides=tmp_path
+        )
+        builds = []
+
+        def build():
+            builds.append(1)
+            time.sleep(0.2)
+            return "index"
+
+        cache: dict[str, str] = {}
+        threads = [
+            threading.Thread(target=service._cached, args=(cache, "alpha", build))
+            for _ in range(5)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        assert len(builds) == 1 and cache == {"alpha": "index"}
+
     def test_corpus_card(self, client):
         card = client.get("/api/corpora/alpha").json()
         assert card["slotType"] == "word"

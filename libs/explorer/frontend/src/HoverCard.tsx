@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { api } from "./api";
 import { scriptClass } from "./display/Display";
 import { borrowedFrom, type CorpusCard } from "./types";
@@ -17,27 +17,62 @@ export interface Hovered {
 }
 
 /** Which word is hovered over, after a short delay, so that moving the mouse
- * across the text does not fetch every word on the way. */
-export function useHover(): [Hovered | null, (node: number | null, target?: Element) => void] {
-  const [hovered, setHovered] = useState<Hovered | null>(null);
-  const timer = useRef<number | undefined>(undefined);
-  const onHover = useCallback((node: number | null, target?: Element) => {
-    window.clearTimeout(timer.current);
+ * across the text does not fetch every word on the way. Kept outside React state:
+ * only `Hovering` (the card) follows it, so a card that appears or goes doesn't
+ * draw the whole text again. */
+export class HoverState {
+  private hovered: Hovered | null = null;
+  private listeners = new Set<() => void>();
+  private timer: number | undefined;
+
+  /** A word is hovered over (null: no longer); stable, to pass down. */
+  readonly onHover = (node: number | null, target?: Element) => {
+    window.clearTimeout(this.timer);
     if (node === null || !target) {
-      setHovered(null);
+      this.set(null);
       return;
     }
-    timer.current = window.setTimeout(() => setHovered({ node, anchor: target.getBoundingClientRect() }), DELAY);
-  }, []);
+    this.timer = window.setTimeout(() => this.set({ node, anchor: target.getBoundingClientRect() }), DELAY);
+  };
+
+  readonly subscribe = (listener: () => void) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
+
+  readonly current = () => this.hovered;
+
+  stop() {
+    window.clearTimeout(this.timer);
+  }
+
+  private set(hovered: Hovered | null) {
+    if (hovered === this.hovered) return;
+    this.hovered = hovered;
+    this.listeners.forEach((listener) => listener());
+  }
+}
+
+/** The hover state of one view, and the handler to pass to its words. */
+export function useHover(): [HoverState, HoverState["onHover"]] {
+  const [state] = useState(() => new HoverState());
+  useEffect(() => () => state.stop(), [state]);
+  return [state, state.onHover];
+}
+
+/** Shows `children(hovered)` (the card) while a word is hovered over. */
+export function Hovering({ hover, children }: { hover: HoverState; children: (hovered: Hovered) => ReactNode }) {
+  const hovered = useSyncExternalStore(hover.subscribe, hover.current);
   // a scrolled text moves away from the card
   useEffect(() => {
     if (!hovered) return;
-    const hide = () => setHovered(null);
+    const hide = () => hover.onHover(null);
     window.addEventListener("scroll", hide, true);
     return () => window.removeEventListener("scroll", hide, true);
-  }, [hovered]);
-  useEffect(() => () => window.clearTimeout(timer.current), []);
-  return [hovered, onHover];
+  }, [hovered, hover]);
+  return hovered ? children(hovered) : null;
 }
 
 interface Props {
