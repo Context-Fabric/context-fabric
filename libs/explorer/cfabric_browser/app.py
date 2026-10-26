@@ -14,7 +14,6 @@ from mcp.server.fastmcp.server import StreamableHTTPASGIApp
 from starlette.routing import Route
 
 from cfabric_browser import __version__
-from cfabric_browser.api import build_router
 from cfabric_browser.assistant.mcp import build_server as build_mcp
 from cfabric_browser.assistant.mcp import local
 from cfabric_browser.assistant.tools import Tools
@@ -22,6 +21,7 @@ from cfabric_browser.corpora import CorpusService
 from cfabric_browser.dictionaries.manage import DictionaryJobs
 from cfabric_browser.downloads import DownloadJobs
 from cfabric_browser.guard import Guard
+from cfabric_browser.routes import build_router
 from cfabric_browser.translations.manage import Jobs
 from cfabric_browser.workers import SearchPool
 
