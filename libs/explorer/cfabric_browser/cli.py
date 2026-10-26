@@ -1,4 +1,4 @@
-"""The `cfabric-browser` command."""
+"""The `cfabric-browser` command, also installed as `caccht-explorer`."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import sys
 import threading
 import time
 import webbrowser
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from cfabric_browser import __version__
@@ -19,9 +20,15 @@ if TYPE_CHECKING:
 DEFAULT_PORT = 8107
 
 
+def _prog() -> str:
+    """The command's name as it was called, for help and usage."""
+    called = Path(sys.argv[0]).stem if sys.argv and sys.argv[0] else ""
+    return "caccht-explorer" if called == "caccht-explorer" else "cfabric-browser"
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="cfabric-browser",
+        prog=_prog(),
         description="CACCHT Explorer: browse, search and compare Context-Fabric corpora, offline.",
         epilog=(
             "Corpora can be given as a data directory, a repository in "

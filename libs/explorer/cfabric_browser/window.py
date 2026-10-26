@@ -34,7 +34,7 @@ def run_window(app: Any, host: str, port: int, url: str) -> int:
     except ImportError:
         print(
             "cfabric-browser: --window needs pywebview:"
-            " pip install cfabric-browser[desktop]",
+            " pip install cfabric-browser[window]",
             file=sys.stderr,
         )
         return 2

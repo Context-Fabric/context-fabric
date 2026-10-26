@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- The command `caccht-explorer`, the same as `cfabric-browser` under the app's name.
+
 ### Changed
+- The extra `desktop` is split in two: `window` (pywebview and certifi, for `--window`) and `build` (also PyInstaller, for building the standalone program), so that installing the Explorer with its window doesn't bring PyInstaller.
 - Cleaner code (from the code review, round 3), with the same behaviour:
   - The API is in `cfabric_browser/routes/`, one module per area (`library`, `reading`, `parallel`, `search`, `proposals`, `lexicon`) on a shared `Context`, instead of one function of 1,700 lines in `api.py`; the OpenAPI schema is unchanged.
   - `net.py` (certificates, requests, checksums, the checked download) and `words.py` (word type, the words of a node, the original-script format, `BookSpans`) replace code that was written two or three times.

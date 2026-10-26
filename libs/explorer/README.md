@@ -17,9 +17,9 @@ pip install cfabric-browser
 cfabric-browser bhsa
 ```
 
-`cfabric-browser` is not on PyPI yet; until it is, install it from this repository: `pip install "context-fabric==0.6.0rc1" ./libs/mcp "./libs/explorer[desktop]"`.
+`cfabric-browser` is not on PyPI yet; until it is, install it from this repository: `pip install "context-fabric==0.6.0rc1" ./libs/mcp "./libs/explorer[window]"`.
 
-This opens the browser at <http://localhost:8107/>. Give several corpora to compare them, e.g. `cfabric-browser bhsa CenterBLC/LXX ETCBC/peshitta`; others can be opened from the browser with *Open a corpus*. Without corpora (`cfabric-browser`), the browser starts empty and shows that list straight away. You can give a corpus in several ways:
+This opens the browser at <http://localhost:8107/>. The command is also installed as `caccht-explorer`, under the app's name; both do the same. Give several corpora to compare them, e.g. `cfabric-browser bhsa CenterBLC/LXX ETCBC/peshitta`; others can be opened from the browser with *Open a corpus*. Without corpora (`cfabric-browser`), the browser starts empty and shows that list straight away. You can give a corpus in several ways:
 
 | Argument | Meaning |
 |---|---|
@@ -35,7 +35,7 @@ Options:
 - `--timeout`: time limit per search in seconds (default 60).
 - `--max-results`: results kept per search (default 500,000).
 - `--no-open`: don't open a web browser.
-- `--window` (`--no-window`): show the browser in a window of its own instead of a web browser (needs pywebview: `pip install cfabric-browser[desktop]`). Closing the window stops the server. Without `--port` it uses the first free port from 8107, so several windows can run at once. The window keeps its settings, search history and saved workspaces in `~/.cfabric/window`.
+- `--window` (`--no-window`): show the browser in a window of its own instead of a web browser (needs pywebview: `pip install cfabric-browser[window]`). Closing the window stops the server. Without `--port` it uses the first free port from 8107, so several windows can run at once. The window keeps its settings, search history and saved workspaces in `~/.cfabric/window`.
 - `--ui NAME`: the interface to start in until the user chooses one: `panes` (the default), `parallel`, `reader`, `interlinear` or `concordance`. Permanently, and to leave interfaces out of the menu, in `~/.cfabric/browser.yaml`:
 
   ```yaml
@@ -345,7 +345,7 @@ The guide for users is written in Markdown in `guide/`, one file per chapter (th
 cd libs/explorer
 (cd frontend && npm run build)
 python -m venv build/env
-build/env/Scripts/python -m pip install ../core ".[desktop]"   # Linux/macOS: build/env/bin/python
+build/env/Scripts/python -m pip install ../core ".[build]"   # Linux/macOS: build/env/bin/python
 build/env/Scripts/pyinstaller packaging/cfabric-browser.spec --noconfirm
 dist/cfabric-browser/cfabric-browser bhsa
 ```
