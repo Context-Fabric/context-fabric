@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from cfabric_browser import __version__
-from cfabric_browser.translations.build import _ssl_context
+from cfabric_browser.net import read_url
 
 SITE = "https://www.sefaria.org"
 CACHE = "~/.cfabric/dictionaries/cache/sefaria"
@@ -70,10 +70,7 @@ def index_url(book: str) -> str:
 
 
 def _download(url: str) -> bytes:
-    request = urllib.request.Request(url, headers={"User-Agent": AGENT})
-    with urllib.request.urlopen(request, timeout=60, context=_ssl_context()) as r:
-        data: bytes = r.read()
-    return data
+    return read_url(url, agent=AGENT)
 
 
 class Client:

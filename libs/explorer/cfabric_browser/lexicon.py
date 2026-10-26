@@ -9,7 +9,6 @@ lexeme nodes with glosses; the DSS has lexeme nodes, but no glosses.
 from __future__ import annotations
 
 import threading
-from bisect import bisect_right
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
@@ -20,6 +19,7 @@ from cfabric_browser.display import (
     render_node,
     section_ref_for,
 )
+from cfabric_browser.words import BookSpans
 
 LEXEME_TYPE = "lex"
 VERSE_CACHE = 32  # lexemes whose verses are kept
@@ -81,10 +81,9 @@ class Lexicon:
         default_factory=dict
     )
     _byLex: dict[tuple[Any, Any], dict[str, Any]] = field(default_factory=dict)
-    # per language of book names: the first slot of each book, and its name
-    _books: dict[str, tuple[list[int], list[int], list[str]]] = field(
-        default_factory=dict
-    )
+    # the books as runs of slots, and their names per (book, language)
+    _spans: BookSpans | None = None
+    _bookNames: dict[tuple[int, str], str] = field(default_factory=dict)
     # requests come in on several threads
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
@@ -177,19 +176,17 @@ class Lexicon:
         slot ranges (asking `L.u` for each word is slow for frequent
         lexemes)."""
         api = self.api
-        if lang not in self._books:
-            starts, ends, names = [], [], []
-            for b in api.F.otype.s(api.T.sectionTypes[0]):
-                slots = api.E.oslots.s(int(b))
-                starts.append(int(slots[0]))
-                ends.append(int(slots[-1]))
-                names.append(str(api.T.sectionFromNode(int(b), lang=lang)[0]))
-            self._books[lang] = (starts, ends, names)
-        starts, ends, names = self._books[lang]
-        i = bisect_right(starts, word) - 1
-        if i >= 0 and word <= ends[i] and api.F.otype.v(word) == api.F.otype.slotType:
-            return names[i]
-        return book_name(api, word, api.T.sectionTypes[0], lang)
+        slotType = api.F.otype.slotType
+        if self._spans is None:
+            self._spans = BookSpans(api, slotType)
+        book = self._spans.book(word) if api.F.otype.v(word) == slotType else None
+        if book is None:
+            return book_name(api, word, api.T.sectionTypes[0], lang)
+        name = self._bookNames.get((book, lang))
+        if name is None:
+            name = str(api.T.sectionFromNode(book, lang=lang)[0])
+            self._bookNames[(book, lang)] = name
+        return name
 
     def distribution(self, node: int, lang: str = "en") -> list[dict[str, Any]]:
         """How often a lexeme occurs per book, in the order of the books."""

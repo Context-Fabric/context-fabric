@@ -36,6 +36,7 @@ from cfabric_browser.witnesses import (
     parse_ref,
     siglum_key,
 )
+from cfabric_browser.words import orig_format, word_type, words_of
 
 CONSONANT_FEATURE = "g_cons_utf8"
 HEBREW_LETTER = re.compile("[א-ת]")
@@ -59,15 +60,6 @@ Words = list[tuple[int, str]]
 Marks = dict[int, str]
 
 
-def word_type(api, config: DisplayConfig) -> str:
-    """The node type of words: `word`, or else a base type, or else the slot."""
-    types = api.F.otype.all
-    if "word" in types:
-        return "word"
-    bases = [t for t in types if t in config.base_types and t != config.slot_type]
-    return str(bases[0]) if bases else config.slot_type
-
-
 def consonants(text: str) -> str:
     """The Hebrew letters of a text, with final forms made normal."""
     # decomposed, a precomposed shin with dot (U+FB2A, as in SP) is a plain shin
@@ -79,11 +71,8 @@ def verse_words(api, config: DisplayConfig, verse: int) -> Words:
     """The words of a verse with their consonants."""
     wType = word_type(api, config)
     feature = api.Fs(CONSONANT_FEATURE) if CONSONANT_FEATURE in api.Fall() else None
-    fmt = next(
-        (f for f in config.text_formats if f.startswith("text-orig")),
-        config.default_format,
-    )
-    words = api.L.d(verse, otype=wType) if api.F.otype.v(verse) != wType else [verse]
+    fmt = orig_format(config)
+    words = words_of(api, wType, verse)
     result: Words = []
     for w in words:
         w = int(w)
