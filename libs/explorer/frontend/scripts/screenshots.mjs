@@ -7,9 +7,6 @@
 //         "jps1917=Context-Fabric/jps1917" --port 8799 --no-open
 //     node scripts/screenshots.mjs http://127.0.0.1:8799 [name ...]
 //
-// The shot of a proposed search needs the browser's secret (in
-// .cfabric/running.json of its home folder) in CFABRIC_SECRET.
-//
 // Uses the Chrome installed on this computer (playwright-core downloads no
 // browser of its own).
 
@@ -189,13 +186,12 @@ export const SHOTS = [
     clip: { x: 640, y: 0, width: 640, height: 420 },
   },
   {
-    // needs the browser's secret, from ~/.cfabric/running.json of its home folder
     name: "proposal",
     url: "/Genesis/1?texts=bhsa,sp&search=1&sc=bhsa",
     prepare: (base) =>
       fetch(`${base}/api/proposals`, {
         method: "POST",
-        headers: { "content-type": "application/json", "x-cfabric-secret": process.env.CFABRIC_SECRET ?? "" },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({
           corpus: "bhsa",
           template: "clause\n  p1:phrase function=Subj\n  p2:phrase function=Pred\np1 < p2",
@@ -205,7 +201,7 @@ export const SHOTS = [
           model: "Claude",
         }),
       }).then((r) => {
-        if (!r.ok) throw new Error(`proposing: ${r.status} (set CFABRIC_SECRET)`);
+        if (!r.ok) throw new Error(`proposing: ${r.status}`);
       }),
     ready: "text=Proposed by Claude",
     // so that it doesn't show in the other shots

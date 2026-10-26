@@ -145,19 +145,16 @@ def test_proposal_routes(tmp_path):
         timeout=20,
     )
     pool.start(wait=True)
-    app = create_app(service, pool, manage_pool=False, secret="s3cret")
+    app = create_app(service, pool, manage_pool=False)
     body = {"corpus": "bible", "template": "word", "request": "all words"}
     try:
         with TestClient(app) as client:
             assert client.get("/api/proposals").json()["proposals"] == []
-            # without the secret, or with another, nothing is proposed
-            assert client.post("/api/proposals", json=body).status_code == 403
-            bad = {"X-Cfabric-Secret": "guess"}
-            assert (
-                client.post("/api/proposals", json=body, headers=bad).status_code == 403
-            )
-            good = {"X-Cfabric-Secret": "s3cret"}
-            shown = client.post("/api/proposals", json=body, headers=good).json()
+            # not from another web site
+            other = {"Origin": "https://example.com"}
+            refused = client.post("/api/proposals", json=body, headers=other)
+            assert refused.status_code == 403
+            shown = client.post("/api/proposals", json=body).json()
             assert shown["ok"] and shown["count"] == 8
             listed = client.get("/api/proposals").json()["proposals"]
             assert [p["id"] for p in listed] == [shown["proposal"]]
@@ -170,10 +167,7 @@ def test_proposal_routes(tmp_path):
                 == 404
             )
             unknown = {**body, "corpus": "bhsa"}
-            assert (
-                client.post("/api/proposals", json=unknown, headers=good).status_code
-                == 404
-            )
+            assert client.post("/api/proposals", json=unknown).status_code == 404
     finally:
         pool.shutdown()
 
@@ -183,14 +177,14 @@ def test_running_file(tmp_path):
 
     path = tmp_path / "running.json"
     assert running.read(path) == []
-    first = running.announce("http://127.0.0.1:8107/", "a", path)
-    running.announce("http://127.0.0.1:8108/", "b", path)
+    first = running.announce("http://127.0.0.1:8107/", path)
+    running.announce("http://127.0.0.1:8108/", path)
     assert [b["url"] for b in running.read(path)] == [
         "http://127.0.0.1:8107/",
         "http://127.0.0.1:8108/",
     ]
-    assert first["secret"] == "a" and first["pid"]
+    assert first["pid"] and "secret" not in first
     running.withdraw("http://127.0.0.1:8107/", path)
-    assert [b["secret"] for b in running.read(path)] == ["b"]
+    assert [b["url"] for b in running.read(path)] == ["http://127.0.0.1:8108/"]
     path.write_text("not json")
     assert running.read(path) == []

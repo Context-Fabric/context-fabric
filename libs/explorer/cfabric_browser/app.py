@@ -51,7 +51,6 @@ def create_app(
     ask_downloads: bool = False,
     dictionaries: DictionaryJobs | None = None,
     assistant: Tools | None = None,
-    secret: str | None = None,
     hosts: list[str] | None = None,
 ) -> FastAPI:
     """Build the application.
@@ -90,9 +89,6 @@ def create_app(
     assistant: Tools | None
         The tools of searching in plain language and their proposals
         (`cfabric_browser.assistant`); by default on these corpora and pool.
-    secret: str | None
-        What a language model's tools must send to propose a search; without
-        one, nothing can propose.
     hosts: list[str] | None
         The host names the server answers to (`cfabric_browser.guard`), such
         as `guard.LOCAL_HOSTS` when it listens only on this computer; `None`
@@ -130,7 +126,6 @@ def create_app(
             downloads=downloads,
             dictionaries=dictionaries,
             assistant=tools,
-            secret=secret,
         )
     )
     # before the interface's catch-all route

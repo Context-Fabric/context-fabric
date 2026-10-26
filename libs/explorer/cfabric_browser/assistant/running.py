@@ -1,9 +1,9 @@
 """Where a running browser can be reached, for a language model's tools.
 
-At its start the browser writes its address and a secret to
-`~/.cfabric/running.json`; the stdio helper (`cfabric-browser mcp`) reads it
-to forward a model's tool calls, and must send the secret to propose a
-search, so that other web pages can't. Several browsers can run at once
+At its start the browser writes its address to `~/.cfabric/running.json`;
+the stdio helper (`cfabric-browser mcp`) reads it to forward a model's tool
+calls. (Other web pages are kept out by `cfabric_browser.guard`, and `/mcp`
+by its own checks of host and origin.) Several browsers can run at once
 (windows on other ports): each has an entry, the newest last, and removes it
 when it stops. An entry of a browser that was killed stays; readers try the
 newest that answers.
@@ -14,16 +14,11 @@ from __future__ import annotations
 import datetime
 import json
 import os
-import secrets
 import tempfile
 from pathlib import Path
 from typing import Any
 
 RUNNING = "~/.cfabric/running.json"
-
-
-def new_secret() -> str:
-    return secrets.token_urlsafe(24)
 
 
 def read(path: str | Path = RUNNING) -> list[dict[str, Any]]:
@@ -50,12 +45,11 @@ def _write(path: Path, browsers: list[dict[str, Any]]) -> None:
         raise
 
 
-def announce(url: str, secret: str, path: str | Path = RUNNING) -> dict[str, Any]:
-    """Add this browser (its process, address and secret)."""
+def announce(url: str, path: str | Path = RUNNING) -> dict[str, Any]:
+    """Add this browser (its process and address)."""
     entry = {
         "pid": os.getpid(),
         "url": url,
-        "secret": secret,
         "started": datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds"),
     }
     place = Path(path).expanduser()

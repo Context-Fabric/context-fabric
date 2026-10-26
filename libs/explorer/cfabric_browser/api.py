@@ -146,7 +146,6 @@ def build_router(
     downloads: DownloadJobs | None = None,
     dictionaries: DictionaryJobs | None = None,
     assistant: Tools | None = None,
-    secret: str | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api")
     # searching in plain language: the model's tools, and its proposals
@@ -1162,11 +1161,9 @@ def build_router(
         return tools.proposals.snapshot()
 
     @router.post("/proposals")
-    def add_proposal(body: ProposalRequest, request: Request) -> dict[str, Any]:
-        """Propose a search (the model's `propose_search`); needs the secret
-        of this browser (`X-Cfabric-Secret`), so that other web pages can't."""
-        if secret is None or request.headers.get("x-cfabric-secret") != secret:
-            raise HTTPException(403, "Proposals need this browser's secret")
+    def add_proposal(body: ProposalRequest) -> dict[str, Any]:
+        """Propose a search, as the model's `propose_search` does (other web
+        pages are kept out by `cfabric_browser.guard`)."""
         try:
             return tools.propose_search(
                 body.corpus, body.template, body.request, body.explanation, body.model

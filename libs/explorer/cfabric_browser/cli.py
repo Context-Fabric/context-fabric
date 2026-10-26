@@ -341,8 +341,6 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     from cfabric_browser.assistant import running
 
-    # what a language model's tools send to propose a search (assistant/)
-    secret = running.new_secret()
     host = args.host
     app = create_app(
         service,
@@ -351,7 +349,6 @@ def main(argv: list[str] | None = None) -> int:
         ui=ui,
         hidden_uis=hidden,
         ask_downloads=args.ask_downloads,
-        secret=secret,
         # reachable from other machines: under names we can't know
         hosts=list(LOCAL_HOSTS) if host in ("127.0.0.1", "localhost", "::1") else None,
     )
@@ -374,7 +371,7 @@ def main(argv: list[str] | None = None) -> int:
     # for the stdio helper of a language model's app (cfabric-browser mcp)
     local = f"http://127.0.0.1:{port}/" if host in ("127.0.0.1", "0.0.0.0") else url
     try:
-        running.announce(local, secret)
+        running.announce(local)
         atexit.register(running.withdraw, local)
     except OSError as e:
         print(f"Note: could not write {running.RUNNING}: {e}", file=sys.stderr)
