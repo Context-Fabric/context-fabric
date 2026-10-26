@@ -1,4 +1,4 @@
-import { createContext, useContext, type CSSProperties, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type CSSProperties, type ReactNode } from "react";
 import type { DiffKind, DisplayConfig, FeatureValue, Fragment, RenderTree, ViewSettings } from "../types";
 import "./display.css";
 
@@ -30,8 +30,12 @@ export function DisplayProvider({
   markTitles,
   children,
 }: DisplayContextValue & { children: ReactNode }) {
+  const value = useMemo(
+    () => ({ config, settings, onInspect, onHover, marks, markTitles }),
+    [config, settings, onInspect, onHover, marks, markTitles],
+  );
   return (
-    <DisplayContext.Provider value={{ config, settings, onInspect, onHover, marks, markTitles }}>
+    <DisplayContext.Provider value={value}>
       {children}
     </DisplayContext.Provider>
   );

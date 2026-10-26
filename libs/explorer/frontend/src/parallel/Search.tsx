@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { api, ApiError } from "../api";
 import { displayRef } from "../display/Display";
 import { Download } from "../search/Download";
-import { QueryEditor } from "../search/QueryEditor";
+import { QueryEditor } from "../search/Editor";
 import {
   loadHistory,
   Problems,

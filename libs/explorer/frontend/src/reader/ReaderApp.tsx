@@ -6,7 +6,7 @@ import { Cite, citePassage } from "../Cite";
 import { useDifferences, type PaneDiff } from "../differences";
 import { DisplayProvider, displayRef, Plain } from "../display/Display";
 import { DisplayOptions } from "../DisplayOptions";
-import { HoverCard, useHover } from "../HoverCard";
+import { HoverCard, Hovering, useHover } from "../HoverCard";
 import { InterfaceMenu } from "../InterfaceMenu";
 import { Library } from "../Library";
 import { settingsFor } from "../parallel/Table";
@@ -163,7 +163,7 @@ export function ReaderApp() {
   const [library, setLibrary] = useState(false);
   // the word shown in full in the panel, of the corpus read or of a parallel
   const [word, setWord] = useState<{ corpus: string; node: number } | null>(null);
-  const [hovered, onHover] = useHover();
+  const [hover, onHover] = useHover();
 
   const corpus = state.corpus && cards[state.corpus] ? state.corpus : null;
   const card = corpus ? cards[corpus] : undefined;
@@ -489,12 +489,16 @@ export function ReaderApp() {
               ) : null}
             </div>
           )}
-          {hovered && card ? (
-            <HoverCard
-              corpus={card}
-              hovered={hovered}
-              note={state.diff ? diffs[card.name]?.titles?.get(hovered.node) : undefined}
-            />
+          {card ? (
+            <Hovering hover={hover}>
+              {(hovered) => (
+                <HoverCard
+                  corpus={card}
+                  hovered={hovered}
+                  note={state.diff ? diffs[card.name]?.titles?.get(hovered.node) : undefined}
+                />
+              )}
+            </Hovering>
           ) : null}
         </main>
         {state.panel && card ? (

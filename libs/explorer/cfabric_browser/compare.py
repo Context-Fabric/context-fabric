@@ -443,8 +443,21 @@ def compare_witnesses(
 # three texts: which scrolls agree with MT and which with SP
 
 
+def align_letters(textA: str, textW: str) -> dict[int, int]:
+    """Which letter of `textW` each letter of `textA` is aligned with."""
+    matcher = SequenceMatcher(None, textA, textW, autojunk=False)
+    return {
+        i + k: j + k for (i, j, n) in matcher.get_matching_blocks() for k in range(n)
+    }
+
+
 def witness_reading(
-    textA: str, textW: str, known: list[bool], i1: int, i2: int
+    textA: str,
+    textW: str,
+    known: list[bool],
+    i1: int,
+    i2: int,
+    aligned: dict[int, int] | None = None,
 ) -> tuple[int, str] | None:
     """What a manuscript has where `a` has `textA[i1:i2]`, or None if unknown.
 
@@ -455,13 +468,14 @@ def witness_reading(
     letters between them must be preserved. At the start or end of the verse
     the manuscript's own first or last letter is the anchor; there an empty
     reading is unknown, because the text may just be lost.
+
+    `aligned` is `align_letters(textA, textW)`, if already made (it is the
+    same for every place of a verse).
     """
     if not textW:
         return None
-    matcher = SequenceMatcher(None, textA, textW, autojunk=False)
-    aligned = {
-        i + k: j + k for (i, j, n) in matcher.get_matching_blocks() for k in range(n)
-    }
+    if aligned is None:
+        aligned = align_letters(textA, textW)
     edge = i1 == 0 or i2 == len(textA)
     if i1 > 0:
         left = aligned.get(i1 - 1)
@@ -595,8 +609,9 @@ def compare_three(
             if not any(known):
                 continue
             ownerW = [w for (w, c) in wWords for _ in c]
+            aligned = align_letters(textA, textW)
             for k, unit in enumerate(units):
-                found = witness_reading(textA, textW, known, unit.i1, unit.i2)
+                found = witness_reading(textA, textW, known, unit.i1, unit.i2, aligned)
                 if found is None:
                     continue
                 (start, reading) = found

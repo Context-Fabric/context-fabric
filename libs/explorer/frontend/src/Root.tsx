@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useState } from "react";
-import { App } from "./App";
 import { NotYet } from "./NotYet";
 import { StartDownloads } from "./StartDownloads";
 import { INTERFACES, isUi, rememberedUi, rememberUi, uiOfUrl, type Ui } from "./ui";
 
+const App = lazy(() => import("./App").then((m) => ({ default: m.App })));
 const ParallelApp = lazy(() => import("./parallel/ParallelApp").then((m) => ({ default: m.ParallelApp })));
 const ReaderApp = lazy(() => import("./reader/ReaderApp").then((m) => ({ default: m.ReaderApp })));
 const ConcordanceApp = lazy(() => import("./concordance/ConcordanceApp").then((m) => ({ default: m.ConcordanceApp })));
@@ -49,11 +49,13 @@ function Interface() {
   }, [ui]);
 
   if (ui === null) return null;
-  if (ui === "classic") return <App key="classic" />;
   if (!ready(ui)) return <NotYet ui={ui} />;
+  // each interface is loaded when first shown
   return (
     <Suspense fallback={<main className="p-10 text-stone">Opening…</main>}>
-      {ui === "parallel" ? (
+      {ui === "classic" ? (
+        <App key="classic" />
+      ) : ui === "parallel" ? (
         <ParallelApp key="parallel" />
       ) : ui === "reader" ? (
         <ReaderApp key="reader" />

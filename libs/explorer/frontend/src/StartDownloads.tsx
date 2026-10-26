@@ -47,6 +47,7 @@ export function StartDownloads({ children }: { children: ReactNode }) {
   const downloads = useQuery({
     queryKey: ["downloads"],
     queryFn: api.downloads,
+    staleTime: 0, // jobs change
     enabled: ask,
     refetchInterval: (q) => (q.state.data?.downloads.some((d) => d.job?.state === "running") ? 500 : false),
   });

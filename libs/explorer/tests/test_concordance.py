@@ -181,3 +181,21 @@ class TestCollocations:
             "prep",
             "subs",
         ]
+
+
+def test_extending_gives_what_building_at_once_gives():
+    from cfabric_browser.concordance import Concordance
+
+    service = CorpusService([CorpusSpec(name="alpha", path=DATA)])
+    api = service.api("alpha")
+    config = service.config("alpha")
+    # words in clauses (19 has a gap, 20 crosses a verse boundary), and a word
+    # with its book: the innermost nodes give the hit
+    results = [
+        tuple(int(n) for n in r) for r in api.S.search("clause\n  word sp=verb")
+    ] + [(13, 3), (13, 6)]
+    whole = Concordance(api, config, results)
+    stepwise = Concordance(api, config, results[:2])
+    stepwise.extend(results[2:])
+    assert stepwise.hits == whole.hits
+    assert whole.hits[-2:] == [[3], [6]]

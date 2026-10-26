@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { DisplayProvider, displayRef } from "../display/Display";
-import { HoverCard, useHover } from "../HoverCard";
+import { HoverCard, Hovering, useHover } from "../HoverCard";
 import { Library } from "../Library";
 import { Inspector } from "../Inspector";
 import { LexiconView } from "../lexicon/LexiconView";
@@ -39,7 +39,7 @@ export function ParallelApp() {
   const reference = useReference(cards, ready);
   // the word shown in the panel on the left
   const [inspected, setInspected] = useState<{ corpus: string; node: number } | null>(null);
-  const [lexiconHovered, onLexiconHover] = useHover();
+  const [lexiconHover, onLexiconHover] = useHover();
   // search terms made from words; they last while the page is open
   const [terms, setTerms] = useState<Term[]>([]);
 
@@ -293,7 +293,9 @@ export function ParallelApp() {
                     onOpenPassage={(ref) => void openPassage(lexiconCard.name, ref)}
                     onSearch={(q) => actions.setSearch({ sc: lexiconCard.name, q, s: null })}
                   />
-                  {lexiconHovered ? <HoverCard corpus={lexiconCard} hovered={lexiconHovered} /> : null}
+                  <Hovering hover={lexiconHover}>
+                    {(hovered) => <HoverCard corpus={lexiconCard} hovered={hovered} />}
+                  </Hovering>
                 </DisplayProvider>
               </div>
             </div>

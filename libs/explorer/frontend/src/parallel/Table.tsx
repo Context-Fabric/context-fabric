@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { DisplayProvider, displayRef, Plain } from "../display/Display";
 import type { PaneDiff } from "../differences";
-import { HoverCard, useHover } from "../HoverCard";
+import { HoverCard, Hovering, useHover } from "../HoverCard";
 import { PlaceSummary } from "../read/BookView";
 import type { CorpusCard, ParallelChapter, ViewSettings } from "../types";
 
@@ -132,7 +132,7 @@ export function Table({
 }) {
   const columns = data.columns.filter((c) => cards[c.name] !== undefined);
   // one hover card for the whole table; the corpus is the one last hovered over
-  const [hovered, onHover] = useHover();
+  const [hover, onHover] = useHover();
   const hoveredCorpus = useRef<string | null>(null);
   const table = useRef<HTMLDivElement>(null);
   // on a phone, the texts of a verse are below each other, each with its name
@@ -147,12 +147,16 @@ export function Table({
     table.current?.querySelector(`[data-verse="${verse}"]`)?.scrollIntoView({ block: "center" });
   }, [verse, data.ref]);
 
-  const hoveredCard = hoveredCorpus.current ? cards[hoveredCorpus.current] : undefined;
   return (
     <>
-      {hovered && hoveredCard ? (
-        <HoverCard corpus={hoveredCard} hovered={hovered} note={diffs[hoveredCard.name]?.titles?.get(hovered.node)} />
-      ) : null}
+      <Hovering hover={hover}>
+        {(hovered) => {
+          const hoveredCard = hoveredCorpus.current ? cards[hoveredCorpus.current] : undefined;
+          return hoveredCard ? (
+            <HoverCard corpus={hoveredCard} hovered={hovered} note={diffs[hoveredCard.name]?.titles?.get(hovered.node)} />
+          ) : null;
+        }}
+      </Hovering>
       <div
         ref={table}
         role="table"

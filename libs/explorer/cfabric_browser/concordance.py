@@ -20,7 +20,7 @@ import math
 import random
 import re
 import threading
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from collections import Counter
 from typing import Any
 
@@ -31,6 +31,8 @@ MAX_SIDE = 15
 POSITION = re.compile(r"^(hit|[LR][1-9][0-9]?)$")
 BOOK = "book"  # the pseudo-feature for the book of the hit
 TEXT = "text"  # the pseudo-feature for the word's consonants
+# node spans kept per concordance (first slot, last slot, number of slots)
+SPAN_CACHE = 200_000
 
 _frequencies: dict[tuple[int, str], Counter] = {}
 _frequencies_lock = threading.Lock()
@@ -44,6 +46,50 @@ def parse_filters(value: str | None) -> list[tuple[str, str]]:
         if sep and feature.strip():
             filters.append((feature.strip(), wanted.strip()))
     return filters
+
+
+class Spans:
+    """Which nodes of a result lie within others, by their slots; a node's
+    first and last slot and number of slots are kept, as the nodes of results
+    repeat (their book, chapter, clause), and a book's slots are many."""
+
+    def __init__(self, api) -> None:
+        self.api = api
+        self._spans: dict[int, tuple[int, int, int]] = {}
+
+    def span(self, node: int) -> tuple[int, int, int]:
+        """A node's first and last slot and its number of slots."""
+        span = self._spans.get(node)
+        if span is None:
+            if node <= self.api.F.otype.maxSlot:
+                span = (node, node, 1)
+            else:
+                slots = self.api.E.oslots.s(node)
+                span = (int(slots[0]), int(slots[-1]), len(slots))
+            if len(self._spans) < SPAN_CACHE:
+                self._spans[node] = span
+        return span
+
+    def within(self, m: int, n: int) -> bool:
+        """Whether m's slots are a part of n's (and fewer)."""
+        (fm, lm, km) = self.span(m)
+        (fn, ln, kn) = self.span(n)
+        if km >= kn or fm < fn or lm > ln:
+            return False
+        if ln - fn + 1 == kn:
+            return True  # n has no gaps
+        sn = self.api.E.oslots.s(n)
+        for s in self.api.E.oslots.s(m) if km > 1 else (fm,):
+            k = bisect_left(sn, s)
+            if k == len(sn) or sn[k] != s:
+                return False
+        return True
+
+    def innermost(self, nodes: list[int]) -> list[int]:
+        """The nodes that contain no other node of the list."""
+        return [
+            n for n in nodes if not any(m != n and self.within(m, n) for m in nodes)
+        ]
 
 
 class Concordance:
@@ -79,7 +125,15 @@ class Concordance:
                 self._startBooks.append(b)
         self._bookNames: dict[int, str | None] = {}
         self._values: dict[tuple[int, str], str | None] = {}
-        self.hits = [self._hit(tup) for tup in results]
+        self.spans = Spans(api)
+        self.hits: list[list[int]] = []
+        self.extend(results)
+
+    def extend(self, results: list[tuple[int, ...]]) -> None:
+        """Add results (of a search still running) after the ones there."""
+        # made first, then added at once, for requests reading the hits meanwhile
+        new = [self._hit(tup) for tup in results]
+        self.hits.extend(new)
 
     # words
 
@@ -96,17 +150,7 @@ class Concordance:
 
     def _hit(self, tup: tuple[int, ...]) -> list[int]:
         """The words of the result's innermost nodes, in order."""
-        api = self.api
-        maxSlot = api.F.otype.maxSlot
-        nodes = [int(n) for n in tup]
-
-        def slots(n: int) -> set[int]:
-            return {n} if n <= maxSlot else {int(s) for s in api.E.oslots.s(n)}
-
-        sets = {n: slots(n) for n in nodes}
-        inner = [
-            n for n in nodes if not any(m != n and sets[m] < sets[n] for m in nodes)
-        ]
+        inner = self.spans.innermost([int(n) for n in tup])
         words = sorted({w for n in inner for w in self._words_of(n)})
         return words
 

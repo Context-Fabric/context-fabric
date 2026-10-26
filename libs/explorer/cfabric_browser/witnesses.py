@@ -20,6 +20,7 @@ concordance knows is accepted (`Gen 1:1`).
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -93,29 +94,38 @@ class BookIndex:
         fBiblical = api.Fs(BIBLICAL).v if BIBLICAL in api.Fall() else None
         top = T.sectionTypes[0] if T.sectionTypes else None
 
+        # the words per scroll: its name asked once, not for each word
+        scrolls: Iterable[tuple[str, Any]]
+        if top:
+            scrolls = (
+                (str(T.sectionFromNode(int(s), lang="en")[0]), api.L.d(int(s), WORD))
+                for s in F.otype.s(top)
+            )
+        else:
+            scrolls = [("", F.otype.s(WORD))]
         canonical: dict[str, str | None] = {}
         verses: dict[tuple[str, int, int], dict[str, Witness]] = {}
-        for w in F.otype.s(WORD):
-            w = int(w)
-            name = fBook(w)
-            if not name:
-                continue
-            if name not in canonical:
-                canonical[name] = canonical_book(str(name))
-            book = canonical[name]
-            if book is None:
-                continue
-            (chapter, verse) = (str(fChapter(w)), str(fVerse(w)))
-            if not (chapter.isdigit() and verse.isdigit()):
-                continue
-            scroll = str(T.sectionFromNode(w, lang="en")[0]) if top else ""
-            witnesses = verses.setdefault((book, int(chapter), int(verse)), {})
-            witness = witnesses.get(scroll)
-            if witness is None:
-                witness = witnesses[scroll] = Witness(scroll)
-            witness.words.append(w)
-            if fBiblical and fBiblical(w) == 2:
-                witness.also_non_biblical = True
+        for scroll, words in scrolls:
+            for w in words:
+                w = int(w)
+                name = fBook(w)
+                if not name:
+                    continue
+                if name not in canonical:
+                    canonical[name] = canonical_book(str(name))
+                book = canonical[name]
+                if book is None:
+                    continue
+                (chapter, verse) = (str(fChapter(w)), str(fVerse(w)))
+                if not (chapter.isdigit() and verse.isdigit()):
+                    continue
+                witnesses = verses.setdefault((book, int(chapter), int(verse)), {})
+                witness = witnesses.get(scroll)
+                if witness is None:
+                    witness = witnesses[scroll] = Witness(scroll)
+                witness.words.append(w)
+                if fBiblical and fBiblical(w) == 2:
+                    witness.also_non_biblical = True
         if not verses:
             return None
 
