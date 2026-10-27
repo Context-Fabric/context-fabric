@@ -79,9 +79,5 @@ htmlcov/
 .private
 .corpora
 
-# Claude Code
-CLAUDE.md
-desktop-app-notes.md
-
 # Built interface (npm run build in libs/explorer/frontend)
 libs/explorer/cfabric_browser/static/
