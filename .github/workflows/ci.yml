@@ -58,3 +58,46 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Run tests
         run: pytest tests/ -v
+
+  test-browser:
+    # with the Python core of this repository, and with the Rust core (0.6)
+    # from PyPI: the browser uses only the public API of either
+    name: Test cfabric-browser (${{ matrix.core }} core)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        core: [python, rust]
+    defaults:
+      run:
+        working-directory: libs/explorer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: libs/explorer/frontend/package-lock.json
+      - name: Type-check, test and build the interface
+        working-directory: libs/explorer/frontend
+        run: |
+          npm ci
+          npm test
+          npm run build
+      - name: Install the core, and the MCP package (the browser shares its tools)
+        run: |
+          if [ "${{ matrix.core }}" = rust ]; then
+            pip install "context-fabric==0.6.0rc1"
+          else
+            pip install -e ../core
+          fi
+          pip install -e ../mcp
+      - name: Install browser package with dev dependencies
+        run: pip install -e ".[dev]"
+      - name: Run tests
+        run: |
+          python -c "import cfabric, importlib.metadata as m; print('context-fabric', m.version('context-fabric'))"
+          pytest tests/ -v

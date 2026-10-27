@@ -1,0 +1,178 @@
+name: Browser desktop program
+
+# Builds cfabric-browser as a standalone program (PyInstaller, pywebview) on
+# Windows, macOS and Linux, smoke-tests each build, and tests the Windows build
+# once more on a runner where Python is out of reach. A tag desktop-v* (such as
+# desktop-v0.1.0-test.1) also publishes the builds as a GitHub pre-release, with
+# libs/explorer/packaging/RELEASE_NOTES.md as its text. Not browser-v*: that tag
+# publishes the package on PyPI (publish.yml).
+
+on:
+  push:
+    branches: [master, main, 'browser-*', 'desktop-*']
+    tags: ['desktop-v*']
+    paths:
+      - 'libs/explorer/**'
+      - 'libs/core/cfabric/**'
+      - '.github/workflows/browser-desktop.yml'
+  pull_request:
+    branches: [master, main]
+    paths:
+      - 'libs/explorer/**'
+      - 'libs/core/cfabric/**'
+      - '.github/workflows/browser-desktop.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: windows, os: windows-latest }
+          - { name: macos-arm64, os: macos-latest }
+          - { name: macos-x64, os: macos-15-intel }
+          - { name: linux, os: ubuntu-latest }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: libs/explorer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: libs/explorer/frontend/package-lock.json
+      - name: Build the interface
+        working-directory: libs/explorer/frontend
+        run: |
+          npm ci
+          npm run build
+      # the Rust core from PyPI (searches several times faster), not editable:
+      # PyInstaller does not see editable installs
+      - name: Install
+        run: |
+          pip install "context-fabric==0.6.0rc1" ../mcp ".[build]"
+          python -c "import importlib.metadata as m; print('context-fabric', m.version('context-fabric'))"
+      - name: Build the program
+        run: pyinstaller packaging/cfabric-browser.spec --noconfirm
+      - name: Smoke test
+        run: |
+          program=dist/cfabric-browser/cfabric-browser
+          [ -f "$program.exe" ] && program=$program.exe
+          bash packaging/smoke-test.sh "$program" tests/fixtures/display_corpus
+      - name: Add a translation (downloads the JPS 1917 from Sefaria)
+        run: |
+          program=dist/cfabric-browser/cfabric-browser
+          [ -f "$program.exe" ] && program=$program.exe
+          # on macOS the program as people start it, inside the app
+          [ -d "dist/CACCHT Explorer.app" ] && program="dist/CACCHT Explorer.app/Contents/MacOS/cfabric-browser"
+          bash packaging/translation-test.sh "$program"
+      - name: Download a corpus (the SP, from its GitHub release)
+        run: |
+          program=dist/cfabric-browser/cfabric-browser
+          [ -f "$program.exe" ] && program=$program.exe
+          [ -d "dist/CACCHT Explorer.app" ] && program="dist/CACCHT Explorer.app/Contents/MacOS/cfabric-browser"
+          bash packaging/download-test.sh "$program"
+      - name: Add a dictionary (BDB, from the release of Context-Fabric/bdb)
+        run: |
+          program=dist/cfabric-browser/cfabric-browser
+          [ -f "$program.exe" ] && program=$program.exe
+          [ -d "dist/CACCHT Explorer.app" ] && program="dist/CACCHT Explorer.app/Contents/MacOS/cfabric-browser"
+          bash packaging/dictionary-test.sh "$program"
+      - name: Serve an AI app (MCP over HTTP and over stdio)
+        run: |
+          program=dist/cfabric-browser/cfabric-browser
+          [ -f "$program.exe" ] && program=$program.exe
+          [ -d "dist/CACCHT Explorer.app" ] && program="dist/CACCHT Explorer.app/Contents/MacOS/cfabric-browser"
+          bash packaging/mcp-test.sh "$program"
+      - name: Size
+        run: du -sh dist/*
+      - name: Pack (keeps file permissions)
+        run: |
+          mkdir -p ../../out
+          case "${{ matrix.name }}" in
+            windows) 7z a -tzip ../../out/CACCHT-Explorer-windows.zip ./dist/cfabric-browser > /dev/null ;;
+            macos-*) ditto -c -k --keepParent "dist/CACCHT Explorer.app" ../../out/CACCHT-Explorer-${{ matrix.name }}.zip ;;
+            linux) tar -czf ../../out/CACCHT-Explorer-linux.tar.gz -C dist cfabric-browser ;;
+          esac
+          ls -l ../../out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cfabric-browser-${{ matrix.name }}
+          path: out/*
+          retention-days: 14
+
+  clean-windows:
+    name: Run on Windows without Python
+    needs: build
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            libs/explorer/packaging
+            libs/explorer/tests/fixtures
+      - uses: actions/download-artifact@v4
+        with:
+          name: cfabric-browser-windows
+      - name: Unpack
+        run: 7z x CACCHT-Explorer-windows.zip -oprogram > /dev/null
+      - name: Smoke test with Python out of reach
+        run: |
+          # take every folder with a Python off the path (the py launcher lives
+          # in C:\Windows), until none is left
+          export PATH=$(echo "$PATH" | tr ':' '\n' | grep -viE "python|windowsapps" | paste -sd: -)
+          for name in python python3 py; do
+            tries=0
+            while found=$(command -v "$name") && [ $((tries += 1)) -le 10 ]; do
+              echo "taking $(dirname "$found") off the path ($found)"
+              export PATH=$(echo "$PATH" | tr ':' '\n' | grep -vixF "$(dirname "$found")" | paste -sd: -)
+            done
+          done
+          if command -v python python3 py; then
+            echo "::error title=Clean Windows::a Python is still reachable"; exit 1
+          fi
+          bash libs/explorer/packaging/smoke-test.sh \
+            program/cfabric-browser/cfabric-browser.exe \
+            libs/explorer/tests/fixtures/display_corpus
+
+  release:
+    name: Publish a pre-release
+    if: startsWith(github.ref, 'refs/tags/desktop-v')
+    needs: [build, clean-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            libs/explorer/packaging/RELEASE_NOTES.md
+            libs/explorer/packaging/mcpb
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      # the Claude Desktop extension, which reaches the running program
+      - run: python3 libs/explorer/packaging/mcpb/pack.py out/CACCHT-Explorer.mcpb
+      - run: ls -l out
+      # desktop-v0.1.0-test.2 is released as "CACCHT Explorer 0.1.0-test.2"
+      - id: version
+        run: echo "version=${GITHUB_REF_NAME#desktop-v}" >> "$GITHUB_OUTPUT"
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: CACCHT Explorer ${{ steps.version.outputs.version }}
+          body_path: libs/explorer/packaging/RELEASE_NOTES.md
+          prerelease: true
+          files: out/*

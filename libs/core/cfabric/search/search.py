@@ -264,7 +264,7 @@ class Search:
             Each result is a tuple of nodes, where each node corresponds to an
             *atom*-line in your search template (see `tf.about.searchusage`).
 
-            If `limit` is not `None`, a *generator* is returned,
+            If `limit` is `None`, a *generator* is returned,
             which yields the results one by one.
 
             Otherwise, the results will be fetched up till `limit`
@@ -415,7 +415,7 @@ class Search:
             Each result is a tuple of nodes, where each node corresponds to an
             *atom*-line in your search template (see `tf.about.searchusage`).
 
-            If `limit` is not `None`, a *generator* is returned,
+            If `limit` is `None`, a *generator* is returned,
             which yields the results one by one.
 
             Otherwise, the results will be fetched up till `limit`

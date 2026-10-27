@@ -8,6 +8,9 @@ from __future__ import annotations
 import logging
 import re
 from collections import defaultdict
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any
 
 from cfabric.results import NodeInfo, FeatureInfo, CorpusInfo
@@ -19,7 +22,33 @@ from cfabric.describe import (
 )
 
 from cfabric_mcp.cache import CachedSearchResult, get_cache
-from cfabric_mcp.corpus_manager import corpus_manager
+from cfabric_mcp.corpus_manager import corpus_manager as _corpus_manager
+
+# The corpora the tools work on: this server's own, unless a caller (the
+# browser) binds its registry for the duration of a call with `using`. A
+# registry is anything with `get`, `get_api`, `list_corpora` and `current`, as
+# `CorpusManager` has.
+_registry: ContextVar[Any] = ContextVar("registry", default=_corpus_manager)
+
+
+@contextmanager
+def using(registry: Any) -> Iterator[None]:
+    """Run the tools in this block on `registry` instead of the server's."""
+    token = _registry.set(registry)
+    try:
+        yield
+    finally:
+        _registry.reset(token)
+
+
+class _Current:
+    """`corpus_manager` as the tools see it: the registry bound now."""
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(_registry.get(), name)
+
+
+corpus_manager = _Current()
 
 if TYPE_CHECKING:
     from cfabric.core.api import Api
@@ -216,13 +245,31 @@ phrase
 ```
 Returns phrases that don't contain any verbs.
 
-### /where/ + /have/ - Required Conditions (AND)
-Find nodes containing ALL specified patterns:
+### /where/ + /have/ - For All
+Find nodes in which EVERY match of the /where/ part also matches the
+/have/ part. Name the atom in /where/ and refer to it in /have/:
+```
+phrase function=Subj
+/where/
+  w:word
+/have/
+  w sp=nmpr
+/-/
+```
+Returns subject phrases whose words are all proper names. Without the
+name, an atom under /have/ is a new one (`word sp=nmpr`): that only asks
+that some proper name exists, as `/with/` does. Nodes without any match of
+/where/ pass too. The same with /without/: `phrase function=Subj` /
+`/without/` / `  word sp#nmpr` / `/-/`.
+
+### /with/ - Required (AND)
+Find nodes that contain a pattern; several /with/ blocks all apply:
 ```
 clause
-/where/
+/with/
   word sp=verb
-/have/
+/-/
+/with/
   word sp=subs
 /-/
 ```

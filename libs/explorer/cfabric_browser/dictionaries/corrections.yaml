@@ -1,0 +1,43 @@
+# Links from lexemes to BDB entries made by hand, where the alignment with the
+# OSHB gives the wrong entry. Key: language and lex as in the BHSA; entries:
+# Open Scriptures ids of BDB entries, the main one first.
+
+# The OSHB's prefix lemmas (b, c, k, l, i) are Hebrew only, so in the
+# Aramaic parts they led to the Hebrew entries.
+Aramaic W:
+  entries: [xf.aa.aa]  # וְ
+Aramaic L:
+  entries: [xl.aa.aa]  # ל
+Aramaic B:
+  entries: [xb.aa.aa]  # בְּ
+Aramaic K:
+  entries: [xk.aa.aa]  # כְּ
+Aramaic H:
+  entries: [xe.aa.aa]  # הֲ interrogative
+
+# Lexemes whose entry in Open Scriptures has no text in Sefaria, linked to the
+# entry that has it.
+Hebrew JLWN/:
+  entries: [j.bn.am]  # יָלוֹן Jalon, 1 Ch 4:17: at the end of Sefaria's תּוֹלָד
+Hebrew >TNN=/:
+  entries: [a.gp.af]  # אֶתְנָן Ethnan, 1 Ch 4:7: BDB has it under א
+Hebrew T<W/:
+  entries: [w.bh.ac]  # תֹּעוּ, תֹּעִי Toi, king of Hamath: one entry in Sefaria
+Aramaic C>LTJ>L/:
+  entries: [v.ag.ah]  # שְׁאַלְתִּיאֵל Ezra 5:2: only in BDB's Hebrew part
+Aramaic CLVN=/:
+  entries: [xv.as.ab, xv.as.ac]  # שִׁלְטוֹן ruler, Dn 3:2-3: in BDB's addenda
+  # (p. 1127), which Sefaria lacks; its שָׁלְטָן (dominion) refers to it
+Hebrew LZW:
+  entries: [e.bl.aa]  # הַלֵּ֫זוּ: in Sefaria's entry הַלָּ֫זֶה, הַלֵּ֫זוּ
+
+# Entries without an Open Scriptures id, by Sefaria's reference.
+Hebrew KRWB=/:
+  entries: ["BDB, כְּרוּב"]  # I. Kerub, the place in Babylonia (Ezr 2:59)
+Hebrew XSN[:
+  entries: ["BDB, חָסַן"]  # be treasured up (Is 23:18)
+
+# Where BDB's citations mislead `by_citations`.
+Hebrew >T=:
+  entries: [a.er.ad, a.er.ac]  # אַתְּ (cites a few of its 57 verses, "+ 50
+  # times"), not אתי, the ketiv's spelling, which cites all of its 7

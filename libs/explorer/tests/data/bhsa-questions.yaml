@@ -1,0 +1,189 @@
+# Requests for testing how well a model turns plain language into a
+# BHSA search template: each with a correct template and its count in
+# the BHSA 2021. Not the guide's examples (assistant/guides/bhsa.md).
+# tests/test_assistant_questions.py checks the counts when the BHSA is
+# on this computer. Drafted 2026-10-16; to be corrected and added to by
+# the user. `also`: other readings of the request that count as right too,
+# each with its template, count and why (added 2026-10-21 after a run with
+# Claude; for the user to confirm).
+- level: easy
+  request: Where does the word for king, MLK/, occur?
+  template: word lex=MLK/
+  count: 2703
+- level: easy
+  request: Find every form of the verb 'to say', >MR[.
+  template: word lex=>MR[
+  count: 5378
+- level: easy
+  request: All the occurrences of the Tetragrammaton in Genesis
+  template: |-
+    book book=Genesis
+      word lex=JHWH/
+  count: 165
+- level: easy
+  request: Show me all imperatives
+  template: word vt=impv
+  count: 4306
+- level: easy
+  request: Every infinitive absolute in the Hebrew Bible
+  template: word vt=infa
+  count: 894
+- level: easy
+  request: pual forms
+  template: word vs=pual
+  count: 492
+- level: easy
+  request: Aramaic verbs
+  template: word language=Aramaic sp=verb
+  count: 1070
+- level: easy
+  request: nouns in the dual
+  template: word sp=subs nu=du
+  count: 2863
+- level: easy
+  request: first person plural imperfects
+  template: word vt=impf ps=p1 nu=pl
+  count: 563
+- level: easy
+  request: all words in Ruth
+  template: |-
+    book book=Ruth
+      word
+  count: 1802
+- level: medium
+  request: the verb NTN[ in the niphal
+  template: word lex=NTN[ vs=nif
+  count: 82
+- level: medium
+  request: participles of BW>[ (to come)
+  template: word lex=BW>[ vt=ptca|ptcp
+  count: 286
+- level: medium
+  request: qatal forms of HJH[ in the third person masculine singular
+  template: word lex=HJH[ vt=perf ps=p3 gn=m nu=sg
+  count: 748
+- level: medium
+  request: the word >RY/ (earth) with a pronominal suffix
+  template: word lex=>RY/ prs#absent
+  count: 188
+- level: medium
+  request: personal names
+  template: word sp=nmpr nametype=pers
+  count: 21516
+  also:
+  - template: word sp=nmpr nametype~pers
+    count: 26354
+    why: with the names that are also of a people or a place (pers,gens and the like)
+- level: medium
+  request: words in Isaiah 53
+  template: |-
+    book book=Jesaia
+      chapter chapter=53
+        word
+  count: 236
+- level: medium
+  request: imperatives in 1 Kings
+  template: |-
+    book book=Reges_I
+      word vt=impv
+  count: 168
+- level: medium
+  request: object phrases
+  template: phrase function=Objc
+  count: 22668
+- level: medium
+  request: time phrases (adjuncts of time)
+  template: phrase function=Time
+  count: 4079
+- level: medium
+  request: vocatives
+  template: phrase function=Voct
+  count: 1605
+- level: medium
+  request: clauses introduced by a wayyiqtol in Exodus
+  template: |-
+    book book=Exodus
+      clause typ=Way0|WayX
+  count: 883
+- level: medium
+  request: subject clauses
+  template: clause rela=Subj
+  count: 506
+- level: medium
+  request: infinitive construct clauses
+  template: clause typ=InfC
+  count: 6518
+- level: hard
+  request: clauses where JHWH/ is the subject and the verb is DBR[
+  template: |-
+    clause
+      phrase function=Pred
+        word lex=DBR[
+      phrase function=Subj
+        word lex=JHWH/
+  count: 233
+- level: hard
+  request: a preposition B directly followed by an infinitive construct
+  template: |-
+    phrase
+      w1:word lex=B
+      w2:word vt=infc
+    w1 <: w2
+  count: 711
+- level: hard
+  request: clauses with an object before the predicate
+  template: |-
+    clause
+      p1:phrase function=Objc
+      p2:phrase function=Pred
+    p1 < p2
+  count: 2906
+  also:
+  - template: |-
+      clause
+        p1:phrase function=Objc
+        p2:phrase function=Pred|PreO|PreS|PtcO
+      p1 < p2
+    count: 3007
+    why: with predicates that carry a suffix (PreO, PreS) and participles with an object (PtcO)
+- level: hard
+  request: verses in which the verb >HB[ (love) occurs together with JHWH/
+  template: |-
+    verse
+    /with/
+      word lex=>HB[
+    /-/
+    /with/
+      word lex=JHWH/
+    /-/
+  count: 60
+- level: hard
+  request: clauses without a predicate
+  template: |-
+    clause
+    /without/
+      phrase function=Pred|PreC|PreO|PreS
+    /-/
+  count: 7641
+  also:
+  - template: clause kind=WP
+    count: 6744
+    why: the ETCBC's own kind of clause without predicate (WP)
+- level: hard
+  request: noun phrases that consist only of nouns
+  template: |-
+    phrase typ=NP
+    /where/
+      w:word
+    /have/
+      w sp=subs
+    /-/
+  count: 22447
+- level: hard
+  request: the article followed directly by a proper name
+  template: |-
+    phrase
+      w1:word sp=art
+      w2:word sp=nmpr
+    w1 <: w2
+  count: 754
