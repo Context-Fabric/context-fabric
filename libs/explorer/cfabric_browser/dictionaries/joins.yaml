@@ -1,0 +1,24 @@
+# Sefaria's entries joined by hand to Open Scriptures' ids. The join by order
+# and headword leaves some out on both sides (other spellings, or a Sefaria
+# entry that covers two headwords), and takes some neighbours with the same
+# consonants for each other (a homonym, a root, a cross reference). Key:
+# Sefaria's reference; value: the id. A join here replaces what the join did
+# with either side.
+
+# left out
+BDB, אֶלְקֹשִׁי: a.du.ac  # Elkoshite; Open Scriptures spells אֶלְקוֹשִׁי
+BDB, מַהֲתַלּוֹת: w.au.ab  # deceptions; BDB prints it under מ and under תלל
+BDB, סִרָה: o.au.af  # Sefaria's entry also has יסור (Je 17:13 Kt)
+BDB, קוֹנֵן²: s.bk.ai  # chant a dirge; Open Scriptures spells קִינֵן
+BDB Aramaic, גּוּחַ: xc.ad.ac  # [גּוּחַ, גִּיחַ] burst forth
+BDB Aramaic, שְׁאֵלָה: xv.aa.ab  # affair; Open Scriptures spells שְׁאֵלָא
+
+# taken for a neighbour
+BDB, כְּרוּב²: k.da.ac  # II. cherub, not I. the place in Babylonia
+BDB, תֹּ֫פֶת: w.ak.ab  # I. spitting, not II. (v. תפת)
+BDB, קִיץ: s.bl.aa  # I. awake, not II. the root (summer)
+BDB, פַּרְוָר: q.cv.ah  # structure, not פָּרוּר pot (v. פור)
+BDB, חָסֹן: h.ei.ac  # adj. strong, not the verb חָסַן
+BDB, ערב⁴: p.fg.aa  # VI. the root (be black)
+BDB, עֹרֵב: p.fg.ab  # raven, not the root
+BDB, עָצַם²: p.er.aa  # shut the eyes (III. in Sefaria, II. in Open Scriptures)

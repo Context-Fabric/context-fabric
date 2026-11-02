@@ -1,0 +1,16 @@
+# Display settings for the Samaritan Pentateuch 7.2.4 (DT-UCPH/sp), on top of sp.yaml.
+# The corpus' app config (DT-UCPH/sp app/config.yaml) does not describe the
+# phrase and clause layers: 7.2.4 is the first version with clauses and with the
+# phrase features typ and function (slots are signs since the earliest versions).
+# These lines can move into that app config; then this file can be deleted.
+# Clauses have no features in any version so far, so they get no label.
+typeDisplay:
+  word:
+    features: lex
+    featuresBare: gloss
+  phrase:
+    label: '{typ} {function}'
+  clause_atom:
+    hidden: true
+  phrase_atom:
+    hidden: true

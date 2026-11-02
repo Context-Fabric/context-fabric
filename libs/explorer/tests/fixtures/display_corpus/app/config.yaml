@@ -1,0 +1,20 @@
+apiVersion: 3
+dataDisplay:
+  noneValues:
+  - NA
+  sectionSep2: "."
+  excludedFeatures:
+  - trans
+provenanceSpec:
+  corpus: Display test corpus
+  version: "1.0"
+typeDisplay:
+  clause:
+    label: "{typ}"
+  phrase:
+    label: "{function}"
+    features: function
+  word:
+    features: sp
+    featuresBare: gloss
+writing: hbo

@@ -45,6 +45,8 @@ dist/
 # TF-specific
 .tf/
 .cfm/
+# the Rust core's compiled cache (context-fabric 0.6)
+.cfr/
 .ipynb_checkpoints/
 
 # IDE / Editor
@@ -76,3 +78,6 @@ htmlcov/
 # Others
 .private
 .corpora
+
+# Built interface (npm run build in libs/explorer/frontend)
+libs/explorer/cfabric_browser/static/

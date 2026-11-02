@@ -118,6 +118,14 @@ export const mdxNavigation: NavSection[] = [
     ],
   },
   {
+    title: "CACCHT Explorer",
+    type: "manual",
+    items: [
+      { title: "Overview", path: "/docs/explorer" },
+      { title: "User Guide", path: "https://caccht.github.io/explorer/" },
+    ],
+  },
+  {
     title: "Resources",
     type: "manual",
     items: [

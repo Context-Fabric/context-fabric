@@ -5,6 +5,14 @@ All notable changes to cfabric-mcp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- `search_syntax_guide("quantifiers")` explained `/where/ … /have/` as "contains both": an atom under `/have/` is a new one, so its example found the clauses in which every verb has some noun beside it, including all clauses without a verb (63,877 in the BHSA, against 45,896 with both). It now names the atom in `/where/` and refers to it in `/have/`, and gives "both" as two `/with/` blocks.
+
+### Added
+- `tools.using(registry)`: run the tools on another registry of corpora (anything with `get`, `get_api`, `list_corpora` and `current`, like `CorpusManager`) for the duration of a block (a context variable, safe across threads), so that the browser can offer the same tools on its own corpora; without it they work on the server's own corpora, as before
+
 ## [0.1.8] - 2026-10-14
 
 ### Added
