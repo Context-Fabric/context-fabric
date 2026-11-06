@@ -29,6 +29,19 @@ The program isn't signed yet, so your computer warns about it the first time.
 
 **Linux.** Unpack it (`tar -xzf CACCHT-Explorer-linux.tar.gz`) and start `cfabric-browser/cfabric-browser`. The window needs GTK with WebKit2GTK, or Qt with WebEngine. Without them, the program opens your web browser instead, which works just as well.
 
+## With Python (pip)
+
+If you work with Python, you can install the Explorer with pip instead. It needs Python 3.13 or newer:
+
+```
+pip install "cfabric-browser[window]"
+caccht-explorer
+```
+
+This opens the Explorer in your web browser, at `http://localhost:8107/`; `caccht-explorer --window` gives it a window of its own, as the program from GitHub has. It stops when you press *Ctrl+C* in the terminal. Without `[window]` it always uses your web browser. `caccht-explorer --help` lists the options.
+
+The corpora are downloaded from the Explorer's library, under *Can be downloaded*, or beforehand in the terminal with `caccht-explorer download bhsa sp dss`. For faster searching, also install the new Context-Fabric core, still a test version: `pip install --pre "context-fabric==0.6.0rc1"`.
+
 ## The first start
 
 If the texts are not on your computer yet, the program shows *Getting the corpora*, with the three it offers:
@@ -55,14 +68,14 @@ Everything the program keeps is in your home folder (on Windows `C:\Users\<you>`
 |---|---|
 | `text-fabric-data/github` | The corpora, where Text-Fabric keeps them too, and the translations you add. Next to each corpus a folder `.cfr` holds what the program prepared (for the BHSA about 600 MB). |
 | `.cfabric/dictionaries` | The dictionaries you add (BDB). |
-| `.cfabric/window` | The program's settings, your notes and your saved workspaces. |
-| `.cfabric/logs` | The log, `cfabric-browser.log`, to send along when something goes wrong. |
+| `.cfabric/window` | The program's settings, your notes and your saved workspaces. Installed with pip and used in a web browser, the web browser keeps these. |
+| `.cfabric/logs` | The log, `cfabric-browser.log`, to send along when something goes wrong. Installed with pip, the messages are in the terminal instead. |
 | `.cfabric/downloads`, `.cfabric/translations` | The downloaded files, kept so that a download need not be repeated. They may be deleted. |
 
 Folders whose name begins with a dot are hidden. On a Mac, press *Cmd+Shift+.* in the Finder to see them; in the Windows Explorer, choose *View → Show → Hidden items*.
 
 ## Updating and removing
 
-**Updating.** Download the new version and put it where the old one was: on Windows, replace the folder `cfabric-browser`; on a Mac, replace `CACCHT Explorer.app` in *Applications*. The corpora, your settings, notes and workspaces stay where they are, so the new version finds them. Sometimes a new version has to prepare the corpora once more; the release notes say so.
+**Updating.** Download the new version and put it where the old one was: on Windows, replace the folder `cfabric-browser`; on a Mac, replace `CACCHT Explorer.app` in *Applications*. The corpora, your settings, notes and workspaces stay where they are, so the new version finds them. Sometimes a new version has to prepare the corpora once more; the release notes say so. Installed with pip, update with `pip install -U cfabric-browser`.
 
-**Removing.** Delete the folder `cfabric-browser` (Windows, Linux) or `CACCHT Explorer.app` (Mac). That leaves the data. To remove that too, delete the folder `.cfabric` in your home folder, and in `text-fabric-data/github` the folders of the corpora (`ETCBC/bhsa`, `ETCBC/dss`, `DT-UCPH/sp` and `Context-Fabric`). If you also use Text-Fabric, it uses the same corpora, so keep them.
+**Removing.** Delete the folder `cfabric-browser` (Windows, Linux) or `CACCHT Explorer.app` (Mac). That leaves the data. To remove that too, delete the folder `.cfabric` in your home folder, and in `text-fabric-data/github` the folders of the corpora (`ETCBC/bhsa`, `ETCBC/dss`, `DT-UCPH/sp` and `Context-Fabric`). If you also use Text-Fabric, it uses the same corpora, so keep them. Installed with pip, remove the Explorer with `pip uninstall cfabric-browser`.

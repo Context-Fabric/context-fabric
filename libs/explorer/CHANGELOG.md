@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- The guide says how to install the Explorer with pip (*Getting started*: *With Python (pip)*, updating and removing; where the settings and messages are then) and which command to give Claude Desktop and Codex then (the full path of `caccht-explorer`).
+
 ## [0.1.1] - 2026-11-06
 
 ### Changed
