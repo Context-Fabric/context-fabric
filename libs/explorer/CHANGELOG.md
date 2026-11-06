@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-06
+
+### Changed
+- The Explorer starts in *Parallel* when no interface is chosen (by the user, `--ui` or `ui:` in `~/.cfabric/browser.yaml`), as the standalone program does; it started in *Panes*, the oldest interface. `--ui panes` still starts in Panes.
+
 ## [0.1.0] - 2026-11-06
 
 The first release on PyPI (`pip install "cfabric-browser[window]"`; commands `cfabric-browser` and `caccht-explorer`). CACCHT Explorer reads, searches and compares Context-Fabric corpora on your own computer, offline, on either core (the Python `context-fabric` 0.5 or the Rust 0.6):

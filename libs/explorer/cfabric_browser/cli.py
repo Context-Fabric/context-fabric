@@ -342,7 +342,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     try:
         (default, hidden) = read_ui_settings(settings.get("ui"))
-        ui = ui_id(args.ui) if args.ui else (default or "classic")
+        ui = ui_id(args.ui) if args.ui else (default or "parallel")
     except ValueError as e:
         print(f"cfabric-browser: {e} (ui: in browser.yaml)", file=sys.stderr)
         return 2

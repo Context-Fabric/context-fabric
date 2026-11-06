@@ -38,7 +38,7 @@ Options:
 - `--max-results`: results kept per search (default 500,000).
 - `--no-open`: don't open a web browser.
 - `--window` (`--no-window`): show the browser in a window of its own instead of a web browser (needs pywebview: `pip install cfabric-browser[window]`). Closing the window stops the server. Without `--port` it uses the first free port from 8107, so several windows can run at once. The window keeps its settings, search history and saved workspaces in `~/.cfabric/window`.
-- `--ui NAME`: the interface to start in until the user chooses one: `panes` (the default), `parallel`, `reader`, `interlinear` or `concordance`. Permanently, and to leave interfaces out of the menu, in `~/.cfabric/browser.yaml`:
+- `--ui NAME`: the interface to start in until the user chooses one: `parallel` (the default), `panes`, `reader`, `interlinear` or `concordance`. Permanently, and to leave interfaces out of the menu, in `~/.cfabric/browser.yaml`:
 
   ```yaml
   ui:

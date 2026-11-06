@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cfabric-browser"
-version = "0.1.0"
+version = "0.1.1"
 description = "CACCHT Explorer, a graphical browser for Context-Fabric corpora: search, read and compare, offline"
 readme = "README.md"
 license = {text = "MIT"}
