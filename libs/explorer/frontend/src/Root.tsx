@@ -37,7 +37,7 @@ function Interface() {
   const ui: Ui | null =
     fromUrl ??
     remembered ??
-    (health.data ? (ready(health.data.ui) ? health.data.ui : "classic") : health.isError ? "classic" : null);
+    (health.data ? (ready(health.data.ui) ? health.data.ui : "parallel") : health.isError ? "parallel" : null);
 
   useEffect(() => {
     if (ready(ui)) rememberUi(ui);

@@ -44,7 +44,7 @@ def create_app(
     static_dir: Path = STATIC,
     manage_pool: bool = True,
     library: bool = True,
-    ui: str = "classic",
+    ui: str = "parallel",
     hidden_uis: list[str] | None = None,
     translations: Jobs | None = None,
     downloads: DownloadJobs | None = None,
@@ -70,7 +70,7 @@ def create_app(
         when the browser is reachable by others.
     ui: str
         The interface to start in when the user has not chosen one yet:
-        `classic` (panes), `parallel`, `reader`, `interlinear` or
+        `parallel` (the default), `classic` (panes), `reader`, `interlinear` or
         `concordance` (see `cfabric_browser.interfaces`).
     hidden_uis: list[str] | None
         Interfaces to leave out of the menu until the user chooses otherwise.
