@@ -8,12 +8,22 @@ version = "0.1.0"
 description = "CACCHT Explorer, a graphical browser for Context-Fabric corpora: search, read and compare, offline"
 readme = "README.md"
 license = {text = "MIT"}
+authors = [
+    {name = "Martijn Naaijer"},
+]
 requires-python = ">=3.13"
+keywords = ["context-fabric", "text-fabric", "hebrew bible", "corpus", "bhsa", "dead sea scrolls"]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
+    "Framework :: FastAPI",
+    "Topic :: Religion",
+    "Topic :: Text Processing :: Linguistic",
 ]
 
 dependencies = [
@@ -30,7 +40,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://context-fabric.ai"
+Homepage = "https://context-fabric.ai/docs/explorer"
+Documentation = "https://caccht.github.io/explorer/"
+Changelog = "https://github.com/Context-Fabric/context-fabric/blob/master/libs/explorer/CHANGELOG.md"
 Repository = "https://github.com/Context-Fabric/context-fabric"
 Issues = "https://github.com/Context-Fabric/context-fabric/issues"
 
