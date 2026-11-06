@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-11-04
+
 ### Fixed
 - `search_syntax_guide("quantifiers")` explained `/where/ … /have/` as "contains both": an atom under `/have/` is a new one, so its example found the clauses in which every verb has some noun beside it, including all clauses without a verb (63,877 in the BHSA, against 45,896 with both). It now names the atom in `/where/` and refers to it in `/have/`, and gives "both" as two `/with/` blocks.
 

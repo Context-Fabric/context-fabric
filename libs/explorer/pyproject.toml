@@ -20,8 +20,8 @@ dependencies = [
     # only its public API: the Python core (0.5) or the Rust one (0.6)
     "context-fabric>=0.5.7",
     # the tools a language model gets (searching in plain language) share
-    # cfabric-mcp's; needs its `tools.using`, unreleased
-    "cfabric-mcp>=0.1.7",
+    # cfabric-mcp's; needs its `tools.using` (since 0.1.9)
+    "cfabric-mcp>=0.1.9",
     "fastapi>=0.115",
     "uvicorn>=0.32.0",
     # app configurations, display overrides, browser.yaml; the Rust core
