@@ -12,12 +12,14 @@ It works with either Context-Fabric core: the Python one (`context-fabric` 0.5) 
 
 ## Usage
 
+It needs Python 3.13 or newer.
+
 ```bash
-pip install cfabric-browser
+pip install "cfabric-browser[window]"
 cfabric-browser bhsa
 ```
 
-`cfabric-browser` is not on PyPI yet; until it is, install it from this repository: `pip install "context-fabric==0.6.0rc1" ./libs/mcp "./libs/explorer[window]"`.
+This also installs Context-Fabric (`context-fabric`) and its MCP tools (`cfabric-mcp`). `[window]` adds what `--window` needs (pywebview); without it the Explorer opens in your web browser. For the Rust core, which searches faster, install its release candidate as well: `pip install --pre "context-fabric==0.6.0rc1"`.
 
 This opens the browser at <http://localhost:8107/>. The command is also installed as `caccht-explorer`, under the app's name; both do the same. Give several corpora to compare them, e.g. `cfabric-browser bhsa CenterBLC/LXX ETCBC/peshitta`; others can be opened from the browser with *Open a corpus*. Without corpora (`cfabric-browser`), the browser starts empty and shows that list straight away. You can give a corpus in several ways:
 
@@ -130,7 +132,7 @@ All five are built: *Panes*, *Parallel*, *Reader*, *Interlinear* and *Concordanc
 
 ### Reader
 
-*Reader* (`/read/bhsa/Genesis/1?v=3&panel=parallels`) is after Sefaria. It shows one text in a quiet, wide column.
+*Reader* (`/read/bhsa/Genesis/1?v=3&panel=parallels`) shows one text in a quiet, wide column.
 
 - **Reading:**
   - *Verses* gives a line per verse; *Running text* runs the verses on, with a new paragraph after each petuhah (פ) or setumah (ס) in the text.
@@ -145,7 +147,7 @@ All five are built: *Panes*, *Parallel*, *Reader*, *Interlinear* and *Concordanc
 - *Cite*, next to the chapter, cites the chapter, or the verse chosen.
 
 - *Panes* (`/?c0=bhsa&ref0=Genesis+1&...`): up to four panes side by side, each with its own corpus, passage and view.
-- *Parallel* (`/Genesis/1?texts=bhsa,sp,dss`), laid out after [Parabible](https://parabible.com): a slim top bar with the chapter (`‹ ›` and ←/→ for the neighbours, the chapter name for a drawer with the books and their chapters), and a column per corpus. *Texts* turns open corpora on and off, orders the columns, and adds more from the corpora on this computer; `–` on a column removes it. The chapters follow the BHSA's numbering, also when the BHSA is not shown (it is opened in the background when it is on this computer); without it, the first column's. Each row is a verse: verses are matched by book (through the book concordance), chapter and verse number, there is a row for every verse number in any of the texts, and a text that lacks a verse has an empty cell. A corpus read by biblical book (DSS) shows in each cell the text of every scroll that has the verse, labelled with the scroll. A corpus without the chapter keeps a narrow column marked *not in this corpus*.
+- *Parallel* (`/Genesis/1?texts=bhsa,sp,dss`): a slim top bar with the chapter (`‹ ›` and ←/→ for the neighbours, the chapter name for a drawer with the books and their chapters), and a column per corpus. *Texts* turns open corpora on and off, orders the columns, and adds more from the corpora on this computer; `–` on a column removes it. The chapters follow the BHSA's numbering, also when the BHSA is not shown (it is opened in the background when it is on this computer); without it, the first column's. Each row is a verse: verses are matched by book (through the book concordance), chapter and verse number, there is a row for every verse number in any of the texts, and a text that lacks a verse has an empty cell. A corpus read by biblical book (DSS) shows in each cell the text of every scroll that has the verse, labelled with the scroll. A corpus without the chapter keeps a narrow column marked *not in this corpus*.
 
 Hovering over a word shows the same card as in *Panes*; clicking it opens the word panel on the left, with the same contents as the inspector and, for a BHSA word, *Lexicon entry*. *Lexicon* in the top bar (when a corpus with a lexicon is open) shows the lexicon instead of the chapter; a verse in it opens its chapter with that verse marked (`&v=26`; the lexicon is `&lexicon=bhsa&lx=…`). Its *Search* goes to the search in *Panes* for now.
 
@@ -154,7 +156,7 @@ Hovering over a word shows the same card as in *Panes*; clicking it opens the wo
 *Search* in the top bar searches one of the shown texts (`&search=1&sc=bhsa&q=…&s=…`), in either of two ways:
 
 - *Template* (the default): the query editor of *Panes*, starting from the template the terms make, if there are any.
-- *Search terms*, as on Parabible: click a word, then *Add as search term* in the word panel (adding one switches to *Search terms*). A term finds words with the features you tick (its transliterated lexeme, or else its lexeme, to start with; also part of speech, stem, tense, person, gender, number, state). Choose whether all terms must be in one verse, sentence, clause or phrase, and, for corpora with books, which books (by the book feature's own values: the BHSA's `book` says `Jesaia` where the list says Isaiah). The search template this makes is shown below.
+- *Search terms*: click a word, then *Add as search term* in the word panel (adding one switches to *Search terms*). A term finds words with the features you tick (its transliterated lexeme, or else its lexeme, to start with; also part of speech, stem, tense, person, gender, number, state). Choose whether all terms must be in one verse, sentence, clause or phrase, and, for corpora with books, which books (by the book feature's own values: the BHSA's `book` says `Jesaia` where the list says Isaiah). The search template this makes is shown below.
 
 Results are rows: the passage, then the verse the result lies in, in the searched text with the result's innermost nodes highlighted, and the same verse in the other texts (the DSS: per scroll); 25 per page. *Statistics*, *Download…* and *Cite* are as in *Panes*; clicking a passage opens its chapter at that verse. A shared link to a search the server no longer has runs it again.
 
@@ -163,7 +165,7 @@ The top bar also has *Display* (for the BHSA *Vocalized* or *Unvocalized* text, 
 
 ### Interlinear
 
-*Interlinear* (`/interlinear/bhsa/Genesis/1?under=sp&struct=1`) is after STEPBible, BibleHub and the Logos interlinears. It opens with the BHSA, and shows each word as a small block with lines under it. The blocks run from right to left, so a verse reads as a sentence.
+*Interlinear* (`/interlinear/bhsa/Genesis/1?under=sp&struct=1`) opens with the BHSA, and shows each word as a small block with lines under it. The blocks run from right to left, so a verse reads as a sentence.
 
 - **Lines** chooses the lines and their order. They are read by role, as on the hover card, so the SP and the DSS work too:
   - the word;
@@ -184,7 +186,7 @@ A transliteration of the word as it sounds is not available yet: the BHSA's `pho
 
 ### Concordance
 
-*Concordance* (`/concordance/bhsa?q=…`) is after Sketch Engine and AntConc. It starts from a search: a template, or search terms made from words in the results (click a word, then *Add as search term*). The results come as lines (KWIC, key word in context): the hit in the middle and the words before and after it on either side, within the same book. Clicking a passage opens it in the *Reader*.
+*Concordance* (`/concordance/bhsa?q=…`) starts from a search: a template, or search terms made from words in the results (click a word, then *Add as search term*). The results come as lines (KWIC, key word in context): the hit in the middle and the words before and after it on either side, within the same book. Clicking a passage opens it in the *Reader*.
 
 - **Sort by** the hit or a word before or after it (up to the third), by its form (consonants), lexeme or part of speech. Patterns show at once, such as what comes before HLK[.
 - **Facets** on the left: book, part of speech, stem, tense, person, gender, number, state, language, each with counts. A click filters the lines, and the facets follow.

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-06
+
+The first release on PyPI (`pip install "cfabric-browser[window]"`; commands `cfabric-browser` and `caccht-explorer`). CACCHT Explorer reads, searches and compares Context-Fabric corpora on your own computer, offline, on either core (the Python `context-fabric` 0.5 or the Rust 0.6):
+
+- five interfaces: *Parallel*, *Panes*, *Reader*, *Interlinear* and *Concordance*, which share the passage, the corpora and the search when switching;
+- differences between the MT, the SP and the DSS, and their three-way agreement;
+- searching with templates, in worker processes that can be cancelled, with statistics, downloads and citations;
+- the BHSA's lexicon with the BDB dictionary, and the JPS 1917 as an English translation;
+- downloading the BHSA, SP and DSS, adding translations and dictionaries, from the library or the command line;
+- searching in plain language: an AI app (Claude, ChatGPT, Codex) proposes search templates through MCP (`/mcp`, `cfabric-browser mcp`), and the user runs them;
+- a user guide, built in at `/guide/`.
+
+The changes below were made while the standalone program had test versions (`desktop-v0.1.0-test.1` to `test.16`).
+
 ### Added
 - The command `caccht-explorer`, the same as `cfabric-browser` under the app's name.
 

@@ -14,19 +14,13 @@ Most people use the standalone program, which needs no Python: it is a test vers
 
 The program is the Python package `cfabric-browser` (module `cfabric_browser`, command `cfabric-browser`). It works with either core: the Python one (`context-fabric` 0.5) and the Rust one (0.6), which searches several times faster.
 
-`cfabric-browser` is not on PyPI yet. When it is, it will come with the core as an extra:
+It needs Python 3.13 or newer:
 
 ```bash
-pip install "context-fabric[explorer,mcp]"
+pip install "cfabric-browser[window]"
 ```
 
-Until then, install it from the repository (branch `browser-rust`):
-
-```bash
-git clone -b browser-rust https://github.com/Context-Fabric/context-fabric
-cd context-fabric
-pip install "context-fabric==0.6.0rc1" ./libs/mcp "./libs/explorer[window]"
-```
+This also installs the core (`context-fabric`) and `cfabric-mcp`. For the Rust core, install its release candidate as well: `pip install --pre "context-fabric==0.6.0rc1"`. From Context-Fabric 0.6.0 on, the program will also come with the core as an extra: `pip install "context-fabric[explorer,mcp]"`.
 
 The `window` extra adds a window of its own (pywebview); without it, the program opens in your web browser.
 

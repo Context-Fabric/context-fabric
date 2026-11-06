@@ -101,3 +101,59 @@ jobs:
         run: |
           python -c "import cfabric, importlib.metadata as m; print('context-fabric', m.version('context-fabric'))"
           pytest tests/ -v
+
+  install-browser:
+    # the package as publish.yml builds it (with the interface), installed in a
+    # fresh environment with nothing from this repository: its dependencies come
+    # from PyPI, with the Python core (0.5) or the Rust one (0.6.0rc1); then the
+    # program is started and searched by packaging/smoke-test.sh
+    name: Install cfabric-browser (${{ matrix.os }}, core ${{ matrix.core }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        core: ['0.5', '0.6.0rc1']
+    defaults:
+      run:
+        shell: bash
+        working-directory: libs/explorer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: libs/explorer/frontend/package-lock.json
+      - name: Build the interface
+        working-directory: libs/explorer/frontend
+        run: |
+          npm ci
+          npm run build
+      - name: Build the package
+        run: |
+          pip install build
+          python -m build
+          python - <<'PY'
+          import glob, tarfile, zipfile
+          wheel = zipfile.ZipFile(glob.glob("dist/*.whl")[0]).namelist()
+          sdist = tarfile.open(glob.glob("dist/*.tar.gz")[0]).getnames()
+          for name in ("static/index.html", "static/guide/index.html"):
+              assert "cfabric_browser/" + name in wheel, f"{name} not in the wheel"
+              assert any(n.endswith("cfabric_browser/" + name) for n in sdist), f"{name} not in the sdist"
+          print("wheel and sdist carry the interface and the guide")
+          PY
+      - name: Install it in a fresh environment
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          bin="$RUNNER_TEMP/venv/bin"; [ -d "$bin" ] || bin="$RUNNER_TEMP/venv/Scripts"
+          echo "BIN=$bin" >> "$GITHUB_ENV"
+          if [ "${{ matrix.core }}" = 0.5 ]; then core="context-fabric<0.6"; else core="context-fabric==${{ matrix.core }}"; fi
+          "$bin/python" -m pip install "$(ls dist/*.whl)[window]" "$core"
+          cd "$RUNNER_TEMP"
+          "$bin/python" -c "import importlib.metadata as m, cfabric_browser; print(*(f'{p} {m.version(p)}' for p in ('cfabric-browser', 'context-fabric', 'cfabric-mcp')), cfabric_browser.__file__, sep='\n')"
+      - name: Start it and search
+        run: bash packaging/smoke-test.sh "$BIN/caccht-explorer" tests/fixtures/display_corpus
