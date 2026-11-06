@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-14T17:11:04.369219+00:00",
+  "generated_at": "2026-11-02T15:50:53.339024+00:00",
   "packages": {
     "cfabric": {
       "name": "cfabric",
@@ -12702,7 +12702,7 @@
                       "signature": "(self, limit: int | None = None, _msgCache: bool | list[Any] = False)",
                       "docstring": {
                         "summary": "Retrieves query results, up to a limit.",
-                        "description": "Retrieves query results, up to a limit.\n\nMust be called after a previous `tf.search.search.Search.search()` or\n`tf.search.search.Search.study()`.\n\nParameters\n----------\n\nlimit: integer, optional None\n    If `limit` is a positive number, it will fetch only that many results.\n    If it is negative, 0, None, or absent, it will fetch arbitrary many results.\n\n    !!! caution \"there is an upper *fail limit* for safety reasons.\n        The limit is a factor times the max node in your corpus.\n        See `tf.parameters.SEARCH_FAIL_FACTOR`.\n        If this *fail limit* is exceeded in cases where no positive `limit`\n        has been passed, you get a warning message.\n\n\nReturns\n-------\ngenerator | tuple\n    Each result is a tuple of nodes, where each node corresponds to an\n    *atom*-line in your search template (see `tf.about.searchusage`).\n\n    If `limit` is not `None`, a *generator* is returned,\n    which yields the results one by one.\n\n    Otherwise, the results will be fetched up till `limit`\n    and delivered as a tuple.\n\nNotes\n-----\n!!! example \"Iterating over the `fetch()` generator\"\n    You typically fetch results by saying:\n\n        i = 0\n        for tup in S.results():\n            do_something(tup[0])\n            do_something_else(tup[1])\n\n    Alternatively, you can set the `limit` parameter, to ask for just so many\n    results. They will be fetched, and when they are all collected,\n    returned as a tuple.\n\n!!! example \"Fetching a limited amount of results\"\n    This\n\n        S.fetch(limit=10)\n\n    gives you the first 10 results without further ado.",
+                        "description": "Retrieves query results, up to a limit.\n\nMust be called after a previous `tf.search.search.Search.search()` or\n`tf.search.search.Search.study()`.\n\nParameters\n----------\n\nlimit: integer, optional None\n    If `limit` is a positive number, it will fetch only that many results.\n    If it is negative, 0, None, or absent, it will fetch arbitrary many results.\n\n    !!! caution \"there is an upper *fail limit* for safety reasons.\n        The limit is a factor times the max node in your corpus.\n        See `tf.parameters.SEARCH_FAIL_FACTOR`.\n        If this *fail limit* is exceeded in cases where no positive `limit`\n        has been passed, you get a warning message.\n\n\nReturns\n-------\ngenerator | tuple\n    Each result is a tuple of nodes, where each node corresponds to an\n    *atom*-line in your search template (see `tf.about.searchusage`).\n\n    If `limit` is `None`, a *generator* is returned,\n    which yields the results one by one.\n\n    Otherwise, the results will be fetched up till `limit`\n    and delivered as a tuple.\n\nNotes\n-----\n!!! example \"Iterating over the `fetch()` generator\"\n    You typically fetch results by saying:\n\n        i = 0\n        for tup in S.results():\n            do_something(tup[0])\n            do_something_else(tup[1])\n\n    Alternatively, you can set the `limit` parameter, to ask for just so many\n    results. They will be fetched, and when they are all collected,\n    returned as a tuple.\n\n!!! example \"Fetching a limited amount of results\"\n    This\n\n        S.fetch(limit=10)\n\n    gives you the first 10 results without further ado.",
                         "parsed": []
                       },
                       "parameters": [
@@ -12786,7 +12786,7 @@
                       "signature": "(self, searchTemplate: str, limit: int | None = None, sets: dict[(str, set[int])] | None = None, shallow: bool | int = False, silent: str = {'cls': 'ExprName', 'member': None, 'name': 'SILENT_D'}, here: bool = True, _msgCache: bool | list[Any] = False)",
                       "docstring": {
                         "summary": "Searches for combinations of nodes that together match a search template.",
-                        "description": "Searches for combinations of nodes that together match a search template.\n\nIf you can, you should use `tf.advanced.search.search` instead.\n\nParameters\n----------\nsearchTemplate: string\n    A string that conforms to the rules described in `tf.about.searchusage`.\n\nshallow: set | tuple\n    If `True` or `1`, the result is a set of things that match the\n    top-level element of the `query`.\n\n    If `2` or a bigger number `n`, return the set of truncated result tuples:\n    only the first `n` members of each tuple is retained.\n\n    If `False` or `0`, a sorted list of all result tuples will be returned.\n\nsets: dict\n    If not `None`, it should be a dictionary of sets, keyed by a names.\n\nlimit: integer, optional None\n    If `limit` is a positive number, it will fetch only that many results.\n    If it is negative, 0, None, or absent, it will fetch arbitrary many results.\n\n    !!! caution \"there is an upper *fail limit* for safety reasons.\n        The limit is a factor times the max node in your corpus.\n        See `tf.parameters.SEARCH_FAIL_FACTOR`.\n        If this *fail limit* is exceeded in cases where no positive `limit`\n        has been passed, you get a warning message.\n\nReturns\n-------\ngenerator | tuple\n    Each result is a tuple of nodes, where each node corresponds to an\n    *atom*-line in your search template (see `tf.about.searchusage`).\n\n    If `limit` is not `None`, a *generator* is returned,\n    which yields the results one by one.\n\n    Otherwise, the results will be fetched up till `limit`\n    and delivered as a tuple.\n\nNotes\n-----\n!!! hint \"More info on the search plan\"\n    Searching is complex. The search template must be parsed, interpreted,\n    and translated into a search plan. See `tf.search.search.Search.study`.",
+                        "description": "Searches for combinations of nodes that together match a search template.\n\nIf you can, you should use `tf.advanced.search.search` instead.\n\nParameters\n----------\nsearchTemplate: string\n    A string that conforms to the rules described in `tf.about.searchusage`.\n\nshallow: set | tuple\n    If `True` or `1`, the result is a set of things that match the\n    top-level element of the `query`.\n\n    If `2` or a bigger number `n`, return the set of truncated result tuples:\n    only the first `n` members of each tuple is retained.\n\n    If `False` or `0`, a sorted list of all result tuples will be returned.\n\nsets: dict\n    If not `None`, it should be a dictionary of sets, keyed by a names.\n\nlimit: integer, optional None\n    If `limit` is a positive number, it will fetch only that many results.\n    If it is negative, 0, None, or absent, it will fetch arbitrary many results.\n\n    !!! caution \"there is an upper *fail limit* for safety reasons.\n        The limit is a factor times the max node in your corpus.\n        See `tf.parameters.SEARCH_FAIL_FACTOR`.\n        If this *fail limit* is exceeded in cases where no positive `limit`\n        has been passed, you get a warning message.\n\nReturns\n-------\ngenerator | tuple\n    Each result is a tuple of nodes, where each node corresponds to an\n    *atom*-line in your search template (see `tf.about.searchusage`).\n\n    If `limit` is `None`, a *generator* is returned,\n    which yields the results one by one.\n\n    Otherwise, the results will be fetched up till `limit`\n    and delivered as a tuple.\n\nNotes\n-----\n!!! hint \"More info on the search plan\"\n    Searching is complex. The search template must be parsed, interpreted,\n    and translated into a search plan. See `tf.search.search.Search.study`.",
                         "parsed": []
                       },
                       "parameters": [
@@ -22518,8 +22518,8 @@
                   },
                   "decorators": [
                     {
-                      "endlineno": 61,
-                      "lineno": 61,
+                      "endlineno": 90,
+                      "lineno": 90,
                       "value": {
                         "cls": "ExprName",
                         "member": null,
@@ -22587,6 +22587,48 @@
                   }
                 }
               }
+            },
+            "_Current": {
+              "name": "_Current",
+              "kind": "class",
+              "path": "",
+              "docstring": {
+                "summary": "`corpus_manager` as the tools see it: the registry bound now.",
+                "description": "`corpus_manager` as the tools see it: the registry bound now.",
+                "parsed": []
+              },
+              "bases": [],
+              "methods": {
+                "__getattr__": {
+                  "name": "__getattr__",
+                  "kind": "function",
+                  "signature": "(self, name: str)",
+                  "docstring": {
+                    "summary": "",
+                    "description": "",
+                    "sections": {}
+                  },
+                  "parameters": [
+                    {
+                      "name": "self",
+                      "type": "",
+                      "default": null,
+                      "kind": "positional or keyword"
+                    },
+                    {
+                      "name": "name",
+                      "type": "str",
+                      "default": null,
+                      "kind": "positional or keyword"
+                    }
+                  ],
+                  "returns": {
+                    "type": "Any"
+                  },
+                  "decorators": []
+                }
+              },
+              "attributes": {}
             }
           },
           "functions": {
@@ -23162,6 +23204,38 @@
                 "type": "None"
               },
               "decorators": []
+            },
+            "using": {
+              "name": "using",
+              "kind": "function",
+              "signature": "(registry: Any)",
+              "docstring": {
+                "summary": "Run the tools in this block on `registry` instead of the server's.",
+                "description": "Run the tools in this block on `registry` instead of the server's.",
+                "parsed": []
+              },
+              "parameters": [
+                {
+                  "name": "registry",
+                  "type": "Any",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "Iterator[None]"
+              },
+              "decorators": [
+                {
+                  "endlineno": 34,
+                  "lineno": 34,
+                  "value": {
+                    "cls": "ExprName",
+                    "member": null,
+                    "name": "contextmanager"
+                  }
+                }
+              ]
             }
           },
           "modules": {},
@@ -23178,6 +23252,10 @@
               "name": "CachedSearchResult",
               "target": "cfabric_mcp.cache.CachedSearchResult"
             },
+            "ContextVar": {
+              "name": "ContextVar",
+              "target": "contextvars.ContextVar"
+            },
             "CorpusInfo": {
               "name": "CorpusInfo",
               "target": "cfabric.results.CorpusInfo"
@@ -23185,6 +23263,10 @@
             "FeatureInfo": {
               "name": "FeatureInfo",
               "target": "cfabric.results.FeatureInfo"
+            },
+            "Iterator": {
+              "name": "Iterator",
+              "target": "collections.abc.Iterator"
             },
             "NodeInfo": {
               "name": "NodeInfo",
@@ -23194,9 +23276,17 @@
               "name": "TYPE_CHECKING",
               "target": "typing.TYPE_CHECKING"
             },
+            "_corpus_manager": {
+              "name": "_corpus_manager",
+              "target": "cfabric_mcp.corpus_manager.corpus_manager"
+            },
             "annotations": {
               "name": "annotations",
               "target": "__future__.annotations"
+            },
+            "contextmanager": {
+              "name": "contextmanager",
+              "target": "contextlib.contextmanager"
             },
             "core_describe_feature": {
               "name": "core_describe_feature",
@@ -23205,10 +23295,6 @@
             "core_list_features": {
               "name": "core_list_features",
               "target": "cfabric.describe.list_features"
-            },
-            "corpus_manager": {
-              "name": "corpus_manager",
-              "target": "cfabric_mcp.corpus_manager.corpus_manager"
             },
             "defaultdict": {
               "name": "defaultdict",

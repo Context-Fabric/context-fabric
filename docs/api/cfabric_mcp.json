@@ -2225,8 +2225,8 @@
               },
               "decorators": [
                 {
-                  "endlineno": 61,
-                  "lineno": 61,
+                  "endlineno": 90,
+                  "lineno": 90,
                   "value": {
                     "cls": "ExprName",
                     "member": null,
@@ -2294,6 +2294,48 @@
               }
             }
           }
+        },
+        "_Current": {
+          "name": "_Current",
+          "kind": "class",
+          "path": "",
+          "docstring": {
+            "summary": "`corpus_manager` as the tools see it: the registry bound now.",
+            "description": "`corpus_manager` as the tools see it: the registry bound now.",
+            "parsed": []
+          },
+          "bases": [],
+          "methods": {
+            "__getattr__": {
+              "name": "__getattr__",
+              "kind": "function",
+              "signature": "(self, name: str)",
+              "docstring": {
+                "summary": "",
+                "description": "",
+                "sections": {}
+              },
+              "parameters": [
+                {
+                  "name": "self",
+                  "type": "",
+                  "default": null,
+                  "kind": "positional or keyword"
+                },
+                {
+                  "name": "name",
+                  "type": "str",
+                  "default": null,
+                  "kind": "positional or keyword"
+                }
+              ],
+              "returns": {
+                "type": "Any"
+              },
+              "decorators": []
+            }
+          },
+          "attributes": {}
         }
       },
       "functions": {
@@ -2869,6 +2911,38 @@
             "type": "None"
           },
           "decorators": []
+        },
+        "using": {
+          "name": "using",
+          "kind": "function",
+          "signature": "(registry: Any)",
+          "docstring": {
+            "summary": "Run the tools in this block on `registry` instead of the server's.",
+            "description": "Run the tools in this block on `registry` instead of the server's.",
+            "parsed": []
+          },
+          "parameters": [
+            {
+              "name": "registry",
+              "type": "Any",
+              "default": null,
+              "kind": "positional or keyword"
+            }
+          ],
+          "returns": {
+            "type": "Iterator[None]"
+          },
+          "decorators": [
+            {
+              "endlineno": 34,
+              "lineno": 34,
+              "value": {
+                "cls": "ExprName",
+                "member": null,
+                "name": "contextmanager"
+              }
+            }
+          ]
         }
       },
       "modules": {},
@@ -2885,6 +2959,10 @@
           "name": "CachedSearchResult",
           "target": "cfabric_mcp.cache.CachedSearchResult"
         },
+        "ContextVar": {
+          "name": "ContextVar",
+          "target": "contextvars.ContextVar"
+        },
         "CorpusInfo": {
           "name": "CorpusInfo",
           "target": "cfabric.results.CorpusInfo"
@@ -2892,6 +2970,10 @@
         "FeatureInfo": {
           "name": "FeatureInfo",
           "target": "cfabric.results.FeatureInfo"
+        },
+        "Iterator": {
+          "name": "Iterator",
+          "target": "collections.abc.Iterator"
         },
         "NodeInfo": {
           "name": "NodeInfo",
@@ -2901,9 +2983,17 @@
           "name": "TYPE_CHECKING",
           "target": "typing.TYPE_CHECKING"
         },
+        "_corpus_manager": {
+          "name": "_corpus_manager",
+          "target": "cfabric_mcp.corpus_manager.corpus_manager"
+        },
         "annotations": {
           "name": "annotations",
           "target": "__future__.annotations"
+        },
+        "contextmanager": {
+          "name": "contextmanager",
+          "target": "contextlib.contextmanager"
         },
         "core_describe_feature": {
           "name": "core_describe_feature",
@@ -2912,10 +3002,6 @@
         "core_list_features": {
           "name": "core_list_features",
           "target": "cfabric.describe.list_features"
-        },
-        "corpus_manager": {
-          "name": "corpus_manager",
-          "target": "cfabric_mcp.corpus_manager.corpus_manager"
         },
         "defaultdict": {
           "name": "defaultdict",
