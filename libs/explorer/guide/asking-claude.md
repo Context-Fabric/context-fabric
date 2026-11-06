@@ -43,7 +43,7 @@ You need a recent Claude Desktop. The extension needs nothing else: no Python an
 }
 ```
 
-On a Mac the command is `/Applications/CACCHT Explorer.app/Contents/MacOS/cfabric-browser`; on Linux, the path of `cfabric-browser/cfabric-browser`.
+On a Mac the command is `/Applications/CACCHT Explorer.app/Contents/MacOS/cfabric-browser`; on Linux, the path of `cfabric-browser/cfabric-browser`. Installed with pip, the command is the full path of `caccht-explorer`: in the terminal where you installed it, `where caccht-explorer` (Windows) or `which caccht-explorer` (Mac, Linux) gives it.
 
 ### In Claude Code
 
@@ -53,7 +53,7 @@ In a terminal, once:
 claude mcp add --transport http context-fabric http://127.0.0.1:8107/mcp
 ```
 
-8107 is the program's usual port. If another program had taken it, the log (`.cfabric/logs/cfabric-browser.log` in your home folder) gives the address with the port the Explorer uses.
+8107 is the program's usual port. If another program had taken it, the log (`.cfabric/logs/cfabric-browser.log` in your home folder) gives the address with the port the Explorer uses; installed with pip, the terminal shows it.
 
 ### In ChatGPT or Codex
 
@@ -86,7 +86,7 @@ args = ["mcp"]
 tool_timeout_sec = 300
 ```
 
-That is the path on a Mac. On Windows, write the path with single quotes, such as `command = 'C:\path\to\cfabric-browser\cfabric-browser.exe'`; on Linux, the path of `cfabric-browser/cfabric-browser`. On a Mac the folder `.codex` is hidden: in the Finder, choose *Go → Go to Folder…* and type `~/.codex`. On Windows it is `C:\Users\<your name>\.codex`.
+That is the path on a Mac. On Windows, write the path with single quotes, such as `command = 'C:\path\to\cfabric-browser\cfabric-browser.exe'`; on Linux, the path of `cfabric-browser/cfabric-browser`. Installed with pip, use the full path of `caccht-explorer`, as for Claude Desktop. On a Mac the folder `.codex` is hidden: in the Finder, choose *Go → Go to Folder…* and type `~/.codex`. On Windows it is `C:\Users\<your name>\.codex`.
 
 The first question can take longer than ChatGPT waits for a tool by default (a minute), because the Explorer may still have to open its corpora. If ChatGPT reports that the tool timed out, ask again. To make it wait longer, add the line `tool_timeout_sec = 300` under `[mcp_servers.caccht-explorer]` in `config.toml`, as above.
 
