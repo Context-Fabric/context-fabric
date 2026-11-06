@@ -25,6 +25,7 @@ export const PAGES = [
   "reading",
   "words",
   "searching",
+  "search-examples",
   "concordance",
   "asking-claude",
   "adding-texts",
