@@ -1,6 +1,6 @@
 # Searching
 
-The Explorer searches with **search templates**, the search language of Text-Fabric. A template describes what you look for, one object per line: a word with certain features, a phrase with a certain function, a clause that contains both. You can write one yourself, have one made from words you click (*Search terms*), or [ask Claude or ChatGPT](asking-claude.md) for one.
+The Explorer searches with **search templates**, the search language of Text-Fabric. A template describes what you look for, one object per line: a word with certain features, a phrase with a certain function, a clause that contains both. You can write one yourself, have one made from words you click (*Search terms*), or [ask Claude or ChatGPT](asking-claude.md) for one. [Search examples](search-examples.md) has fifty templates to start from.
 
 In Parallel, *Search* in the top bar opens the search, which shows each result as a verse in all the texts. Panes have a *Search* view, and the [Concordance](concordance.md) shows results as lines with the hit in the middle. A search goes along when you switch between them.
 
@@ -149,6 +149,8 @@ phrase function=Subj
 ### What is counted
 
 A result is a combination of objects, one for each line of the template. So `verse` with two words under it gives a result for every pair of such words in a verse, not one per verse: *verses with both אלהים and ברא* gives 21 results, in 12 verses. Put what you want to count at the top, or alone.
+
+More templates, with relations such as “starts at the same word” and comparisons of features, are in [Search examples](search-examples.md).
 
 ### When a template is wrong
 
