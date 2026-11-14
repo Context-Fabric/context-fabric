@@ -1,23 +1,19 @@
-**A test version.** CACCHT Explorer, a program of its own for reading, searching and comparing the Hebrew Bible (BHSA), the Samaritan Pentateuch and the Dead Sea Scrolls side by side. You don't need to install Python. Please report what goes wrong, and what you would like to see, in an [issue](https://github.com/Context-Fabric/context-fabric/issues) or by email to [martijn.naaijer@uzh.ch](mailto:martijn.naaijer@uzh.ch).
+**The first release of CACCHT Explorer**, a program of its own for reading, searching and comparing the Hebrew Bible (BHSA), the Samaritan Pentateuch and the Dead Sea Scrolls side by side. You don't need to install Python. Please report what goes wrong, and what you would like to see, in an [issue](https://github.com/Context-Fabric/context-fabric/issues) or by email to [martijn.naaijer@uzh.ch](mailto:martijn.naaijer@uzh.ch).
 
 **How to use it** is in the [guide to CACCHT Explorer](https://caccht.github.io/explorer/), also inside the program: *Guide to …* at the bottom of the menu at the top right. Start with [Getting started](https://caccht.github.io/explorer/getting-started.html).
 
-## What is new
+## What it does
 
-- **Since test.15: fixes.** The Reader no longer shows the wrong chapter after › and then ‹ when a verse is selected. An old link to a text that isn't open no longer stays at *Opening…*. The Interlinear no longer jumps back to the verse of the link when you change a setting. A search no longer fails now and then with "The search process stopped unexpectedly". Adding a translation that fails keeps the earlier one, and a download that was cut off no longer leaves a partial file.
-- Since test.15: faster. The program starts with less than half the code it loaded before, hovering over words is smoother in long texts, and the Concordance keeps up with a long search.
-- Since test.15: other web sites can no longer send the program requests.
-- Since test.15: the setup for ChatGPT in the guide inside the program is the corrected one from the website: connect the desktop app [by address](https://caccht.github.io/explorer/asking-claude.html#in-chatgpt-or-codex).
-- **Since test.14: asking ChatGPT.** Besides Claude, you can now ask ChatGPT for a search, in the ChatGPT desktop app or in Codex, with your own ChatGPT subscription: see [In ChatGPT or Codex](https://caccht.github.io/explorer/asking-claude.html#in-chatgpt-or-codex). Not yet tried with ChatGPT itself, so please tell us how it goes. A search shows which app proposed it, also when the model doesn't say.
-- Since test.14: the guide's example of "only proper names" in [Searching](https://caccht.github.io/explorer/searching.html#without-and-for-all) was wrong (it found subjects with at least one proper name); corrected, and the same in what Claude and ChatGPT are told about searching.
-- Since test.14: asking from Claude Desktop and ChatGPT no longer fails when the Explorer still has to start; a trial search that takes too long says how to make it faster.
-- Since test.13: the guide is written, with screenshots: getting started, the datasets, the five ways of working, reading and comparing, words, searching (with a short course in search templates), the Concordance, asking Claude, adding texts, notes, workspaces and citing, and questions and problems. The instructions for asking Claude moved from these notes to the guide.
-- Since test.12: a new name. The program is now called CACCHT Explorer; Context-Fabric remains the name of the engine underneath. On a Mac, the app is `CACCHT Explorer.app`: you may delete the old `Context-Fabric.app`. In Claude Desktop, install `CACCHT-Explorer.mcpb`; it takes the place of the old extension.
-- Since test.11: in the Samaritan Pentateuch, hovering over a word shows the word, not a single letter.
-- Since test.10: *Search* opens on *Template* instead of *Search terms*.
-- Since test.9: faster searching, on the new core of Context-Fabric, written in Rust. The first time you open a corpus after updating from test.9 or earlier, the program prepares it once more; the `.cfm` folders next to the corpora are no longer used, and you may delete them.
+- **Five ways of working:** Parallel (verses of several texts next to each other), Panes, Reader, Interlinear and Concordance, with one menu to switch between them at the same passage.
+- **Comparing:** differences between the Masoretic text, the Samaritan Pentateuch and the scrolls marked word by word, and the scrolls read by biblical book.
+- **Words:** hover over a word for its gloss, lexeme and morphology; a lexicon of the BHSA with the BDB dictionary (added from the library).
+- **Searching** with search templates, with a short course and fifty examples in the guide, and results to inspect, cite and download.
+- **Asking in your own words:** Claude or ChatGPT proposes a search with your own subscription, and the Explorer runs it.
+- **The JPS 1917 translation** as an optional text, and notes and workspaces that stay on your computer.
 
-Earlier: asking Claude for a search in your own words (test.9), the BDB dictionary and the choice between vocalized and unvocalized text (test.7), downloading the corpora in the program (test.6), the JPS 1917 translation (test.5), and the five ways of working (test.3).
+## Updating from a test version
+
+Put the new version where the old one was; the corpora, your settings, notes and workspaces stay. Since the test versions, the guide has a chapter [Search examples](https://caccht.github.io/explorer/search-examples.html) and says how to install the Explorer with pip. If you come from test.12 or earlier: on a Mac you may delete the old `Context-Fabric.app`, and in Claude Desktop install `CACCHT-Explorer.mcpb` in place of the old extension. From test.9 or earlier, the program prepares each corpus once more, and you may delete the `.cfm` folders next to the corpora.
 
 ## Download
 
@@ -44,6 +40,6 @@ If the program doesn't start, see [Questions and problems](https://caccht.github
 
 ## Known limitations
 
-- On macOS and Linux, the window hasn't been tried by many people yet.
 - Only the BHSA, the Samaritan Pentateuch and the Dead Sea Scrolls are offered; other corpora on your computer are not.
-- Asking Claude has been tried with test clients and by few people with Claude itself; asking ChatGPT not yet with ChatGPT itself.
+- On macOS and Linux, the window has been tried by fewer people than on Windows.
+- Asking ChatGPT has been tried by few people with ChatGPT itself.

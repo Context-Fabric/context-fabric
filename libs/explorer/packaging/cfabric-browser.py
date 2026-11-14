@@ -10,7 +10,7 @@ from cfabric_browser.cli import main
 
 LOG = Path.home() / ".cfabric" / "logs" / "cfabric-browser.log"
 
-# The test version offers only these corpora (--only); empty for all of them.
+# The program offers only these corpora (--only); empty for all of them.
 # Context-Fabric/jps1917 is the translation that can be added from the library.
 CORPORA = ["ETCBC/bhsa", "DT-UCPH/sp", "ETCBC/dss", "Context-Fabric/jps1917"]
 
@@ -69,8 +69,8 @@ if __name__ == "__main__":
     unblock_libraries()
     try:
         only = [arg for corpus in CORPORA for arg in ("--only", corpus)]
-        # the test version starts in the parallel interface; the switch in its
-        # top bar goes to the panes, and the window remembers the choice
+        # the program starts in the parallel interface; the menu in its top
+        # bar goes to the other interfaces, and the window remembers the choice
         # and offers to download the corpora that are missing
         status = main(
             ["--window", "--ui", "parallel", "--ask-downloads", *only, *sys.argv[1:]]
