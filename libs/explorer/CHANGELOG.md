@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- The library no longer shows a translation, dictionary or corpus as not there when its job ended just as the library asked; it stopped asking then, so the button stayed until the page was reloaded. The route now reads the job before the files. This also made `test_add_and_remove_a_translation` fail now and then in CI.
+
 ### Changed
 - The standalone program gets its first release, desktop 0.1.1 (no longer a pre-release); `browser-desktop.yml` publishes a tag with `-test` as a pre-release and any other `desktop-v*` tag as a release. The guide, the release notes and the README no longer call it a test version; the Claude Desktop extension is version 0.1.1.
 - The guide says how to install the Explorer with pip (*Getting started*: *With Python (pip)*, updating and removing; where the settings and messages are then) and which command to give Claude Desktop and Codex then (the full path of `caccht-explorer`).
