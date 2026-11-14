@@ -56,6 +56,25 @@ The server provides 10 tools for discovery, search, and data access—designed f
 
 ---
 
+## CACCHT Explorer
+
+**CACCHT Explorer** is a program for reading, searching and comparing corpora side by side (BHSA, Samaritan Pentateuch, Dead Sea Scrolls, …), built on Context-Fabric. It runs on your own computer and works offline. It has five interfaces (Parallel, Panes, Reader, Interlinear, Concordance), a lexicon, optional BDB and the JPS 1917 translation, and lets Claude or ChatGPT propose searches.
+
+- **Standalone program** (no Python needed): a test version for Windows, macOS and Linux, under [Releases](https://github.com/Context-Fabric/context-fabric/releases) (the `desktop-v…` pre-releases).
+- **With pip** (Python 3.13 or newer):
+
+  ```bash
+  pip install "cfabric-browser[window]"
+  caccht-explorer download bhsa sp dss    # get the corpora, once
+  caccht-explorer                         # start it
+  ```
+
+  For faster searching, also install the Rust core, still a release candidate: `pip install --pre "context-fabric==0.6.0rc1"`.
+
+→ [Guide to CACCHT Explorer](https://caccht.github.io/explorer/) · [Explorer README](libs/explorer/README.md) (options, API, development)
+
+---
+
 ## Memory Efficiency
 
 Text-Fabric loads entire corpora into memory—effective for single-user research, but each parallel worker duplicates that memory footprint. Context-Fabric's memory-mapped arrays change the equation:
@@ -150,12 +169,14 @@ cfabric-bench memory --corpus path/to/corpus
 |---------|-------------|
 | [context-fabric](libs/core/) | Core graph engine |
 | [cfabric-mcp](libs/mcp/) | MCP server for AI agents |
+| [cfabric-browser](libs/explorer/) | CACCHT Explorer: reading, searching and comparing corpora |
 | [cfabric-benchmarks](libs/benchmarks/) | Performance benchmarking suite |
 
 ## Links
 
 - [Core Changelog](libs/core/CHANGELOG.md)
 - [MCP Changelog](libs/mcp/CHANGELOG.md)
+- [Explorer Changelog](libs/explorer/CHANGELOG.md)
 - [Benchmarks Changelog](libs/benchmarks/CHANGELOG.md)
 - [Testing Guide](TESTING.md)
 
