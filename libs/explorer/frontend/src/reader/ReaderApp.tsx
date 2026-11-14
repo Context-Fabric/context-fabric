@@ -11,6 +11,7 @@ import { InterfaceMenu } from "../InterfaceMenu";
 import { Library } from "../Library";
 import { settingsFor } from "../parallel/Table";
 import { firstChapter, useCards, useReference } from "../shared/corpora";
+import { Margin } from "../shared/Margin";
 import { Mark } from "../shared/Mark";
 import { Navigate } from "../shared/Navigate";
 import { emptyPane, useSettings, useTheme } from "../state";
@@ -90,7 +91,7 @@ function Chapter({ card, chapter, settings, mode, selected, marks, onSelect, onW
           <span
             dir="ltr"
             className="ms-1 text-[11px] text-stone"
-            title="This verse's number in the 1917 print, which divides the verses differently here"
+            title="This verse's number in the translation's print, which divides the verses differently here"
           >
             ({data.printeds[tree.node]} in the print)
           </span>
@@ -117,7 +118,10 @@ function Chapter({ card, chapter, settings, mode, selected, marks, onSelect, onW
         <span dir="ltr" className="w-7 shrink-0 pt-1 text-end text-[12px] tabular-nums text-stone">
           {number}
         </span>
-        <span className="flex-1">{content}</span>
+        <span className="flex-1">
+          {content}
+          {data.margins?.[tree.node] ? <Margin text={data.margins[tree.node]} /> : null}
+        </span>
       </p>
     );
   };

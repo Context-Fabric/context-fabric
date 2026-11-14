@@ -257,6 +257,8 @@ export const api = {
       /** A translation: per verse node, a note printed after it, and its number in the print. */
       notes?: Record<string, string>;
       printeds?: Record<string, string>;
+      /** The translators' notes on each verse (the Statenvertaling's kanttekeningen), " | " between them. */
+      margins?: Record<string, string>;
     }>(`${corpusPath(corpus)}/passage${query({ ref, ...params })}`),
 
   nodeSummary: (corpus: string, node: number) => request<NodeSummary>(`${corpusPath(corpus)}/nodes/${node}/summary`),

@@ -24,6 +24,8 @@ export interface Fragment {
   base?: boolean;
   /** Reconstructed by a modern editor (DSS); shown dimmed. */
   dim?: boolean;
+  /** A word the translators added (the Statenvertaling's italics). */
+  added?: boolean;
   children?: Fragment[];
 }
 
@@ -302,6 +304,8 @@ export interface ParallelChapter {
         note?: string;
         /** A translation: the verse's number in the print, where it divides differently. */
         printed?: string;
+        /** A translation: the translators' notes on the verse (the Statenvertaling's kanttekeningen). */
+        margin?: string;
       }
     >;
   }[];

@@ -1,6 +1,6 @@
 # The datasets
 
-The Explorer reads annotated corpora: texts in which every word carries its lexeme, part of speech, morphology and more, and in which words are grouped into phrases, clauses and verses. It offers three corpora, which it downloads at the [first start](getting-started.md#the-first-start), and a translation and a dictionary that you can add.
+The Explorer reads annotated corpora: texts in which every word carries its lexeme, part of speech, morphology and more, and in which words are grouped into phrases, clauses and verses. It offers three corpora, which it downloads at the [first start](getting-started.md#the-first-start), and translations and a dictionary that you can add.
 
 | Dataset | Version | In the Explorer | Licence |
 |---|---|---|---|
@@ -8,6 +8,7 @@ The Explorer reads annotated corpora: texts in which every word carries its lexe
 | [Samaritan Pentateuch](#the-samaritan-pentateuch) | 7.2.4 | downloaded at the first start | CC BY-NC 4.0 |
 | [Dead Sea Scrolls](#the-dead-sea-scrolls) | 2.0.1 | downloaded at the first start | CC BY-NC 4.0 |
 | [JPS 1917](#the-jps-1917-translation) (English) | 1917 | can be added | public domain in the US |
+| [Statenvertaling](#the-statenvertaling) (Dutch) | 1888 edition | can be added | public domain |
 | [BDB](#the-bdb-dictionary) (dictionary) | 1.0 | can be added | CC BY-NC 4.0 |
 
 The Samaritan Pentateuch and the Dead Sea Scrolls are CACCHT datasets: their cards on [caccht.github.io](https://caccht.github.io/#corpora) give the repository, the DOI of each release and the licence, and the [data-use statement](https://caccht.github.io/data-use.html) says how they may be used. All three corpora are free for research and teaching; CC BY-NC 4.0 means you may share and adapt them, not commercially, if you name the source.
@@ -60,6 +61,17 @@ What the signs mean:
 - In three places the 1917 print joins verses that the BHSA divides (the Ten Commandments in Exodus 20 and Deuteronomy 5, and Numbers 25:19 with 26:1). The Explorer divides them as the BHSA does and shows the print's number next to those verses.
 - It is left out of *Differences* and of the hover card: it is a translation, not a witness.
 - It is in the public domain in the United States; elsewhere that depends on the translators' dates.
+
+## The Statenvertaling
+
+The Dutch translation of 1637, ordered by the States General after the Synod of Dort, in the text of the 1888 edition. Add it in *Texts → Add a text…*, under *Translations*: the program downloads it from [GitHub](https://github.com/jajpater/statenvertaling), about 30 MB, and prepares it in about half a minute. See [Adding texts](adding-texts.md).
+
+- Its verses are lined up with the BHSA's. Where the Statenvertaling divides the chapters otherwise (Malachi has four chapters, Joel three, and many chapter boundaries lie a few verses apart), the Explorer shows its own number next to the verse, such as `(4:1 in the print)` at Malachi 3:19. In six places a verse is divided or joined to match the Hebrew, for instance Nehemiah 7:68, the horses and mules, which the Hebrew doesn't have.
+- The words the translators added, printed in italics, are in italics here too.
+- The translators' notes, the *kanttekeningen*, are under each verse: click *Kanttekeningen* to read them.
+- Every word that translates a Hebrew word carries its Strong's number (except in Hosea). The Explorer doesn't use them yet; they were used to check that every verse is lined up with the right Hebrew verse.
+- It is left out of *Differences* and of the hover card.
+- The translation is in the public domain, and the transcription of Isidore-Guild and jajpater is dedicated to the public domain (CC0).
 
 ## The BDB dictionary
 

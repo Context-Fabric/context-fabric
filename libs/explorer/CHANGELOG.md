@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- The **Statenvertaling** as a translation that can be added from the library (or `cfabric-browser add statenvertaling`): the Dutch translation of 1637 in the text of the 1888 edition, from the CC0 OSIS transcription by Isidore-Guild and jajpater, pinned by commit and checksum. Its verses are lined up with the BHSA's by their order in each book, with six verses divided or joined by hand, and its own numbers kept in `printed`; checked against the Hebrew with the words' Strong's numbers (all 23,014 verses that have them). Added words are shown in italics, and the translators' notes (*kanttekeningen*) under each verse in Parallel and the Reader. The builder reads OSIS besides Sefaria's JSON. The standalone program offers it, and `packaging/translation-test.sh` adds it too.
+
 ### Changed
 - The standalone program gets its first release, desktop 0.1.1 (no longer a pre-release); `browser-desktop.yml` publishes a tag with `-test` as a pre-release and any other `desktop-v*` tag as a release. The guide, the release notes and the README no longer call it a test version; the Claude Desktop extension is version 0.1.1.
 - The guide says how to install the Explorer with pip (*Getting started*: *With Python (pip)*, updating and removing; where the settings and messages are then) and which command to give Claude Desktop and Codex then (the full path of `caccht-explorer`).

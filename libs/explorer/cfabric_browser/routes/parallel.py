@@ -125,9 +125,10 @@ def build(ctx: Context) -> APIRouter:
                 dress_signs(api, tree["fragments"])
                 cell = cells.setdefault(key, {}).setdefault(name, {"trees": []})
                 cell["trees"].append(tree)
-                # a translation: a note printed after the verse, and the verse's
-                # number in the print where it is divided differently
-                for extra in ("note", "printed"):
+                # a translation: a note printed after the verse, the verse's
+                # number in the print where it is divided differently, and the
+                # translators' notes (the Statenvertaling's kanttekeningen)
+                for extra in ("note", "printed", "margin"):
                     if extra in api.Fall() and (value := api.Fs(extra).v(int(v))):
                         cell[extra] = value
 

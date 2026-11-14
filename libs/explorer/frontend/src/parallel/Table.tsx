@@ -3,6 +3,7 @@ import { DisplayProvider, displayRef, Plain } from "../display/Display";
 import type { PaneDiff } from "../differences";
 import { HoverCard, Hovering, useHover } from "../HoverCard";
 import { PlaceSummary } from "../read/BookView";
+import { Margin } from "../shared/Margin";
 import type { CorpusCard, ParallelChapter, ViewSettings } from "../types";
 
 // The chapter as a table, as in Parabible: a column per corpus and a row per
@@ -89,7 +90,7 @@ function CellView({
           {cell.printed ? (
             <span
               className="ms-1 text-[11px] text-stone"
-              title="This verse's number in the 1917 print, which divides the verses differently here"
+              title="This verse's number in the translation's print, which divides the verses differently here"
             >
               ({cell.printed} in the print)
             </span>
@@ -101,6 +102,7 @@ function CellView({
           [{cell.note}]
         </p>
       ) : null}
+      {cell.margin ? <Margin text={cell.margin} /> : null}
     </>
   );
 }

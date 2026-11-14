@@ -11,8 +11,15 @@ from cfabric_browser.cli import main
 LOG = Path.home() / ".cfabric" / "logs" / "cfabric-browser.log"
 
 # The program offers only these corpora (--only); empty for all of them.
-# Context-Fabric/jps1917 is the translation that can be added from the library.
-CORPORA = ["ETCBC/bhsa", "DT-UCPH/sp", "ETCBC/dss", "Context-Fabric/jps1917"]
+# Context-Fabric/jps1917 and Context-Fabric/statenvertaling are the
+# translations that can be added from the library.
+CORPORA = [
+    "ETCBC/bhsa",
+    "DT-UCPH/sp",
+    "ETCBC/dss",
+    "Context-Fabric/jps1917",
+    "Context-Fabric/statenvertaling",
+]
 
 
 def log_to_file() -> bool:
