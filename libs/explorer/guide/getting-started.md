@@ -2,11 +2,11 @@
 
 CACCHT Explorer is a program for reading, searching and comparing the Hebrew Bible (the BHSA), the Samaritan Pentateuch and the Dead Sea Scrolls, side by side. It runs on your own computer, needs no internet connection once the texts are there, and you don't need to install Python or anything else for it. It reads the same data as [Text-Fabric](https://annotation.github.io/text-fabric/), through Context-Fabric, the engine underneath.
 
-The Explorer is a test version. Please report what goes wrong, and what you would like to see, in an [issue](https://github.com/Context-Fabric/context-fabric/issues) or by email to [martijn.naaijer@uzh.ch](mailto:martijn.naaijer@uzh.ch).
+The Explorer is new, and still growing. Please report what goes wrong, and what you would like to see, in an [issue](https://github.com/Context-Fabric/context-fabric/issues) or by email to [martijn.naaijer@uzh.ch](mailto:martijn.naaijer@uzh.ch).
 
 ## Download
 
-The program is on the [releases page](https://github.com/Context-Fabric/context-fabric/releases) of Context-Fabric on GitHub. Take the newest release whose name begins with a version number (such as *0.1.0-test.13*), and under *Assets* the file for your computer:
+The program is on the [releases page](https://github.com/Context-Fabric/context-fabric/releases) of Context-Fabric on GitHub. Take the release marked *Latest* (such as *CACCHT Explorer 0.1.1*), and under *Assets* the file for your computer:
 
 | Computer | File |
 |---|---|

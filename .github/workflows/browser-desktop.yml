@@ -2,9 +2,11 @@ name: Browser desktop program
 
 # Builds cfabric-browser as a standalone program (PyInstaller, pywebview) on
 # Windows, macOS and Linux, smoke-tests each build, and tests the Windows build
-# once more on a runner where Python is out of reach. A tag desktop-v* (such as
-# desktop-v0.1.0-test.1) also publishes the builds as a GitHub pre-release, with
-# libs/explorer/packaging/RELEASE_NOTES.md as its text. Not browser-v*: that tag
+# once more on a runner where Python is out of reach. A tag desktop-v* also
+# publishes the builds as a GitHub release, with
+# libs/explorer/packaging/RELEASE_NOTES.md as its text: desktop-v0.1.1 as a
+# release (marked Latest), a test version such as desktop-v0.1.2-test.1 as a
+# pre-release. Not browser-v*: that tag
 # publishes the package on PyPI (publish.yml).
 
 on:
@@ -147,7 +149,7 @@ jobs:
             libs/explorer/tests/fixtures/display_corpus
 
   release:
-    name: Publish a pre-release
+    name: Publish the release
     if: startsWith(github.ref, 'refs/tags/desktop-v')
     needs: [build, clean-windows]
     runs-on: ubuntu-latest
@@ -167,12 +169,12 @@ jobs:
       # the Claude Desktop extension, which reaches the running program
       - run: python3 libs/explorer/packaging/mcpb/pack.py out/CACCHT-Explorer.mcpb
       - run: ls -l out
-      # desktop-v0.1.0-test.2 is released as "CACCHT Explorer 0.1.0-test.2"
+      # desktop-v0.1.1 is released as "CACCHT Explorer 0.1.1"
       - id: version
         run: echo "version=${GITHUB_REF_NAME#desktop-v}" >> "$GITHUB_OUTPUT"
       - uses: softprops/action-gh-release@v2
         with:
           name: CACCHT Explorer ${{ steps.version.outputs.version }}
           body_path: libs/explorer/packaging/RELEASE_NOTES.md
-          prerelease: true
+          prerelease: ${{ contains(github.ref_name, '-test') }}
           files: out/*

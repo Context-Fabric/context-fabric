@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- The standalone program gets its first release, desktop 0.1.1 (no longer a pre-release); `browser-desktop.yml` publishes a tag with `-test` as a pre-release and any other `desktop-v*` tag as a release. The guide, the release notes and the README no longer call it a test version; the Claude Desktop extension is version 0.1.1.
 - The guide says how to install the Explorer with pip (*Getting started*: *With Python (pip)*, updating and removing; where the settings and messages are then) and which command to give Claude Desktop and Codex then (the full path of `caccht-explorer`).
 
 ### Added
