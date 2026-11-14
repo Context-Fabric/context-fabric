@@ -6,7 +6,7 @@ The Explorer is new, and still growing. Please report what goes wrong, and what 
 
 ## Download
 
-The program is on the [releases page](https://github.com/Context-Fabric/context-fabric/releases) of Context-Fabric on GitHub. Take the release marked *Latest* (such as *CACCHT Explorer 0.1.1*), and under *Assets* the file for your computer:
+The program is on the [releases page](https://github.com/Context-Fabric/context-fabric/releases) of Context-Fabric on GitHub. Take the release marked *Latest* (such as *CACCHT Explorer 0.1.2*), and under *Assets* the file for your computer:
 
 | Computer | File |
 |---|---|

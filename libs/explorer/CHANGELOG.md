@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-14
+
 ### Added
 - The **Statenvertaling** as a translation that can be added from the library (or `cfabric-browser add statenvertaling`): the Dutch translation of 1637 in the text of the 1888 edition, from the CC0 OSIS transcription by Isidore-Guild and jajpater, pinned by commit and checksum. Its verses are lined up with the BHSA's by their order in each book, with six verses divided or joined by hand, and its own numbers kept in `printed`; checked against the Hebrew with the words' Strong's numbers (all 23,014 verses that have them). Added words are shown in italics, and the translators' notes (*kanttekeningen*) under each verse in Parallel and the Reader. The builder reads OSIS besides Sefaria's JSON. The standalone program offers it, and `packaging/translation-test.sh` adds it too.
 - The guide has a chapter *Search examples*: fifty search templates for the BHSA, from words to clauses, each with its number of results (checked on both cores), and a summary of conditions, relations and quantifiers. *Searching* links to it.
