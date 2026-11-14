@@ -83,7 +83,15 @@ Translations can be added as texts of their own, shown next to the Hebrew ones. 
 cfabric-browser add            # the translations that can be added
 cfabric-browser add jps1917
 cfabric-browser remove jps1917
+cfabric-browser add statenvertaling
 ```
+
+The second is the **Statenvertaling** (1637), in the text of the 1888 edition: the OSIS transcription by Isidore-Guild and jajpater (github.com/jajpater/statenvertaling, CC0), one file of 30 MB pinned by commit and checksum (`format="osis"` in `translations/catalog.py`). Its corpus is `Context-Fabric/statenvertaling/tf/1888`.
+
+- Its verses are numbered as the BHSA's by their order in each book: both have 23,213 verses in the 39 books, and in 34 books the counts per book are equal, so only chapter boundaries differ (Malachi 3:19 is 4:1 in the Statenvertaling). Six places are divided or joined by hand (`Split`s and `Join`s: Numbers 26:1, 1 Samuel 20:42, 1 Chronicles 12:4, Nehemiah 7:67–68 and 7:73–8:1, Isaiah 63:19–64:1). `printed` keeps the Statenvertaling's number wherever it differs (971 verses).
+- `tests/test_statenvertaling_alignment.py` (with `CFABRIC_REAL_CORPORA=1`, the source in `~/.cfabric/translations/statenvertaling` and the OSHB from the BDB build) compares each verse's Strong's numbers with the OSHB's lemmas of the verse with the same number: all 23,014 verses that have them match (Hosea has none in the source).
+- Words: `added` (1 on the words in italics, `transChange` in the source), `strong` (Strong's numbers, such as `H7225`; verb-form codes above 8674 left out). Verses: `margin`, the translators' notes (*kanttekeningen*, 44,813 on 18,806 verses), each `catchword — note`, separated by ` | `. Any other markup in a verse stops the build.
+- In the interfaces: added words in italics (`added` on render fragments, `witnesses.mark_added`), and *Kanttekeningen (n)* under a verse in Parallel and the Reader (`shared/Margin.tsx`; `margin` in `/parallel` cells, `margins` in `/passage`).
 
 - It is public domain in the United States, because it was published before 1931. Elsewhere that depends on the translators' dates; check the rules in your country.
 - It becomes an ordinary corpus in `~/text-fabric-data/github/Context-Fabric/jps1917/tf/1917`, which Text-Fabric can also open: words (`text`, `trailer`, and `lower` for searching, as in `word lower=lord`), verses, chapters and books with the BHSA's English book names.

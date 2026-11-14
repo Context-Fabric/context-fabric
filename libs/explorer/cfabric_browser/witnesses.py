@@ -216,6 +216,25 @@ def show_placeholders(text: str) -> str:
     return text
 
 
+ADDED = "added"  # on words of a translation: added by the translators
+
+
+def mark_added(api, fragments: list[dict[str, Any]]) -> None:
+    """Flag fragments of words the translators added (`added`)."""
+    added = api.Fs(ADDED).v
+    slotType = api.F.otype.slotType
+
+    def visit(frags: list[dict[str, Any]]) -> None:
+        for frag in frags:
+            children = frag.get("children")
+            if children:
+                visit(children)
+            elif "text" in frag and frag["type"] == slotType and added(frag["node"]):
+                frag["added"] = True
+
+    visit(fragments)
+
+
 def dress_signs(api, fragments: list[dict[str, Any]]) -> None:
     """Prepare the signs of a manuscript (DSS) in render tree fragments.
 
@@ -224,7 +243,12 @@ def dress_signs(api, fragments: list[dict[str, Any]]) -> None:
     whose slots are all reconstructed. Placeholders for lost and illegible
     text are shown as in the editions, and morpheme breaks are left out (see
     `PLACEHOLDERS`).
+
+    In a translation, words the translators added (`added`, the
+    Statenvertaling's italics) are flagged `added`.
     """
+    if ADDED in api.Fall():
+        mark_added(api, fragments)
     if RECONSTRUCTED not in api.Fall():
         return
     rec = api.Fs(RECONSTRUCTED).v

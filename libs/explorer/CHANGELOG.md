@@ -7,15 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- The library no longer shows a translation, dictionary or corpus as not there when its job ended just as the library asked; it stopped asking then, so the button stayed until the page was reloaded. The route now reads the job before the files. This also made `test_add_and_remove_a_translation` fail now and then in CI.
+### Added
+- The **Statenvertaling** as a translation that can be added from the library (or `cfabric-browser add statenvertaling`): the Dutch translation of 1637 in the text of the 1888 edition, from the CC0 OSIS transcription by Isidore-Guild and jajpater, pinned by commit and checksum. Its verses are lined up with the BHSA's by their order in each book, with six verses divided or joined by hand, and its own numbers kept in `printed`; checked against the Hebrew with the words' Strong's numbers (all 23,014 verses that have them). Added words are shown in italics, and the translators' notes (*kanttekeningen*) under each verse in Parallel and the Reader. The builder reads OSIS besides Sefaria's JSON. The standalone program offers it, and `packaging/translation-test.sh` adds it too.
+- The guide has a chapter *Search examples*: fifty search templates for the BHSA, from words to clauses, each with its number of results (checked on both cores), and a summary of conditions, relations and quantifiers. *Searching* links to it.
 
 ### Changed
 - The standalone program gets its first release, desktop 0.1.1 (no longer a pre-release); `browser-desktop.yml` publishes a tag with `-test` as a pre-release and any other `desktop-v*` tag as a release. The guide, the release notes and the README no longer call it a test version; the Claude Desktop extension is version 0.1.1.
 - The guide says how to install the Explorer with pip (*Getting started*: *With Python (pip)*, updating and removing; where the settings and messages are then) and which command to give Claude Desktop and Codex then (the full path of `caccht-explorer`).
 
-### Added
-- The guide has a chapter *Search examples*: fifty search templates for the BHSA, from words to clauses, each with its number of results (checked on both cores), and a summary of conditions, relations and quantifiers. *Searching* links to it.
+### Fixed
+- The library no longer shows a translation, dictionary or corpus as not there when its job ended just as the library asked; it stopped asking then, so the button stayed until the page was reloaded. The route now reads the job before the files. This also made `test_add_and_remove_a_translation` fail now and then in CI.
 
 ## [0.1.1] - 2026-11-06
 

@@ -29,6 +29,18 @@ class Split:
 
 
 @dataclass(frozen=True)
+class Join:
+    """Source verses that the BHSA has as one: `chapter:verse` (in the
+    source's numbering) and the `more` verses after it, even across a chapter
+    boundary (an OSIS source only, whose verses are renumbered by order)."""
+
+    book: str
+    chapter: int
+    verse: int
+    more: int = 1
+
+
+@dataclass(frozen=True)
 class Translation:
     """A translation that can be downloaded and built into a corpus."""
 
@@ -41,18 +53,31 @@ class Translation:
     org: str
     repo: str
     version: str
-    # what the source must say about itself
+    # what the source must say about itself (an OSIS source: its title; its
+    # licence is not in the file, so `checksum` pins the file instead)
     source_title: str
     source_licence: str
-    # the source's address per book, with {path} for a book's path
+    # the source's address per book, with {path} for a book's path; an OSIS
+    # source is one file, at `url` itself
     url: str
-    # (BHSA English name, path at the source), in the BHSA's order
+    # (BHSA English name, path at the source), in the BHSA's order; for an
+    # OSIS source the book's OSIS id instead of a path
     books: tuple[tuple[str, str], ...]
     licence: str
     licence_note: str
     source: str
     cite: str
     splits: tuple[Split, ...] = field(default_factory=tuple)
+    # "sefaria": a JSON file per book in Sefaria's export, in the BHSA's
+    # numbering but for `splits`; "osis": one OSIS file, whose verses are
+    # numbered as the BHSA's by their order in each book, after `splits` and
+    # `joins`
+    format: str = "sefaria"
+    joins: tuple[Join, ...] = field(default_factory=tuple)
+    # the sha256 of an OSIS source file
+    checksum: str | None = None
+    # how the source's own verse numbers are described (feature `printed`)
+    printed_as: str = "the 1917 print"
 
     @property
     def corpus_id(self) -> str:
@@ -161,4 +186,99 @@ JPS1917 = Translation(
     ),
 )
 
-TRANSLATIONS: dict[str, Translation] = {t.id: t for t in (JPS1917,)}
+STV_COMMIT = "1d1860efa1c56eb50a6cdb3c656a6a45bdc66788"
+
+# the BHSA's books with their OSIS ids, in the BHSA's order
+OSIS_BOOKS = (
+    ("Genesis", "Gen"),
+    ("Exodus", "Exod"),
+    ("Leviticus", "Lev"),
+    ("Numbers", "Num"),
+    ("Deuteronomy", "Deut"),
+    ("Joshua", "Josh"),
+    ("Judges", "Judg"),
+    ("1_Samuel", "1Sam"),
+    ("2_Samuel", "2Sam"),
+    ("1_Kings", "1Kgs"),
+    ("2_Kings", "2Kgs"),
+    ("Isaiah", "Isa"),
+    ("Jeremiah", "Jer"),
+    ("Ezekiel", "Ezek"),
+    ("Hosea", "Hos"),
+    ("Joel", "Joel"),
+    ("Amos", "Amos"),
+    ("Obadiah", "Obad"),
+    ("Jonah", "Jonah"),
+    ("Micah", "Mic"),
+    ("Nahum", "Nah"),
+    ("Habakkuk", "Hab"),
+    ("Zephaniah", "Zeph"),
+    ("Haggai", "Hag"),
+    ("Zechariah", "Zech"),
+    ("Malachi", "Mal"),
+    ("Psalms", "Ps"),
+    ("Job", "Job"),
+    ("Proverbs", "Prov"),
+    ("Ruth", "Ruth"),
+    ("Song_of_songs", "Song"),
+    ("Ecclesiastes", "Eccl"),
+    ("Lamentations", "Lam"),
+    ("Esther", "Esth"),
+    ("Daniel", "Dan"),
+    ("Ezra", "Ezra"),
+    ("Nehemiah", "Neh"),
+    ("1_Chronicles", "1Chr"),
+    ("2_Chronicles", "2Chr"),
+)
+
+STATENVERTALING = Translation(
+    id="statenvertaling",
+    title="StV",
+    name="Statenvertaling (1637), text of the 1888 edition",
+    language="nld",
+    org="Context-Fabric",
+    repo="statenvertaling",
+    version="1888",
+    source_title="De Statenvertaling",
+    source_licence="CC0-1.0",
+    url=(
+        "https://raw.githubusercontent.com/jajpater/statenvertaling/"
+        f"{STV_COMMIT}/STV.osis.xml"
+    ),
+    books=OSIS_BOOKS,
+    licence="Public domain (CC0 1.0)",
+    licence_note=(
+        "Translated in 1637, so in the public domain; the transcription of the "
+        "1888 edition is dedicated to the public domain (CC0 1.0)."
+    ),
+    source=(
+        "the OSIS transcription by Isidore-Guild and jajpater "
+        "(github.com/jajpater/statenvertaling), with the translators' "
+        "kanttekeningen and Strong's numbers"
+    ),
+    cite=(
+        "Statenvertaling (1637), text of the 1888 edition, transcription by "
+        "Isidore-Guild and jajpater (CC0), "
+        f"github.com/jajpater/statenvertaling @ {STV_COMMIT[:7]}"
+    ),
+    format="osis",
+    checksum="cd3f8ab208febebc9b3eb9fee463707988e3ac3f9eb159a7f39ce55f6404d25c",
+    printed_as="the Statenvertaling",
+    # where the BHSA divides the verses otherwise than by their order alone;
+    # found by comparing the words' Strong's numbers with the OSHB's
+    splits=(
+        # the first part is the BHSA's 25:19
+        Split("Numbers", 26, 1, ("dat de Heere sprak",)),
+        # the second part is the BHSA's 21:1
+        Split("1_Samuel", 20, 42, ("Daarna stond hij op",)),
+        Split("1_Chronicles", 12, 4, ("en Jirmeja,",)),
+    ),
+    joins=(
+        # the horses and mules (7:68) are not in the Hebrew
+        Join("Nehemiah", 7, 67),
+        Join("Nehemiah", 7, 73),
+        Join("Isaiah", 63, 19),
+    ),
+)
+
+TRANSLATIONS: dict[str, Translation] = {t.id: t for t in (JPS1917, STATENVERTALING)}

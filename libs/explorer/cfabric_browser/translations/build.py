@@ -18,6 +18,12 @@ is not what is expected:
 
 The same source gives the same corpus: only the date each feature file was
 written (`@dateWritten`) differs between builds.
+
+An OSIS source (`format="osis"`, the Statenvertaling) is one file, pinned by
+its checksum. `read_osis` reads its verses with their words (added words,
+Strong's numbers) and notes, and `renumber_by_order` numbers them as the
+BHSA's by their order in each book, after the `Split`s and `Join`s; then the
+same checks and `write_corpus`.
 """
 
 from __future__ import annotations
@@ -40,7 +46,7 @@ from cfabric_browser import __version__
 from cfabric_browser.display.config import read_app_config
 from cfabric_browser.jobs import Progress
 from cfabric_browser.net import CORPUS_ROOT, read_url, sha256_bytes
-from cfabric_browser.translations.catalog import Split, Translation
+from cfabric_browser.translations.catalog import Join, Split, Translation
 
 CACHE = "~/.cfabric/translations"
 ROOT = CORPUS_ROOT
@@ -54,6 +60,18 @@ class BuildError(Exception):
 
 
 @dataclass
+class Word:
+    """A word read from an OSIS source, with what follows it."""
+
+    text: str
+    trailer: str
+    # added by the translators (in italics in the print)
+    added: bool = False
+    # Strong's numbers of the Hebrew it translates, such as "H7225"
+    strong: str | None = None
+
+
+@dataclass
 class Verse:
     chapter: int
     verse: int
@@ -61,6 +79,9 @@ class Verse:
     note: str | None = None
     # the source's own reference, where the BHSA divides differently
     printed: str | None = None
+    # an OSIS source: the words, already divided, and the translators' notes
+    words: list[Word] | None = None
+    margin: str | None = None
 
 
 def hebrew_verses() -> dict[str, list[int]]:
@@ -85,6 +106,8 @@ def fetch(
     """
     folder = Path(cache).expanduser() / translation.id
     folder.mkdir(parents=True, exist_ok=True)
+    if translation.format == "osis":
+        return {"": fetch_file(translation, folder, progress, download)}
     sums_file = folder / "checksums.json"
     try:
         sums: dict[str, str] = json.loads(sums_file.read_text(encoding="utf-8"))
@@ -113,6 +136,36 @@ def fetch(
         if progress is not None:
             progress("download", i + 1, total)
     return files
+
+
+def fetch_file(
+    translation: Translation,
+    folder: Path,
+    progress: Progress | None,
+    download: Fetch,
+) -> bytes:
+    """An OSIS source: one file, which must have the checksum in the
+    catalogue; kept in `folder` and not downloaded again while it has."""
+    target = folder / "source.xml"
+    data: bytes | None = None
+    if target.is_file():
+        data = target.read_bytes()
+        if sha256_bytes(data) != translation.checksum:
+            data = None
+    if data is None:
+        try:
+            data = download(translation.url)
+        except OSError as e:
+            raise BuildError(f"Could not download {translation.url}: {e}") from e
+        if sha256_bytes(data) != translation.checksum:
+            raise BuildError(
+                f"The source at {translation.url} is not the version this "
+                "program was made for (its checksum differs)"
+            )
+        target.write_bytes(data)
+    if progress is not None:
+        progress("download", 1, 1)
+    return data
 
 
 def read_book(translation: Translation, name: str, data: bytes) -> list[list[str]]:
@@ -219,6 +272,247 @@ def renumber(
     return result
 
 
+OSIS = "{http://www.bibletechnologies.net/2003/OSIS/namespace}"
+# the last number in Strong's Hebrew dictionary; higher ones (8675 and up)
+# are Strong's codes for verb forms, not words
+LAST_STRONG = 8674
+STRONG = re.compile(r"strong:H(\d+)")
+NO_SPACE_BEFORE = ",;:.!?"
+
+
+@dataclass
+class SourceVerse:
+    """A verse of an OSIS source, in the source's numbering."""
+
+    chapter: int
+    verse: int
+    words: list[Word]
+    margin: str | None
+
+
+def note_text(note: Any) -> str:
+    """A translators' note as text: its catchword, a dash, and the note."""
+    head = ""
+    parts = [note.text or ""]
+    for child in note:
+        if child.tag == OSIS + "catchWord" and not head:
+            head = " ".join("".join(child.itertext()).split())
+        else:
+            parts.append("".join(child.itertext()))
+        parts.append(child.tail or "")
+    body = " ".join("".join(parts).split())
+    # no space before punctuation, as in the verses (`Gen 12:5 .`)
+    body = re.sub(r" ([" + re.escape(NO_SPACE_BEFORE) + r"])", r"\1", body)
+    return f"{head} — {body}" if head else body
+
+
+def osis_words(ref: str, verse: Any) -> tuple[list[Word], list[str]]:
+    """The words of an OSIS verse, and its notes.
+
+    Text in `<transChange type="added">` is added; `<w lemma="strong:H…">`
+    gives Strong's numbers; `<divineName>` and `<title>` (the letters of an
+    acrostic) are read as text. Any other element stops the build.
+    """
+    chars: list[tuple[str, bool, tuple[str, ...]]] = []
+    notes: list[str] = []
+
+    def put(text: str | None, added: bool, strong: tuple[str, ...]) -> None:
+        for ch in text or "":
+            if ch.isspace():
+                if chars and chars[-1][0] != " ":
+                    chars.append((" ", False, ()))
+            else:
+                # no space before punctuation (the source has one where an
+                # empty <w> stands between a word and a comma)
+                if ch in NO_SPACE_BEFORE and chars and chars[-1][0] == " ":
+                    chars.pop()
+                chars.append((ch, added, strong))
+
+    def visit(element: Any, added: bool, strong: tuple[str, ...]) -> None:
+        put(element.text, added, strong)
+        for child in element:
+            tag = child.tag.removeprefix(OSIS)
+            if tag == "note":
+                notes.append(note_text(child))
+            elif tag == "w":
+                numbers = tuple(
+                    f"H{int(n)}"
+                    for n in STRONG.findall(child.get("lemma", ""))
+                    if int(n) <= LAST_STRONG
+                )
+                visit(child, added, numbers)
+            elif tag == "transChange" and child.get("type") == "added":
+                visit(child, True, strong)
+            elif tag in ("divineName", "title"):
+                visit(child, added, strong)
+            else:
+                raise BuildError(f"{ref}: unexpected markup <{tag}>")
+            put(child.tail, added, strong)
+
+    visit(verse, False, ())
+    while chars and chars[-1][0] == " ":
+        chars.pop()
+    text = "".join(ch for (ch, _, _) in chars)
+    if not text:
+        raise BuildError(f"{ref}: the verse is empty")
+    words: list[Word] = []
+    at = 0
+    for w, t in tokenize(text):
+        span = chars[at : at + len(w)]
+        if "".join(ch for (ch, _, _) in span) != w:
+            raise BuildError(f"{ref}: cannot divide the verse into words")
+        numbers: list[str] = []
+        for _, _, strong in span:
+            numbers.extend(n for n in strong if n not in numbers)
+        added = any(a for (ch, a, _) in span if ch.isalnum())
+        words.append(Word(w, t, added, " ".join(numbers) or None))
+        at += len(w) + len(t)
+    return (words, notes)
+
+
+def read_osis(translation: Translation, data: bytes) -> dict[str, list[SourceVerse]]:
+    """The verses of each book (keyed by the BHSA's name) of an OSIS source,
+    after checking its title."""
+    import xml.etree.ElementTree as ET
+
+    try:
+        root = ET.fromstring(data)
+    except ET.ParseError as e:
+        raise BuildError(f"The source is not readable OSIS ({e})") from e
+    title = root.find(f"{OSIS}osisText/{OSIS}header/{OSIS}work/{OSIS}title")
+    found = (title.text or "").strip() if title is not None else None
+    if found != translation.source_title:
+        raise BuildError(f"The source is '{found}', not '{translation.source_title}'")
+    ids = {osis: name for (name, osis) in translation.books}
+    books: dict[str, list[SourceVerse]] = {name: [] for name in ids.values()}
+    for div in root.iter(OSIS + "div"):
+        name = ids.get(div.get("osisID", ""))
+        if name is None or div.get("type") != "book":
+            continue
+        for verse in div.iter(OSIS + "verse"):
+            osisID = verse.get("osisID", "")
+            parts = osisID.split(".")
+            if len(parts) != 3 or not parts[1].isdigit() or not parts[2].isdigit():
+                raise BuildError(f"{name}: a verse without a reference ({osisID!r})")
+            (c, v) = (int(parts[1]), int(parts[2]))
+            (words, notes) = osis_words(f"{name} {c}:{v}", verse)
+            books[name].append(SourceVerse(c, v, words, " | ".join(notes) or None))
+    for name, verses in books.items():
+        if not verses:
+            raise BuildError(f"{name} is missing from the source")
+    return books
+
+
+def spaced(words: list[Word]) -> list[Word]:
+    """The words with a space after the last one, as between verses."""
+    if not words or words[-1].trailer.endswith(" "):
+        return words
+    last = words[-1]
+    return [*words[:-1], Word(last.text, last.trailer + " ", last.added, last.strong)]
+
+
+def _cut_words(
+    ref: str, words: list[Word], before: tuple[str, ...]
+) -> list[list[Word]]:
+    """The words of a verse cut before each text in `before`."""
+    parts: list[list[Word]] = []
+    rest = words
+    for start in before:
+        at = next(
+            (
+                i
+                for i in range(1, len(rest))
+                if "".join(w.text + w.trailer for w in rest[i:]).startswith(start)
+            ),
+            None,
+        )
+        if at is None:
+            raise BuildError(f"{ref}: cannot divide the verse before {start!r}")
+        parts.append(rest[:at])
+        rest = rest[at:]
+    parts.append(rest)
+    return parts
+
+
+def renumber_by_order(
+    book: str,
+    source: list[SourceVerse],
+    expected: list[int],
+    splits: tuple[Split, ...] = (),
+    joins: tuple[Join, ...] = (),
+) -> list[list[Verse]]:
+    """Verses per chapter of an OSIS source, numbered as the BHSA's by their
+    order in the book, after dividing (`Split`) and joining (`Join`) verses.
+
+    A verse keeps the source's number in `printed` where it differs, and
+    where it was divided or joined (`7:67-68`, `7:73-8:1`).
+    """
+    cut = {(s.chapter, s.verse): s for s in splits if s.book == book}
+    joined = {(j.chapter, j.verse): j for j in joins if j.book == book}
+    # (the source's number, words, notes, divided or joined)
+    pieces: list[tuple[str, list[Word], list[str], bool]] = []
+    i = 0
+    while i < len(source):
+        sv = source[i]
+        here = f"{sv.chapter}:{sv.verse}"
+        join = joined.pop((sv.chapter, sv.verse), None)
+        split = cut.pop((sv.chapter, sv.verse), None)
+        if join is not None:
+            group = source[i : i + 1 + join.more]
+            if len(group) != 1 + join.more:
+                raise BuildError(f"{book} {here}: no verses after it to join")
+            last = group[-1]
+            ending = (
+                f"{last.verse}"
+                if last.chapter == sv.chapter
+                else f"{last.chapter}:{last.verse}"
+            )
+            words = [w for g in group for w in spaced(g.words)]
+            notes = [g.margin for g in group if g.margin]
+            pieces.append((f"{here}-{ending}", words, notes, True))
+            i += len(group)
+            continue
+        if split is not None:
+            parts = _cut_words(f"{book} {here}", sv.words, split.before)
+            for k, part in enumerate(parts):
+                last_part = k == len(parts) - 1
+                notes = [sv.margin] if sv.margin and last_part else []
+                pieces.append((here, part, notes, True))
+        else:
+            pieces.append((here, sv.words, [sv.margin] if sv.margin else [], False))
+        i += 1
+    if cut or joined:
+        missing = ", ".join(f"{c}:{v}" for (c, v) in [*cut, *joined])
+        raise BuildError(f"{book}: no verse {missing} to divide or join")
+    if len(pieces) != sum(expected):
+        raise BuildError(
+            f"{book}: {len(pieces)} verses after dividing and joining, "
+            f"but the BHSA has {sum(expected)}"
+        )
+
+    result: list[list[Verse]] = []
+    at = 0
+    for c, count in enumerate(expected, start=1):
+        verses = []
+        for v in range(1, count + 1):
+            (printed, words, notes, changed) = pieces[at]
+            at += 1
+            # a space between verses, for reading them as running text
+            words = spaced(words)
+            verses.append(
+                Verse(
+                    c,
+                    v,
+                    "",
+                    printed=printed if changed or printed != f"{c}:{v}" else None,
+                    words=words,
+                    margin=" | ".join(notes) or None,
+                )
+            )
+        result.append(verses)
+    return result
+
+
 def check_counts(book: str, chapters: list[list[Verse]], expected: list[int]) -> None:
     """Stop when the chapters or verses differ from the BHSA's."""
     counts = [len(verses) for verses in chapters]
@@ -297,6 +591,9 @@ def write_corpus(
             "verse",
             "note",
             "printed",
+            "margin",
+            "added",
+            "strong",
         )
     }
 
@@ -308,6 +605,21 @@ def write_corpus(
             chapterStart = slot + 1
             for verse in verses:
                 verseStart = slot + 1
+                if verse.words is not None:
+                    for word in verse.words:
+                        slot += 1
+                        otype[slot] = "word"
+                        feats["text"][slot] = word.text
+                        feats["trailer"][slot] = word.trailer
+                        feats["lower"][slot] = lower(word.text)
+                        if word.added:
+                            feats["added"][slot] = 1
+                        if word.strong:
+                            feats["strong"][slot] = word.strong
+                    spans.append(
+                        ("verse", (book, c, verse.verse), verseStart, slot, verse)
+                    )
+                    continue
                 words = tokenize(verse.text)
                 for i, (w, t) in enumerate(words):
                     slot += 1
@@ -341,6 +653,8 @@ def write_corpus(
                     feats["note"][node] = verse.note
                 if verse.printed:
                     feats["printed"][node] = verse.printed
+                if verse.margin:
+                    feats["margin"][node] = verse.margin
 
     generic = {
         "name": translation.title,
@@ -362,12 +676,18 @@ def write_corpus(
         "verse": "the verse, as in the BHSA",
         "note": "a note printed after the verse in small type, such as the verse "
         "repeated at the end of Malachi",
-        "printed": "the chapter and verse in the 1917 print, where the BHSA "
-        "divides the verses differently",
+        "printed": f"the chapter and verse in {translation.printed_as}, where "
+        "the BHSA divides the verses differently",
+        "margin": "the translators' notes on the verse (kanttekeningen), each "
+        "as its catchword, a dash and the note, separated by ' | '",
+        "added": "1 on words the translators added (in italics in the print)",
+        "strong": "the Strong's numbers of the Hebrew the word translates",
     }
     metaData: dict[str, dict[str, Any]] = {"": generic}
     for name, description in described.items():
-        isInt = name in ("chapter", "verse")
+        if name not in ("otype", "oslots") and not feats.get(name):
+            continue
+        isInt = name in ("chapter", "verse", "added")
         metaData[name] = {
             "description": description,
             "valueType": "int" if isInt else "str",
@@ -425,6 +745,21 @@ def prepare(
     """Check and clean the source files and divide them as in the BHSA."""
     expected = hebrew_verses()
     books: dict[str, list[list[Verse]]] = {}
+    if translation.format == "osis":
+        source = read_osis(translation, files[""])
+        for name, _ in translation.books:
+            if name not in expected:
+                raise BuildError(f"{name}: not a book of the BHSA")
+            divided = renumber_by_order(
+                name,
+                source[name],
+                expected[name],
+                translation.splits,
+                translation.joins,
+            )
+            check_counts(name, divided, expected[name])
+            books[name] = divided
+        return books
     for name, _ in translation.books:
         if name not in files:
             raise BuildError(f"{name} is missing from the source")
@@ -468,10 +803,14 @@ def build(
     books = prepare(translation, files)
     if progress is not None:
         progress("build", 0, 1)
-    checksum = sha256_bytes(
-        "".join(
-            f"{name}:{sha256_bytes(files[name])}\n" for name, _ in translation.books
-        ).encode()
+    checksum = (
+        sha256_bytes(files[""])
+        if translation.format == "osis"
+        else sha256_bytes(
+            "".join(
+                f"{name}:{sha256_bytes(files[name])}\n" for name, _ in translation.books
+            ).encode()
+        )
     )
 
     org = Path(root).expanduser() / translation.org

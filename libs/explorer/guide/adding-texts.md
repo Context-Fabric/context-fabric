@@ -18,15 +18,15 @@ At the [first start](getting-started.md#the-first-start) the program offers all 
 
 ## Translations
 
-*Translations* lists the translations the program can add, each downloaded from its source and prepared on your computer. So far there is one: the [JPS 1917](datasets.md#the-jps-1917-translation), from Sefaria (about 5 MB). *Add* downloads and prepares it, in a few seconds; it then appears as a text next to the Hebrew.
+*Translations* lists the translations the program can add, each downloaded from its source and prepared on your computer. There are two: the [JPS 1917](datasets.md#the-jps-1917-translation) in English, from Sefaria (about 5 MB), and the [Statenvertaling](datasets.md#the-statenvertaling) in Dutch, from GitHub (about 30 MB). *Add* downloads and prepares one, in a few seconds to half a minute; it then appears as a text next to the Hebrew.
 
 *Remove* (and *Remove* again to confirm) deletes it. If it is open, it is removed the next time the program starts, and until then *Keep it* undoes the removal.
 
 What a translation does in the interfaces:
 
-- in Parallel and the Reader it is a column like the others, with the print's verse number where the 1917 print numbers otherwise;
+- in Parallel and the Reader it is a column like the others, with the print's verse number where the translation numbers otherwise; the Statenvertaling shows its added words in italics and its *Kanttekeningen* under each verse;
 - in the Interlinear, *Under* offers it as a line per verse;
-- in the Concordance it can be searched in English (`word lower=lord`);
+- in the Concordance it can be searched in its own language (`word lower=lord`, `word lower=heere`);
 - it has no hover card, and it is left out of *Differences*.
 
 ## Dictionaries

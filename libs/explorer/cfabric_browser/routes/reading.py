@@ -339,15 +339,17 @@ def build(ctx: Context) -> APIRouter:
         ]
         for tree in trees:
             dress_signs(api, tree["fragments"])
-        # a translation: notes printed after verses, and verse numbers in the
-        # print where it divides differently (`cfabric_browser.translations`)
+        # a translation: notes printed after verses, verse numbers in the
+        # print where it divides differently, and the translators' notes
+        # (`margin`, the Statenvertaling's kanttekeningen; see
+        # `cfabric_browser.translations`)
         extras = {
             extra: {
                 str(n): value
                 for n in nodes[:MAX_PASSAGE]
                 if (value := api.Fs(extra).v(n))
             }
-            for extra in ("note", "printed")
+            for extra in ("note", "printed", "margin")
             if service.translation(corpus) is not None and extra in api.Fall()
         }
         return {

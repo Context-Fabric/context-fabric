@@ -69,7 +69,7 @@ jobs:
           program=dist/cfabric-browser/cfabric-browser
           [ -f "$program.exe" ] && program=$program.exe
           bash packaging/smoke-test.sh "$program" tests/fixtures/display_corpus
-      - name: Add a translation (downloads the JPS 1917 from Sefaria)
+      - name: Add translations (the JPS 1917 from Sefaria, the Statenvertaling from GitHub)
         run: |
           program=dist/cfabric-browser/cfabric-browser
           [ -f "$program.exe" ] && program=$program.exe
