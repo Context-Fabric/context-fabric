@@ -55,16 +55,28 @@ function escape(text) {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-/** A page's title (its `#` heading), the rest as HTML, and the ids of its headings. */
+/** A page's title (its `#` heading), the rest as HTML, the ids of its headings,
+ *  and its sections (the `##` headings, for the website's contents). */
 export function render(markdown) {
   const ids = [];
+  const sections = [];
   const marked = new Marked({
     renderer: {
       heading({ tokens, depth }) {
         const inner = this.parser.parseInline(tokens);
         const id = slug(inner);
         ids.push(id);
+        if (depth === 2) sections.push({ id, html: inner });
         return `<h${depth} id="${id}">${inner}</h${depth}>\n`;
+      },
+      // a screenshot on its own line is a figure, captioned with its description
+      paragraph({ tokens }) {
+        const inner = this.parser.parseInline(tokens);
+        const only = tokens.filter((t) => !(t.type === "text" && !t.text.trim()));
+        if (only.length === 1 && only[0].type === "image") {
+          return `<figure>${inner}<figcaption>${escape(only[0].text)}</figcaption></figure>\n`;
+        }
+        return `<p>${inner}</p>\n`;
       },
       link({ href, title, tokens }) {
         const inner = this.parser.parseInline(tokens);
@@ -85,7 +97,7 @@ export function render(markdown) {
     title = tokens[first].text;
     tokens.splice(first, 1);
   }
-  return { title, html: marked.parser(tokens), ids };
+  return { title, html: marked.parser(tokens), ids, sections };
 }
 
 function readPages(source) {
@@ -126,6 +138,10 @@ pre code{background:none;padding:0}
 table{border-collapse:collapse;margin:1rem 0;font-size:15px}
 th,td{border:1px solid var(--rule);padding:.35rem .6rem;text-align:start;vertical-align:top}
 img{max-width:100%;height:auto;border:1px solid var(--rule);border-radius:4px}
+figure{margin:1rem 0 1.4rem}
+figcaption{font-size:14px;color:var(--stone);margin-top:.4rem}
+blockquote{margin:0 0 1rem;padding:.6rem 1rem;border-inline-start:3px solid var(--woad);background:var(--woad-soft);border-radius:0 4px 4px 0}
+blockquote p{margin:0}
 .guide-pn{display:flex;justify-content:space-between;gap:1rem;margin-top:3rem;padding-top:1rem;border-top:1px solid var(--rule);font-size:15px}
 .guide-pn span{color:var(--stone)}
 @media (max-width:760px){.layout{grid-template-columns:minmax(0,1fr);gap:1rem}.toc ol{position:static}}
@@ -173,8 +189,14 @@ ${page.html}${neighbours(pages, i)}
 export function sitePage(pages, i) {
   const page = pages[i];
   const url = `https://caccht.github.io/explorer/${page.name === "index" ? "" : `${page.name}.html`}`;
+  // the contents in a sidebar, with this page's sections under it
+  const here = page.sections.map((s) => `<li class="sub"><a href="#${s.id}">${s.html}</a></li>`).join("");
   const toc = pages
-    .map((p) => (p.name === page.name ? `<li>${escape(p.title)}</li>` : `<li><a href="${p.name}.html">${escape(p.title)}</a></li>`))
+    .map((p) =>
+      p.name === page.name
+        ? `<li><span class="is-here" aria-current="page">${escape(p.title)}</span></li>${here}`
+        : `<li><a href="${p.name}.html">${escape(p.title)}</a></li>`,
+    )
     .join("");
   const index = page.name === "index";
   const title = index ? `${escape(page.title)} — CACCHT` : `${escape(page.title)} — CACCHT Explorer`;
@@ -196,9 +218,8 @@ export function sitePage(pages, i) {
 <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@85..112,400..800&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&family=Noto+Serif+Hebrew:wght@400;600&display=swap">
 <link rel="stylesheet" href="../assets/css/site.css">
-<style>main table{display:block;overflow-x:auto;border-collapse:collapse;margin:1.25rem 0}main th,main td{text-align:left;vertical-align:top;padding:.35rem 1rem .35rem 0;border-bottom:1px solid color-mix(in srgb,currentColor 18%,transparent)}main th{font-weight:600}main .prose img{max-width:100%;height:auto;border:1px solid color-mix(in srgb,currentColor 18%,transparent);border-radius:4px}</style>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -222,18 +243,22 @@ export function sitePage(pages, i) {
 
 <main id="main">
 
-<section class="band band--parch">
-  <div class="wrap">
-    <header class="shead shead--dark">
-      <p class="label">CACCHT Explorer · Guide</p>
-      <h1 class="shead__h">${escape(page.title)}</h1>
-    </header>
+<section class="band">
+  <div class="wrap doc">
+    <nav class="toc" aria-label="Contents of the guide">
+      <p class="toc__h">CACCHT Explorer guide</p>
+      <ol>${toc}</ol>
+    </nav>
 
-    <div class="prose">
-${page.html}${index ? "" : `
-      <h2>Contents of the guide</h2>
-      <ol>${toc}</ol>`}
-${neighbours(pages, i)}
+    <div class="doc__main">
+      <header class="shead">
+        ${index ? `<p class="label">CACCHT Explorer</p>` : `<p class="label"><a href="index.html">CACCHT Explorer guide</a></p>`}
+        <h1 class="shead__h">${escape(page.title)}</h1>
+      </header>
+
+      <div class="prose">
+${page.html}${neighbours(pages, i)}
+      </div>
     </div>
   </div>
 </section>
@@ -246,6 +271,7 @@ ${neighbours(pages, i)}
     <div class="foot__t">
       <p class="foot__name">Creating Annotated Corpora of Classical Hebrew Texts</p>
       <p class="foot__p foot__contact">Contact: <a href="mailto:martijn.naaijer@uzh.ch">martijn.naaijer@uzh.ch</a></p>
+      <p class="foot__p foot__contact">Follow CACCHT: <a href="https://bsky.app/profile/caccht.bsky.social" rel="me">Bluesky</a> · <a href="https://www.facebook.com/CACCHT" rel="me">Facebook</a> · <a href="https://x.com/CACCHT_" rel="me">X</a></p>
       <p class="foot__p">Datasets are published under their own licenses; see each repository and the <a href="../data-use.html">data-use statement</a>. This site is maintained in <a href="https://github.com/CACCHT/caccht.github.io">caccht.github.io</a>.</p>
     </div>
     <nav class="foot__nav" aria-label="Elsewhere">
@@ -257,8 +283,6 @@ ${neighbours(pages, i)}
     </nav>
   </div>
 </footer>
-
-<script src="../assets/js/site.js" defer></script>
 </body>
 </html>
 `;
