@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "context-fabric-browser",
   "display_name": "CACCHT Explorer",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Ask for searches in the Hebrew Bible (BHSA) and other corpora open in CACCHT Explorer, in your own words.",
   "long_description": "Claude writes a search template for what you ask, checks it with a small trial search, and sends it to CACCHT Explorer, where you run it with Run, edit it or dismiss it. The results always come from the Explorer's own search engine. CACCHT Explorer must be running on this computer.",
   "author": {

@@ -1,6 +1,11 @@
-**The first release of CACCHT Explorer**, a program of its own for reading, searching and comparing the Hebrew Bible (BHSA), the Samaritan Pentateuch and the Dead Sea Scrolls side by side. You don't need to install Python. Please report what goes wrong, and what you would like to see, in an [issue](https://github.com/Context-Fabric/context-fabric/issues) or by email to [martijn.naaijer@uzh.ch](mailto:martijn.naaijer@uzh.ch).
+**CACCHT Explorer**, a program of its own for reading, searching and comparing the Hebrew Bible (BHSA), the Samaritan Pentateuch and the Dead Sea Scrolls side by side. You don't need to install Python. Please report what goes wrong, and what you would like to see, in an [issue](https://github.com/Context-Fabric/context-fabric/issues) or by email to [martijn.naaijer@uzh.ch](mailto:martijn.naaijer@uzh.ch).
 
 **How to use it** is in the [guide to CACCHT Explorer](https://caccht.github.io/explorer/), also inside the program: *Guide to …* at the bottom of the menu at the top right. Start with [Getting started](https://caccht.github.io/explorer/getting-started.html).
+
+## New in 0.1.2
+
+- **The Statenvertaling** (1637, in the text of the 1888 edition) can be added as a text next to the Hebrew: *Texts → Add a text…*, under *Translations* (about 30 MB). Its verses are lined up with the Hebrew, with its own number shown where it counts otherwise (Malachi 3:19 is 4:1); the words the translators added are in italics, and their notes, the *kanttekeningen*, are under each verse. See [The Statenvertaling](https://caccht.github.io/explorer/datasets.html#the-statenvertaling).
+- After adding a translation or dictionary, the library sometimes kept showing it as not added until the page was reloaded; fixed.
 
 ## What it does
 
@@ -9,11 +14,11 @@
 - **Words:** hover over a word for its gloss, lexeme and morphology; a lexicon of the BHSA with the BDB dictionary (added from the library).
 - **Searching** with search templates, with a short course and fifty examples in the guide, and results to inspect, cite and download.
 - **Asking in your own words:** Claude or ChatGPT proposes a search with your own subscription, and the Explorer runs it.
-- **The JPS 1917 translation** as an optional text, and notes and workspaces that stay on your computer.
+- **Translations** as optional texts: the JPS 1917 (English) and the Statenvertaling (Dutch); and notes and workspaces that stay on your computer.
 
-## Updating from a test version
+## Updating
 
-Put the new version where the old one was; the corpora, your settings, notes and workspaces stay. Since the test versions, the guide has a chapter [Search examples](https://caccht.github.io/explorer/search-examples.html) and says how to install the Explorer with pip. If you come from test.12 or earlier: on a Mac you may delete the old `Context-Fabric.app`, and in Claude Desktop install `CACCHT-Explorer.mcpb` in place of the old extension. From test.9 or earlier, the program prepares each corpus once more, and you may delete the `.cfm` folders next to the corpora.
+Put the new version where the old one was; the corpora, your settings, notes and workspaces stay. Installed with pip: `pip install -U cfabric-browser`. If you come from a test version of 0.1.0, test.12 or earlier: on a Mac you may delete the old `Context-Fabric.app`, and in Claude Desktop install `CACCHT-Explorer.mcpb` in place of the old extension. From test.9 or earlier, the program prepares each corpus once more, and you may delete the `.cfm` folders next to the corpora.
 
 ## Download
 

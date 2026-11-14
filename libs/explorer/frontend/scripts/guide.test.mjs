@@ -64,7 +64,7 @@ const NOT_LABELS = new Set([
   // the ChatGPT desktop app
   "Settings → MCP servers", "Add server", "Streamable HTTP", "Restart", "Go → Go to Folder…",
   // a release's name, requests to Claude, glosses and other examples
-  "Latest", "CACCHT Explorer 0.1.1", "find all cases of >LHJM/ in the BHSA", "clauses where the object comes before the verb",
+  "Latest", "CACCHT Explorer 0.1.2", "find all cases of >LHJM/ in the BHSA", "clauses where the object comes before the verb",
   "Find all cases of >LHJM/ in the BHSA.", "All infinitives construct of HLK[.",
   "Clauses in Genesis where the subject comes before the verb.", "Lord", "lord", "cut down", "create", "speak",
   "word", "perish", "verses with both אלהים and ברא", "Searching… 812 results so far", "4Q7 = bhsa", "4Q7 other",
