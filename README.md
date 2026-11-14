@@ -60,7 +60,7 @@ The server provides 10 tools for discovery, search, and data access—designed f
 
 **CACCHT Explorer** is a program for reading, searching and comparing corpora side by side (BHSA, Samaritan Pentateuch, Dead Sea Scrolls, …), built on Context-Fabric. It runs on your own computer and works offline. It has five interfaces (Parallel, Panes, Reader, Interlinear, Concordance), a lexicon, optional BDB and the JPS 1917 translation, and lets Claude or ChatGPT propose searches.
 
-- **Standalone program** (no Python needed): a test version for Windows, macOS and Linux, under [Releases](https://github.com/Context-Fabric/context-fabric/releases) (the `desktop-v…` pre-releases).
+- **Standalone program** (no Python needed): for Windows, macOS and Linux, under [Releases](https://github.com/Context-Fabric/context-fabric/releases) (the release marked *Latest*).
 - **With pip** (Python 3.13 or newer):
 
   ```bash
