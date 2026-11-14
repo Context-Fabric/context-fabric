@@ -283,6 +283,30 @@ def added(client, tid: str = "test") -> dict:
     raise AssertionError("the build did not finish")
 
 
+def test_a_build_that_ends_while_asked_shows_as_running(
+    library, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The entry reads the job before the files: a build that ends in between
+    shows as running (and the library asks again), never as done but not added,
+    after which the library would stop asking."""
+    import cfabric_browser.routes.library as routes
+
+    (client, _, jobs) = library
+    built = {"now": False}
+    running = {"state": "running", "step": "build", "done": 0, "total": 1}
+
+    def status(key: str) -> dict:
+        # the build ends just after the job was read
+        was = "done" if built["now"] else "running"
+        built["now"] = True
+        return {**running, "state": was, "error": None}
+
+    monkeypatch.setattr(jobs, "status", status)
+    monkeypatch.setattr(routes, "is_built", lambda translation, root: built["now"])
+    entry = client.get("/api/translations/test").json()
+    assert (entry["job"]["state"], entry["added"]) == ("running", True)
+
+
 def test_add_and_remove_a_translation(library) -> None:
     (client, _, _) = library
     entries = {

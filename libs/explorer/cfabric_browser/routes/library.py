@@ -111,6 +111,9 @@ def build(ctx: Context) -> APIRouter:
         return allowed(translation.corpus_id)
 
     def translation_entry(translation: Translation) -> dict[str, Any]:
+        # the job first: a build that ends between the two reads then shows as
+        # running (and is asked again), never as done but not added
+        job = jobs.status(translation.id)
         added = is_built(translation, jobs.root)
         repo = repo_of(translation, jobs.root).resolve()
         return {
@@ -126,7 +129,7 @@ def build(ctx: Context) -> APIRouter:
             "open": any(spec.path.is_relative_to(repo) for spec in service.specs),
             # removed at the next start, because it is open
             "removing": added and is_pending(translation, jobs.pending),
-            "job": jobs.status(translation.id),
+            "job": job,
         }
 
     @router.get("/translations")
@@ -183,6 +186,7 @@ def build(ctx: Context) -> APIRouter:
         return catalogued
 
     def dictionary_entry(catalogued: Catalogued) -> dict[str, Any]:
+        job = lookups.status(catalogued.id)  # first, as in translation_entry
         found = store.get(catalogued.id)
         return {
             "id": catalogued.id,
@@ -197,7 +201,7 @@ def build(ctx: Context) -> APIRouter:
             "available": catalogued.url is not None,
             "added": found is not None,
             "built": found.meta.get("built") if found else None,
-            "job": lookups.status(catalogued.id),
+            "job": job,
         }
 
     @router.get("/dictionaries")
@@ -308,6 +312,7 @@ def build(ctx: Context) -> APIRouter:
         return download
 
     def download_entry(download: Download) -> dict[str, Any]:
+        job = fetches.status(download.id)  # first, as in translation_entry
         return {
             "id": download.id,
             "name": download.name,
@@ -319,7 +324,7 @@ def build(ctx: Context) -> APIRouter:
             "licence": download.licence,
             # in any of the places the library looks
             "present": any(is_present(download, root) for root in service.roots),
-            "job": fetches.status(download.id),
+            "job": job,
         }
 
     @router.get("/downloads")
