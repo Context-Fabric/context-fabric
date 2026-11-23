@@ -361,10 +361,10 @@ def create_progressive_scaling_chart(
             label="Context-Fabric",
         )
 
-    ax.set_xlabel("Number of Corpora Loaded", fontsize=14)
+    ax.set_xlabel("Corpus Added at Each Step (cumulative)", fontsize=14)
     ax.set_ylabel("Total Memory (MB)", fontsize=14)
     ax.set_title(
-        "Memory Scaling: Progressive Corpus Loading",
+        "Memory During Progressive Corpus Loading",
         fontsize=16,
         fontweight="bold",
     )
@@ -372,30 +372,6 @@ def create_progressive_scaling_chart(
     ax.set_xticklabels(result.corpora_order, rotation=45, ha="right")
     ax.legend(fontsize=12, loc="upper left")
     ax.tick_params(axis="both", labelsize=12)
-
-    # Add scaling coefficients as annotations
-    annotations = []
-    if result.tf_scaling:
-        annotations.append(
-            f"TF: {result.tf_scaling.slope_mb_per_corpus:.0f} MB/corpus "
-            f"(R²={result.tf_scaling.r_squared:.3f})"
-        )
-    if result.cf_scaling:
-        annotations.append(
-            f"CF: {result.cf_scaling.slope_mb_per_corpus:.0f} MB/corpus "
-            f"(R²={result.cf_scaling.r_squared:.3f})"
-        )
-    if annotations:
-        ax.text(
-            0.02,
-            0.82,
-            "\n".join(annotations),
-            transform=ax.transAxes,
-            fontsize=11,
-            verticalalignment="top",
-            horizontalalignment="left",
-            bbox=dict(boxstyle="round", facecolor="#1a1a2e", alpha=0.8),
-        )
 
     plt.tight_layout()
     output_path.parent.mkdir(parents=True, exist_ok=True)

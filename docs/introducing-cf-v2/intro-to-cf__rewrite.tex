@@ -42,7 +42,7 @@
 \title{Introducing Context-Fabric:\\[0.5em]
 \large Scalable Corpus Analysis for the Agentic Era}
 \author{Cody Kingham}
-\date{Aug 2026}
+\date{November 2026}
 
 \begin{document}
 
@@ -54,14 +54,14 @@ an entire generation of linguistic and exegetical research. However, TF has alwa
 1) it is resource intensive, consuming large amounts of RAM; and 2) it requires knowledge of Python or
 a query language to use it. These frictions have limited its usefulness to the philological community,
 which is not known for its computational prowess!
-Agentic AI, however, now makes it possible to solve the skill-gap. To maximize this opportunity,
+Agentic AI, however, now makes it possible to solve the skill gap. To maximize this opportunity,
 TF must become light and agile, capable of running on resource-constrained systems, with the ability to scale to many corpora at once.
-To address this, I introduce Context-Fabric (CF), a memory-efficient re-write of TF designed for the agentic era.
-Using memory-mapped arrays to store the corpus graph, CF achieves up to a 92\% reduction in RAM consumption,
-with as much as 5.3$\times$ more efficient scaling for multi-corpus loads. This is accomplished without sacrificing
-search speeds, which are 3\% \textit{faster} overall, with direct feature look up improving 26\%. To take advantage
-of this power, CF comes with an MCP server optimized for AI agents. This makes it possible to conduct complex,
-high-level research without knowing a jot or tittle of Python.
+To address this, I introduce Context-Fabric (CF), a memory-efficient rewrite of TF designed for the agentic era.
+Using memory-mapped arrays to store the corpus graph, CF achieves up to a 92\% reduction in RAM consumption
+(resident memory, RSS, measured after loading). This is accomplished without sacrificing search speeds,
+which remain comparable to TF, while direct feature lookup improves 26\%. To take advantage of this power,
+CF comes with an MCP server optimized for AI agents, opening up the potential for agents to power new research
+workflows in corpus linguistics.
 \end{abstract}
 
 \section{The Legacy of Text-Fabric}
@@ -75,10 +75,12 @@ internal server.\footnote{
     It was also integrated into several paid software tools such as Quest and its successor,
     the Stuttgart Electronic Study Bible (SESB) \cite{oosting2016}.
 }
-It was not until 2014 that Dirk Roorda, a research scientist on the SynVar project
-(\textit{Does Syntactic Variation Reflect Language Change? Tracing Syntactic Diversity in Biblical Hebrew Texts}),
-published the dataset online as an XML dump in Linguistic Annotation Framework (LAF) \cite{roorda2014laf}.
-LAF models texts as graphs. The various linguistic units like clauses and phrases can be captured
+It was not until 2014 that Dirk Roorda, a research scientist from DANS\footnote{
+    Data Archiving and Networked Services at the Royal Netherlands Academy of Arts and Sciences.
+}, working together with the ETCBC, published the dataset online as an XML dump in
+Linguistic Annotation Framework (LAF) \cite{roorda2014laf}. LAF models texts as graphs,
+utilizing a stand-off annotation model where the text and its annotated
+features are stored separately. Various linguistic units, such as clauses and phrases, are captured
 as nodes with features, and their relations as edges \cite{ide2014laf}.
 Alongside the XML dump, Roorda published a Python package called LAF-Fabric, which could
 walk the nodes and edges to query their features \cite{roorda2014laf}. By choosing Python, Roorda
@@ -92,8 +94,8 @@ of studies. And they brought new emphasis on data-driven, reproducible results
 \cite{kalkman2015verbal,naaijer2016parallel,kingham2016song,vanpeursen2019,erwich2021psalms,hojgaard2021roles}.
 
 In 2016, Roorda improved on the idea by releasing Text-Fabric (TF) \cite{textfabricsoftware}. TF
-dramatically reduced the disk storage needed for the graph data by replacing in-line XML
-with a stand-off plain-text format, the \texttt{.tf} file. It made the graph data modular so that
+dramatically reduced the disk storage needed for the graph data by replacing the XML format
+with a compact plain-text format, the \texttt{.tf} file. It made the graph data modular so that
 each \texttt{.tf} file contributed a single node feature or edge relationship. If one only wanted to analyze
 verb tense, for instance, he could choose to load only the \texttt{vt} feature.\footnote{
     Plus some required node type and slot edge relations.
@@ -105,9 +107,12 @@ would catalyze a new category of scholar, the ``programming theologian''.
 
 The vision of the computational theologian was certainly ambitious, and it dovetailed well with
 the ETCBC's heritage; but its success was always hampered by one minor problem: learning to code
-is hard. And that difficulty was compounded by the right-brained tendencies of humanities students
-who were more comfortable writing exegetical summaries than loops and conditions. That is not
-to say the idea failed. Indeed, the study of syntax is closely aligned to left-brained tendencies,
+is hard. And that difficulty was compounded by the proverbially right-brained tendencies of humanities students,
+who were more comfortable writing exegetical summaries than loops and conditions.\footnote{
+    Empirical data have shown the right- versus left-brained binary to be an oversimplification
+    \cite{nielsen2013brain}. Thanks to the anonymous reviewer who pointed this out.
+}
+That is not to say the idea failed. Indeed, the study of syntax is closely aligned to ``left-brained'' tendencies,
 and many enterprising scholars followed the Roordian path. But the dream's true fulfillment---of a humanities
 field radically transformed by a \textit{scientific} approach---simply could not be realized given the
 skill gap.
@@ -120,16 +125,16 @@ Yet, most code continued to be written by hand within closely-supervised IDEs. F
 true moment of surrender came around December 2025, when Anthropic released its \texttt{Opus 4.5} model alongside
 its \textit{Claude Code} tool. Here was a tool which could reliably generate entire software packages in one go,
 complete with tests and documentation. Since then, the trend towards agentic-authored code has sharply accelerated
-with the encouragement of additional models and tools (e.g.~Codex, Grok Build, open source weights) and competitive
+with the encouragement of additional models and tools (e.g.~Codex, Grok Build, open-source weights) and competitive
 pressure.
 
 The AI revolution now makes it possible to fully realize Roorda's vision, closing the skill gap that made Text-Fabric
 inaccessible for most. To maximize this opportunity, several transformations to Text-Fabric are required.
-First, corpus search must become \textit{deployable} to a production environment.
+First, corpus search must become \textit{deployable} to a production environment. 
 This means the ability to serve search from a persistent web server for
 thousands of requests at a time. This will enable AI agents to search remotely from any sandbox environment
 they happen to be running in. This requires a change to the way TF accesses the text graph. The current
-approach loads all nodes and edges into RAM, consuming a significant amount of memory. In production,
+approach loads all requested features into RAM, consuming a significant amount of memory. In production,
 especially under high loads, this is untenable. Memory mapping offers an alternative where graph data can
 be stored on disk and accessed only when needed. This method is already used
 by a number of performance-sensitive machine learning tools like PyTorch and TensorFlow \cite{pytorchmmap,tensorflowmmap}.
@@ -144,10 +149,13 @@ These requirements reach deep into Text-Fabric's data model and radically transf
 For this reason, and in the spirit of TF's previous evolution from LAF-Fabric, I have chosen to rename
 and re-release this tool as Context-Fabric (CF). The name is a nod to the critical role of context engineering
 in agentic applications. The package is released under the same MIT license under a new shared organization,
-open for pull requests. CF implements a memory mapped data model using NumPy's \texttt{memmap} function with
+open for pull requests. CF implements a memory-mapped data model using NumPy's \texttt{memmap} function with
 \texttt{.npy} files, replacing TF's in-memory Python dictionaries. Several optimizations are applied to ensure
-that the latency penalty of disk streaming is compensated for. In the end, CF pulls slightly ahead of TF for
-search speeds. Meanwhile, RAM usage drops sharply, and load times go from several seconds to nearly instantaneous.
+that the latency penalty of disk streaming is compensated for. In the end, CF matches TF for search speeds.\footnote{
+    A current release candidate for CF has a rewritten engine in Rust and significantly improves upon the search speed.
+    This article was written against the Python version of CF, however.
+}
+Meanwhile, RAM usage drops sharply, and load times go from several seconds to nearly instantaneous.
 For corpus description and search syntax, CF provides a set of API methods which automatically analyze and sample
 the text graph, giving the agent a full map along with illustrative examples. This works even with various transcription
 formats. The search guide is implemented with different ``menus'', allowing the agent to drill down to specific
@@ -190,18 +198,39 @@ desirable to retain it.
 
 In Python, dictionaries are container classes that provide interactions with a hash table.
 In plain terms, they efficiently route a given key to a given value, and are used for storing 
-data as key-value pairs. Thus, given a dictionary named \texttt{oslots},
+data as key-value pairs. Thus, given a dictionary named \texttt{gloss},
 one can use a node number to very quickly look up the corresponding
 slot values. This architecture underlies Text-Fabric's corpus loading algorithm, which populates
 a collection of dictionaries into memory. The approach has the advantage of being very fast, with
 the tradeoff of massive memory consumption. Large corpora can consume gigabytes. The ETCBC's 
-\texttt{.tf} Hebrew Bible, for example, takes approximately 6.3 GB of RAM when fully unfolded.
-The in-memory dictionary based storage is the critical component that needs to be changed to make
+\texttt{.tf} Hebrew Bible, for example, takes approximately 6.3 GB of RAM when fully unfolded with all features loaded.\footnote{
+    Selectively loading features in TF uses less data compared with a loadAll command.
+}
+The in-memory dictionary-based storage is the critical component that needs to be changed to make
 loading and usage efficient.
 
-% TODO: insert illustrative code block here
+\begin{lstlisting}[language=Python, caption=Dictionary-based storage in Text-Fabric]
+# Node feature: one dictionary entry per node that has a value
+gloss = {0: "king", 1: "the", 2: "king", 4: "house"}
 
-\subsection{Memory Mapped Arrays}
+def lookup(node):
+    return gloss.get(node)  # hash lookup; None if absent
+
+lookup(2)  # -> "king"
+lookup(3)  # -> None (missing value)
+
+# Edge feature: each source node maps to its target nodes
+mother = {12: {10}, 13: {10}}
+
+# Edge feature with values: targets map to a value
+rela = {12: {10: "Attr"}, 13: {10: "Adju"}}
+
+# Every key and value is a separate Python object:
+sys.getsizeof(426590)  # -> 28 bytes for one node number
+sys.getsizeof("king")  # -> 45 bytes for one short string
+\end{lstlisting}
+
+\subsection{Memory-Mapped Arrays}
 
 An alternative way to store key-value pairs is with an associative array using integer or ordinal
 encoding. For string-based values, this requires two arrays: one to store all of the unique strings
@@ -231,7 +260,7 @@ directly mapped into a process's virtual address space \cite{numpymemmap}. CF st
 Second, as discussed further below, it allows CF to take advantage of fast, vectorized lookup operations
 for bulk search, a feature TF lacks.
 
-Because python strings cannot be memory-mapped, CF loads string pools into memory. Since strings are deduplicated,
+Because Python strings cannot be memory-mapped, CF loads string pools into memory. Since strings are deduplicated,
 the footprint is negligible. For example, BHSA's \texttt{gloss} feature reduces 426,590 words to about 9,000 unique glosses.
 For nodes which lack the feature in question, a sentinel value is used in place of \texttt{NaN}: \texttt{0xFFFFFFFF}.
 This is the maximum \texttt{uint32} value, $2^{32}-1$. A collision with this value would require over four billion
@@ -241,15 +270,15 @@ unique strings, which is unlikely.
 
 A unique challenge is posed by edge relations, which can be one-to-many. \texttt{oslots} is the
 most prominent example, and critical for the \texttt{.tf} data model. Consider a three-word
-phrase which contains slots \texttt{[5, 6, 7]}. TF stores this data as a tuple value in the dictionary. However, tuples cannot be memory mapped. CF solves this problem using
-Compressed Sparse Row (CSR) format using a separate index pointer array (\texttt{indptr}):
+phrase which contains slots \texttt{[5, 6, 7]}. TF stores this data as a tuple of tuples. However, tuples cannot be memory-mapped.
+CF solves this problem using Compressed Sparse Row (CSR) format using a separate index pointer array (\texttt{indptr}):
 
 \begin{lstlisting}[language=Python, caption=CSR format for oslots]
 # step 1: Concatenate oslot spans for all nodes
 oslots = np.array([
-    5, 6, 7,                     # phrase: node 1
-    5, 6, 7, 8,                  # clause: node 2
-    5, 6, 7, 8, 9, 10, 11, 12    # sentence: node 3
+    5, 6, 7,                     # phrase: node 0
+    5, 6, 7, 8,                  # clause: node 1
+    5, 6, 7, 8, 9, 10, 11, 12    # sentence: node 2
 ], dtype=np.uint32)
 
 # step 2: record index slice boundaries (exclusive) per node
@@ -263,9 +292,9 @@ def get_oslots(node):
     node_oslots = oslots[start:end]
     return node_oslots
 
-phrase_slots = get_oslots(0)  # -> [5, 6, 7]
-clause_slots = get_oslots(1)  # -> [5, 6, 7, 8]
-verse_slots = get_oslots(2)   # -> [5, 6, 7, 8, 9, 10, 11, 12]
+phrase_slots = get_oslots(0)    # -> [5, 6, 7]
+clause_slots = get_oslots(1)    # -> [5, 6, 7, 8]
+sentence_slots = get_oslots(2)  # -> [5, 6, 7, 8, 9, 10, 11, 12]
 \end{lstlisting}
 
 For edges with values, CF adds a parallel values array:
@@ -318,17 +347,18 @@ corpus/                   # Corpus directory (e.g., bhsa/)
 
 \subsection{Overcoming Page-Fault Latency}
 
-There is an unavoidable tradeoff between memory-efficiency and speed. After all, the whole
+There is an unavoidable tradeoff between memory efficiency and speed. After all, the whole
 point of RAM is to provide fast lookup. Memory mapping allows file data to be loaded into RAM
 when used, and dropped when that RAM is required elsewhere \cite{pytorchmmap}. This prevents large files
-from blocking swaths of memory. The cost for this behavior is called a page-fault:
+from blocking swaths of memory. The cost for this behavior is called a page fault:
 if a page is not already loaded into memory, it must be read from disk, which is slower
 than RAM. For performance-sensitive operations like search, this can amount to compounded
 milliseconds, leading to considerable latency.
 
 To compensate for page faults, CF must improve on TF's search algorithm.
 As it turns out, the vectorized storage also provides the needed advantage.
-In TF search, feature matches are found through linear search, i.e.~$O(n)$ time complexity:
+In TF search, feature matches are found with a Python loop which tests the lookup values for
+each candidate node.
 
 \begin{lstlisting}[language=Python, caption=Per-node iteration (original)]
 for node in candidate_nodes:
@@ -336,8 +366,8 @@ for node in candidate_nodes:
         result.add(node)
 \end{lstlisting}
 
-\noindent Using vectorized lookup, CF can obtain $O(1)$, significantly
-decreasing latency for these kinds of operations:
+\noindent Using vectorized lookup with NumPy, CF significantly decreases latency for these kinds of operations,
+since it utilizes compiled code.
 
 \begin{lstlisting}[language=Python, caption=Vectorized filtering]
 node_array = np.array(list(candidate_nodes))
@@ -346,27 +376,29 @@ mask = values == target_index
 result = set(node_array[mask])
 \end{lstlisting}
 
-\noindent The vectorized strategy yields nearly an order of magnitude lower
-latency (8.2$\times$), translating to 26\% faster feature lookups in
-real-world benchmarks.
+\noindent When testing against BHSA's 426,590 word nodes, this vectorization strategy 
+showed an 8.2$\times$ improvement in latency compared with the Python loop.\footnote{
+    Averaged over 5.4--10.3$\times$ across eleven feature values. Some feature operations like
+    regex searches still require the per-node loop, however.
+}
+For searches that consist of a single feature lookup, this translates to a 26\% faster result. 
 
-Containment search poses a more difficult problem. Because \texttt{oslot} containment concerns one-to-many edge
+Containment search poses a more difficult problem. Because \texttt{oslots} containment concerns one-to-many edge
 relations, the algorithm must perform a random walk, necessarily requiring several lookup operations
 per node rather than one (as with feature lookup). Because each lookup operation potentially pays the page-fault
 price, containment search is significantly slower. Text-Fabric already optimizes for containment search by
-pre-computing containment solutions and storing them in-memory via \texttt{levUp} and \texttt{levDown} dictionaries.
+precomputing containment solutions and storing them in-memory via \texttt{levUp} and \texttt{levDown} dictionaries.
 For the largest TF corpus, the BHSA, these dictionaries amount to only \texttt{100 MB}. This is a small price
 for CF to pay in exchange for significantly reduced latency. Therefore, by default CF retains these precomputed
 values in RAM, offsetting the page-fault penalty.
 
-In summary, with vectorization, combined with a compromise for \texttt{levUp} and \texttt{levDown} RAM storage,
-CF compensates for the page-fault penalty, and reaches parity with TF for complex searches.
-For simple feature-based searches, CF becomes 26\% faster due to the $O(1)$ candidate feature
-lookup gain.
+In summary, vectorization, combined with the \texttt{levUp} and \texttt{levDown} RAM optimization,
+compensates for the page-fault penalty, and keeps CF at parity with TF for complex searches.
+For simple feature-based searches, CF becomes 26\% faster due to vectorized filtering.
 
 \section{Benchmarking and Results}
 
-The benchmarks target two main areas: memory consumption, especially under multi-corpora scenarios,
+The benchmarks target two main areas: memory consumption, especially under multi-corpus scenarios,
 and query latency. The tests were conducted with a MacBook Pro with the following specifications:
 
 \begin{table}[htbp]
@@ -387,26 +419,26 @@ Context-Fabric & 0.5.0 \\
 \end{tabular}
 \end{table}
 
-\noindent The tests spanned ten corpora with various ranges of on-disk footprints:
+\noindent The tests spanned ten corpora with widely varying ranges of on-disk footprints:
 
 \begin{table}[htbp]
 \centering
-\caption{Test corpora used in benchmarks, ordered by TF cache size.}
+\caption{Test corpora used in benchmarks, with the on-disk size of the TF (\texttt{.tf}) and CF (\texttt{.cfm}) caches. Version is the release of each corpus's TF dataset. Corpora are listed in the order used for progressive loading.}
 \label{tab:test_corpora}
-\begin{tabular}{llr}
+\begin{tabular}{lllrr}
 \toprule
-\textbf{Corpus} & \textbf{Description} & \textbf{TF Cache Size} \\
+\textbf{Corpus} & \textbf{Version} & \textbf{Description} & \textbf{TF Cache} & \textbf{CF Cache} \\
 \midrule
-CUC \cite{cuc} & Copenhagen Ugaritic Corpus & 1.6 MB \\
-Tischendorf \cite{tischendorf} & Tischendorf 8th Edition Greek NT & 34 MB \\
-SyrNT \cite{syrnt} & Syriac New Testament & 52 MB \\
-Peshitta \cite{peshitta} & Syriac Old Testament & 55 MB \\
-Quran \cite{quran} & Quranic Arabic Corpus & 73 MB \\
-SP \cite{sp} & Samaritan Pentateuch & 147 MB \\
-LXX \cite{lxx} & Septuagint & 268 MB \\
-N1904 \cite{n1904} & Nestle 1904 Greek NT & 319 MB \\
-DSS \cite{dss} & Dead Sea Scrolls & 936 MB \\
-BHSA \cite{bhsa} & Biblia Hebraica (ETCBC) & 1.1 GB \\
+CUC \cite{cuc} & 0.1.4 & Copenhagen Ugaritic Corpus & 0.2 MB & 1.0 MB \\
+Tischendorf \cite{tischendorf} & 2.8 & Tischendorf 8th Edition Greek NT & 6.6 MB & 18 MB \\
+SyrNT \cite{syrnt} & 0.1 & Syriac New Testament & 11 MB & 25 MB \\
+Peshitta \cite{peshitta} & 0.2 & Syriac Old Testament & 9.6 MB & 37 MB \\
+Quran \cite{quran} & 0.3 & Quranic Arabic Corpus & 9.0 MB & 52 MB \\
+SP \cite{sp} & 4.1.2 & Samaritan Pentateuch & 17 MB & 115 MB \\
+LXX \cite{lxx} & 1935 & Septuagint & 50 MB & 110 MB \\
+N1904 \cite{n1904} & 1.0.0 & Nestle 1904 Greek NT & 44 MB & 190 MB \\
+DSS \cite{dss} & 1.9 & Dead Sea Scrolls & 100 MB & 706 MB \\
+BHSA \cite{bhsa} & 2021 & Biblia Hebraica (ETCBC) & 138 MB & 859 MB \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -418,18 +450,31 @@ in the Context-Fabric repository alongside the production code.\footnote{
 
 \subsection{Memory Consumption}
 
-There are several approaches to measuring memory consumption \cite{beyer2019reliable}. For these tests,
-I selected Resident Set Size (RSS) to capture the actual physical memory usage of a specific process \cite{psutil}.
-Subprocess isolation is used with \texttt{multiprocessing.spawn} to prevent cross contamination. \texttt{gc.collect()} is called
-before each measurement:
+There are several potential options for measuring memory consumption \cite{beyer2019reliable} with a memory-mapped
+architecture. For these tests, I selected Resident Set Size (RSS) to capture the actual physical memory usage of a
+specific process \cite{psutil}. This method measures physical memory after feature loading, but before running any query.
+At this point CF has only accessed a portion of its memory-mapped data. Once the feature data is required, such as in query execution,
+it is read into resident memory. It remains there until that space is requested by the machine for other processes.
+Even then, CF retains an advantage over TF due to the added overhead of TF's Python objects. To test this, I re-measured RSS after
+running all of the benchmark queries of Section~\ref{sec:query_latency} for BHSA; CF's RSS increased from 298 MB to 541 MB, whereas TF's
+moved from 6,202 MB to 6,438 MB.\footnote{
+    This test was run on v0.5.8 of CF and TF v13.1.0, which is a later version than that
+    used in other tests (0.5.0 CF and 13.0.19 TF).
+}
+Thus, even after the memory-mapped data is read into memory it occupies a significantly reduced
+footprint compared to TF's Python-dependent architecture. This combines with the added advantage of keeping system memory
+available for other processes when it is needed elsewhere.
+
+When measuring RSS after loading features, subprocess isolation is used with \texttt{multiprocessing.spawn} to prevent
+cross-contamination. \texttt{gc.collect()} is called before each measurement:
 
 \begin{lstlisting}[language=Python, caption=Subprocess isolation pattern]
 def _measure_cache_load(source: str, result_queue):
     """Runs in a clean spawned subprocess."""
 
-    # Load corpus from cache
+    # Load all corpus features from cache
     fabric = Fabric(locations=source)
-    api = fabric.load()
+    api = fabric.loadAll()
 
     # Measure total RSS after loading
     gc.collect()
@@ -442,10 +487,7 @@ p = ctx.Process(target=_measure_cache_load, args=(source, queue))
 p.start()
 \end{lstlisting}
 
-Memory consumption is tested under three different deployment scenarios. Single process measures local
-use on a researcher's machine or single-threaded batch processing. Spawn mode tests the multi-processing
-approach most common on Macs and PCs. Fork mode simulates multi-processing in production environments on
-Linux machines. On both multi-processing tests, the number of workers is set to four.
+All memory figures below are run with a single process, reflecting local use on a researcher's machine.
 
 \subsubsection{Results}
 
@@ -462,7 +504,7 @@ memory consumption is reduced 65\% ($\pm$21\%).
 \centering
 \caption{Memory efficiency comparison across 10 corpora in single-process mode. Corpora ordered by TF memory footprint. Load time speedup calculated as TF load time / CF load time.}
 \label{tab:memory_multicorpus}
-\begin{tabular}{lrrrrr}
+\begin{tabular}{lrrrr}
 \toprule
 \textbf{Corpus} & \textbf{TF (MB)} & \textbf{CF (MB)} & \textbf{Reduction} & \textbf{Load Speedup} \\
 \midrule
@@ -470,7 +512,7 @@ CUC            &    164 &    131 &  20\% & 0.52$\times$ \\
 Tischendorf    &    304 &    146 &  52\% & 1.62$\times$ \\
 Quran          &    401 &    187 &  54\% & 1.29$\times$ \\
 Peshitta       &    404 &    173 &  57\% & 0.96$\times$ \\
-Syrnt          &    515 &    145 &  72\% & 3.08$\times$ \\
+SyrNT          &    515 &    145 &  72\% & 3.08$\times$ \\
 SP             &    644 &    174 &  73\% & 4.25$\times$ \\
 LXX            &  1,395 &    388 &  72\% & 1.25$\times$ \\
 N1904          &  1,566 &    411 &  74\% & 2.41$\times$ \\
@@ -494,7 +536,10 @@ load speeds, and 6.2$\times$ for DSS. But for smaller corpora the difference is 
 
 Next, I tested multi-corpus scaling effects under a progressive loading scenario, where an additional
 corpus is loaded into CF / TF at each interval. Corpora are loaded in ascending order of size.
-The results are presented in Table~\ref{tab:progressive} and Figure~\ref{fig:scaling_progressive}.
+Since the corpus size at each step increases, total memory growth shows an expected upward curve.
+This is a side effect of the test parameters and does not exhibit any notable difference between TF and CF in
+terms of scaling behavior. Rather, the primary headline is the gap shown between both packages at
+various points. The results are presented in Table~\ref{tab:progressive} and Figure~\ref{fig:scaling_progressive}.
 
 \begin{table}[htbp]
 \centering
@@ -506,7 +551,7 @@ The results are presented in Table~\ref{tab:progressive} and Figure~\ref{fig:sca
 \midrule
 1 (CUC)         &    163 &    130 &  20\% & 1.3$\times$ \\
 2 (+Tischendorf) &    306 &    146 &  52\% & 2.1$\times$ \\
-3 (+Syrnt)      &    641 &    161 &  75\% & 4.0$\times$ \\
+3 (+SyrNT)      &    641 &    161 &  75\% & 4.0$\times$ \\
 4 (+Peshitta)   &    866 &    204 &  76\% & 4.2$\times$ \\
 5 (+Quran)      &  1,070 &    259 &  76\% & 4.1$\times$ \\
 6 (+SP)         &  1,531 &    300 &  80\% & 5.1$\times$ \\
@@ -521,24 +566,26 @@ The results are presented in Table~\ref{tab:progressive} and Figure~\ref{fig:sca
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.9\textwidth]{fig_scaling_progressive.pdf}
-\caption{Memory scaling during progressive corpus loading. Quadratic fits show TF grows as 126$n^2$ MB (significant compounding overhead) vs. CF at 19$n^2$ (6.5$\times$ smaller quadratic coefficient).}
+\caption{Total RSS during progressive corpus loading, added in ascending order of size.}
 \label{fig:scaling_progressive}
 \end{figure}
 
-The data reveal supralinear scaling effects in TF, likely due to the compounding memory overhead of
-Python's object storage.\footnote{
-    The anomalous dip at step ten is likely attributable to Python's garbage collection program
-    getting triggered. Two of five runs showed $\sim$1,750 MB drops at this step, while others
-    remained consistent on the curve.
+For smaller corpora like CUC and Tischendorf, the difference between TF and CF memory consumption is small.
+But from step three and up CF gains an advantage of 4--6$\times$ less RSS (or 76--84\% lower) than TF.
+At nine corpora, TF holds 6,088 MB in resident memory against only 968 MB for CF.\footnote{
+    The anomalous drop at step ten remains unexplained. I have ruled out garbage collection, given that
+    the loaded data remains referenced. It is possible that the drop is due to some compression by the
+    operating system.
 }
-Technically speaking, both TF and CF's growth fit a quadratic line better than a linear one:
-TF grows as 126$n^2$ MB while CF grows at only 19$n^2$. The gap, however, is significant, with
-TF's rate being 6.5$\times$ faster. The model predicts that at 50 corpora, TF would hold $\sim$32,443 MB
-in memory versus only $\sim$6,137 MB for CF. For production scenarios where hundreds of corpora might be required,
-these compounding effects are untenable. CF therefore considerably improves over TF on memory consumption,
-making this usecase possible.
+The observed memory growth, when plotted against the combined size of the corpora loaded at each step
+(the sum of their single-corpus footprints in Table~\ref{tab:memory_multicorpus}) rather than against the number of corpora,
+is roughly linear for both CF and TF ($R^2 = 0.996$ for TF over steps one to nine, $0.965$ for CF).\footnote{
+    Thanks to the anonymous reviewer, who caught a mistake in an earlier draft of this article which
+    claimed supralinear scaling effects.
+}
 
 \subsection{Query Latency}
+\label{sec:query_latency}
 
 Query latency is measured using 100 curated search templates, stratified into four
 different types, and executed against the BHSA:
@@ -553,6 +600,8 @@ different types, and executed against the BHSA:
 The runner executes each query 50 times, with 5 runs $\times$ 10, excluding warmup iterations.
 Results are reported using mean latency, standard deviation, and 95\% confidence intervals. The results
 are shown in Table~\ref{tab:latency_categories} and Figure~\ref{fig:latency_distribution}.
+A sanity check confirmed that both CF and TF returned the exact same results for all 100 queries,
+with the exception of a difference in order for 8 of them (using the later versions noted above).
 
 \begin{table}[htbp]
 \centering
@@ -562,12 +611,12 @@ are shown in Table~\ref{tab:latency_categories} and Figure~\ref{fig:latency_dist
 \toprule
 \textbf{Category} & \textbf{Queries} & \textbf{TF (ms)} & \textbf{CF (ms)} & \textbf{Speedup} \\
 \midrule
-Feature      & 30 & 221.5 & 164.0 & +26\% \\
-Structural   & 30 & 179.2 & 190.5 & $-$6\% \\
-Comparative   & 20 & 297.3 & 286.1 & +4\% \\
-Complex      & 20 & 534.5 & 554.9 & $-$4\% \\
+Feature      & 30 & 224.6 & 166.8 & +26\% \\
+Structural   & 30 & 178.6 & 194.7 & $-$9\% \\
+Comparative   & 20 & 305.8 & 292.8 & +4\% \\
+Complex      & 20 & 536.7 & 566.5 & $-$6\% \\
 \midrule
-\textbf{Overall} & 100 & 286.0 & 278.2 & +3\% \\
+\textbf{Overall} & 100 & 289.5 & 280.3 & +3\% \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -579,8 +628,9 @@ Complex      & 20 & 534.5 & 554.9 & $-$4\% \\
 \label{fig:latency_distribution}
 \end{figure}
 
-Across feature-based lookups, CF attains a 26\% speed-up, owing to its vectorized lookup for simultaneous
-nodes. On structural / complex queries, CF lags TF by 4--6\% due to the memory mapping page-fault penalty.
+Across feature-based lookups, CF attains a 26\% speedup, owing to vectorized filtering.
+On structural / complex queries, CF lags TF by 6--9\%. The reason for this slowdown is not
+yet ascertained, but one possibility is due to the overhead of reading memory-mapped data.
 Averaging across all query types gives CF a negligible 3\% gain over TF. Given the tradeoffs documented
 above, this is a positive result for CF.
 
@@ -590,12 +640,13 @@ above, this is a positive result for CF.
 To enable AI agents to interact with CF, it needs to provide functions they can call for discovering and
 searching corpora. A common agentic framework is Model Context Protocol (MCP), which exposes
 self-describing endpoints to an agent's context window, which it can invoke using structured arguments
-\cite{modelcontextprotocol}.
-Typically, these functions would be optimized for ``progressive discovery'', allowing the agent to
-route to the most specific tool it needs for its task.
+\cite{modelcontextprotocol}. Typically, these functions would be optimized for ``progressive discovery'',
+allowing the agent to route to the most specific tool it needs for its task. Throughout this section, I
+present the design of CF's MCP interface. However, evaluation of how well this tool enables agents to
+conduct real-world research is left for future work. Anecdotal tests thus far have shown promising results.
 
 Context-Fabric ships with a dedicated MCP server which automatically describes corpora and the
-available features. It is multi-corpora by design. Every agent begins with CF's server description
+available features. It is multi-corpus by design. Every agent begins with CF's server description
 ``screen'', which shows the text found in Listing~\ref{lst:mcp_connection_instructions}. This view
 orients the agent and provides it with a suitable entry point. The typical tool-call flow for an agent
 with CF's MCP server is illustrated in Figure~\ref{fig:mcp_agent_experience}.
@@ -767,8 +818,8 @@ Four critical tools expose the relevant information to the agent. \texttt{descri
 provides a breakdown of the node types and sectional hierarchy. \texttt{list\_features}
 returns a feature catalogue with optional filters for node \texttt{otype}.
 \texttt{describe\_feature} provides illustrative values for a given feature, sorted by frequency,
-along with any description metadata. \texttt{get\_text\_formats}. The agent's interactions with these
-three is illustrated in Listing~\ref{lst:mcp_corpus_description_tools}.
+along with any description metadata. The agent's interactions with these
+first three are illustrated in Listing~\ref{lst:mcp_corpus_description_tools}.
 
 \begin{lstlisting}[
     caption={Agent view of corpus description tools},
@@ -849,7 +900,8 @@ In order to onboard agents to the query language, a set of tools provides the ne
 syntax guides. \texttt{search\_syntax\_guide()} returns a brief summary along with a menu
 of options for further exploration: basics, structure, relations, quantifiers, and examples.
 The agent can then call \texttt{search\_syntax\_guide(section=...)} to retrieve one of these
-topics. Frontier model agents are surprisingly adept at mastering the query language.
+topics. Thus far in my experience, frontier model agents are surprisingly adept at learning
+and using the query language.
 Syntax errors in the execution engine return an informative remediation message indicating
 the specific offending line. Agents can then resubmit the corrected query string. Results are
 returned as paginated views, which the agent can progressively scroll through.
@@ -911,7 +963,12 @@ It can be installed with the following command:
 pip install context-fabric[mcp]
 \end{lstlisting}
 
-Future optimizations of Context-Fabric are already in the works. An experimental re-write in Rust
+The results reported here are admittedly limited in scope. More robust memory and latency
+tests would involve other machine types, real-world production scenarios, additional corpora,
+and additional operating systems. Another critical area for further work is the formal evaluation
+of AI agent research using CF's MCP toolset. This is, for now, left to future studies.
+
+Future optimizations of Context-Fabric are already in the works. An experimental rewrite in Rust
 (with Python bindings) is showing promising, further performance gains.\footnote{
     See \url{https://github.com/Context-Fabric/context-fabric/tree/cf-rust}.
 }
@@ -969,6 +1026,9 @@ van Peursen, W. (2019). A computational approach to syntactic diversity in the H
 
 \bibitem{textfabricsoftware}
 Roorda, D. (2016). \textit{Text-Fabric} [Computer software]. GitHub. \url{https://pure.knaw.nl/portal/en/publications/text-fabric/}
+
+\bibitem{nielsen2013brain}
+Nielsen, J. A., Zielinski, B. A., Ferguson, M. A., Lainhart, J. E., \& Anderson, J. S. (2013). An evaluation of the left-brain vs. right-brain hypothesis with resting state functional connectivity magnetic resonance imaging. \textit{PLoS ONE}, 8(8), e71275. \url{https://doi.org/10.1371/journal.pone.0071275}
 
 \bibitem{openai2022chatgpt}
 OpenAI. (2022, November 30). Try talking with ChatGPT, our new AI system which is optimized for dialogue [Post]. X. \url{https://x.com/OpenAI/status/1598014522098208769}
